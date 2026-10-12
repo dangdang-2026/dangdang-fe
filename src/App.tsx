@@ -1,9 +1,12 @@
+import { Routes, Route } from 'react-router'
+import HomePage from '@/pages/home/HomePage'
+
 function App() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-primary-light">
-      <h1 className="text-3xl font-bold text-primary-dark">당당 프론트엔드</h1>
-    </main>
-  );
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+    </Routes>
+  )
 }
 
-export default App;
+export default App
