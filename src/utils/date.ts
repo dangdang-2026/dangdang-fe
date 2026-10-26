@@ -10,6 +10,20 @@ export function formatTime(date: Date) {
   return `${hours}:${minutes}`
 }
 
+// 예: 오전 10:30 / 오후 2:05
+export function formatMeridiemTime(date: Date) {
+  const hours = date.getHours()
+  const meridiem = hours < 12 ? '오전' : '오후'
+  const hour12 = hours % 12 || 12
+  return `${meridiem} ${hour12}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+// 두 날짜 사이 날 수(시각 무시)
+export function diffInDays(from: Date, to: Date) {
+  const DAY = 24 * 60 * 60 * 1000
+  return Math.round((startOfDay(to).getTime() - startOfDay(from).getTime()) / DAY)
+}
+
 // 예: 10월 14일
 export function formatMonthDay(date: Date) {
   return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
