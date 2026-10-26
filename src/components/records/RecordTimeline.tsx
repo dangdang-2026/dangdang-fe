@@ -1,8 +1,10 @@
 import iconDropSm from '@/assets/icons/drop-sm.svg'
 import iconMealSm from '@/assets/icons/meal-sm.svg'
 import { useFoods } from '@/hooks/useFoods'
-import { MOCK_USER } from '@/mocks/user'
+import { useCriteriaStore } from '@/stores/useCriteriaStore'
+import type { Criteria } from '@/types/criteria'
 import type { GlucoseRecord, Meal } from '@/types/glucose'
+import { getCriteriaAt } from '@/utils/criteria'
 import { formatTime } from '@/utils/date'
 import { compareToTarget, getLateMinutes, getSlotLabel, getTarget } from '@/utils/glucose'
 import { formatMealLabel } from '@/utils/meal'
@@ -20,13 +22,13 @@ type Row =
   { kind: 'meal'; at: Date; meal: Meal } | { kind: 'glucose'; at: Date; record: GlucoseRecord }
 
 // 수정됨·늦게 잼·목표보다 높아요 보조 문구
-function getRecordNote(record: GlucoseRecord, allMeals: Meal[]) {
-  const hours = MOCK_USER.postMealHours
+function getRecordNote(record: GlucoseRecord, allMeals: Meal[], criteria: Criteria) {
+  const hours = criteria.postMealHours
   const notes: string[] = []
   if (record.editedAt) notes.push(`수정됨 · ${formatTime(new Date(record.editedAt))}에 고침`)
   const late = getLateMinutes(record, allMeals, hours)
   if (late > 0) notes.push(`${late}분 늦게 잼`)
-  const goal = getTarget(record.slot, MOCK_USER.targets, hours)
+  const goal = getTarget(record.slot, criteria.targets, hours)
   const isHigh = compareToTarget(record.value, goal) === 'high'
   if (isHigh) notes.push('목표보다 높아요')
   return { note: notes.join(' · '), isHigh }
@@ -41,6 +43,7 @@ function RecordTimeline({
   onSelectMeal,
 }: RecordTimelineProps) {
   const foods = useFoods()
+  const versions = useCriteriaStore((state) => state.versions)
   const rows: Row[] = [
     ...meals.map((meal) => ({ kind: 'meal' as const, at: new Date(meal.startedAt), meal })),
     ...records.map((record) => ({
@@ -79,7 +82,9 @@ function RecordTimeline({
         }
 
         const { record } = row
-        const { note, isHigh } = getRecordNote(record, allMeals)
+        // 기록한 날짜의 기준으로 비교
+        const criteria = getCriteriaAt(versions, new Date(record.measuredAt))
+        const { note, isHigh } = getRecordNote(record, allMeals, criteria)
 
         return (
           <li key={record.id}>
@@ -93,7 +98,7 @@ function RecordTimeline({
               <img src={iconDropSm} alt="" width={16} height={16} />
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="text-grey-800 text-sm leading-normal font-bold">
-                  {getSlotLabel(record.slot, record.mealType, MOCK_USER.postMealHours)}
+                  {getSlotLabel(record.slot, record.mealType, criteria.postMealHours)}
                 </span>
                 {note && (
                   <span className="text-caption text-grey-500 leading-normal font-medium">

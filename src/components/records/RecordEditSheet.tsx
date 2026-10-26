@@ -3,9 +3,10 @@ import iconInfo from '@/assets/icons/info-md.svg'
 import iconTrash from '@/assets/icons/trash.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import { GLUCOSE_MAX, GLUCOSE_MAX_DIGITS, GLUCOSE_MIN } from '@/constants/glucose'
-import { MOCK_USER } from '@/mocks/user'
+import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import type { GlucoseRecord } from '@/types/glucose'
+import { getCriteriaAt } from '@/utils/criteria'
 import { formatMonthDay, formatTime } from '@/utils/date'
 import { getSlotLabel, isValidGlucose } from '@/utils/glucose'
 
@@ -24,6 +25,10 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
   const measuredAt = new Date(record.measuredAt)
   const [digits, setDigits] = useState(String(record.value))
   const [time, setTime] = useState(formatTime(measuredAt))
+  const criteria = getCriteriaAt(
+    useCriteriaStore((state) => state.versions),
+    measuredAt,
+  )
   const timeInputRef = useRef<HTMLInputElement>(null)
 
   const value = Number(digits)
@@ -49,7 +54,7 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
     <BottomSheet label="기록 수정" onClose={onClose}>
       <div className="flex items-center justify-between">
         <h2 className="text-t4 text-grey-900">
-          {getSlotLabel(record.slot, record.mealType, MOCK_USER.postMealHours)}
+          {getSlotLabel(record.slot, record.mealType, criteria.postMealHours)}
         </h2>
         <span className="bg-grey-100 text-grey-600 rounded-full px-2.5 py-1 text-xs leading-normal font-bold">
           {formatMonthDay(measuredAt)}

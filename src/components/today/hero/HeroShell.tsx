@@ -3,7 +3,7 @@ import iconPencil from '@/assets/icons/pencil.svg'
 
 type HeroShellProps = {
   status: string
-  postMealHours: number
+  postMealHours: number | null
   // 상태별 그라디언트 시작·끝 색
   gradient?: string
   // 언덕·당당이 등 카드 뒤 장식
@@ -31,7 +31,7 @@ function HeroShell({
           type="button"
           className="text-grey-800 flex items-center gap-1 rounded-full bg-white py-1 pr-2 pl-2.5 text-xs leading-normal font-semibold"
         >
-          식후 {postMealHours}시간
+          {postMealHours ? `식후 ${postMealHours}시간` : '측정 시점 모름'}
           <img src={iconPencil} alt="" width={12} height={12} />
         </button>
       </div>

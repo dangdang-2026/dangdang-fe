@@ -9,6 +9,7 @@ import TodayRecordSection from '@/components/today/TodayRecordSection'
 import MealContentSheet from '@/components/meal/MealContentSheet'
 import { useFoods } from '@/hooks/useFoods'
 import { useNow } from '@/hooks/useNow'
+import { useCriteria } from '@/hooks/useCriteria'
 import { MOCK_USER } from '@/mocks/user'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import type { GlucoseRecord, Meal, MeasureTarget, Portion } from '@/types/glucose'
@@ -26,11 +27,12 @@ function TodayPage() {
   const [sheetTarget, setSheetTarget] = useState<MeasureTarget | null>(null)
   const [writingMeal, setWritingMeal] = useState<Meal | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const criteria = useCriteria()
 
   const now = useNow()
   const todayMeals = meals.filter((meal) => isSameDay(new Date(meal.startedAt), now))
   const todayRecords = records.filter((record) => isSameDay(new Date(record.measuredAt), now))
-  const heroState = getHeroState(meals, records, MOCK_USER.postMealHours, now)
+  const heroState = getHeroState(meals, records, criteria.postMealHours, now)
 
   const handleStartMeal = () => {
     const current = new Date()
@@ -38,7 +40,7 @@ function TodayPage() {
   }
 
   const openGlucoseSheet = () => {
-    setSheetTarget(getMeasureTarget(meals, records, MOCK_USER.postMealHours, new Date()))
+    setSheetTarget(getMeasureTarget(meals, records, criteria.postMealHours, new Date()))
   }
   const closeGlucoseSheet = useCallback(() => setSheetTarget(null), [])
   const closeMealSheet = useCallback(() => setWritingMeal(null), [])
@@ -46,7 +48,7 @@ function TodayPage() {
 
   const handleSaved = (record: GlucoseRecord) => {
     setSheetTarget(null)
-    const label = getSlotLabel(record.slot, record.mealType, MOCK_USER.postMealHours)
+    const label = getSlotLabel(record.slot, record.mealType, criteria.postMealHours)
     setToast(`${label} ${record.value} 저장했어요`)
   }
 
@@ -65,7 +67,7 @@ function TodayPage() {
         <HeroCard
           state={heroState}
           now={now}
-          postMealHours={MOCK_USER.postMealHours}
+          postMealHours={criteria.postMealHours}
           onStartMeal={handleStartMeal}
           onInputGlucose={openGlucoseSheet}
           onSkipMeal={skipMeal}
@@ -79,7 +81,7 @@ function TodayPage() {
         <TodayRecordSection
           meals={todayMeals}
           records={todayRecords}
-          postMealHours={MOCK_USER.postMealHours}
+          postMealHours={criteria.postMealHours}
           onInputGlucose={openGlucoseSheet}
         />
       </div>

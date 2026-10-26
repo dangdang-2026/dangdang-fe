@@ -12,6 +12,8 @@ import { ROUTES } from '@/constants/routes'
 import { useNow } from '@/hooks/useNow'
 import { MOCK_HOSPITAL } from '@/mocks/hospital'
 import { MOCK_USER } from '@/mocks/user'
+import { useCriteriaStore } from '@/stores/useCriteriaStore'
+import { getCriteriaAt } from '@/utils/criteria'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import { addDays, formatMonthDay, startOfDay } from '@/utils/date'
@@ -27,6 +29,7 @@ function ReportPage() {
   // 병원 밖으로 보낼 때 이름 빼기
   const [hideName, setHideName] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const versions = useCriteriaStore((state) => state.versions)
 
   const now = useNow()
   const today = startOfDay(now)
@@ -36,13 +39,14 @@ function ReportPage() {
     meals,
     from,
     to: today,
-    targets: MOCK_USER.targets,
-    postMealHours: MOCK_USER.postMealHours,
+    versions,
   })
 
   const periodLabel = `${formatMonthDay(from)} – ${formatMonthDay(today)}`
   const title = hideName ? '혈당 기록' : `${MOCK_USER.name} 님 혈당 기록`
-  const criteria = formatCriteria(MOCK_USER.targets, MOCK_USER.postMealHours)
+  // 기준 줄은 리포트 마지막 날 기준
+  const { targets, postMealHours } = getCriteriaAt(versions, today)
+  const criteria = formatCriteria(targets, postMealHours)
   const criteriaLines = [
     criteria ? `기준: ${criteria}` : '기준: 적은 목표가 없어 비교하지 않았어요',
     `${MOCK_HOSPITAL.name} 안내 · 본인 입력`,

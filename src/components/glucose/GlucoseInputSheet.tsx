@@ -7,9 +7,10 @@ import BottomSheet from '@/components/common/BottomSheet'
 import GlucoseKeypad from '@/components/glucose/GlucoseKeypad'
 import TargetChip from '@/components/glucose/TargetChip'
 import { GLUCOSE_MAX_DIGITS, ON_TIME_MS } from '@/constants/glucose'
-import { MOCK_USER } from '@/mocks/user'
+import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import type { GlucoseRecord, MeasureTarget } from '@/types/glucose'
+import { getCriteriaAt } from '@/utils/criteria'
 import { formatMonthDay, formatTime } from '@/utils/date'
 import { compareToTarget, getSlotLabel, getTarget, isValidGlucose } from '@/utils/glucose'
 
@@ -38,9 +39,14 @@ function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInpu
   const [measuredAt] = useState(() => backfillAt ?? new Date())
   const [digits, setDigits] = useState('')
   const [triedSave, setTriedSave] = useState(false)
+  // 측정 시각에 적용되는 기준(지난 날 채우기면 그날 기준)
+  const criteria = getCriteriaAt(
+    useCriteriaStore((state) => state.versions),
+    measuredAt,
+  )
 
   const value = Number(digits)
-  const goal = getTarget(target.slot, MOCK_USER.targets, MOCK_USER.postMealHours)
+  const goal = getTarget(target.slot, criteria.targets, criteria.postMealHours)
   const comparison = compareToTarget(value, goal)
   // 세 자리부터 또는 저장 시도 후 비교 결과 표시
   const showResult = digits.length >= 3 || triedSave
@@ -69,7 +75,7 @@ function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInpu
       <div className="flex items-center justify-between">
         <div className="flex flex-col items-start gap-1">
           <h2 className="text-t4 text-grey-900">
-            {getSlotLabel(target.slot, target.mealType, MOCK_USER.postMealHours)}
+            {getSlotLabel(target.slot, target.mealType, criteria.postMealHours)}
           </h2>
           <p className="text-grey-800 flex items-center gap-1 rounded-full bg-yellow-50 px-2.5 py-1 text-xs leading-normal font-bold">
             <img src={iconClock} alt="" width={12} height={12} />
