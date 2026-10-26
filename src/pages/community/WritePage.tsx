@@ -9,6 +9,7 @@ import BottomSheet from '@/components/common/BottomSheet'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import Toast from '@/components/common/Toast'
 import PollEditor from '@/components/community/PollEditor'
+import PostWarningSheet from '@/components/community/PostWarningSheet'
 import RestrictedSheet from '@/components/community/RestrictedSheet'
 import { BOARD_LABEL, BOARD_ORDER, POLL_MIN_OPTIONS } from '@/constants/community'
 import { ROUTES, communityPostPath } from '@/constants/routes'
@@ -16,6 +17,7 @@ import { useGoBack } from '@/hooks/useGoBack'
 import { useMyAuthor } from '@/hooks/useMyAuthor'
 import { useCommunityStore } from '@/stores/useCommunityStore'
 import type { BoardKey, PostDraft } from '@/types/community'
+import { checkPost, type PostWarning } from '@/utils/postCheck'
 
 const COMING_SOON = '다음 업데이트에서 열려요'
 const ANONYMOUS_NICKNAME = '익명 산모'
@@ -65,6 +67,7 @@ function WritePage() {
     }
   })
   const [boardOpen, setBoardOpen] = useState(false)
+  const [warning, setWarning] = useState<PostWarning | null>(null)
   const [leaving, setLeaving] = useState(false)
   const [restrictedOpen, setRestrictedOpen] = useState(
     () => !!restrictedUntil && new Date(restrictedUntil) > new Date(),
@@ -100,7 +103,7 @@ function WritePage() {
     else goBack()
   }
 
-  const submit = () => {
+  const publish = () => {
     if (!draft.board || !canSubmit) return
     if (editing) {
       editPost(editing.id, { board: draft.board, title, body })
@@ -117,6 +120,13 @@ function WritePage() {
       poll: draft.poll ? pollOptions : undefined,
     })
     navigate(communityPostPath(id), { replace: true })
+  }
+
+  // 위급한 말·약 용량이 있으면 올리기 전에 한 번 더 확인
+  const submit = () => {
+    const found = checkPost(`${title}\n${body}`)
+    if (found) setWarning(found)
+    else publish()
   }
 
   return (
@@ -294,6 +304,16 @@ function WritePage() {
           onPolicy={() => navigate(ROUTES.COMMUNITY_POLICY)}
           onAppeal={() => setToast(COMING_SOON)}
           onClose={closeRestricted}
+        />
+      )}
+      {warning && (
+        <PostWarningSheet
+          warning={warning}
+          onBack={() => setWarning(null)}
+          onPostAnyway={() => {
+            setWarning(null)
+            publish()
+          }}
         />
       )}
       {toast && <Toast message={toast} onClose={closeToast} />}
