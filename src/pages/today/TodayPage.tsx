@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import Toast from '@/components/common/Toast'
+import WarmBackground from '@/components/common/WarmBackground'
 import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
 import TodayHeader from '@/components/today/TodayHeader'
 import HeroCard from '@/components/today/HeroCard'
@@ -44,11 +45,7 @@ function TodayPage() {
 
   return (
     <main className="px-5 pt-15.5">
-      {/* 화면 전체 배경. 탭 바 뒤까지 채우도록 고정 */}
-      <div
-        aria-hidden
-        className="to-bg-warm fixed inset-y-0 left-1/2 -z-10 w-full max-w-107.5 -translate-x-1/2 bg-linear-to-b from-yellow-50"
-      />
+      <WarmBackground />
       <TodayHeader name={MOCK_USER.name} date={now} />
       <div className="mt-6">
         <HeroCard
