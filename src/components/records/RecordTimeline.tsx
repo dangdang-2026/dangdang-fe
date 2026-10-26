@@ -17,10 +17,11 @@ type RecordTimelineProps = {
 type Row =
   { kind: 'meal'; at: Date; meal: Meal } | { kind: 'glucose'; at: Date; record: GlucoseRecord }
 
-// 늦게 잼·목표보다 높아요 보조 문구
+// 수정됨·늦게 잼·목표보다 높아요 보조 문구
 function getRecordNote(record: GlucoseRecord, allMeals: Meal[]) {
   const hours = MOCK_USER.postMealHours
   const notes: string[] = []
+  if (record.editedAt) notes.push(`수정됨 · ${formatTime(new Date(record.editedAt))}에 고침`)
   const late = getLateMinutes(record, allMeals, hours)
   if (late > 0) notes.push(`${late}분 늦게 잼`)
   const goal = getTarget(record.slot, MOCK_USER.targets, hours)

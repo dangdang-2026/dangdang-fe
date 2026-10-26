@@ -5,6 +5,7 @@ import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import EmptyRecordCard from '@/components/glucose/EmptyRecordCard'
 import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
+import RecordEditSheet from '@/components/records/RecordEditSheet'
 import RecordTimeline from '@/components/records/RecordTimeline'
 import WeekPicker from '@/components/records/WeekPicker'
 import { useNow } from '@/hooks/useNow'
@@ -21,6 +22,7 @@ function RecordsPage() {
   const records = useGlucoseStore((state) => state.records)
   const [searchParams, setSearchParams] = useSearchParams()
   const [inputSheet, setInputSheet] = useState<InputSheet | null>(null)
+  const [editing, setEditing] = useState<GlucoseRecord | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const dateInputRef = useRef<HTMLInputElement>(null)
 
@@ -64,12 +66,18 @@ function RecordsPage() {
   }
 
   const closeInputSheet = useCallback(() => setInputSheet(null), [])
+  const closeEditSheet = useCallback(() => setEditing(null), [])
   const closeToast = useCallback(() => setToast(null), [])
 
   const handleSaved = (record: GlucoseRecord) => {
     setInputSheet(null)
     const label = getSlotLabel(record.slot, record.mealType, MOCK_USER.postMealHours)
     setToast(`${label} ${record.value} 저장했어요`)
+  }
+
+  const handleEdited = () => {
+    setEditing(null)
+    setToast('고쳤어요 · 리포트에 ‘수정됨’으로 표시돼요')
   }
 
   return (
@@ -111,7 +119,12 @@ function RecordsPage() {
         </div>
         <div className="mt-3">
           {count > 0 ? (
-            <RecordTimeline meals={dayMeals} records={dayRecords} allMeals={meals} />
+            <RecordTimeline
+              meals={dayMeals}
+              records={dayRecords}
+              allMeals={meals}
+              onSelectRecord={setEditing}
+            />
           ) : (
             <EmptyRecordCard
               title="이 날은 기록이 없어요"
@@ -129,6 +142,9 @@ function RecordsPage() {
           onClose={closeInputSheet}
           onSaved={handleSaved}
         />
+      )}
+      {editing && (
+        <RecordEditSheet record={editing} onClose={closeEditSheet} onSaved={handleEdited} />
       )}
       {toast && <Toast message={toast} onClose={closeToast} />}
     </main>

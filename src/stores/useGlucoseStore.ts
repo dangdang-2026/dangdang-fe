@@ -8,6 +8,7 @@ type GlucoseState = {
   startMeal: (type: MealType, now?: Date) => void
   skipMeal: (mealId: string) => void
   addRecord: (target: MeasureTarget, value: number, now?: Date) => GlucoseRecord
+  updateRecord: (id: string, changes: { value: number; measuredAt: string }, now?: Date) => void
 }
 
 // API 연동 전까지 기기(localStorage)에 저장
@@ -41,6 +42,22 @@ export const useGlucoseStore = create<GlucoseState>()(
         set((state) => ({ records: [...state.records, record] }))
         return record
       },
+      updateRecord: (id, changes, now = new Date()) =>
+        set((state) => ({
+          records: state.records.map((record) =>
+            record.id === id
+              ? {
+                  ...record,
+                  ...changes,
+                  editedAt: now.toISOString(),
+                  original: record.original ?? {
+                    value: record.value,
+                    measuredAt: record.measuredAt,
+                  },
+                }
+              : record,
+          ),
+        })),
     }),
     { name: 'dangdang-glucose' },
   ),
