@@ -13,6 +13,7 @@ type RecordTimelineProps = {
   // 늦게 잼 계산용 전체 끼니
   allMeals: Meal[]
   onSelectRecord?: (record: GlucoseRecord) => void
+  onSelectMeal?: (meal: Meal) => void
 }
 
 type Row =
@@ -31,8 +32,14 @@ function getRecordNote(record: GlucoseRecord, allMeals: Meal[]) {
   return { note: notes.join(' · '), isHigh }
 }
 
-// Figma D-01 날짜별 식사·혈당 시간순 목록. 혈당 줄을 누르면 수정
-function RecordTimeline({ meals, records, allMeals, onSelectRecord }: RecordTimelineProps) {
+// Figma D-01 날짜별 식사·혈당 시간순 목록. 줄을 누르면 수정
+function RecordTimeline({
+  meals,
+  records,
+  allMeals,
+  onSelectRecord,
+  onSelectMeal,
+}: RecordTimelineProps) {
   const foods = useFoods()
   const rows: Row[] = [
     ...meals.map((meal) => ({ kind: 'meal' as const, at: new Date(meal.startedAt), meal })),
@@ -54,12 +61,19 @@ function RecordTimeline({ meals, records, allMeals, onSelectRecord }: RecordTime
 
         if (row.kind === 'meal') {
           return (
-            <li key={row.meal.id} className="flex items-center gap-2.5 px-4 py-3">
-              {time}
-              <img src={iconMealSm} alt="" width={16} height={16} />
-              <p className="text-grey-800 text-sm leading-normal font-medium">
-                {formatMealLabel(row.meal, foods)}
-              </p>
+            <li key={row.meal.id}>
+              <button
+                type="button"
+                disabled={!onSelectMeal}
+                className="flex w-full items-center gap-2.5 px-4 py-3 text-left disabled:cursor-default"
+                onClick={() => onSelectMeal?.(row.meal)}
+              >
+                {time}
+                <img src={iconMealSm} alt="" width={16} height={16} />
+                <span className="text-grey-800 min-w-0 flex-1 truncate text-sm leading-normal font-medium">
+                  {formatMealLabel(row.meal, foods)}
+                </span>
+              </button>
             </li>
           )
         }
