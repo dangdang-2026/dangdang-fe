@@ -9,8 +9,8 @@ export const REQUIRED_AGREEMENTS: AgreementKey[] = ['age', 'terms', 'privacy', '
 // 단계 사이에 들고 다니는 답. 마치면 프로필·병원 기준으로 옮김
 export type OnboardingAnswers = {
   agreements: AgreementKey[]
-  // 식후 측정 시점. 아직 모르면 null
-  postMealHours: number | null
+  // 식후 측정 시점. 아직 모르면 null, 안 고르면 undefined
+  postMealHours: number | null | undefined
   measureSlots: MeasureSlotKey[]
   // YYYY-MM-DD. 나중에 적으면 null
   dueDate: string | null
@@ -29,12 +29,23 @@ export const useOnboardingStore = create<OnboardingState>()(
     (set) => ({
       completed: false,
       agreements: [],
-      postMealHours: 1,
-      measureSlots: ['fasting', 'breakfast', 'lunch', 'dinner'],
+      postMealHours: undefined,
+      measureSlots: [],
       dueDate: null,
       setAnswers: (changes) => set(changes),
       complete: () => set({ completed: true }),
     }),
-    { name: 'dangdang-onboarding' },
+    {
+      name: 'dangdang-onboarding',
+      version: 1,
+      // v0은 1시간·4끼가 미리 골라져 저장됐으므로 안 마친 답은 비움
+      migrate: (persisted, version) => {
+        const state = persisted as OnboardingState
+        if (version === 0 && !state.completed) {
+          return { ...state, postMealHours: undefined, measureSlots: [] }
+        }
+        return state
+      },
+    },
   ),
 )

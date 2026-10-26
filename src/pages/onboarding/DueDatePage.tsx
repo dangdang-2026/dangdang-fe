@@ -36,7 +36,7 @@ function DueDatePage() {
     updateProfile({ dueDate: finalDueDate })
     startCriteria({
       source: '첫 진입 때 입력',
-      postMealHours: answers.postMealHours,
+      postMealHours: answers.postMealHours ?? null,
       measureSlots: answers.measureSlots,
       targets: { fasting: null, postMeal: null },
     })

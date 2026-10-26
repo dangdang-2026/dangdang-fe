@@ -22,7 +22,7 @@ function TimingPage() {
   const goBack = useGoBack(ROUTES.ONBOARDING_TERMS)
   const saved = useOnboardingStore((state) => state.postMealHours)
   const setAnswers = useOnboardingStore((state) => state.setAnswers)
-  const [hours, setHours] = useState<number | null>(saved)
+  const [hours, setHours] = useState<number | null | undefined>(saved)
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-13 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
@@ -79,7 +79,13 @@ function TimingPage() {
 
       {hours === null && (
         <div className="rounded-banner mt-4 flex gap-2 border border-yellow-300 bg-yellow-50 p-4">
-          <img src={iconInfoSm} alt="" width={14} height={14} className="mt-1 shrink-0 self-start" />
+          <img
+            src={iconInfoSm}
+            alt=""
+            width={14}
+            height={14}
+            className="mt-1 shrink-0 self-start"
+          />
           <p className="flex flex-col gap-1">
             <span className="text-t7 text-grey-900 font-bold">
               그동안 식후 측정 알림은 보내지 않아요
@@ -94,7 +100,8 @@ function TimingPage() {
 
       <button
         type="button"
-        className="text-subtitle-1 bg-primary mt-auto h-14 rounded-xl leading-none text-white"
+        disabled={hours === undefined}
+        className="text-subtitle-1 disabled:bg-grey-100 disabled:text-grey-400 bg-primary mt-auto h-14 rounded-xl leading-none text-white"
         onClick={() => {
           setAnswers({ postMealHours: hours })
           navigate(ROUTES.ONBOARDING_SLOTS)
