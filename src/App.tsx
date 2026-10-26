@@ -31,7 +31,9 @@ import NotificationsPage from '@/pages/my/NotificationsPage'
 import ProfilePage from '@/pages/my/ProfilePage'
 import TermsPage from '@/pages/my/TermsPage'
 import IntroPage from '@/pages/onboarding/IntroPage'
+import SlotsPage from '@/pages/onboarding/SlotsPage'
 import TermsAgreePage from '@/pages/onboarding/TermsAgreePage'
+import TimingPage from '@/pages/onboarding/TimingPage'
 
 // 앱을 열 때 스플래시를 보여 주는 시간
 const SPLASH_MS = 1600
@@ -66,6 +68,8 @@ function App() {
         {/* 첫 진입 설정 */}
         <Route path={ROUTES.ONBOARDING} element={<IntroPage />} />
         <Route path={ROUTES.ONBOARDING_TERMS} element={<TermsAgreePage />} />
+        <Route path={ROUTES.ONBOARDING_TIMING} element={<TimingPage />} />
+        <Route path={ROUTES.ONBOARDING_SLOTS} element={<SlotsPage />} />
         <Route element={<OnboardingGate />}>
           <Route element={<TabLayout />}>
             <Route path={ROUTES.TODAY} element={<TodayPage />} />

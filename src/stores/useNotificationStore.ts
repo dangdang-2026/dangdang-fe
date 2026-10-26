@@ -11,7 +11,10 @@ export type NotificationSettings = {
 }
 
 type NotificationState = NotificationSettings & {
+  // 공복 측정 알림 시각. 식사 시작이 없어 정한 시각에 알림. 예: 07:00
+  fastingTime: string
   updateSettings: (changes: Partial<NotificationSettings>) => void
+  setFastingTime: (time: string) => void
 }
 
 // 알림 설정값만 기기에 저장. 실제 발송은 푸시 연동 후
@@ -21,7 +24,9 @@ export const useNotificationStore = create<NotificationState>()(
       measure: true,
       remind: true,
       hideOnLockScreen: true,
+      fastingTime: '07:00',
       updateSettings: (changes) => set(changes),
+      setFastingTime: (fastingTime) => set({ fastingTime }),
     }),
     { name: 'dangdang-notification' },
   ),
