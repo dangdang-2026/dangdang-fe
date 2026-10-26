@@ -39,13 +39,24 @@ export const MOCK_POSTS: Post[] = [
         100,
         32,
       ),
+      {
+        ...comment(
+          'c1-1',
+          AUTHORS.bean,
+          '화장실 말고 수유실이나 탕비실 쓰는 분도 있더라고요!',
+          50,
+          9,
+        ),
+        parentId: 'c1',
+      },
       comment(
         'c2',
         AUTHORS.potato,
         '저도 화장실에서 재요. 처음엔 어색했는데 금방 익숙해져요',
-        90,
+        40,
         11,
       ),
+      { ...comment('c5', AUTHORS.anon, '', 30, 0), hidden: true },
     ],
   },
   {

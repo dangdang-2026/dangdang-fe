@@ -17,6 +17,10 @@ export type CommunityComment = {
   body: string
   createdAt: string
   likes: number
+  // 답글이면 원 댓글 id. 답글의 답글은 없음
+  parentId?: string
+  // 운영정책으로 가려진 댓글
+  hidden?: boolean
 }
 
 export type Post = {

@@ -23,10 +23,15 @@ export const formatCount = (count: number) => count.toLocaleString('ko-KR')
 
 export const isPopular = (post: Post) => post.views >= POPULAR_VIEWS
 
-// 공감이 가장 많은 댓글. 없으면 null
+// 베스트 댓글로 칠 최소 공감 수
+const BEST_MIN_LIKES = 10
+
+// 공감이 가장 많은 원 댓글. 가려진 댓글·답글은 빼고, 없으면 null
 export function getBestComment(post: Post) {
-  if (post.comments.length === 0) return null
-  return post.comments.reduce((best, item) => (item.likes > best.likes ? item : best))
+  const candidates = post.comments.filter((item) => !item.hidden && !item.parentId)
+  if (candidates.length === 0) return null
+  const best = candidates.reduce((top, item) => (item.likes > top.likes ? item : top))
+  return best.likes >= BEST_MIN_LIKES ? best : null
 }
 
 export function sortPosts(posts: Post[], sort: PostSort) {
