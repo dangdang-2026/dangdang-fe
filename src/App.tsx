@@ -14,6 +14,7 @@ import MyFoodsPage from '@/pages/my/MyFoodsPage'
 import MyPage from '@/pages/my/MyPage'
 import NotificationsPage from '@/pages/my/NotificationsPage'
 import ProfilePage from '@/pages/my/ProfilePage'
+import TermsPage from '@/pages/my/TermsPage'
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
       <Route path={ROUTES.MY_CRITERIA} element={<MyCriteriaPage />} />
       <Route path={ROUTES.MY_NOTIFICATIONS} element={<NotificationsPage />} />
       <Route path={ROUTES.MY_FOODS} element={<MyFoodsPage />} />
+      <Route path={ROUTES.MY_TERMS} element={<TermsPage />} />
       {/* TODO: 404 페이지(Figma 149:1129) 구현 후 교체 */}
       <Route path="*" element={<Navigate to={ROUTES.TODAY} replace />} />
     </Routes>
