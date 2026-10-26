@@ -147,5 +147,39 @@ export function buildReport({
   }
 }
 
+type ReportTextParams = {
+  report: Report
+  title: string
+  periodLabel: string
+  criteriaLines: string[]
+  questions: { text: string }[]
+}
+
+// 공유용 글. 메신저·메일에 붙여도 읽히게 줄글로
+export function formatReportText({
+  report,
+  title,
+  periodLabel,
+  criteriaLines,
+  questions,
+}: ReportTextParams) {
+  const slotLines = report.slots.map(
+    (slot) => `- ${slot.label}: ${slot.outOfTarget ?? '–'} / ${slot.total}`,
+  )
+  const questionLines = questions.map((question, index) => `${index + 1}. ${question.text}`)
+  return [
+    `[${title}] ${periodLabel}`,
+    ...criteriaLines,
+    '',
+    `측정 ${report.measured} · 빈칸 ${report.blanks} · 나중 입력 ${report.lateEntries}`,
+    '시점별 목표 밖 / 측정',
+    ...slotLines,
+    `70 미만: ${report.lows.length ? `${report.lows.length}번` : '없음'}`,
+    ...(questionLines.length ? ['', '물어볼 것', ...questionLines] : []),
+    '',
+    '해석이나 권고 없이 기록만 담았어요',
+  ].join('\n')
+}
+
 export const REPORT_SLOT_KEYS = SLOT_KEYS
 export type { SlotKey }
