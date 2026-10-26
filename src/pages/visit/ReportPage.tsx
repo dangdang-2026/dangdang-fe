@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useSearchParams } from 'react-router'
 import iconBack from '@/assets/icons/back.svg'
 import iconShare from '@/assets/icons/share.svg'
 import Toast from '@/components/common/Toast'
@@ -9,19 +9,21 @@ import ReportShareSheet from '@/components/report/ReportShareSheet'
 import SlideToSave from '@/components/report/SlideToSave'
 import { REPORT_DAYS } from '@/constants/report'
 import { ROUTES } from '@/constants/routes'
+import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
 import { MOCK_HOSPITAL } from '@/mocks/hospital'
 import { MOCK_USER } from '@/mocks/user'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { getCriteriaAt } from '@/utils/criteria'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
+import { useReportStore } from '@/stores/useReportStore'
 import { useVisitStore } from '@/stores/useVisitStore'
-import { addDays, formatMonthDay, startOfDay } from '@/utils/date'
+import { addDays, formatMonthDay, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 import { buildReport, formatCriteria, formatReportText } from '@/utils/report'
 
 // Figma C-06 진료 리포트. 최근 2주 기록을 A4 1쪽으로
 function ReportPage() {
-  const navigate = useNavigate()
+  const goBack = useGoBack(ROUTES.VISIT)
   const records = useGlucoseStore((state) => state.records)
   const meals = useGlucoseStore((state) => state.meals)
   const questions = useVisitStore((state) => state.questions)
@@ -31,21 +33,21 @@ function ReportPage() {
   const [toast, setToast] = useState<string | null>(null)
   const versions = useCriteriaStore((state) => state.versions)
 
+  const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
+  const saveReport = useReportStore((state) => state.saveReport)
+  const [searchParams] = useSearchParams()
+
   const now = useNow()
   const today = startOfDay(now)
-  const from = addDays(today, -(REPORT_DAYS - 1))
-  const report = buildReport({
-    records,
-    meals,
-    from,
-    to: today,
-    versions,
-  })
+  // ?from=&to= 로 기간 지정(지난 리포트·기간 고르기). 없으면 최근 2주
+  const to = parseDateKey(searchParams.get('to')) ?? today
+  const from = parseDateKey(searchParams.get('from')) ?? addDays(to, -(REPORT_DAYS - 1))
+  const report = buildReport({ records, meals, from, to, versions })
 
-  const periodLabel = `${formatMonthDay(from)} – ${formatMonthDay(today)}`
+  const periodLabel = `${formatMonthDay(from)} – ${formatMonthDay(to)}`
   const title = hideName ? '혈당 기록' : `${MOCK_USER.name} 님 혈당 기록`
   // 기준 줄은 리포트 마지막 날 기준
-  const { targets, postMealHours } = getCriteriaAt(versions, today)
+  const { targets, postMealHours } = getCriteriaAt(versions, to)
   const criteria = formatCriteria(targets, postMealHours)
   const criteriaLines = [
     criteria ? `기준: ${criteria}` : '기준: 적은 목표가 없어 비교하지 않았어요',
@@ -60,7 +62,18 @@ function ReportPage() {
   }, [])
 
   // 서버 없이 브라우저 인쇄로 A4 리포트를 만듦(인쇄 창에서 PDF로 저장 선택)
+  // 리포트를 전하면 지난 리포트에 남김
+  const keepReport = () => {
+    saveReport({
+      from: toDateKey(from),
+      to: toDateKey(to),
+      hospital: MOCK_HOSPITAL.name,
+      visitAt: nextVisitAt ?? undefined,
+    })
+  }
+
   const printReport = () => {
+    keepReport()
     setShareOpen(false)
     // 시트가 닫힌 뒤 인쇄 창 열기
     window.setTimeout(() => window.print(), 0)
@@ -68,6 +81,7 @@ function ReportPage() {
 
   const shareReport = async () => {
     const text = formatReportText({ report, title, periodLabel, criteriaLines, questions })
+    keepReport()
     setShareOpen(false)
     try {
       if (navigator.share) {
@@ -94,7 +108,7 @@ function ReportPage() {
         />
 
         <header className="relative flex h-14 items-center justify-between">
-          <button type="button" aria-label="뒤로" onClick={() => navigate(ROUTES.VISIT)}>
+          <button type="button" aria-label="뒤로" onClick={goBack}>
             <img src={iconBack} alt="" width={24} height={24} />
           </button>
           <h1 className="text-subtitle-1 text-grey-900 absolute left-1/2 -translate-x-1/2">
