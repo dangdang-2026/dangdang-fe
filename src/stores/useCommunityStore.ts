@@ -24,7 +24,16 @@ type CommunityState = {
   addComment: (postId: string, author: Author, body: string, parentId?: string) => void
   removeComment: (postId: string, commentId: string) => void
   // 새 글 id를 돌려줌
-  addPost: (input: { board: BoardKey; title: string; body: string; author: Author }) => string
+  addPost: (input: {
+    board: BoardKey
+    title: string
+    body: string
+    author: Author
+    poll?: string[]
+  }) => string
+  // 글 id → 내가 고른 투표 항목 id
+  votes: Record<string, string>
+  vote: (postId: string, optionId: string) => void
   editPost: (postId: string, changes: Pick<Post, 'board' | 'title' | 'body'>) => void
   // 쓰다 나갈 때 임시 저장
   draft: PostDraft | null
@@ -83,6 +92,7 @@ export const useCommunityStore = create<CommunityState>()(
       reports: [],
       blockedAuthors: [],
       likedNewsIds: [],
+      votes: {},
       savedNewsIds: [],
       newsCardDismissed: false,
       setNickname: (nickname, showWeek) =>
@@ -148,7 +158,7 @@ export const useCommunityStore = create<CommunityState>()(
             ),
           })),
         })),
-      addPost: ({ board, title, body, author }) => {
+      addPost: ({ board, title, body, author, poll }) => {
         const id = crypto.randomUUID()
         const post: Post = {
           id,
@@ -160,6 +170,7 @@ export const useCommunityStore = create<CommunityState>()(
           views: 0,
           likes: 0,
           comments: [],
+          poll: poll?.map((label, index) => ({ id: 'o' + (index + 1), label, votes: 0 })),
         }
         set((state) => ({ posts: [post, ...state.posts], draft: null }))
         return id
@@ -172,6 +183,20 @@ export const useCommunityStore = create<CommunityState>()(
             editedAt: new Date().toISOString(),
           })),
         })),
+      // 한 번 고르면 바꿀 수 없음
+      vote: (postId, optionId) =>
+        set((state) => {
+          if (state.votes[postId]) return state
+          return {
+            votes: { ...state.votes, [postId]: optionId },
+            posts: updatePost(state.posts, postId, (post) => ({
+              ...post,
+              poll: post.poll?.map((option) =>
+                option.id === optionId ? { ...option, votes: option.votes + 1 } : option,
+              ),
+            })),
+          }
+        }),
       saveDraft: (draft) => set({ draft }),
       clearDraft: () => set({ draft: null }),
       removePost: (postId) =>

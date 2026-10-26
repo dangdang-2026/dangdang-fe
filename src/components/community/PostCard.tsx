@@ -45,6 +45,11 @@ function PostCard({ post, now, highlight = '', onClick }: PostCardProps) {
           </span>
         )}
         <span className={chipClass}>{BOARD_LABEL[post.board]}</span>
+        {post.poll && (
+          <span className="text-grey-800 rounded-md border border-yellow-300 bg-yellow-50 px-2 py-0.5 text-xs leading-snug font-bold">
+            투표
+          </span>
+        )}
       </span>
       <span className="text-subtitle-1 text-grey-900 w-full truncate tracking-normal">
         {post.hidden
