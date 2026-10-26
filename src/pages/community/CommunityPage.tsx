@@ -61,9 +61,14 @@ function CommunityPage() {
     else setNicknameOpen(true)
   }
   const categories: Category[] = [
-    // 검색·인기·당당 소식은 다음 이슈
+    // 당당 소식 화면 연결 전
     { key: 'news', label: '당당 소식', icon: iconCatNews, onClick: comingSoon },
-    { key: 'popular', label: '인기', icon: iconCatPopular, onClick: comingSoon },
+    {
+      key: 'popular',
+      label: '인기',
+      icon: iconCatPopular,
+      onClick: () => navigate(communityBoardPath('popular')),
+    },
     ...BOARD_ORDER.flatMap((board) => {
       const icon = BOARD_ICON[board]
       if (!icon) return []
