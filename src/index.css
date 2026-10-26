@@ -47,6 +47,9 @@
   --text-number: 48px;
   --text-number--line-height: 1.2;
   --text-number--font-weight: 700;
+  --text-t3: 22px;
+  --text-t3--line-height: 1.4;
+  --text-t3--font-weight: 700;
   --text-title-2: 24px;
   --text-title-2--line-height: 1.25;
   --text-title-2--letter-spacing: -0.015em;
@@ -94,6 +97,7 @@
   --shadow-icon-button: 0 4px 12px 0 rgb(128 89 0 / 0.08);
   --shadow-banner: 0 4px 12px 0 rgb(128 89 0 / 0.06);
   --shadow-card: 0 4px 12px 0 rgb(128 89 0 / 0.05);
+  --shadow-receipt: 0 10px 30px 0 rgb(102 77 26 / 0.1);
   --shadow-chatbot: 0 6px 14px 0 rgb(128 89 0 / 0.22);
   --shadow-chatbot-tag: 0 2px 6px 0 rgb(128 89 0 / 0.15);
   --shadow-sheet: 0 0 7.3px 0 rgb(0 0 0 / 0.25);

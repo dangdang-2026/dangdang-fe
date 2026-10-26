@@ -9,6 +9,16 @@ import {
   type Targets,
 } from '@/utils/glucose'
 
+// 예: 식후 1시간 140 미만 · 공복 95 미만. 적은 목표가 없으면 null
+export function formatCriteria(targets: Targets, postMealHours: number | null) {
+  const parts: string[] = []
+  if (targets.postMeal !== null && postMealHours) {
+    parts.push(`식후 ${postMealHours}시간 ${targets.postMeal} 미만`)
+  }
+  if (targets.fasting !== null) parts.push(`공복 ${targets.fasting} 미만`)
+  return parts.length ? parts.join(' · ') : null
+}
+
 const HOUR = 60 * 60 * 1000
 // 측정 후 2시간 넘어 적으면 나중 입력
 const LATE_ENTRY_MS = 2 * HOUR
@@ -52,7 +62,8 @@ export type Report = {
   measured: number
   blanks: number
   lateEntries: number
-  slots: { key: SlotKey; label: string; outOfTarget: number; total: number }[]
+  // 목표가 없는 시점은 outOfTarget이 null(비교 안 함)
+  slots: { key: SlotKey; label: string; outOfTarget: number | null; total: number }[]
   days: { date: Date; cells: Partial<Record<SlotKey, ReportCell>> }[]
   lows: GlucoseRecord[]
 }
@@ -106,10 +117,11 @@ export function buildReport({
   const slots = SLOT_KEYS.map((key) => {
     const cells = days.flatMap((day) => (day.cells[key] ? [day.cells[key]] : []))
     const { slot, mealType } = toMeasureSlot(key)
+    const hasTarget = getTarget(slot, targets, postMealHours) !== null
     return {
       key,
       label: getSlotLabel(slot, mealType, postMealHours),
-      outOfTarget: cells.filter((cell) => cell.isOutOfTarget).length,
+      outOfTarget: hasTarget ? cells.filter((cell) => cell.isOutOfTarget).length : null,
       total: cells.length,
     }
   }).filter((slot) => slot.key !== 'bedtime' || slot.total > 0)
