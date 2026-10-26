@@ -68,7 +68,8 @@ function CriteriaPage() {
 
   const handleSave = () => {
     addCriteria({ ...draft, source: '진료 후 직접 입력' })
-    navigate(ROUTES.VISIT, { replace: true })
+    // 저장 뒤 이력에서 새 기준 확인
+    navigate(ROUTES.VISIT_CRITERIA_HISTORY, { replace: true, state: { saved: true } })
   }
 
   return (
