@@ -9,7 +9,7 @@ import { formatTime } from '@/utils/date'
 import { getSlotLabel } from '@/utils/glucose'
 
 type SavedHeroProps = {
-  postMealHours: number
+  postMealHours: number | null
   record: GlucoseRecord
   nextMeal: MealType
   onStartMeal: () => void

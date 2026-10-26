@@ -1,5 +1,7 @@
 import { MEAL_ORDER } from '@/constants/glucose'
+import type { Criteria, MeasureSlotKey } from '@/types/criteria'
 import type { GlucoseRecord, Meal, MeasureSlot, MealType } from '@/types/glucose'
+import { getCriteriaAt } from '@/utils/criteria'
 import { addDays, isSameDay, startOfDay } from '@/utils/date'
 import {
   compareToTarget,
@@ -24,10 +26,8 @@ const HOUR = 60 * 60 * 1000
 const LATE_ENTRY_MS = 2 * HOUR
 // 저혈당 확인 기준(mg/dL)
 export const LOW_GLUCOSE = 70
-// 하루에 재는 기본 시점: 공복 + 세 끼 식후
-const DAILY_SLOTS = 1 + MEAL_ORDER.length
 
-type SlotKey = 'fasting' | MealType | 'bedtime'
+type SlotKey = MeasureSlotKey
 
 // 리포트 표의 열 순서
 const SLOT_KEYS: SlotKey[] = ['fasting', ...MEAL_ORDER, 'bedtime']
@@ -73,19 +73,14 @@ type BuildReportParams = {
   meals: Meal[]
   from: Date
   to: Date
-  targets: Targets
-  postMealHours: number | null
+  // 기준 버전 전체. 기록마다 그 날짜의 기준으로 비교
+  versions: Criteria[]
 }
 
 // 기간 기록을 시점별로 모음. 해석 없이 개수·원값만
-export function buildReport({
-  records,
-  meals,
-  from,
-  to,
-  targets,
-  postMealHours,
-}: BuildReportParams): Report {
+export function buildReport({ records, meals, from, to, versions }: BuildReportParams): Report {
+  // 시점 이름·목표 유무는 리포트 마지막 날 기준
+  const { targets, postMealHours } = getCriteriaAt(versions, startOfDay(to))
   const start = startOfDay(from)
   const end = addDays(startOfDay(to), 1)
   const inRange = records
@@ -96,9 +91,10 @@ export function buildReport({
     .sort((a, b) => a.measuredAt.localeCompare(b.measuredAt))
 
   const toCell = (record: GlucoseRecord): ReportCell => {
-    const goal = getTarget(record.slot, targets, postMealHours)
+    const criteria = getCriteriaAt(versions, new Date(record.measuredAt))
+    const goal = getTarget(record.slot, criteria.targets, criteria.postMealHours)
     const marks: string[] = []
-    if (getLateMinutes(record, meals, postMealHours) > 0) marks.push('늦게 잼')
+    if (getLateMinutes(record, meals, criteria.postMealHours) > 0) marks.push('늦게 잼')
     if (isLateEntry(record)) marks.push('나중 입력')
     if (record.editedAt) marks.push('수정됨')
     return { record, isOutOfTarget: compareToTarget(record.value, goal) === 'high', marks }
@@ -126,12 +122,13 @@ export function buildReport({
     }
   }).filter((slot) => slot.key !== 'bedtime' || slot.total > 0)
 
-  // 기록이 하나라도 있는 날의 공복·세 끼 식후 중 빠진 칸
+  // 기록이 하나라도 있는 날, 그날 기준의 재는 때 중 빠진 칸
   const blanks = days
     .filter((day) => Object.keys(day.cells).length > 0)
     .reduce(
       (sum, day) =>
-        sum + DAILY_SLOTS - SLOT_KEYS.filter((key) => key !== 'bedtime' && day.cells[key]).length,
+        sum +
+        getCriteriaAt(versions, day.date).measureSlots.filter((key) => !day.cells[key]).length,
       0,
     )
 

@@ -4,7 +4,7 @@ import HeroShell from '@/components/today/hero/HeroShell'
 import { HeroButton, HillDangdang } from '@/components/today/hero/HeroParts'
 
 type OverdueHeroProps = {
-  postMealHours: number
+  postMealHours: number | null
   dueAt: Date
   now: Date
   onInputGlucose: () => void

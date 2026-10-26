@@ -8,7 +8,7 @@ import { formatTime } from '@/utils/date'
 import { getSlotLabel } from '@/utils/glucose'
 
 type EatingHeroProps = {
-  postMealHours: number
+  postMealHours: number | null
   meal: Meal
   dueAt: Date
   now: Date

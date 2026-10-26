@@ -12,7 +12,7 @@ import RecordTimeline from '@/components/records/RecordTimeline'
 import WeekPicker from '@/components/records/WeekPicker'
 import { MEAL_LABEL } from '@/constants/glucose'
 import { useNow } from '@/hooks/useNow'
-import { MOCK_USER } from '@/mocks/user'
+import { useCriteria } from '@/hooks/useCriteria'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import type { GlucoseRecord, Meal, MeasureTarget, Portion } from '@/types/glucose'
 import { formatMonthDayWeekday, isSameDay, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
@@ -31,6 +31,7 @@ function RecordsPage() {
   const setMealContent = useGlucoseStore((state) => state.setMealContent)
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const criteria = useCriteria()
   const dateInputRef = useRef<HTMLInputElement>(null)
 
   const now = useNow()
@@ -61,7 +62,7 @@ function RecordsPage() {
 
   const openInputSheet = () => {
     if (isToday) {
-      const target = getMeasureTarget(meals, records, MOCK_USER.postMealHours, new Date())
+      const target = getMeasureTarget(meals, records, criteria.postMealHours, new Date())
       setInputSheet({ target })
       return
     }
@@ -87,7 +88,7 @@ function RecordsPage() {
 
   const handleSaved = (record: GlucoseRecord) => {
     setInputSheet(null)
-    const label = getSlotLabel(record.slot, record.mealType, MOCK_USER.postMealHours)
+    const label = getSlotLabel(record.slot, record.mealType, criteria.postMealHours)
     setToast(`${label} ${record.value} 저장했어요`)
   }
 

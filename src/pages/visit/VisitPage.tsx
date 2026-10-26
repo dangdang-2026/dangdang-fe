@@ -100,7 +100,10 @@ function VisitPage() {
         <ReportCard today={startOfDay(now)} onCreate={() => navigate(ROUTES.VISIT_REPORT)} />
       </div>
       <div className="mt-4">
-        <CriteriaCard />
+        <CriteriaCard
+          onChange={() => navigate(ROUTES.VISIT_CRITERIA)}
+          onHistory={() => navigate(ROUTES.VISIT_CRITERIA_HISTORY)}
+        />
       </div>
 
       {dateSheet && (

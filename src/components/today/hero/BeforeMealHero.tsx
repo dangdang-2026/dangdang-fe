@@ -8,7 +8,7 @@ import type { GlucoseRecord, MealType } from '@/types/glucose'
 import { getSlotLabel } from '@/utils/glucose'
 
 type BeforeMealHeroProps = {
-  postMealHours: number
+  postMealHours: number | null
   nextMeal: MealType
   lastRecord?: GlucoseRecord
   onStartMeal: () => void

@@ -10,7 +10,7 @@ import type { HeroState } from '@/utils/glucose'
 type HeroCardProps = {
   state: HeroState
   now: Date
-  postMealHours: number
+  postMealHours: number | null
   onStartMeal: () => void
   onInputGlucose: () => void
   onSkipMeal: (mealId: string) => void
