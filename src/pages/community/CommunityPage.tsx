@@ -11,6 +11,7 @@ import iconSearch from '@/assets/icons/community/search.svg'
 import iconBell from '@/assets/icons/my/bell.svg'
 import Toast from '@/components/common/Toast'
 import CommunityEmpty from '@/components/community/CommunityEmpty'
+import NicknameSheet from '@/components/community/NicknameSheet'
 import PostCard from '@/components/community/PostCard'
 import SortToggle from '@/components/community/SortToggle'
 import { BOARD_ICON, BOARD_LABEL, BOARD_ORDER } from '@/constants/community'
@@ -33,11 +34,21 @@ function CommunityPage() {
   const posts = useCommunityStore((state) => state.posts)
   const noticeDismissed = useCommunityStore((state) => state.noticeDismissed)
   const dismissNotice = useCommunityStore((state) => state.dismissNotice)
+  const nickname = useCommunityStore((state) => state.nickname)
+  const setNickname = useCommunityStore((state) => state.setNickname)
   const [sort, setSort] = useState<PostSort>('popular')
+  // 닉네임이 없으면 처음 들어올 때 바로 정하기
+  const [nicknameOpen, setNicknameOpen] = useState(nickname === null)
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
+  const closeNickname = useCallback(() => setNicknameOpen(false), [])
 
   const comingSoon = () => setToast(COMING_SOON)
+  // 글쓰기는 닉네임을 정한 뒤에
+  const startWriting = () => {
+    if (nickname) navigate(ROUTES.COMMUNITY_WRITE)
+    else setNicknameOpen(true)
+  }
   const categories: Category[] = [
     // 검색·인기·당당 소식은 다음 이슈
     { key: 'news', label: '당당 소식', icon: iconCatNews, onClick: comingSoon },
@@ -71,7 +82,7 @@ function CommunityPage() {
           <button
             type="button"
             className="bg-primary text-grey-900 flex items-center gap-1 rounded-full py-1.5 pr-3.5 pl-3 text-sm leading-snug font-bold"
-            onClick={() => navigate(ROUTES.COMMUNITY_WRITE)}
+            onClick={startWriting}
           >
             <img src={iconPencil} alt="" width={16} height={16} />
             글쓰기
@@ -155,6 +166,19 @@ function CommunityPage() {
         </>
       )}
 
+      {nicknameOpen && (
+        <NicknameSheet
+          mode="first"
+          current={nickname}
+          onSubmit={(name, showWeek) => {
+            setNickname(name, showWeek)
+            setNicknameOpen(false)
+            setToast(`‘${name}’ 님, 반가워요`)
+          }}
+          onPolicy={comingSoon}
+          onClose={closeNickname}
+        />
+      )}
       {toast && <Toast message={toast} onClose={closeToast} />}
     </main>
   )
