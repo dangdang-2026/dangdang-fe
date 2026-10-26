@@ -13,11 +13,12 @@ import { ROUTES } from '@/constants/routes'
 import { useFoods } from '@/hooks/useFoods'
 import { useNow } from '@/hooks/useNow'
 import { useCriteria } from '@/hooks/useCriteria'
-import { MOCK_USER } from '@/mocks/user'
+import { useProfileStore } from '@/stores/useProfileStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import type { GlucoseRecord, Meal, MeasureTarget, Portion } from '@/types/glucose'
 import { isSameDay, startOfDay } from '@/utils/date'
+import { formatPregnancyAge } from '@/utils/pregnancy'
 import { formatVisitDay, getHomeVisitCard } from '@/utils/visit'
 import { getHeroState, getMeasureTarget, getNextMealType, getSlotLabel } from '@/utils/glucose'
 import { formatMealSavedMessage } from '@/utils/meal'
@@ -33,6 +34,8 @@ function TodayPage() {
   const [writingMeal, setWritingMeal] = useState<Meal | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const criteria = useCriteria()
+  const name = useProfileStore((state) => state.name)
+  const dueDate = useProfileStore((state) => state.dueDate)
 
   const now = useNow()
   const todayMeals = meals.filter((meal) => isSameDay(new Date(meal.startedAt), now))
@@ -80,7 +83,12 @@ function TodayPage() {
   return (
     <main className="px-5 pt-15.5">
       <WarmBackground />
-      <TodayHeader name={MOCK_USER.name} date={now} visitLabel={formatVisitDay(nextVisitAt, now)} />
+      <TodayHeader
+        name={name}
+        date={now}
+        pregnancyLabel={formatPregnancyAge(dueDate, now)}
+        visitLabel={formatVisitDay(nextVisitAt, now)}
+      />
       <div className="mt-6">
         <HeroCard
           state={heroState}

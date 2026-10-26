@@ -1,6 +1,6 @@
 import type { Criteria } from '@/types/criteria'
 
-// API 연동 전 임시 사용자 정보
+// 가입(온보딩) 연동 전 임시 사용자 정보. 내 정보에서 바꾸면 프로필에 저장
 export const MOCK_USER = {
   name: '지수',
 }
