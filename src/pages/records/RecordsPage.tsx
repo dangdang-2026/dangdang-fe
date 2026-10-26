@@ -5,14 +5,16 @@ import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import EmptyRecordCard from '@/components/glucose/EmptyRecordCard'
 import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
+import MealContentSheet from '@/components/meal/MealContentSheet'
 import RecordDeleteSheet from '@/components/records/RecordDeleteSheet'
 import RecordEditSheet from '@/components/records/RecordEditSheet'
 import RecordTimeline from '@/components/records/RecordTimeline'
 import WeekPicker from '@/components/records/WeekPicker'
+import { MEAL_LABEL } from '@/constants/glucose'
 import { useNow } from '@/hooks/useNow'
 import { MOCK_USER } from '@/mocks/user'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
-import type { GlucoseRecord, MeasureTarget } from '@/types/glucose'
+import type { GlucoseRecord, Meal, MeasureTarget, Portion } from '@/types/glucose'
 import { formatMonthDayWeekday, isSameDay, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 import { getBackfillTarget, getMeasureTarget, getSlotLabel } from '@/utils/glucose'
 
@@ -26,6 +28,8 @@ function RecordsPage() {
   const [editing, setEditing] = useState<GlucoseRecord | null>(null)
   const [deleting, setDeleting] = useState<GlucoseRecord | null>(null)
   const deleteRecord = useGlucoseStore((state) => state.deleteRecord)
+  const setMealContent = useGlucoseStore((state) => state.setMealContent)
+  const [editingMeal, setEditingMeal] = useState<Meal | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const dateInputRef = useRef<HTMLInputElement>(null)
 
@@ -71,6 +75,14 @@ function RecordsPage() {
   const closeInputSheet = useCallback(() => setInputSheet(null), [])
   const closeEditSheet = useCallback(() => setEditing(null), [])
   const closeDeleteSheet = useCallback(() => setDeleting(null), [])
+  const closeMealSheet = useCallback(() => setEditingMeal(null), [])
+
+  const handleMealEdited = (foods: string[], portion?: Portion) => {
+    if (!editingMeal) return
+    setMealContent(editingMeal.id, foods, portion)
+    setEditingMeal(null)
+    setToast(`${MEAL_LABEL[editingMeal.type]} 기록을 고쳤어요`)
+  }
   const closeToast = useCallback(() => setToast(null), [])
 
   const handleSaved = (record: GlucoseRecord) => {
@@ -140,6 +152,7 @@ function RecordsPage() {
               records={dayRecords}
               allMeals={meals}
               onSelectRecord={setEditing}
+              onSelectMeal={setEditingMeal}
             />
           ) : (
             <EmptyRecordCard
@@ -168,6 +181,14 @@ function RecordsPage() {
         />
       )}
       {deleting && <RecordDeleteSheet onConfirm={handleDeleted} onClose={closeDeleteSheet} />}
+      {editingMeal && (
+        <MealContentSheet
+          meal={editingMeal}
+          editing
+          onClose={closeMealSheet}
+          onSaved={handleMealEdited}
+        />
+      )}
       {toast && <Toast message={toast} onClose={closeToast} />}
     </main>
   )

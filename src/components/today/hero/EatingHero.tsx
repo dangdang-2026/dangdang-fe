@@ -13,10 +13,18 @@ type EatingHeroProps = {
   dueAt: Date
   now: Date
   onInputGlucose: () => void
+  onWriteMeal: () => void
 }
 
 // Figma 「당당/홈 히어로 카드」 식사 중: 식후 측정까지 남은 시간
-function EatingHero({ postMealHours, meal, dueAt, now, onInputGlucose }: EatingHeroProps) {
+function EatingHero({
+  postMealHours,
+  meal,
+  dueAt,
+  now,
+  onInputGlucose,
+  onWriteMeal,
+}: EatingHeroProps) {
   const startedAt = new Date(meal.startedAt)
   const total = dueAt.getTime() - startedAt.getTime()
   const progress = Math.min(Math.max((now.getTime() - startedAt.getTime()) / total, 0), 1)
@@ -57,6 +65,7 @@ function EatingHero({ postMealHours, meal, dueAt, now, onInputGlucose }: EatingH
         <button
           type="button"
           className="text-body-2 text-grey-900 flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-white"
+          onClick={onWriteMeal}
         >
           <img src={iconUtensilsDarkSm} alt="" width={18} height={18} />
           식사 내용 적기
