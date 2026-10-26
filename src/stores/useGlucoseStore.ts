@@ -9,6 +9,9 @@ type GlucoseState = {
   skipMeal: (mealId: string) => void
   addRecord: (target: MeasureTarget, value: number, now?: Date) => GlucoseRecord
   updateRecord: (id: string, changes: { value: number; measuredAt: string }, now?: Date) => void
+  deleteRecord: (id: string, now?: Date) => void
+  // 지운 기록. 화면·리포트에선 빼고 기록용으로만 보관
+  deletedRecords: (GlucoseRecord & { deletedAt: string })[]
 }
 
 // API 연동 전까지 기기(localStorage)에 저장
@@ -58,6 +61,16 @@ export const useGlucoseStore = create<GlucoseState>()(
               : record,
           ),
         })),
+      deletedRecords: [],
+      deleteRecord: (id, now = new Date()) =>
+        set((state) => {
+          const target = state.records.find((record) => record.id === id)
+          if (!target) return state
+          return {
+            records: state.records.filter((record) => record.id !== id),
+            deletedRecords: [...state.deletedRecords, { ...target, deletedAt: now.toISOString() }],
+          }
+        }),
     }),
     { name: 'dangdang-glucose' },
   ),

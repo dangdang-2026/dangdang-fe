@@ -5,6 +5,7 @@ import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import EmptyRecordCard from '@/components/glucose/EmptyRecordCard'
 import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
+import RecordDeleteSheet from '@/components/records/RecordDeleteSheet'
 import RecordEditSheet from '@/components/records/RecordEditSheet'
 import RecordTimeline from '@/components/records/RecordTimeline'
 import WeekPicker from '@/components/records/WeekPicker'
@@ -23,6 +24,8 @@ function RecordsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [inputSheet, setInputSheet] = useState<InputSheet | null>(null)
   const [editing, setEditing] = useState<GlucoseRecord | null>(null)
+  const [deleting, setDeleting] = useState<GlucoseRecord | null>(null)
+  const deleteRecord = useGlucoseStore((state) => state.deleteRecord)
   const [toast, setToast] = useState<string | null>(null)
   const dateInputRef = useRef<HTMLInputElement>(null)
 
@@ -67,6 +70,7 @@ function RecordsPage() {
 
   const closeInputSheet = useCallback(() => setInputSheet(null), [])
   const closeEditSheet = useCallback(() => setEditing(null), [])
+  const closeDeleteSheet = useCallback(() => setDeleting(null), [])
   const closeToast = useCallback(() => setToast(null), [])
 
   const handleSaved = (record: GlucoseRecord) => {
@@ -78,6 +82,18 @@ function RecordsPage() {
   const handleEdited = () => {
     setEditing(null)
     setToast('고쳤어요 · 리포트에 ‘수정됨’으로 표시돼요')
+  }
+
+  // 수정 시트에서 삭제를 누르면 확인 시트로 전환
+  const askDelete = () => {
+    setDeleting(editing)
+    setEditing(null)
+  }
+
+  const handleDeleted = () => {
+    if (deleting) deleteRecord(deleting.id)
+    setDeleting(null)
+    setToast('기록을 지웠어요')
   }
 
   return (
@@ -144,8 +160,14 @@ function RecordsPage() {
         />
       )}
       {editing && (
-        <RecordEditSheet record={editing} onClose={closeEditSheet} onSaved={handleEdited} />
+        <RecordEditSheet
+          record={editing}
+          onClose={closeEditSheet}
+          onSaved={handleEdited}
+          onDelete={askDelete}
+        />
       )}
+      {deleting && <RecordDeleteSheet onConfirm={handleDeleted} onClose={closeDeleteSheet} />}
       {toast && <Toast message={toast} onClose={closeToast} />}
     </main>
   )

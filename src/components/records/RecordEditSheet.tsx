@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import iconInfo from '@/assets/icons/info-md.svg'
+import iconTrash from '@/assets/icons/trash.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import { GLUCOSE_MAX, GLUCOSE_MAX_DIGITS, GLUCOSE_MIN } from '@/constants/glucose'
 import { MOCK_USER } from '@/mocks/user'
@@ -12,12 +13,13 @@ type RecordEditSheetProps = {
   record: GlucoseRecord
   onClose: () => void
   onSaved: () => void
+  onDelete: () => void
 }
 
 const FIELD_CLASS = 'flex h-14 items-center gap-2 rounded-2xl px-4 border-2'
 
 // Figma D-05·D-06 혈당 기록 수정 시트. 수치·측정 시각만 고침
-function RecordEditSheet({ record, onClose, onSaved }: RecordEditSheetProps) {
+function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheetProps) {
   const updateRecord = useGlucoseStore((state) => state.updateRecord)
   const measuredAt = new Date(record.measuredAt)
   const [digits, setDigits] = useState(String(record.value))
@@ -113,6 +115,13 @@ function RecordEditSheet({ record, onClose, onSaved }: RecordEditSheetProps) {
         onClick={handleSave}
       >
         수정 저장
+      </button>
+      <button
+        type="button"
+        className="text-t6 flex items-center justify-center gap-1.5 font-bold text-red-500"
+        onClick={onDelete}
+      >
+        <img src={iconTrash} alt="" width={16} height={16} />이 기록 삭제
       </button>
     </BottomSheet>
   )
