@@ -46,6 +46,8 @@ export const useGlucoseStore = create<GlucoseState>()(
           slot: target.slot,
           value,
           measuredAt: now.toISOString(),
+          // 지난 날 채우기면 measuredAt과 달라짐
+          enteredAt: new Date().toISOString(),
           mealId: target.mealId,
           mealType: target.mealType,
         }
