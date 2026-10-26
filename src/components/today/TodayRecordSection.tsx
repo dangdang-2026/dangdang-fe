@@ -3,9 +3,10 @@ import iconPlus from '@/assets/icons/plus.svg'
 
 type TodayRecordSectionProps = {
   count: number
+  onInputGlucose: () => void
 }
 
-function TodayRecordSection({ count }: TodayRecordSectionProps) {
+function TodayRecordSection({ count, onInputGlucose }: TodayRecordSectionProps) {
   return (
     <section>
       <div className="flex items-center justify-between">
@@ -23,6 +24,7 @@ function TodayRecordSection({ count }: TodayRecordSectionProps) {
         <button
           type="button"
           className="bg-grey-100 text-t7 text-grey-700 flex items-center gap-1 rounded-full px-3.5 py-2 font-bold"
+          onClick={onInputGlucose}
         >
           <img src={iconPlus} alt="" width={14} height={14} />
           혈당 입력
