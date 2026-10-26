@@ -1,9 +1,37 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
-  --color-primary: #facc15;
+  /* Figma 디자인시스템 Primitives */
+  --color-yellow-50: #fff6e5;
+  --color-yellow-300: #ffd184;
+  --color-yellow-500: #fbb315;
+  --color-orange-400: #ffa927;
+
+  --color-grey-50: #f9fafb;
+  --color-grey-100: #f3f4f6;
+  --color-grey-400: #b0b8c1;
+  --color-grey-500: #8b95a1;
+  --color-grey-600: #6b7684;
+  --color-grey-700: #4e5968;
+  --color-grey-800: #333d4b;
+  --color-grey-900: #191f28;
+
+  --color-primary: var(--color-yellow-500);
   --color-primary-light: #fef9c3;
   --color-primary-dark: #ca8a04;
+
+  /* Figma 타이포그래피 (Toss 스케일) */
+  --text-title-2: 24px;
+  --text-title-2--line-height: 1.25;
+  --text-title-2--letter-spacing: -1.5px;
+  --text-title-2--font-weight: 700;
+  --text-caption: 11px;
+  --text-caption--line-height: 1.27;
+  --text-caption--font-weight: 600;
+
+  /* Figma 그림자 */
+  --drop-shadow-tab-bar: 0 -4px 24px rgb(102 77 26 / 0.08);
+  --shadow-tab-active: 0 6px 14px 0 rgb(250 153 0 / 0.35);
 
   --color-background: #ffffff;
   --color-surface: #f9fafb;
@@ -14,7 +42,7 @@
 }
 
 :root {
-  font-family: "Pretendard Variable", sans-serif;
+  font-family: 'Pretendard Variable', sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
