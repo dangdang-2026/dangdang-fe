@@ -90,6 +90,7 @@
   --radius-tag: 10px;
   --radius-sheet: 29px;
   --radius-key: 14px;
+  --radius-profile: 100px;
 
   /* Figma 그림자 */
   --drop-shadow-tab-bar: 0 -4px 24px rgb(102 77 26 / 0.08);
