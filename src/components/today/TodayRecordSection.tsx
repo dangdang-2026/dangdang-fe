@@ -1,6 +1,5 @@
 import { Link } from 'react-router'
-import iconDrop from '@/assets/icons/drop.svg'
-import iconPlus from '@/assets/icons/plus.svg'
+import EmptyRecordCard from '@/components/glucose/EmptyRecordCard'
 import { MEAL_LABEL } from '@/constants/glucose'
 import { ROUTES } from '@/constants/routes'
 import type { GlucoseRecord, Meal } from '@/types/glucose'
@@ -81,21 +80,12 @@ function TodayRecordSection({
           ))}
         </ul>
       ) : (
-        // 기록 없을 때 빈 상태
-        <div className="mt-3 flex flex-col items-center gap-2 rounded-3xl bg-white px-4.5 py-5.5 text-center">
-          <span className="bg-grey-50 flex size-12 items-center justify-center rounded-full">
-            <img src={iconDrop} alt="" width={22} height={22} />
-          </span>
-          <p className="text-t6 text-grey-700 font-bold">아직 기록이 없어요</p>
-          <p className="text-t7 text-grey-500">공복 혈당부터 적어도 좋아요</p>
-          <button
-            type="button"
-            className="bg-grey-100 text-t7 text-grey-700 flex items-center gap-1 rounded-full px-3.5 py-2 font-bold"
-            onClick={onInputGlucose}
-          >
-            <img src={iconPlus} alt="" width={14} height={14} />
-            혈당 입력
-          </button>
+        <div className="mt-3">
+          <EmptyRecordCard
+            title="아직 기록이 없어요"
+            description="공복 혈당부터 적어도 좋아요"
+            onInputGlucose={onInputGlucose}
+          />
         </div>
       )}
     </section>

@@ -19,6 +19,10 @@ export type GlucoseRecord = {
   // 식후 측정이면 연결된 끼니
   mealId?: string
   mealType?: MealType
+  // 고친 시각. 리포트에 "수정됨" 표시
+  editedAt?: string
+  // 처음 입력한 값(수정 전후 기록용)
+  original?: { value: number; measuredAt: string }
 }
 
 // 입력 시트에 넘기는 측정 시점 정보

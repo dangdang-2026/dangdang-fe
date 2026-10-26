@@ -5,6 +5,7 @@ import {
   MEAL_LABEL,
   MEAL_ORDER,
   MEASURE_WINDOW_MS,
+  ON_TIME_MS,
   PENDING_EXPIRE_MS,
 } from '@/constants/glucose'
 import type {
@@ -97,6 +98,23 @@ export function getMeasureTarget(
   if (!hasFastingToday && now.getHours() < 11) return { slot: 'fasting' }
   if (now.getHours() >= 21) return { slot: 'bedtime' }
   return { slot: 'post-meal', mealType: getMealTypeByHour(now) }
+}
+
+// 지난 날 나중에 채우기: 그날 공복이 없으면 공복부터
+export function getBackfillTarget(records: GlucoseRecord[], at: Date): MeasureTarget {
+  const hasFasting = records.some(
+    (record) => record.slot === 'fasting' && isSameDay(new Date(record.measuredAt), at),
+  )
+  if (!hasFasting) return { slot: 'fasting' }
+  return { slot: 'post-meal', mealType: getMealTypeByHour(at) }
+}
+
+// 식후 측정 예정 시각보다 늦게 잰 분. 제시간이면 0
+export function getLateMinutes(record: GlucoseRecord, meals: Meal[], hours: number | null) {
+  const meal = meals.find((item) => item.id === record.mealId)
+  if (!meal || !hours) return 0
+  const diff = new Date(record.measuredAt).getTime() - getDueAt(meal, hours).getTime()
+  return diff > ON_TIME_MS ? Math.round(diff / 60000) : 0
 }
 
 export function isValidGlucose(value: number) {
