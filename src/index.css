@@ -23,7 +23,7 @@
   /* Figma 타이포그래피 (Toss 스케일) */
   --text-title-2: 24px;
   --text-title-2--line-height: 1.25;
-  --text-title-2--letter-spacing: -1.5px;
+  --text-title-2--letter-spacing: -0.015em;
   --text-title-2--font-weight: 700;
   --text-caption: 11px;
   --text-caption--line-height: 1.27;
