@@ -5,11 +5,11 @@ export const MOCK_USER = {
   name: '지수',
 }
 
-// 가입(온보딩) 연동 전 첫 기준. 기준을 바꾸면 이 위에 새 버전이 쌓임
+// 첫 진입 설정 전 자리 채움. 목표는 병원에서 들은 값만 쓰므로 비워 둠
 export const INITIAL_CRITERIA: Omit<Criteria, 'appliedFrom'> = {
   version: 1,
-  source: '가입 전 임시 기준',
+  source: '첫 진입 설정 전',
   postMealHours: 1,
   measureSlots: ['fasting', 'breakfast', 'lunch', 'dinner'],
-  targets: { fasting: 95, postMeal: 140 },
+  targets: { fasting: null, postMeal: null },
 }

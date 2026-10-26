@@ -30,6 +30,7 @@ import NicknamePage from '@/pages/my/NicknamePage'
 import NotificationsPage from '@/pages/my/NotificationsPage'
 import ProfilePage from '@/pages/my/ProfilePage'
 import TermsPage from '@/pages/my/TermsPage'
+import DueDatePage from '@/pages/onboarding/DueDatePage'
 import IntroPage from '@/pages/onboarding/IntroPage'
 import SlotsPage from '@/pages/onboarding/SlotsPage'
 import TermsAgreePage from '@/pages/onboarding/TermsAgreePage'
@@ -70,6 +71,7 @@ function App() {
         <Route path={ROUTES.ONBOARDING_TERMS} element={<TermsAgreePage />} />
         <Route path={ROUTES.ONBOARDING_TIMING} element={<TimingPage />} />
         <Route path={ROUTES.ONBOARDING_SLOTS} element={<SlotsPage />} />
+        <Route path={ROUTES.ONBOARDING_DUE_DATE} element={<DueDatePage />} />
         <Route element={<OnboardingGate />}>
           <Route element={<TabLayout />}>
             <Route path={ROUTES.TODAY} element={<TodayPage />} />

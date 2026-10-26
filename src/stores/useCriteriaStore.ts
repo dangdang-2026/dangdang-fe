@@ -8,6 +8,8 @@ type CriteriaState = {
   // 오래된 순. 마지막이 지금 기준
   versions: Criteria[]
   addCriteria: (criteria: Omit<Criteria, 'version' | 'appliedFrom'>, now?: Date) => void
+  // 첫 진입 설정에서 받은 값으로 1번 기준부터 다시 시작
+  startCriteria: (criteria: Omit<Criteria, 'version' | 'appliedFrom'>) => void
 }
 
 // 첫 버전은 아주 옛날부터 적용해 이전 기록도 비교되게
@@ -27,6 +29,8 @@ export const useCriteriaStore = create<CriteriaState>()(
           const version = sameDay?.version ?? (state.versions.at(-1)?.version ?? 0) + 1
           return { versions: [...previous, { ...criteria, version, appliedFrom }] }
         }),
+      startCriteria: (criteria) =>
+        set({ versions: [{ ...criteria, version: 1, appliedFrom: FIRST_APPLIED_FROM }] }),
     }),
     { name: 'dangdang-criteria' },
   ),
