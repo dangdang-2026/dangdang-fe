@@ -91,7 +91,8 @@ function WritePage() {
     if (!draft.board || !canSubmit) return
     if (editing) {
       editPost(editing.id, { board: draft.board, title, body })
-      navigate(communityPostPath(editing.id), { replace: true })
+      // 글 보기에서 들어왔으니 돌아가면 고친 글이 보임
+      goBack()
       return
     }
     const author = draft.anonymous ? { ...me, nickname: ANONYMOUS_NICKNAME } : me

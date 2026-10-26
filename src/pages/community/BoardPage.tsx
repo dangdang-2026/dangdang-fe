@@ -17,7 +17,7 @@ import { ROUTES, communityBoardPath, communityPostPath } from '@/constants/route
 import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
 import { useOnline } from '@/hooks/useOnline'
-import { useCommunityStore } from '@/stores/useCommunityStore'
+import { useVisiblePosts } from '@/hooks/useVisiblePosts'
 import type { BoardKey, PostSort } from '@/types/community'
 import { sortPosts } from '@/utils/community'
 
@@ -38,7 +38,7 @@ function BoardPage() {
   const goBack = useGoBack(ROUTES.COMMUNITY)
   const now = useNow()
   const { online, recheck } = useOnline()
-  const posts = useCommunityStore((state) => state.posts)
+  const posts = useVisiblePosts()
   const [sort, setSort] = useState<PostSort>('latest')
   const [guideOpen, setGuideOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)

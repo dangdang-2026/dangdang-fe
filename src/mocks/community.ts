@@ -134,4 +134,16 @@ export const MOCK_POSTS: Post[] = [
     likes: 27,
     comments: [],
   },
+  {
+    id: 'p8',
+    board: 'measure',
+    title: '이 약 먹으면 식후 혈당 바로 떨어져요',
+    body: '',
+    author: AUTHORS.anon,
+    createdAt: minutesAgo(60 * 8),
+    views: 64,
+    likes: 0,
+    comments: [],
+    hidden: true,
+  },
 ]

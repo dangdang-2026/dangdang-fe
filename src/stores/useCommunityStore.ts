@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { MOCK_POSTS } from '@/mocks/community'
-import type { Author, BoardKey, Post, PostDraft } from '@/types/community'
+import type { Author, BoardKey, Post, PostDraft, ReportReason } from '@/types/community'
 
 type CommunityState = {
   // 커뮤니티 첫 진입에 정함. 안 정했으면 null
@@ -29,6 +29,14 @@ type CommunityState = {
   clearDraft: () => void
   // 신고 누적으로 글·댓글 막힌 기한. 서버 연동 전엔 직접 넣어 재현
   restrictedUntil: string | null
+  removePost: (postId: string) => void
+  // 신고한 글 id와 이유. 서버 연동 전엔 기록만
+  reports: { postId: string; reason: ReportReason }[]
+  reportPost: (postId: string, reason: ReportReason) => void
+  // 이 사람 글 안 보기
+  blockedAuthors: Pick<Author, 'id' | 'nickname'>[]
+  blockAuthor: (author: Author) => void
+  unblockAuthor: (authorId: string) => void
 }
 
 // 글 하나만 바꿔 끼움
@@ -50,6 +58,8 @@ export const useCommunityStore = create<CommunityState>()(
       noticeDismissed: false,
       draft: null,
       restrictedUntil: null,
+      reports: [],
+      blockedAuthors: [],
       setNickname: (nickname, showWeek) =>
         set((state) => ({ nickname, showWeek: showWeek ?? state.showWeek })),
       dismissNotice: () => set({ noticeDismissed: true }),
@@ -134,6 +144,21 @@ export const useCommunityStore = create<CommunityState>()(
         })),
       saveDraft: (draft) => set({ draft }),
       clearDraft: () => set({ draft: null }),
+      removePost: (postId) =>
+        set((state) => ({ posts: state.posts.filter((post) => post.id !== postId) })),
+      reportPost: (postId, reason) =>
+        set((state) => ({ reports: [...state.reports, { postId, reason }] })),
+      blockAuthor: ({ id, nickname }) =>
+        set((state) => ({
+          blockedAuthors: [
+            ...state.blockedAuthors.filter((item) => item.id !== id),
+            { id, nickname },
+          ],
+        })),
+      unblockAuthor: (authorId) =>
+        set((state) => ({
+          blockedAuthors: state.blockedAuthors.filter((item) => item.id !== authorId),
+        })),
     }),
     { name: 'dangdang-community' },
   ),

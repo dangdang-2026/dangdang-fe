@@ -34,6 +34,8 @@ export type Post = {
   views: number
   likes: number
   comments: CommunityComment[]
+  // 운영정책으로 가려진 글
+  hidden?: boolean
 }
 
 // 글쓰기 임시 저장. 게시판을 안 골랐으면 null
@@ -43,3 +45,5 @@ export type PostDraft = {
   body: string
   anonymous: boolean
 }
+
+export type ReportReason = 'medical' | 'compare' | 'ad' | 'privacy' | 'abuse' | 'etc'

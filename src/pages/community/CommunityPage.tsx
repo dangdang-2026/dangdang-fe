@@ -18,6 +18,7 @@ import { BOARD_ICON, BOARD_LABEL, BOARD_ORDER } from '@/constants/community'
 import { ROUTES, communityBoardPath, communityPostPath } from '@/constants/routes'
 import { useNow } from '@/hooks/useNow'
 import { useOnline } from '@/hooks/useOnline'
+import { useVisiblePosts } from '@/hooks/useVisiblePosts'
 import { useCommunityStore } from '@/stores/useCommunityStore'
 import type { PostSort } from '@/types/community'
 import { sortPosts } from '@/utils/community'
@@ -31,7 +32,7 @@ function CommunityPage() {
   const navigate = useNavigate()
   const now = useNow()
   const { online, recheck } = useOnline()
-  const posts = useCommunityStore((state) => state.posts)
+  const posts = useVisiblePosts()
   const noticeDismissed = useCommunityStore((state) => state.noticeDismissed)
   const dismissNotice = useCommunityStore((state) => state.dismissNotice)
   const nickname = useCommunityStore((state) => state.nickname)

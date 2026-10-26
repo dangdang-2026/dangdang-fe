@@ -44,9 +44,9 @@ function PostCard({ post, now, onClick }: PostCardProps) {
         <span className={chipClass}>{BOARD_LABEL[post.board]}</span>
       </span>
       <span className="text-subtitle-1 text-grey-900 w-full truncate tracking-normal">
-        {post.title}
+        {post.hidden ? '운영정책에 따라 가려진 글이에요' : post.title}
       </span>
-      <span className="text-t6 text-grey-600 line-clamp-2">{post.body}</span>
+      {!post.hidden && <span className="text-t6 text-grey-600 line-clamp-2">{post.body}</span>}
       {best && (
         <span className="flex w-full items-center gap-1.5 text-sm leading-snug">
           <span aria-hidden className="text-grey-300 text-t7">

@@ -22,7 +22,7 @@ function PostRow({ post, now, showBody, onClick }: PostRowProps) {
       onClick={onClick}
     >
       <span className="text-grey-900 w-full truncate text-base leading-normal font-medium">
-        {post.title}
+        {post.hidden ? '운영정책에 따라 가려진 글이에요' : post.title}
       </span>
       <span className="text-t7 text-grey-600 w-full truncate leading-snug">
         {showBody ? post.body : author}
