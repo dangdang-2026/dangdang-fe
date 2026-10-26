@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router'
 import SplashScreen from '@/components/onboarding/SplashScreen'
 import { ROUTES, communityNewsPath } from '@/constants/routes'
+import { SPLASH_MOTION_MS } from '@/constants/splashMotion'
 import { useTimeout } from '@/hooks/useTimeout'
 import OnboardingGate from '@/layouts/OnboardingGate'
 import { MOCK_NEWS } from '@/mocks/news'
@@ -36,15 +37,17 @@ import SlotsPage from '@/pages/onboarding/SlotsPage'
 import TermsAgreePage from '@/pages/onboarding/TermsAgreePage'
 import TimingPage from '@/pages/onboarding/TimingPage'
 
-// 앱을 열 때 스플래시를 보여 주는 시간
+// 재실행 스플래시(당당 소식 카드)를 보여 주는 시간
 const SPLASH_MS = 1600
+// 첫 실행은 모션(1.8초)이 끝나고 0.3초 머문 뒤 넘김
+const FIRST_SPLASH_MS = SPLASH_MOTION_MS + 300
 
 function App() {
   const navigate = useNavigate()
   const completed = useOnboardingStore((state) => state.completed)
   // 앱을 열 때 한 번. 설정을 마친 뒤엔 당당 소식 한 장과 함께
   const [splash, setSplash] = useState(true)
-  useTimeout(() => setSplash(false), splash ? SPLASH_MS : null)
+  useTimeout(() => setSplash(false), splash ? (completed ? SPLASH_MS : FIRST_SPLASH_MS) : null)
   const latestNews = MOCK_NEWS[0]
 
   return (
