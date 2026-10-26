@@ -8,6 +8,7 @@ import TodayRecordSection from '@/components/today/TodayRecordSection'
 import { MOCK_USER } from '@/mocks/user'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import type { GlucoseRecord, MeasureTarget } from '@/types/glucose'
+import { isSameDay } from '@/utils/date'
 import { getMeasureTarget, getSlotLabel } from '@/utils/glucose'
 
 function TodayPage() {
@@ -15,6 +16,10 @@ function TodayPage() {
   const records = useGlucoseStore((state) => state.records)
   const [sheetTarget, setSheetTarget] = useState<MeasureTarget | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+
+  const now = new Date()
+  const todayMeals = meals.filter((meal) => isSameDay(new Date(meal.startedAt), now))
+  const todayRecords = records.filter((record) => isSameDay(new Date(record.measuredAt), now))
 
   const openGlucoseSheet = () => {
     setSheetTarget(getMeasureTarget(meals, records, MOCK_USER.postMealHours, new Date()))
@@ -43,7 +48,12 @@ function TodayPage() {
         <NotificationBanner />
       </div>
       <div className="mt-5.5">
-        <TodayRecordSection count={0} onInputGlucose={openGlucoseSheet} />
+        <TodayRecordSection
+          meals={todayMeals}
+          records={todayRecords}
+          postMealHours={MOCK_USER.postMealHours}
+          onInputGlucose={openGlucoseSheet}
+        />
       </div>
 
       {sheetTarget && (
