@@ -166,6 +166,7 @@ function MyPage() {
               icon: iconMenuCommunity,
               title: '커뮤니티 설정',
               description: '닉네임 · 내 글 · 안 보는 사람',
+              onClick: () => navigate(ROUTES.MY_COMMUNITY),
             },
           ]}
         />
