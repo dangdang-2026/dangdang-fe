@@ -100,6 +100,7 @@
   --shadow-card: 0 4px 12px 0 rgb(128 89 0 / 0.05);
   --shadow-receipt: 0 10px 30px 0 rgb(102 77 26 / 0.1);
   --shadow-segment: 0 2px 6px 0 rgb(25 31 40 / 0.08);
+  --shadow-notification: 0 4px 12px 0 rgb(25 31 40 / 0.1);
   --shadow-chatbot: 0 6px 14px 0 rgb(128 89 0 / 0.22);
   --shadow-chatbot-tag: 0 2px 6px 0 rgb(128 89 0 / 0.15);
   --shadow-sheet: 0 0 7.3px 0 rgb(0 0 0 / 0.25);

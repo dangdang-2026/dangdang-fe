@@ -22,6 +22,7 @@ import { useCriteria } from '@/hooks/useCriteria'
 import { useNow } from '@/hooks/useNow'
 import { MOCK_HOSPITAL } from '@/mocks/hospital'
 import { useFoodStore } from '@/stores/useFoodStore'
+import { useNotificationStore } from '@/stores/useNotificationStore'
 import { CARE_MODE_LABEL, useProfileStore } from '@/stores/useProfileStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import { formatMeridiemTime } from '@/utils/date'
@@ -44,6 +45,7 @@ function MyPage() {
   const criteria = useCriteria()
   const myFoodCount = useFoodStore((state) => state.myFoods.length)
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
+  const hideOnLockScreen = useNotificationStore((state) => state.hideOnLockScreen)
 
   const age = getPregnancyAge(dueDate, now)
   const visit = getVisitStatus(nextVisitAt, now)
@@ -173,7 +175,7 @@ function MyPage() {
             {
               icon: iconMenuBell,
               title: '알림',
-              description: '측정 · 진료 · 잠금화면 문구',
+              description: `잠금화면 문구 가리기 ${hideOnLockScreen ? '켜짐' : '꺼짐'}`,
               onClick: () => navigate(ROUTES.MY_NOTIFICATIONS),
             },
             { icon: iconMenuAi, title: 'AI 설정', description: '사진 찾기 · 당당이' },
