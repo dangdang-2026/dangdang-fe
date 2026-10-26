@@ -2,7 +2,9 @@ import { useCallback, useState } from 'react'
 import iconEdit from '@/assets/icons/edit.svg'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
+import CriteriaCard from '@/components/visit/CriteriaCard'
 import NextVisitCard from '@/components/visit/NextVisitCard'
+import ReportCard from '@/components/visit/ReportCard'
 import QuestionSheet from '@/components/visit/QuestionSheet'
 import QuestionsCard from '@/components/visit/QuestionsCard'
 import VisitDateSheet from '@/components/visit/VisitDateSheet'
@@ -90,6 +92,12 @@ function VisitPage() {
           onAdd={() => setQuestionSheetOpen(true)}
           onRemove={handleRemoveQuestion}
         />
+      </div>
+      <div className="mt-4">
+        <ReportCard today={startOfDay(now)} />
+      </div>
+      <div className="mt-4">
+        <CriteriaCard />
       </div>
 
       {dateSheet && (
