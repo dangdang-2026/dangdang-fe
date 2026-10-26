@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import iconClear from '@/assets/icons/clear.svg'
+import iconPlusMd from '@/assets/icons/plus-md.svg'
 import iconSearch from '@/assets/icons/search.svg'
 import iconSearchSm from '@/assets/icons/search-sm.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import FoodChip from '@/components/meal/FoodChip'
+import MyFoodForm from '@/components/meal/MyFoodForm'
 import { MEAL_LABEL } from '@/constants/glucose'
 import { useFoods } from '@/hooks/useFoods'
 import { DEFAULT_RECENT_FOODS } from '@/mocks/foods'
+import { useFoodStore } from '@/stores/useFoodStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
-import type { Meal, Portion } from '@/types/glucose'
+import type { Meal, MyFood, Portion } from '@/types/glucose'
 import { formatTime } from '@/utils/date'
 import { findFood, formatPortion, getRecentFoods } from '@/utils/meal'
 
@@ -34,6 +37,9 @@ function MealContentSheet({ meal, editing, onClose, onSaved }: MealContentSheetP
   const [query, setQuery] = useState('')
   // 검색으로 고른 음식도 칩으로 계속 보여 줌
   const [searched, setSearched] = useState<string[]>([])
+  // 내 음식 추가 중인 이름
+  const [addingName, setAddingName] = useState<string | null>(null)
+  const addMyFood = useFoodStore((state) => state.addMyFood)
 
   const recent = getRecentFoods(
     meals.filter((item) => item.id !== meal.id),
@@ -67,7 +73,25 @@ function MealContentSheet({ meal, editing, onClose, onSaved }: MealContentSheetP
     setSearching(false)
   }
 
+  // 내 음식을 추가하면 고른 음식에 더해 바로 저장
+  const handleAddMyFood = (food: MyFood) => {
+    addMyFood(food)
+    onSaved([...new Set([...selected, food.name])], food.portion)
+  }
+
   const mealLabel = MEAL_LABEL[meal.type]
+
+  if (addingName !== null) {
+    return (
+      <BottomSheet label="내 음식 추가" onClose={onClose}>
+        <MyFoodForm
+          initialName={addingName}
+          onBack={() => setAddingName(null)}
+          onAdd={handleAddMyFood}
+        />
+      </BottomSheet>
+    )
+  }
 
   return (
     <BottomSheet label="식사 내용" onClose={onClose}>
@@ -127,6 +151,13 @@ function MealContentSheet({ meal, editing, onClose, onSaved }: MealContentSheetP
                 <br />
                 다음부터는 바로 고를 수 있어요.
               </p>
+              <button
+                type="button"
+                className="border-grey-300 text-grey-800 flex items-center gap-1.5 rounded-full border py-2.5 pr-4.5 pl-4 text-sm leading-normal font-bold"
+                onClick={() => setAddingName(keyword)}
+              >
+                <img src={iconPlusMd} alt="" width={16} height={16} />‘{keyword}’ 추가
+              </button>
             </div>
           )}
         </>
