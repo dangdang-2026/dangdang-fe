@@ -6,16 +6,22 @@ type ConfirmDialogProps = {
   confirmLabel: string
   // 지우기처럼 되돌릴 수 없으면 빨간 버튼
   danger?: boolean
+  // 왼쪽 버튼. 없으면 취소로 닫기
+  cancel?: { label: string; onClick: () => void }
+  // 버튼 아래 밑줄 글자 버튼. 예: 계속 쓰기
+  link?: { label: string; onClick: () => void }
   onConfirm: () => void
   onClose: () => void
 }
 
-// Figma U-31 가운데 확인창. 딤·Esc로 닫힘
+// Figma U-31·U-16 가운데 확인창. 딤·Esc로 닫힘
 function ConfirmDialog({
   title,
   description,
   confirmLabel,
   danger,
+  cancel,
+  link,
   onConfirm,
   onClose,
 }: ConfirmDialogProps) {
@@ -47,20 +53,29 @@ function ConfirmDialog({
           <button
             type="button"
             className="bg-grey-100 text-grey-800 h-12 flex-1 rounded-xl text-base leading-none font-bold"
-            onClick={onClose}
+            onClick={cancel?.onClick ?? onClose}
           >
-            취소
+            {cancel?.label ?? '취소'}
           </button>
           <button
             type="button"
-            className={`h-12 flex-1 rounded-xl text-base leading-none font-bold text-white ${
-              danger ? 'bg-red-500' : 'bg-primary'
+            className={`h-12 flex-1 rounded-xl text-base leading-none font-bold ${
+              danger ? 'bg-red-500 text-white' : 'bg-primary text-grey-900'
             }`}
             onClick={onConfirm}
           >
             {confirmLabel}
           </button>
         </div>
+        {link && (
+          <button
+            type="button"
+            className="text-grey-600 mt-2 self-center text-sm leading-snug font-medium underline"
+            onClick={link.onClick}
+          >
+            {link.label}
+          </button>
+        )}
       </section>
     </div>
   )

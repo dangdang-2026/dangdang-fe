@@ -15,6 +15,7 @@ import Toast from '@/components/common/Toast'
 import AuthorBadge from '@/components/community/AuthorBadge'
 import CommentComposer from '@/components/community/CommentComposer'
 import CommentItem from '@/components/community/CommentItem'
+import RestrictedSheet from '@/components/community/RestrictedSheet'
 import { BOARD_LABEL } from '@/constants/community'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
@@ -56,12 +57,15 @@ function PostDetailPage() {
   const toggleLikeComment = useCommunityStore((state) => state.toggleLikeComment)
   const addComment = useCommunityStore((state) => state.addComment)
   const removeComment = useCommunityStore((state) => state.removeComment)
+  const restrictedUntil = useCommunityStore((state) => state.restrictedUntil)
+  const [restrictedOpen, setRestrictedOpen] = useState(false)
   const [composing, setComposing] = useState<Composing | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
   const closeComposer = useCallback(() => setComposing(null), [])
   const closeDelete = useCallback(() => setDeletingId(null), [])
+  const closeRestricted = useCallback(() => setRestrictedOpen(false), [])
 
   // 들어올 때 조회수 1 올림. 개발 모드 이중 실행에도 한 번만
   const viewedId = useRef<string | null>(null)
@@ -79,8 +83,9 @@ function PostDetailPage() {
 
   // 닉네임을 정해야 댓글을 남길 수 있음
   const startComment = (target: Composing) => {
-    if (me) setComposing(target)
-    else setToast('커뮤니티 첫 화면에서 닉네임을 먼저 정해 주세요')
+    if (!me) setToast('커뮤니티 첫 화면에서 닉네임을 먼저 정해 주세요')
+    else if (restrictedUntil && new Date(restrictedUntil) > new Date()) setRestrictedOpen(true)
+    else setComposing(target)
   }
 
   const share = async () => {
@@ -249,6 +254,14 @@ function PostDetailPage() {
             setToast('댓글을 지웠어요')
           }}
           onClose={closeDelete}
+        />
+      )}
+      {restrictedOpen && restrictedUntil && (
+        <RestrictedSheet
+          until={new Date(restrictedUntil)}
+          onPolicy={() => setToast(COMING_SOON)}
+          onAppeal={() => setToast(COMING_SOON)}
+          onClose={closeRestricted}
         />
       )}
       {toast && <Toast message={toast} onClose={closeToast} />}

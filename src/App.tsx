@@ -11,6 +11,7 @@ import CriteriaHistoryPage from '@/pages/visit/CriteriaHistoryPage'
 import BoardPage from '@/pages/community/BoardPage'
 import CommunityPage from '@/pages/community/CommunityPage'
 import PostDetailPage from '@/pages/community/PostDetailPage'
+import WritePage from '@/pages/community/WritePage'
 import MyCriteriaPage from '@/pages/my/MyCriteriaPage'
 import MyFoodsPage from '@/pages/my/MyFoodsPage'
 import MyPage from '@/pages/my/MyPage'
@@ -40,6 +41,7 @@ function App() {
       <Route path={ROUTES.MY_FOODS} element={<MyFoodsPage />} />
       <Route path={ROUTES.MY_TERMS} element={<TermsPage />} />
       <Route path={ROUTES.COMMUNITY_POST} element={<PostDetailPage />} />
+      <Route path={ROUTES.COMMUNITY_WRITE} element={<WritePage />} />
       {/* TODO: 404 페이지(Figma 149:1129) 구현 후 교체 */}
       <Route path="*" element={<Navigate to={ROUTES.TODAY} replace />} />
     </Routes>

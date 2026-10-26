@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { MOCK_POSTS } from '@/mocks/community'
-import type { Author, Post } from '@/types/community'
+import type { Author, BoardKey, Post, PostDraft } from '@/types/community'
 
 type CommunityState = {
   // 커뮤니티 첫 진입에 정함. 안 정했으면 null
@@ -20,6 +20,15 @@ type CommunityState = {
   toggleLikeComment: (postId: string, commentId: string) => void
   addComment: (postId: string, author: Author, body: string, parentId?: string) => void
   removeComment: (postId: string, commentId: string) => void
+  // 새 글 id를 돌려줌
+  addPost: (input: { board: BoardKey; title: string; body: string; author: Author }) => string
+  editPost: (postId: string, changes: Pick<Post, 'board' | 'title' | 'body'>) => void
+  // 쓰다 나갈 때 임시 저장
+  draft: PostDraft | null
+  saveDraft: (draft: PostDraft) => void
+  clearDraft: () => void
+  // 신고 누적으로 글·댓글 막힌 기한. 서버 연동 전엔 직접 넣어 재현
+  restrictedUntil: string | null
 }
 
 // 글 하나만 바꿔 끼움
@@ -39,6 +48,8 @@ export const useCommunityStore = create<CommunityState>()(
       likedPostIds: [],
       likedCommentIds: [],
       noticeDismissed: false,
+      draft: null,
+      restrictedUntil: null,
       setNickname: (nickname, showWeek) =>
         set((state) => ({ nickname, showWeek: showWeek ?? state.showWeek })),
       dismissNotice: () => set({ noticeDismissed: true }),
@@ -97,6 +108,32 @@ export const useCommunityStore = create<CommunityState>()(
             ),
           })),
         })),
+      addPost: ({ board, title, body, author }) => {
+        const id = crypto.randomUUID()
+        const post: Post = {
+          id,
+          board,
+          title,
+          body,
+          author,
+          createdAt: new Date().toISOString(),
+          views: 0,
+          likes: 0,
+          comments: [],
+        }
+        set((state) => ({ posts: [post, ...state.posts], draft: null }))
+        return id
+      },
+      editPost: (postId, changes) =>
+        set((state) => ({
+          posts: updatePost(state.posts, postId, (post) => ({
+            ...post,
+            ...changes,
+            editedAt: new Date().toISOString(),
+          })),
+        })),
+      saveDraft: (draft) => set({ draft }),
+      clearDraft: () => set({ draft: null }),
     }),
     { name: 'dangdang-community' },
   ),

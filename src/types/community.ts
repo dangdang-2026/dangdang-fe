@@ -35,3 +35,11 @@ export type Post = {
   likes: number
   comments: CommunityComment[]
 }
+
+// 글쓰기 임시 저장. 게시판을 안 골랐으면 null
+export type PostDraft = {
+  board: BoardKey | null
+  title: string
+  body: string
+  anonymous: boolean
+}
