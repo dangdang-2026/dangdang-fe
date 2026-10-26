@@ -1,10 +1,11 @@
 import iconDropSm from '@/assets/icons/drop-sm.svg'
 import iconMealSm from '@/assets/icons/meal-sm.svg'
-import { MEAL_LABEL } from '@/constants/glucose'
+import { useFoods } from '@/hooks/useFoods'
 import { MOCK_USER } from '@/mocks/user'
 import type { GlucoseRecord, Meal } from '@/types/glucose'
 import { formatTime } from '@/utils/date'
 import { compareToTarget, getLateMinutes, getSlotLabel, getTarget } from '@/utils/glucose'
+import { formatMealLabel } from '@/utils/meal'
 
 type RecordTimelineProps = {
   meals: Meal[]
@@ -32,6 +33,7 @@ function getRecordNote(record: GlucoseRecord, allMeals: Meal[]) {
 
 // Figma D-01 날짜별 식사·혈당 시간순 목록. 혈당 줄을 누르면 수정
 function RecordTimeline({ meals, records, allMeals, onSelectRecord }: RecordTimelineProps) {
+  const foods = useFoods()
   const rows: Row[] = [
     ...meals.map((meal) => ({ kind: 'meal' as const, at: new Date(meal.startedAt), meal })),
     ...records.map((record) => ({
@@ -56,7 +58,7 @@ function RecordTimeline({ meals, records, allMeals, onSelectRecord }: RecordTime
               {time}
               <img src={iconMealSm} alt="" width={16} height={16} />
               <p className="text-grey-800 text-sm leading-normal font-medium">
-                {MEAL_LABEL[row.meal.type]} 식사
+                {formatMealLabel(row.meal, foods)}
               </p>
             </li>
           )

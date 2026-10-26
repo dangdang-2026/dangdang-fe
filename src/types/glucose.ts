@@ -9,6 +9,25 @@ export type Meal = {
   startedAt: string
   // 이번 끼니 식후 측정 건너뜀
   skipped: boolean
+  // 먹은 음식 이름과 양. 적기 전엔 없음
+  foods?: string[]
+  portion?: Portion
+}
+
+// 양: 반 · 1 · 1.5
+export type Portion = 'half' | 'one' | 'one-half'
+
+// 음식 하나. unit은 양 표시 단위(공기·인분 등)
+export type Food = {
+  name: string
+  unit: string
+}
+
+// 사용자가 직접 추가한 음식
+export type MyFood = Food & {
+  // 영양 참고값 기준으로 쓸 비슷한 음식
+  similarTo?: string
+  portion: Portion
 }
 
 export type GlucoseRecord = {

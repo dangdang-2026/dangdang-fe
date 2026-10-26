@@ -1,10 +1,11 @@
 import { Link } from 'react-router'
 import EmptyRecordCard from '@/components/glucose/EmptyRecordCard'
-import { MEAL_LABEL } from '@/constants/glucose'
 import { ROUTES } from '@/constants/routes'
-import type { GlucoseRecord, Meal } from '@/types/glucose'
+import { useFoods } from '@/hooks/useFoods'
+import type { Food, GlucoseRecord, Meal } from '@/types/glucose'
 import { formatTime } from '@/utils/date'
 import { getSlotLabel } from '@/utils/glucose'
+import { formatMealLabel } from '@/utils/meal'
 
 type TodayRecordSectionProps = {
   meals: Meal[]
@@ -21,12 +22,12 @@ type TimelineItem = {
 }
 
 // 식사·혈당을 시간순 한 줄씩
-function toTimeline(meals: Meal[], records: GlucoseRecord[], hours: number | null) {
+function toTimeline(meals: Meal[], records: GlucoseRecord[], hours: number | null, foods: Food[]) {
   const items: TimelineItem[] = [
     ...meals.map((meal) => ({
       id: meal.id,
       at: new Date(meal.startedAt),
-      label: `${MEAL_LABEL[meal.type]} 식사`,
+      label: formatMealLabel(meal, foods),
     })),
     ...records.map((record) => ({
       id: record.id,
@@ -44,7 +45,8 @@ function TodayRecordSection({
   postMealHours,
   onInputGlucose,
 }: TodayRecordSectionProps) {
-  const timeline = toTimeline(meals, records, postMealHours)
+  const foods = useFoods()
+  const timeline = toTimeline(meals, records, postMealHours, foods)
 
   return (
     <section>
