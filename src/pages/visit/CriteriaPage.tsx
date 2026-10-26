@@ -6,6 +6,7 @@ import FoodChip from '@/components/meal/FoodChip'
 import { GLUCOSE_MAX, GLUCOSE_MIN } from '@/constants/glucose'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
+import { useGoBack } from '@/hooks/useGoBack'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import type { MeasureSlotKey } from '@/types/criteria'
 import { MEASURE_SLOT_LABEL, MEASURE_SLOT_ORDER, diffCriteria } from '@/utils/criteria'
@@ -47,6 +48,7 @@ const isValidTarget = (value: string) =>
 // Figma C-09 진료 후 기준 반영. 오늘부터 새 버전으로 적용
 function CriteriaPage() {
   const navigate = useNavigate()
+  const goBack = useGoBack(ROUTES.VISIT)
   const current = useCriteria()
   const addCriteria = useCriteriaStore((state) => state.addCriteria)
   const [hours, setHours] = useState(current.postMealHours ?? 1)
@@ -74,7 +76,7 @@ function CriteriaPage() {
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-30">
-      <SubPageHeader title="기준 바꾸기" onBack={() => navigate(ROUTES.VISIT)} />
+      <SubPageHeader title="기준 바꾸기" onBack={goBack} />
 
       <div className="mt-3 flex flex-col gap-1.5">
         <h2 className="text-title-2 text-grey-900">

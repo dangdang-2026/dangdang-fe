@@ -1,9 +1,10 @@
 import { useCallback, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router'
+import { useLocation } from 'react-router'
 import iconInfo from '@/assets/icons/info-grey.svg'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import Toast from '@/components/common/Toast'
 import { ROUTES } from '@/constants/routes'
+import { useGoBack } from '@/hooks/useGoBack'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import type { Criteria } from '@/types/criteria'
 import { formatMeasureSlots, formatPostMealHours } from '@/utils/criteria'
@@ -50,7 +51,7 @@ function CriteriaVersionCard({ criteria, isCurrent }: { criteria: Criteria; isCu
 
 // Figma C-10 기준 변경 이력. 최신 버전부터
 function CriteriaHistoryPage() {
-  const navigate = useNavigate()
+  const goBack = useGoBack(ROUTES.VISIT)
   const location = useLocation()
   const versions = useCriteriaStore((state) => state.versions)
   // 기준을 막 바꾸고 왔으면 안내
@@ -64,7 +65,7 @@ function CriteriaHistoryPage() {
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-30">
-      <SubPageHeader title="기준 변경 이력" onBack={() => navigate(ROUTES.VISIT)} />
+      <SubPageHeader title="기준 변경 이력" onBack={goBack} />
 
       <ul className="mt-4 flex flex-col gap-3">
         {[...versions].reverse().map((criteria) => (
