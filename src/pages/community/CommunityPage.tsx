@@ -169,14 +169,12 @@ function CommunityPage() {
 
       {nicknameOpen && (
         <NicknameSheet
-          mode="first"
-          current={nickname}
           onSubmit={(name, showWeek) => {
             setNickname(name, showWeek)
             setNicknameOpen(false)
             setToast(`‘${name}’ 님, 반가워요`)
           }}
-          onPolicy={comingSoon}
+          onPolicy={() => navigate(ROUTES.COMMUNITY_POLICY)}
           onClose={closeNickname}
         />
       )}

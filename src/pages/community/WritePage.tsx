@@ -153,7 +153,7 @@ function WritePage() {
           <button
             type="button"
             className="text-grey-600 self-start text-sm font-medium underline"
-            onClick={() => setToast(COMING_SOON)}
+            onClick={() => navigate(ROUTES.COMMUNITY_POLICY)}
           >
             커뮤니티 운영정책 보기 ›
           </button>
@@ -253,7 +253,7 @@ function WritePage() {
       {restrictedOpen && restrictedUntil && (
         <RestrictedSheet
           until={new Date(restrictedUntil)}
-          onPolicy={() => setToast(COMING_SOON)}
+          onPolicy={() => navigate(ROUTES.COMMUNITY_POLICY)}
           onAppeal={() => setToast(COMING_SOON)}
           onClose={closeRestricted}
         />

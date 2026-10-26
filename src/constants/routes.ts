@@ -10,12 +10,16 @@ export const ROUTES = {
   COMMUNITY_BOARD: '/community/board/:board',
   COMMUNITY_POST: '/community/posts/:id',
   COMMUNITY_WRITE: '/community/write',
+  COMMUNITY_POLICY: '/community/policy',
   MY: '/my',
   MY_PROFILE: '/my/profile',
   MY_CRITERIA: '/my/criteria',
   MY_NOTIFICATIONS: '/my/notifications',
   MY_FOODS: '/my/foods',
   MY_TERMS: '/my/terms',
+  MY_COMMUNITY: '/my/community',
+  MY_NICKNAME: '/my/community/nickname',
+  MY_COMMUNITY_ACTIVITY: '/my/community/activity',
 } as const
 
 export const communityBoardPath = (board: string) => `/community/board/${board}`

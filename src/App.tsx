@@ -11,10 +11,14 @@ import CriteriaHistoryPage from '@/pages/visit/CriteriaHistoryPage'
 import BoardPage from '@/pages/community/BoardPage'
 import CommunityPage from '@/pages/community/CommunityPage'
 import PostDetailPage from '@/pages/community/PostDetailPage'
+import PolicyPage from '@/pages/community/PolicyPage'
 import WritePage from '@/pages/community/WritePage'
+import CommunityActivityPage from '@/pages/my/CommunityActivityPage'
+import CommunitySettingsPage from '@/pages/my/CommunitySettingsPage'
 import MyCriteriaPage from '@/pages/my/MyCriteriaPage'
 import MyFoodsPage from '@/pages/my/MyFoodsPage'
 import MyPage from '@/pages/my/MyPage'
+import NicknamePage from '@/pages/my/NicknamePage'
 import NotificationsPage from '@/pages/my/NotificationsPage'
 import ProfilePage from '@/pages/my/ProfilePage'
 import TermsPage from '@/pages/my/TermsPage'
@@ -40,8 +44,12 @@ function App() {
       <Route path={ROUTES.MY_NOTIFICATIONS} element={<NotificationsPage />} />
       <Route path={ROUTES.MY_FOODS} element={<MyFoodsPage />} />
       <Route path={ROUTES.MY_TERMS} element={<TermsPage />} />
+      <Route path={ROUTES.MY_COMMUNITY} element={<CommunitySettingsPage />} />
+      <Route path={ROUTES.MY_NICKNAME} element={<NicknamePage />} />
+      <Route path={ROUTES.MY_COMMUNITY_ACTIVITY} element={<CommunityActivityPage />} />
       <Route path={ROUTES.COMMUNITY_POST} element={<PostDetailPage />} />
       <Route path={ROUTES.COMMUNITY_WRITE} element={<WritePage />} />
+      <Route path={ROUTES.COMMUNITY_POLICY} element={<PolicyPage />} />
       {/* TODO: 404 페이지(Figma 149:1129) 구현 후 교체 */}
       <Route path="*" element={<Navigate to={ROUTES.TODAY} replace />} />
     </Routes>

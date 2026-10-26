@@ -63,8 +63,10 @@ function BoardPage() {
 
   const notices = [
     { title: `${label} 게시판 이렇게 써 주세요`, onClick: () => setGuideOpen(true) },
-    // 운영정책 화면은 커뮤니티 설정과 함께 연결
-    { title: '커뮤니티 운영정책 (10.19 업데이트)', onClick: () => setToast(COMING_SOON) },
+    {
+      title: '커뮤니티 운영정책 (10.19 업데이트)',
+      onClick: () => navigate(ROUTES.COMMUNITY_POLICY),
+    },
   ]
 
   return (

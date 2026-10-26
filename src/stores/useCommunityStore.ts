@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { MY_AUTHOR_ID } from '@/constants/community'
 import { MOCK_POSTS } from '@/mocks/community'
 import type { Author, BoardKey, Post, PostDraft, ReportReason } from '@/types/community'
 
@@ -13,7 +14,9 @@ type CommunityState = {
   likedCommentIds: string[]
   // 메인 안내 띠를 닫았는지
   noticeDismissed: boolean
+  // 바꾸면 내가 쓴 글·댓글 이름도 함께 바뀜(익명 글 빼고)
   setNickname: (nickname: string, showWeek?: boolean) => void
+  setShowWeek: (showWeek: boolean) => void
   dismissNotice: () => void
   viewPost: (postId: string) => void
   toggleLikePost: (postId: string) => void
@@ -43,6 +46,17 @@ type CommunityState = {
 const updatePost = (posts: Post[], postId: string, update: (post: Post) => Post) =>
   posts.map((post) => (post.id === postId ? update(post) : post))
 
+// 내 이름으로 쓴 글쓴이만 새 이름으로
+const renameMe = (posts: Post[], from: string | null, to: string) => {
+  const rename = (author: Author) =>
+    author.id === MY_AUTHOR_ID && author.nickname === from ? { ...author, nickname: to } : author
+  return posts.map((post) => ({
+    ...post,
+    author: rename(post.author),
+    comments: post.comments.map((item) => ({ ...item, author: rename(item.author) })),
+  }))
+}
+
 const toggle = (ids: string[], id: string) =>
   ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]
 
@@ -61,7 +75,12 @@ export const useCommunityStore = create<CommunityState>()(
       reports: [],
       blockedAuthors: [],
       setNickname: (nickname, showWeek) =>
-        set((state) => ({ nickname, showWeek: showWeek ?? state.showWeek })),
+        set((state) => ({
+          nickname,
+          showWeek: showWeek ?? state.showWeek,
+          posts: renameMe(state.posts, state.nickname, nickname),
+        })),
+      setShowWeek: (showWeek) => set({ showWeek }),
       dismissNotice: () => set({ noticeDismissed: true }),
       viewPost: (postId) =>
         set((state) => ({

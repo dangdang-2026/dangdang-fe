@@ -1,4 +1,4 @@
-import { POPULAR_VIEWS } from '@/constants/community'
+import { MY_AUTHOR_ID, POPULAR_VIEWS } from '@/constants/community'
 import type { Author, Post, PostSort } from '@/types/community'
 import { diffInDays } from '@/utils/date'
 
@@ -38,4 +38,23 @@ export function sortPosts(posts: Post[], sort: PostSort) {
   return [...posts].sort((a, b) =>
     sort === 'popular' ? b.views - a.views : b.createdAt.localeCompare(a.createdAt),
   )
+}
+
+export type ActivityType = 'posts' | 'comments' | 'liked'
+
+export const ACTIVITY_LABEL: Record<ActivityType, string> = {
+  posts: '내가 쓴 글',
+  comments: '내가 쓴 댓글',
+  liked: '공감한 글',
+}
+
+export const isActivityType = (value: string | null): value is ActivityType =>
+  value !== null && value in ACTIVITY_LABEL
+
+// 내가 쓴 글·댓글 단 글·공감한 글
+export function filterActivity(posts: Post[], type: ActivityType, likedPostIds: string[]) {
+  if (type === 'posts') return posts.filter((post) => post.author.id === MY_AUTHOR_ID)
+  if (type === 'comments')
+    return posts.filter((post) => post.comments.some((item) => item.author.id === MY_AUTHOR_ID))
+  return posts.filter((post) => likedPostIds.includes(post.id))
 }
