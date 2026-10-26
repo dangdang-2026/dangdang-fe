@@ -3,17 +3,21 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router'
 import iconCaret from '@/assets/icons/community/caret.svg'
 import iconCheckCircle from '@/assets/icons/community/check-circle.svg'
 import iconPhoto from '@/assets/icons/community/photo.svg'
+import iconVoteActive from '@/assets/icons/community/vote-active.svg'
 import iconVote from '@/assets/icons/community/vote.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import Toast from '@/components/common/Toast'
+import PollEditor from '@/components/community/PollEditor'
+import PostWarningSheet from '@/components/community/PostWarningSheet'
 import RestrictedSheet from '@/components/community/RestrictedSheet'
-import { BOARD_LABEL, BOARD_ORDER } from '@/constants/community'
+import { BOARD_LABEL, BOARD_ORDER, POLL_MIN_OPTIONS } from '@/constants/community'
 import { ROUTES, communityPostPath } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useMyAuthor } from '@/hooks/useMyAuthor'
 import { useCommunityStore } from '@/stores/useCommunityStore'
 import type { BoardKey, PostDraft } from '@/types/community'
+import { checkPost, type PostWarning } from '@/utils/postCheck'
 
 const COMING_SOON = '다음 업데이트에서 열려요'
 const ANONYMOUS_NICKNAME = '익명 산모'
@@ -48,13 +52,22 @@ function WritePage() {
   const [draft, setDraft] = useState<PostDraft>(() => {
     if (editing) {
       const { board, title, body } = editing
-      return { board, title, body, anonymous: editing.author.nickname === ANONYMOUS_NICKNAME }
+      // 투표는 올린 뒤 고칠 수 없어 비워 둠
+      const anonymous = editing.author.nickname === ANONYMOUS_NICKNAME
+      return { board, title, body, anonymous, poll: null }
     }
-    if (savedDraft) return savedDraft
+    if (savedDraft) return { ...savedDraft, poll: savedDraft.poll ?? null }
     const board = params.get('board')
-    return { board: isBoardKey(board) ? board : null, title: '', body: '', anonymous: false }
+    return {
+      board: isBoardKey(board) ? board : null,
+      title: '',
+      body: '',
+      anonymous: false,
+      poll: null,
+    }
   })
   const [boardOpen, setBoardOpen] = useState(false)
+  const [warning, setWarning] = useState<PostWarning | null>(null)
   const [leaving, setLeaving] = useState(false)
   const [restrictedOpen, setRestrictedOpen] = useState(
     () => !!restrictedUntil && new Date(restrictedUntil) > new Date(),
@@ -75,10 +88,13 @@ function WritePage() {
 
   const title = draft.title.trim()
   const body = draft.body.trim()
-  const canSubmit = !!draft.board && !!title && !!body
+  const pollOptions = draft.poll?.map((option) => option.trim()).filter(Boolean) ?? []
+  // 투표를 넣었으면 항목 2개 이상
+  const pollReady = !draft.poll || pollOptions.length >= POLL_MIN_OPTIONS
+  const canSubmit = !!draft.board && !!title && !!body && pollReady
   const dirty = editing
     ? title !== editing.title || body !== editing.body || draft.board !== editing.board
-    : !!title || !!body
+    : !!title || !!body || pollOptions.length > 0
 
   const update = (changes: Partial<PostDraft>) => setDraft((prev) => ({ ...prev, ...changes }))
 
@@ -87,7 +103,7 @@ function WritePage() {
     else goBack()
   }
 
-  const submit = () => {
+  const publish = () => {
     if (!draft.board || !canSubmit) return
     if (editing) {
       editPost(editing.id, { board: draft.board, title, body })
@@ -96,8 +112,21 @@ function WritePage() {
       return
     }
     const author = draft.anonymous ? { ...me, nickname: ANONYMOUS_NICKNAME } : me
-    const id = addPost({ board: draft.board, title, body, author })
+    const id = addPost({
+      board: draft.board,
+      title,
+      body,
+      author,
+      poll: draft.poll ? pollOptions : undefined,
+    })
     navigate(communityPostPath(id), { replace: true })
+  }
+
+  // 위급한 말·약 용량이 있으면 올리기 전에 한 번 더 확인
+  const submit = () => {
+    const found = checkPost(`${title}\n${body}`)
+    if (found) setWarning(found)
+    else publish()
   }
 
   return (
@@ -143,9 +172,9 @@ function WritePage() {
           maxLength={BODY_MAX_LENGTH}
           aria-label="본문"
           placeholder={BODY_PLACEHOLDER}
-          // 비어 있으면 안내 글 높이만큼만 차지해 운영정책 링크가 바로 아래 오게
+          // 비어 있으면 안내 글 높이만큼만, 투표가 있으면 투표가 바로 아래 오게
           className={`text-t6 text-grey-900 placeholder:text-grey-400 resize-none leading-relaxed outline-none ${
-            draft.body ? 'min-h-60 flex-1' : 'h-34'
+            draft.body ? (draft.poll ? 'min-h-24' : 'min-h-60 flex-1') : 'h-34'
           }`}
           onChange={(event) => update({ body: event.target.value })}
         />
@@ -157,6 +186,18 @@ function WritePage() {
           >
             커뮤니티 운영정책 보기 ›
           </button>
+        )}
+        {draft.poll && (
+          <>
+            <PollEditor
+              options={draft.poll}
+              onChange={(poll) => update({ poll })}
+              onRemove={() => update({ poll: null })}
+            />
+            <p className="text-t7 text-grey-500">
+              · 글을 올린 뒤에는 투표를 고칠 수 없어요. 항목은 최대 5개예요.
+            </p>
+          </>
         )}
       </div>
 
@@ -181,14 +222,21 @@ function WritePage() {
             익명으로 올리기
           </button>
         )}
-        {/* 사진·투표는 다음 이슈 */}
+        {/* 사진은 다음 이슈. 투표는 고치기에서 못 넣음 */}
         <div className="flex items-center gap-5">
           <button type="button" aria-label="사진 넣기" onClick={() => setToast(COMING_SOON)}>
             <img src={iconPhoto} alt="" width={26} height={26} />
           </button>
-          <button type="button" aria-label="투표 만들기" onClick={() => setToast(COMING_SOON)}>
-            <img src={iconVote} alt="" width={26} height={26} />
-          </button>
+          {!editing && (
+            <button
+              type="button"
+              aria-label="투표 만들기"
+              aria-pressed={!!draft.poll}
+              onClick={() => update({ poll: draft.poll ? null : ['', ''] })}
+            >
+              <img src={draft.poll ? iconVoteActive : iconVote} alt="" width={26} height={26} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -256,6 +304,16 @@ function WritePage() {
           onPolicy={() => navigate(ROUTES.COMMUNITY_POLICY)}
           onAppeal={() => setToast(COMING_SOON)}
           onClose={closeRestricted}
+        />
+      )}
+      {warning && (
+        <PostWarningSheet
+          warning={warning}
+          onBack={() => setWarning(null)}
+          onPostAnyway={() => {
+            setWarning(null)
+            publish()
+          }}
         />
       )}
       {toast && <Toast message={toast} onClose={closeToast} />}

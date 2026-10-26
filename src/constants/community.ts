@@ -41,3 +41,7 @@ export const LATEST_ONLY_BOARDS: BoardKey[] = ['diet']
 export const POPULAR_VIEWS = 1000
 
 export const MY_AUTHOR_ID = 'me'
+
+// 투표 항목 수. 최소 2개, 최대 5개
+export const POLL_MIN_OPTIONS = 2
+export const POLL_MAX_OPTIONS = 5

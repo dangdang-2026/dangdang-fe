@@ -23,6 +23,12 @@ export type CommunityComment = {
   hidden?: boolean
 }
 
+export type PollOption = {
+  id: string
+  label: string
+  votes: number
+}
+
 export type Post = {
   id: string
   board: BoardKey
@@ -36,6 +42,8 @@ export type Post = {
   comments: CommunityComment[]
   // 운영정책으로 가려진 글
   hidden?: boolean
+  // 투표. 올린 뒤에는 고칠 수 없음
+  poll?: PollOption[]
 }
 
 // 글쓰기 임시 저장. 게시판을 안 골랐으면 null
@@ -44,6 +52,8 @@ export type PostDraft = {
   title: string
   body: string
   anonymous: boolean
+  // 투표 항목. 투표를 안 넣으면 null
+  poll: string[] | null
 }
 
 export type ReportReason = 'medical' | 'compare' | 'ad' | 'privacy' | 'abuse' | 'etc'

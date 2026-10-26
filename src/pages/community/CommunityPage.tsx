@@ -1,40 +1,60 @@
 import { useCallback, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import iconCardClose from '@/assets/icons/community/card-close.svg'
 import iconCatAll from '@/assets/icons/community/cat-all.svg'
 import iconCatNews from '@/assets/icons/community/cat-news.svg'
 import iconCatPopular from '@/assets/icons/community/cat-popular.svg'
 import iconInfo from '@/assets/icons/community/info.svg'
+import iconNewsCheck from '@/assets/icons/community/news-check.svg'
 import iconNoticeClose from '@/assets/icons/community/notice-close.svg'
 import iconPencil from '@/assets/icons/community/pencil.svg'
 import iconRefresh from '@/assets/icons/community/refresh.svg'
 import iconSearch from '@/assets/icons/community/search.svg'
+import iconClear from '@/assets/icons/clear.svg'
 import iconBell from '@/assets/icons/my/bell.svg'
 import Toast from '@/components/common/Toast'
 import CommunityEmpty from '@/components/community/CommunityEmpty'
 import NicknameSheet from '@/components/community/NicknameSheet'
 import PostCard from '@/components/community/PostCard'
+import SearchResults from '@/components/community/SearchResults'
 import SortToggle from '@/components/community/SortToggle'
 import { BOARD_ICON, BOARD_LABEL, BOARD_ORDER } from '@/constants/community'
-import { ROUTES, communityBoardPath, communityPostPath } from '@/constants/routes'
+import {
+  ROUTES,
+  communityBoardPath,
+  communityNewsPath,
+  communityPostPath,
+} from '@/constants/routes'
 import { useNow } from '@/hooks/useNow'
 import { useOnline } from '@/hooks/useOnline'
 import { useVisiblePosts } from '@/hooks/useVisiblePosts'
 import { useCommunityStore } from '@/stores/useCommunityStore'
+import { useVisitStore } from '@/stores/useVisitStore'
+import { MOCK_NEWS } from '@/mocks/news'
 import type { PostSort } from '@/types/community'
 import { sortPosts } from '@/utils/community'
 
-const COMING_SOON = '다음 업데이트에서 열려요'
-
 type Category = { key: string; label: string; icon: string; onClick: () => void }
 
-// Figma U-01 커뮤니티 메인 · U-08 불러오지 못함
+// Figma U-01 커뮤니티 메인 · U-06·U-07 검색 · U-08 불러오지 못함
 function CommunityPage() {
   const navigate = useNavigate()
+  // 검색어는 주소에 남겨 글을 보고 돌아와도 유지
+  const [params, setParams] = useSearchParams()
+  const query = params.get('q') ?? ''
+  const searching = query.trim() !== ''
+  const addQuestion = useVisitStore((state) => state.addQuestion)
+  // 게시판·글 보기의 검색 버튼으로 오면 바로 입력
+  const focusSearch = !!(useLocation().state as { focusSearch?: boolean } | null)?.focusSearch
   const now = useNow()
   const { online, recheck } = useOnline()
   const posts = useVisiblePosts()
   const noticeDismissed = useCommunityStore((state) => state.noticeDismissed)
   const dismissNotice = useCommunityStore((state) => state.dismissNotice)
+  const newsCardDismissed = useCommunityStore((state) => state.newsCardDismissed)
+  const dismissNewsCard = useCommunityStore((state) => state.dismissNewsCard)
+  // 메인에는 가장 최근 당당 소식 한 장
+  const latestNews = MOCK_NEWS[0]
   const nickname = useCommunityStore((state) => state.nickname)
   const setNickname = useCommunityStore((state) => state.setNickname)
   const [sort, setSort] = useState<PostSort>('popular')
@@ -44,16 +64,24 @@ function CommunityPage() {
   const closeToast = useCallback(() => setToast(null), [])
   const closeNickname = useCallback(() => setNicknameOpen(false), [])
 
-  const comingSoon = () => setToast(COMING_SOON)
   // 글쓰기는 닉네임을 정한 뒤에
   const startWriting = () => {
     if (nickname) navigate(ROUTES.COMMUNITY_WRITE)
     else setNicknameOpen(true)
   }
   const categories: Category[] = [
-    // 검색·인기·당당 소식은 다음 이슈
-    { key: 'news', label: '당당 소식', icon: iconCatNews, onClick: comingSoon },
-    { key: 'popular', label: '인기', icon: iconCatPopular, onClick: comingSoon },
+    {
+      key: 'news',
+      label: '당당 소식',
+      icon: iconCatNews,
+      onClick: () => navigate(ROUTES.COMMUNITY_NEWS),
+    },
+    {
+      key: 'popular',
+      label: '인기',
+      icon: iconCatPopular,
+      onClick: () => navigate(communityBoardPath('popular')),
+    },
     ...BOARD_ORDER.flatMap((board) => {
       const icon = BOARD_ICON[board]
       if (!icon) return []
@@ -92,78 +120,141 @@ function CommunityPage() {
       </header>
 
       <div className="px-5 pt-2 pb-3">
-        <button
-          type="button"
-          className="bg-grey-50 flex w-full items-center gap-2 rounded-xl px-3.5 py-3 text-left"
-          onClick={comingSoon}
-        >
+        <label className="bg-grey-50 focus-within:border-primary flex w-full items-center gap-2 rounded-xl border-2 border-transparent px-3.5 py-2.5 focus-within:bg-white">
           <img src={iconSearch} alt="" width={20} height={20} />
-          <span className="text-body-2 text-grey-400 font-normal">궁금한 걸 검색해 보세요</span>
-        </button>
+          <input
+            type="search"
+            value={query}
+            aria-label="커뮤니티 검색"
+            autoFocus={focusSearch}
+            placeholder="궁금한 걸 검색해 보세요"
+            className="text-t6 text-grey-900 placeholder:text-grey-400 min-w-0 flex-1 bg-transparent outline-none [&::-webkit-search-cancel-button]:hidden"
+            onChange={(event) =>
+              setParams(event.target.value ? { q: event.target.value } : {}, { replace: true })
+            }
+          />
+          {query && (
+            <button
+              type="button"
+              aria-label="검색어 지우기"
+              onClick={() => setParams({}, { replace: true })}
+            >
+              <img src={iconClear} alt="" width={18} height={18} />
+            </button>
+          )}
+        </label>
       </div>
 
-      <nav
-        aria-label="카테고리"
-        className="flex [scrollbar-width:none] gap-1.5 overflow-x-auto px-4 pt-1.5 pb-3.5"
-      >
-        <span className="flex w-16 shrink-0 flex-col items-center gap-1.5">
-          <span className="border-primary flex size-13 items-center justify-center rounded-2xl border-2 bg-yellow-100">
-            <img src={iconCatAll} alt="" width={28} height={28} />
-          </span>
-          <span className="text-grey-900 text-xs leading-snug font-bold">전체</span>
-        </span>
-        {categories.map(({ key, label, icon, onClick }) => (
-          <button
-            key={key}
-            type="button"
-            className="flex w-16 shrink-0 flex-col items-center gap-1.5"
-            onClick={onClick}
-          >
-            <span className="flex size-13 items-center justify-center rounded-2xl bg-yellow-50">
-              <img src={icon} alt="" width={28} height={28} />
-            </span>
-            <span className="text-grey-700 text-xs leading-snug font-medium">{label}</span>
-          </button>
-        ))}
-      </nav>
-
-      {!online ? (
-        <CommunityEmpty
-          variant="sorry"
-          title="글을 불러오지 못했어요"
-          description="인터넷 연결을 확인하고 다시 시도해 주세요."
-          action={{ icon: iconRefresh, label: '다시 불러오기', onClick: recheck }}
+      {searching ? (
+        <SearchResults
+          query={query}
+          posts={posts}
+          now={now}
+          onOpen={(post) => navigate(communityPostPath(post.id))}
+          onAsk={() => {
+            addQuestion(`${query.trim()} 물어보기`)
+            setToast('진료 탭 물어볼 것에 적었어요')
+          }}
+          onWrite={() => navigate(`${ROUTES.COMMUNITY_WRITE}?board=question`)}
         />
       ) : (
         <>
-          {!noticeDismissed && (
-            <div className="px-5 pb-2">
-              <p className="bg-grey-50 flex items-center gap-2 rounded-full py-2.5 pr-3 pl-3.5">
-                <img src={iconInfo} alt="" width={18} height={18} />
-                <span className="text-t7 text-grey-700 flex-1 leading-snug font-medium">
-                  진단·처방·약 이야기는 병원에 물어봐 주세요
+          <nav
+            aria-label="카테고리"
+            className="flex [scrollbar-width:none] gap-1.5 overflow-x-auto px-4 pt-1.5 pb-3.5"
+          >
+            <span className="flex w-16 shrink-0 flex-col items-center gap-1.5">
+              <span className="border-primary flex size-13 items-center justify-center rounded-2xl border-2 bg-yellow-100">
+                <img src={iconCatAll} alt="" width={28} height={28} />
+              </span>
+              <span className="text-grey-900 text-xs leading-snug font-bold">전체</span>
+            </span>
+            {categories.map(({ key, label, icon, onClick }) => (
+              <button
+                key={key}
+                type="button"
+                className="flex w-16 shrink-0 flex-col items-center gap-1.5"
+                onClick={onClick}
+              >
+                <span className="flex size-13 items-center justify-center rounded-2xl bg-yellow-50">
+                  <img src={icon} alt="" width={28} height={28} />
                 </span>
-                <button type="button" aria-label="안내 닫기" onClick={dismissNotice}>
-                  <img src={iconNoticeClose} alt="" width={16} height={16} />
-                </button>
-              </p>
-            </div>
-          )}
-
-          <div className="border-grey-50 mt-2 flex justify-end border-t-8 px-5 pt-2.5 pb-1.5">
-            <SortToggle value={sort} onChange={setSort} />
-          </div>
-          <ul>
-            {sortPosts(posts, sort).map((post) => (
-              <li key={post.id}>
-                <PostCard
-                  post={post}
-                  now={now}
-                  onClick={() => navigate(communityPostPath(post.id))}
-                />
-              </li>
+                <span className="text-grey-700 text-xs leading-snug font-medium">{label}</span>
+              </button>
             ))}
-          </ul>
+          </nav>
+
+          {!online ? (
+            <CommunityEmpty
+              variant="sorry"
+              title="글을 불러오지 못했어요"
+              description="인터넷 연결을 확인하고 다시 시도해 주세요."
+              action={{ icon: iconRefresh, label: '다시 불러오기', onClick: recheck }}
+            />
+          ) : (
+            <>
+              {!noticeDismissed && (
+                <div className="px-5 pb-2">
+                  <p className="bg-grey-50 flex items-center gap-2 rounded-full py-2.5 pr-3 pl-3.5">
+                    <img src={iconInfo} alt="" width={18} height={18} />
+                    <span className="text-t7 text-grey-700 flex-1 leading-snug font-medium">
+                      진단·처방·약 이야기는 병원에 물어봐 주세요
+                    </span>
+                    <button type="button" aria-label="안내 닫기" onClick={dismissNotice}>
+                      <img src={iconNoticeClose} alt="" width={16} height={16} />
+                    </button>
+                  </p>
+                </div>
+              )}
+
+              {!newsCardDismissed && (
+                <div className="px-5 pb-2">
+                  <div className="flex items-center gap-3 rounded-2xl bg-yellow-50 p-3">
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      onClick={() => navigate(communityNewsPath(latestNews.id))}
+                    >
+                      <span className="rounded-tag text-caption text-grey-800 flex size-14 shrink-0 items-start bg-white p-2 font-bold">
+                        {latestNews.slides.length}장
+                      </span>
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-caption text-grey-800 flex items-center gap-1 font-bold">
+                          <img src={iconNewsCheck} alt="" width={12} height={12} />
+                          당당 공식 · {latestNews.series}
+                        </span>
+                        <span className="text-grey-900 truncate text-sm leading-snug font-bold">
+                          {latestNews.title}
+                        </span>
+                        <span className="text-caption text-grey-500 font-normal">
+                          출처 {latestNews.sources.length} · 확인일{' '}
+                          {latestNews.checkedAt.slice(5).replace('-', '/')}
+                        </span>
+                      </span>
+                    </button>
+                    <button type="button" aria-label="당당 소식 닫기" onClick={dismissNewsCard}>
+                      <img src={iconCardClose} alt="" width={16} height={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="border-grey-50 mt-2 flex justify-end border-t-8 px-5 pt-2.5 pb-1.5">
+                <SortToggle value={sort} onChange={setSort} />
+              </div>
+              <ul>
+                {sortPosts(posts, sort).map((post) => (
+                  <li key={post.id}>
+                    <PostCard
+                      post={post}
+                      now={now}
+                      onClick={() => navigate(communityPostPath(post.id))}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </>
       )}
 

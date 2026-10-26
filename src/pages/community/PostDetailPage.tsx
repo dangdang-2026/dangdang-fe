@@ -16,6 +16,7 @@ import Toast from '@/components/common/Toast'
 import AuthorBadge from '@/components/community/AuthorBadge'
 import CommentComposer from '@/components/community/CommentComposer'
 import CommentItem from '@/components/community/CommentItem'
+import PollCard from '@/components/community/PollCard'
 import PostMoreSheet from '@/components/community/PostMoreSheet'
 import ReportSheet from '@/components/community/ReportSheet'
 import RestrictedSheet from '@/components/community/RestrictedSheet'
@@ -70,6 +71,8 @@ function PostDetailPage() {
   const removePost = useCommunityStore((state) => state.removePost)
   const reportPost = useCommunityStore((state) => state.reportPost)
   const blockAuthor = useCommunityStore((state) => state.blockAuthor)
+  const votes = useCommunityStore((state) => state.votes)
+  const vote = useCommunityStore((state) => state.vote)
   const [moreOpen, setMoreOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
   const [confirming, setConfirming] = useState<Confirming | null>(null)
@@ -145,7 +148,11 @@ function PostDetailPage() {
         </button>
         <h1 className="text-subtitle-1 text-grey-900 tracking-normal">{BOARD_LABEL[post.board]}</h1>
         <div className="flex items-center gap-3.5">
-          <button type="button" aria-label="검색" onClick={() => setToast(COMING_SOON)}>
+          <button
+            type="button"
+            aria-label="검색"
+            onClick={() => navigate(ROUTES.COMMUNITY, { state: { focusSearch: true } })}
+          >
             <img src={iconSearchMd} alt="" width={22} height={22} />
           </button>
           <button type="button" aria-label="더보기" onClick={() => setMoreOpen(true)}>
@@ -201,6 +208,13 @@ function PostDetailPage() {
             <p className="text-grey-800 text-base leading-relaxed whitespace-pre-wrap">
               {post.body}
             </p>
+            {post.poll && (
+              <PollCard
+                options={post.poll}
+                votedId={votes[post.id] ?? null}
+                onVote={(optionId) => vote(post.id, optionId)}
+              />
+            )}
             <div className="flex justify-center gap-2 pt-1.5">
               <button
                 type="button"

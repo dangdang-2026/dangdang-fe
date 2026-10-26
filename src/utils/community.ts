@@ -58,3 +58,62 @@ export function filterActivity(posts: Post[], type: ActivityType, likedPostIds: 
     return posts.filter((post) => post.comments.some((item) => item.author.id === MY_AUTHOR_ID))
   return posts.filter((post) => likedPostIds.includes(post.id))
 }
+
+// 띄어쓰기로 나눈 낱말이 제목·본문에 모두 있는 글. 가려진 글은 뺌
+export function searchPosts(posts: Post[], query: string) {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return []
+  return posts.filter((post) => {
+    if (post.hidden) return false
+    const text = `${post.title} ${post.body}`.toLowerCase()
+    return words.every((word) => text.includes(word))
+  })
+}
+
+// 검색어 부분만 강조하려고 자름. 예: 식후 1시간 [알림], 밖에...
+export function splitHighlight(text: string, query: string) {
+  const words = query.trim().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return [{ text, match: false }]
+  const escaped = words.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  return text
+    .split(new RegExp(`(${escaped.join('|')})`, 'gi'))
+    .filter(Boolean)
+    .map((part) => ({
+      text: part,
+      match: words.some((word) => word.toLowerCase() === part.toLowerCase()),
+    }))
+}
+
+// 약·용량처럼 병원에 물어야 할 검색어
+export const isMedicalQuery = (query: string) => /약|용량|인슐린|처방|진단|주사|단위/.test(query)
+
+export type PopularPeriod = 'realtime' | 'week' | 'month'
+
+// 인기 게시판 기간. 실시간은 하루
+export const POPULAR_PERIOD: Record<PopularPeriod, { label: string; days: number }> = {
+  realtime: { label: '실시간', days: 1 },
+  week: { label: '이번 주', days: 7 },
+  month: { label: '이번 달', days: 30 },
+}
+
+// 비슷한 주수로 칠 앞뒤 범위
+const NEAR_WEEKS = 2
+
+// 기간 안 글을 조회수 순으로. myWeek가 있으면 그 주수 앞뒤 글만
+export function getPopularPosts(
+  posts: Post[],
+  period: PopularPeriod,
+  now: Date,
+  myWeek: number | null,
+) {
+  const since = now.getTime() - POPULAR_PERIOD[period].days * 24 * 60 * 60 * 1000
+  return sortPosts(
+    posts.filter((post) => {
+      if (post.hidden || new Date(post.createdAt).getTime() < since) return false
+      if (myWeek === null) return true
+      const week = post.author.pregnancyWeek
+      return week !== null && Math.abs(week - myWeek) <= NEAR_WEEKS
+    }),
+    'popular',
+  )
+}

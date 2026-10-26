@@ -31,6 +31,12 @@ export const MOCK_POSTS: Post[] = [
     createdAt: minutesAgo(120),
     views: 1204,
     likes: 86,
+    poll: [
+      { id: 'o1', label: '화장실에서 잰다', votes: 106 },
+      { id: 'o2', label: '잠깐 자리를 비우고 잰다', votes: 128 },
+      { id: 'o3', label: '늦게 재고 늦게 잼으로 적는다', votes: 59 },
+      { id: 'o4', label: '아직 방법을 못 찾았다', votes: 19 },
+    ],
     comments: [
       comment(
         'c1',

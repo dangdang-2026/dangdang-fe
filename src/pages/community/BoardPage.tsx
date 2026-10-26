@@ -1,15 +1,16 @@
 import { useCallback, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router'
 import iconBack from '@/assets/icons/back.svg'
-import iconGo from '@/assets/icons/community/go.svg'
 import iconInfoSm from '@/assets/icons/community/info-sm.svg'
 import iconPencil from '@/assets/icons/community/pencil.svg'
 import iconRefresh from '@/assets/icons/community/refresh.svg'
 import iconSearchHeader from '@/assets/icons/community/search-header.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import Toast from '@/components/common/Toast'
+import BoardNotice from '@/components/community/BoardNotice'
 import BoardTabs, { type BoardTab } from '@/components/community/BoardTabs'
 import CommunityEmpty from '@/components/community/CommunityEmpty'
+import PopularList from '@/components/community/PopularList'
 import PostRow from '@/components/community/PostRow'
 import SortToggle from '@/components/community/SortToggle'
 import { BOARD_LABEL, BOARD_ORDER, LATEST_ONLY_BOARDS } from '@/constants/community'
@@ -18,10 +19,10 @@ import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
 import { useOnline } from '@/hooks/useOnline'
 import { useVisiblePosts } from '@/hooks/useVisiblePosts'
+import { useProfileStore } from '@/stores/useProfileStore'
 import type { BoardKey, PostSort } from '@/types/community'
 import { sortPosts } from '@/utils/community'
-
-const COMING_SOON = '다음 업데이트에서 열려요'
+import { getPregnancyAge } from '@/utils/pregnancy'
 
 const GUIDE_RULES = [
   '내 경험과 하루를 편하게 나눠 주세요.',
@@ -31,7 +32,7 @@ const GUIDE_RULES = [
 
 const isBoardKey = (value?: string): value is BoardKey => BOARD_ORDER.includes(value as BoardKey)
 
-// Figma U-21 카테고리 게시판 · U-05 글 없음 · U-29 식단 게시판(최신순만)
+// Figma U-21 카테고리 게시판 · U-05 글 없음 · U-29 식단 게시판(최신순만) · U-23 인기 게시판
 function BoardPage() {
   const { board } = useParams()
   const navigate = useNavigate()
@@ -39,34 +40,34 @@ function BoardPage() {
   const now = useNow()
   const { online, recheck } = useOnline()
   const posts = useVisiblePosts()
+  const dueDate = useProfileStore((state) => state.dueDate)
   const [sort, setSort] = useState<PostSort>('latest')
   const [guideOpen, setGuideOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
   const closeGuide = useCallback(() => setGuideOpen(false), [])
 
-  if (!isBoardKey(board)) return <Navigate to={ROUTES.COMMUNITY} replace />
+  const popular = board === 'popular'
+  if (!popular && !isBoardKey(board)) return <Navigate to={ROUTES.COMMUNITY} replace />
 
-  const label = BOARD_LABEL[board]
-  const latestOnly = LATEST_ONLY_BOARDS.includes(board)
+  const label = popular ? '인기' : BOARD_LABEL[board as BoardKey]
+  const latestOnly = !popular && LATEST_ONLY_BOARDS.includes(board as BoardKey)
   const boardPosts = sortPosts(
     posts.filter((post) => post.board === board),
     latestOnly ? 'latest' : sort,
   )
+  const openPost = (id: string) => navigate(communityPostPath(id))
+  const openPolicy = () => navigate(ROUTES.COMMUNITY_POLICY)
 
   const selectTab = (tab: BoardTab) => {
     if (tab === board) return
     if (tab === 'all') navigate(ROUTES.COMMUNITY)
-    else if (tab === 'popular') setToast(COMING_SOON)
     else navigate(communityBoardPath(tab), { replace: true })
   }
 
   const notices = [
     { title: `${label} 게시판 이렇게 써 주세요`, onClick: () => setGuideOpen(true) },
-    {
-      title: '커뮤니티 운영정책 (10.19 업데이트)',
-      onClick: () => navigate(ROUTES.COMMUNITY_POLICY),
-    },
+    { title: '커뮤니티 운영정책 (10.19 업데이트)', onClick: openPolicy },
   ]
 
   return (
@@ -76,12 +77,16 @@ function BoardPage() {
           <img src={iconBack} alt="" width={24} height={24} />
         </button>
         <h1 className="text-subtitle-1 text-grey-900 tracking-normal">커뮤니티</h1>
-        <button type="button" aria-label="검색" onClick={() => setToast(COMING_SOON)}>
+        <button
+          type="button"
+          aria-label="검색"
+          onClick={() => navigate(ROUTES.COMMUNITY, { state: { focusSearch: true } })}
+        >
           <img src={iconSearchHeader} alt="" width={24} height={24} />
         </button>
       </header>
 
-      <BoardTabs active={board} onSelect={selectTab} />
+      <BoardTabs active={board as BoardTab} onSelect={selectTab} />
 
       <p className="bg-grey-50 flex items-center gap-2 px-5 py-3.5">
         <img src={iconInfoSm} alt="" width={16} height={16} />
@@ -96,6 +101,15 @@ function BoardPage() {
           title="글을 불러오지 못했어요"
           description="인터넷 연결을 확인하고 다시 시도해 주세요."
           action={{ icon: iconRefresh, label: '다시 불러오기', onClick: recheck }}
+        />
+      ) : popular ? (
+        <PopularList
+          posts={posts}
+          now={now}
+          myWeek={getPregnancyAge(dueDate, now)?.weeks ?? null}
+          onOpen={(post) => openPost(post.id)}
+          onPolicy={openPolicy}
+          onNeedDueDate={() => setToast('마이 › 내 정보에서 출산예정일을 적어 주세요')}
         />
       ) : (
         <>
@@ -112,20 +126,7 @@ function BoardPage() {
           <ul className="px-5">
             {notices.map(({ title, onClick }) => (
               <li key={title}>
-                <button
-                  type="button"
-                  className="border-grey-100 flex w-full flex-col items-start gap-2 border-b py-4.5 text-left"
-                  onClick={onClick}
-                >
-                  <span className="bg-grey-100 text-grey-700 rounded-md px-2 py-0.5 text-xs leading-snug font-medium">
-                    공지사항
-                  </span>
-                  <span className="text-grey-900 text-base leading-snug font-bold">{title}</span>
-                  <span className="text-t7 text-grey-500 flex items-center gap-0.5 leading-snug font-medium">
-                    보러가기
-                    <img src={iconGo} alt="" width={12} height={12} />
-                  </span>
-                </button>
+                <BoardNotice title={title} onClick={onClick} />
               </li>
             ))}
             {boardPosts.map((post) => (
@@ -134,7 +135,7 @@ function BoardPage() {
                   post={post}
                   now={now}
                   showBody={latestOnly}
-                  onClick={() => navigate(communityPostPath(post.id))}
+                  onClick={() => openPost(post.id)}
                 />
               </li>
             ))}
