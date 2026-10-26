@@ -76,7 +76,11 @@ function BoardPage() {
           <img src={iconBack} alt="" width={24} height={24} />
         </button>
         <h1 className="text-subtitle-1 text-grey-900 tracking-normal">커뮤니티</h1>
-        <button type="button" aria-label="검색" onClick={() => setToast(COMING_SOON)}>
+        <button
+          type="button"
+          aria-label="검색"
+          onClick={() => navigate(ROUTES.COMMUNITY, { state: { focusSearch: true } })}
+        >
           <img src={iconSearchHeader} alt="" width={24} height={24} />
         </button>
       </header>

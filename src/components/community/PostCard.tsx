@@ -10,11 +10,14 @@ import {
   formatRelativeTime,
   getBestComment,
   isPopular,
+  splitHighlight,
 } from '@/utils/community'
 
 type PostCardProps = {
   post: Post
   now: Date
+  // 검색어. 제목에서 노랗게 강조
+  highlight?: string
   onClick: () => void
 }
 
@@ -22,7 +25,7 @@ const chipClass =
   'bg-grey-100 text-grey-700 flex items-center gap-0.5 rounded-md px-2 py-0.5 text-xs leading-snug font-medium'
 
 // Figma U-01 메인 글 카드: 칩 · 제목 · 본문 두 줄 · 베스트 댓글 · 주수·시간·조회·댓글
-function PostCard({ post, now, onClick }: PostCardProps) {
+function PostCard({ post, now, highlight = '', onClick }: PostCardProps) {
   const best = getBestComment(post)
   const meta = [formatAuthorWeek(post.author), formatRelativeTime(post.createdAt, now)]
     .filter(Boolean)
@@ -44,7 +47,17 @@ function PostCard({ post, now, onClick }: PostCardProps) {
         <span className={chipClass}>{BOARD_LABEL[post.board]}</span>
       </span>
       <span className="text-subtitle-1 text-grey-900 w-full truncate tracking-normal">
-        {post.hidden ? '운영정책에 따라 가려진 글이에요' : post.title}
+        {post.hidden
+          ? '운영정책에 따라 가려진 글이에요'
+          : splitHighlight(post.title, highlight).map((part, index) =>
+              part.match ? (
+                <mark key={index} className="bg-transparent text-yellow-600">
+                  {part.text}
+                </mark>
+              ) : (
+                part.text
+              ),
+            )}
       </span>
       {!post.hidden && <span className="text-t6 text-grey-600 line-clamp-2">{post.body}</span>}
       {best && (

@@ -145,7 +145,11 @@ function PostDetailPage() {
         </button>
         <h1 className="text-subtitle-1 text-grey-900 tracking-normal">{BOARD_LABEL[post.board]}</h1>
         <div className="flex items-center gap-3.5">
-          <button type="button" aria-label="검색" onClick={() => setToast(COMING_SOON)}>
+          <button
+            type="button"
+            aria-label="검색"
+            onClick={() => navigate(ROUTES.COMMUNITY, { state: { focusSearch: true } })}
+          >
             <img src={iconSearchMd} alt="" width={22} height={22} />
           </button>
           <button type="button" aria-label="더보기" onClick={() => setMoreOpen(true)}>

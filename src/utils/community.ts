@@ -58,3 +58,31 @@ export function filterActivity(posts: Post[], type: ActivityType, likedPostIds: 
     return posts.filter((post) => post.comments.some((item) => item.author.id === MY_AUTHOR_ID))
   return posts.filter((post) => likedPostIds.includes(post.id))
 }
+
+// 띄어쓰기로 나눈 낱말이 제목·본문에 모두 있는 글. 가려진 글은 뺌
+export function searchPosts(posts: Post[], query: string) {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return []
+  return posts.filter((post) => {
+    if (post.hidden) return false
+    const text = `${post.title} ${post.body}`.toLowerCase()
+    return words.every((word) => text.includes(word))
+  })
+}
+
+// 검색어 부분만 강조하려고 자름. 예: 식후 1시간 [알림], 밖에...
+export function splitHighlight(text: string, query: string) {
+  const words = query.trim().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return [{ text, match: false }]
+  const escaped = words.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  return text
+    .split(new RegExp(`(${escaped.join('|')})`, 'gi'))
+    .filter(Boolean)
+    .map((part) => ({
+      text: part,
+      match: words.some((word) => word.toLowerCase() === part.toLowerCase()),
+    }))
+}
+
+// 약·용량처럼 병원에 물어야 할 검색어
+export const isMedicalQuery = (query: string) => /약|용량|인슐린|처방|진단|주사|단위/.test(query)
