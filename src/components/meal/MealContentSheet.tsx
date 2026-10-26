@@ -53,7 +53,9 @@ function MealContentSheet({ meal, editing, onClose, onSaved }: MealContentSheetP
       ...searched,
     ]),
   ]
-  const unit = (selected[0] && findFood(selected[0], foods)?.unit) || '공기'
+  // 양 단위는 처음 고른 음식 기준(밥이면 공기, 반찬이면 접시 등)
+  const mainFood = selected[0]
+  const unit = (mainFood && findFood(mainFood, foods)?.unit) || '인분'
 
   const keyword = query.trim()
   const results = keyword
@@ -185,27 +187,34 @@ function MealContentSheet({ meal, editing, onClose, onSaved }: MealContentSheetP
             </button>
           </div>
 
-          <p className="text-grey-800 text-sm leading-normal font-bold">양</p>
-          <div className="flex gap-2">
-            {PORTIONS.map((item) => {
-              const isSelected = item === portion
-              return (
-                <button
-                  key={item}
-                  type="button"
-                  aria-pressed={isSelected}
-                  className={`text-t6 rounded-key flex-1 border-2 py-3 font-bold ${
-                    isSelected
-                      ? 'border-primary text-grey-800 bg-yellow-50'
-                      : 'border-grey-200 text-grey-600 bg-white'
-                  }`}
-                  onClick={() => setPortion(item)}
-                >
-                  {formatPortion(item, unit)}
-                </button>
-              )
-            })}
-          </div>
+          {/* 음식을 고른 뒤에만 양 표시. 여러 개면 어느 음식 양인지 함께 표시 */}
+          {mainFood && (
+            <>
+              <p className="text-grey-800 text-sm leading-normal font-bold">
+                {selected.length > 1 ? `${mainFood} 양` : '양'}
+              </p>
+              <div className="flex gap-2">
+                {PORTIONS.map((item) => {
+                  const isSelected = item === portion
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      aria-pressed={isSelected}
+                      className={`text-t6 rounded-key flex-1 border-2 py-3 font-bold ${
+                        isSelected
+                          ? 'border-primary text-grey-800 bg-yellow-50'
+                          : 'border-grey-200 text-grey-600 bg-white'
+                      }`}
+                      onClick={() => setPortion(item)}
+                    >
+                      {formatPortion(item, unit)}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </>
       )}
 
