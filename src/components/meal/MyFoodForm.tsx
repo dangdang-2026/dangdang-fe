@@ -116,7 +116,7 @@ function MyFoodForm({ initialName, onBack, onAdd }: MyFoodFormProps) {
       )}
 
       <p className="bg-grey-50 flex gap-2 rounded-xl px-3.5 py-3">
-        <img src={iconPrivate} alt="" width={18} height={18} />
+        <img src={iconPrivate} alt="" width={18} height={18} className="self-start" />
         <span className="text-grey-700 text-t7 flex-1 leading-relaxed">
           내 음식은 나만 볼 수 있어요.
         </span>
@@ -132,6 +132,8 @@ function MyFoodForm({ initialName, onBack, onAdd }: MyFoodFormProps) {
             unit,
             similarTo,
             staple,
+            // 영양 참고값은 비슷한 음식 기준
+            nutrition: similar?.nutrition,
             portion: staple ? portion : undefined,
           })
         }

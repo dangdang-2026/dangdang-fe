@@ -24,6 +24,18 @@ export type Food = {
   unit: string
   // 밥·면처럼 식후 혈당에 영향이 큰 주식. 이것만 양을 받음
   staple?: boolean
+  // 1인분 영양 참고값(식약처 DB)
+  nutrition?: Nutrition
+}
+
+// 1인분 기준. grams는 1인분 무게
+export type Nutrition = {
+  grams: number
+  kcal: number
+  carbs: number
+  sugar: number
+  protein: number
+  fat: number
 }
 
 // 사용자가 직접 추가한 음식

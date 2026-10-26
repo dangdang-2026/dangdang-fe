@@ -1,5 +1,5 @@
 import { MEAL_LABEL } from '@/constants/glucose'
-import type { Food, Meal, Portion } from '@/types/glucose'
+import type { Food, Meal, MyFood, Nutrition, Portion } from '@/types/glucose'
 
 const PORTION_AMOUNT: Record<Portion, string> = {
   half: '반',
@@ -10,6 +10,36 @@ const PORTION_AMOUNT: Record<Portion, string> = {
 // 예: 반 공기 / 1공기 / 1.5공기
 export function formatPortion(portion: Portion, unit: string) {
   return portion === 'half' ? `반 ${unit}` : `${PORTION_AMOUNT[portion]}${unit}`
+}
+
+const PORTION_FACTOR: Record<Portion, number> = {
+  half: 0.5,
+  one: 1,
+  'one-half': 1.5,
+}
+
+// 1인분 값에 고른 양을 곱함. 양이 없으면(반찬) 1인분
+export function scaleNutrition(nutrition: Nutrition, portion?: Portion) {
+  const factor = portion ? PORTION_FACTOR[portion] : 1
+  return {
+    kcal: Math.round(nutrition.kcal * factor),
+    carbs: Math.round(nutrition.carbs * factor),
+    sugar: Math.round(nutrition.sugar * factor),
+    protein: Math.round(nutrition.protein * factor),
+    fat: Math.round(nutrition.fat * factor),
+  }
+}
+
+// 영양 참고값을 볼 음식 하나
+export type NutritionItem = {
+  food: Food | MyFood
+  // 주식이면 고른 양, 반찬이면 없음(1인분)
+  portion?: Portion
+}
+
+// 예: 1공기 / 1접시
+export function formatNutritionBasis({ food, portion }: NutritionItem) {
+  return formatPortion(portion ?? 'one', food.unit)
 }
 
 export function findFood(name: string, foods: Food[]) {
