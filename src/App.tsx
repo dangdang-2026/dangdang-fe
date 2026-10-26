@@ -8,6 +8,7 @@ import ReportPage from '@/pages/visit/ReportPage'
 import ReportsPage from '@/pages/visit/ReportsPage'
 import CriteriaPage from '@/pages/visit/CriteriaPage'
 import CriteriaHistoryPage from '@/pages/visit/CriteriaHistoryPage'
+import BoardPage from '@/pages/community/BoardPage'
 import CommunityPage from '@/pages/community/CommunityPage'
 import MyCriteriaPage from '@/pages/my/MyCriteriaPage'
 import MyFoodsPage from '@/pages/my/MyFoodsPage'
@@ -24,6 +25,7 @@ function App() {
         <Route path={ROUTES.RECORDS} element={<RecordsPage />} />
         <Route path={ROUTES.VISIT} element={<VisitPage />} />
         <Route path={ROUTES.COMMUNITY} element={<CommunityPage />} />
+        <Route path={ROUTES.COMMUNITY_BOARD} element={<BoardPage />} />
         <Route path={ROUTES.MY} element={<MyPage />} />
       </Route>
       {/* 탭 바 없는 화면 */}
