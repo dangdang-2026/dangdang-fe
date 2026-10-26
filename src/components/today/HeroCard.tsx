@@ -4,6 +4,7 @@ import FirstDayHero from '@/components/today/hero/FirstDayHero'
 import MeasureTimeHero from '@/components/today/hero/MeasureTimeHero'
 import OverdueHero from '@/components/today/hero/OverdueHero'
 import SavedHero from '@/components/today/hero/SavedHero'
+import type { Meal } from '@/types/glucose'
 import type { HeroState } from '@/utils/glucose'
 
 type HeroCardProps = {
@@ -13,6 +14,7 @@ type HeroCardProps = {
   onStartMeal: () => void
   onInputGlucose: () => void
   onSkipMeal: (mealId: string) => void
+  onWriteMeal: (meal: Meal) => void
 }
 
 // 기록·식사 상태에 따라 히어로 카드 한 장만 표시
@@ -23,6 +25,7 @@ function HeroCard({
   onStartMeal,
   onInputGlucose,
   onSkipMeal,
+  onWriteMeal,
 }: HeroCardProps) {
   switch (state.kind) {
     case 'first-day':
@@ -44,6 +47,7 @@ function HeroCard({
           dueAt={state.dueAt}
           now={now}
           onInputGlucose={onInputGlucose}
+          onWriteMeal={() => onWriteMeal(state.meal)}
         />
       )
     case 'measure-time':

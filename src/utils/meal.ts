@@ -37,6 +37,11 @@ export function withObjectParticle(word: string) {
   return `${word}${code % 28 ? '을' : '를'}`
 }
 
+// 저장 토스트. 예: 점심에 김치볶음밥 1공기를 적었어요
+export function formatMealSavedMessage(meal: Meal, foods: Food[]) {
+  return `${MEAL_LABEL[meal.type]}에 ${withObjectParticle(formatMealContent(meal, foods))} 적었어요`
+}
+
 // 최근 먹은 음식(최신순, 중복 제외)
 export function getRecentFoods(meals: Meal[], limit: number) {
   const names: string[] = []
