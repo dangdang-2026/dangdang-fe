@@ -6,6 +6,14 @@ export function getCriteriaAt(versions: Criteria[], date: Date) {
   return applied.at(-1) ?? versions[0]
 }
 
+// 기간 안에서 기준이 바뀐 횟수(시작일 다음 날부터 마지막 날까지 새로 적용된 버전 수)
+export function countCriteriaChanges(versions: Criteria[], from: Date, to: Date) {
+  return versions.filter((item) => {
+    const applied = new Date(item.appliedFrom)
+    return applied > from && applied <= to
+  }).length
+}
+
 export function getCurrentCriteria(versions: Criteria[]) {
   return versions[versions.length - 1]
 }
