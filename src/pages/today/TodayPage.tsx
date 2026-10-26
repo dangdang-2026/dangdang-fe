@@ -5,21 +5,30 @@ import TodayHeader from '@/components/today/TodayHeader'
 import HeroCard from '@/components/today/HeroCard'
 import NotificationBanner from '@/components/today/NotificationBanner'
 import TodayRecordSection from '@/components/today/TodayRecordSection'
+import { useNow } from '@/hooks/useNow'
 import { MOCK_USER } from '@/mocks/user'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import type { GlucoseRecord, MeasureTarget } from '@/types/glucose'
 import { isSameDay } from '@/utils/date'
-import { getMeasureTarget, getSlotLabel } from '@/utils/glucose'
+import { getHeroState, getMeasureTarget, getNextMealType, getSlotLabel } from '@/utils/glucose'
 
 function TodayPage() {
   const meals = useGlucoseStore((state) => state.meals)
   const records = useGlucoseStore((state) => state.records)
+  const startMeal = useGlucoseStore((state) => state.startMeal)
+  const skipMeal = useGlucoseStore((state) => state.skipMeal)
   const [sheetTarget, setSheetTarget] = useState<MeasureTarget | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
-  const now = new Date()
+  const now = useNow()
   const todayMeals = meals.filter((meal) => isSameDay(new Date(meal.startedAt), now))
   const todayRecords = records.filter((record) => isSameDay(new Date(record.measuredAt), now))
+  const heroState = getHeroState(meals, records, MOCK_USER.postMealHours, now)
+
+  const handleStartMeal = () => {
+    const current = new Date()
+    startMeal(getNextMealType(meals, current), current)
+  }
 
   const openGlucoseSheet = () => {
     setSheetTarget(getMeasureTarget(meals, records, MOCK_USER.postMealHours, new Date()))
@@ -40,9 +49,16 @@ function TodayPage() {
         aria-hidden
         className="to-bg-warm fixed inset-y-0 left-1/2 -z-10 w-full max-w-107.5 -translate-x-1/2 bg-linear-to-b from-yellow-50"
       />
-      <TodayHeader name={MOCK_USER.name} date={new Date()} />
+      <TodayHeader name={MOCK_USER.name} date={now} />
       <div className="mt-6">
-        <HeroCard postMealHours={MOCK_USER.postMealHours} />
+        <HeroCard
+          state={heroState}
+          now={now}
+          postMealHours={MOCK_USER.postMealHours}
+          onStartMeal={handleStartMeal}
+          onInputGlucose={openGlucoseSheet}
+          onSkipMeal={skipMeal}
+        />
       </div>
       <div className="mt-4.5">
         <NotificationBanner />

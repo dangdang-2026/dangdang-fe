@@ -3,6 +3,7 @@
 @theme {
   /* Figma 디자인시스템 Primitives */
   --color-yellow-50: #fff6e5;
+  --color-yellow-100: #ffeccb;
   --color-yellow-300: #ffd184;
   --color-yellow-500: #fbb315;
   --color-orange-400: #ffa927;
@@ -39,6 +40,9 @@
   --text-display--line-height: 1.1;
   --text-display--letter-spacing: -0.03em;
   --text-display--font-weight: 700;
+  --text-number: 48px;
+  --text-number--line-height: 1.2;
+  --text-number--font-weight: 700;
   --text-title-2: 24px;
   --text-title-2--line-height: 1.25;
   --text-title-2--letter-spacing: -0.015em;
