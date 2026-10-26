@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { useNavigate } from 'react-router'
 import iconEdit from '@/assets/icons/edit.svg'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
@@ -8,6 +9,7 @@ import ReportCard from '@/components/visit/ReportCard'
 import QuestionSheet from '@/components/visit/QuestionSheet'
 import QuestionsCard from '@/components/visit/QuestionsCard'
 import VisitDateSheet from '@/components/visit/VisitDateSheet'
+import { ROUTES } from '@/constants/routes'
 import { useNow } from '@/hooks/useNow'
 import { useVisitStore } from '@/stores/useVisitStore'
 import type { Question } from '@/types/visit'
@@ -18,6 +20,7 @@ type DateSheet = 'first' | 'edit' | null
 type ToastState = { message: string; action?: { label: string; onClick: () => void } }
 
 function VisitPage() {
+  const navigate = useNavigate()
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
   const asked = useVisitStore((state) => state.asked)
   const setNextVisit = useVisitStore((state) => state.setNextVisit)
@@ -94,7 +97,7 @@ function VisitPage() {
         />
       </div>
       <div className="mt-4">
-        <ReportCard today={startOfDay(now)} />
+        <ReportCard today={startOfDay(now)} onCreate={() => navigate(ROUTES.VISIT_REPORT)} />
       </div>
       <div className="mt-4">
         <CriteriaCard />

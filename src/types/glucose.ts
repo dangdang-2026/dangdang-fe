@@ -51,6 +51,8 @@ export type GlucoseRecord = {
   slot: MeasureSlot
   value: number
   measuredAt: string
+  // 실제로 입력한 시각. 측정 시각과 차이가 크면 리포트에 "나중 입력"
+  enteredAt?: string
   // 식후 측정이면 연결된 끼니
   mealId?: string
   mealType?: MealType

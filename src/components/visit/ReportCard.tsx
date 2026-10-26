@@ -1,19 +1,18 @@
 import iconArchive from '@/assets/icons/archive.svg'
 import iconFile from '@/assets/icons/file.svg'
 import VisitMenuRow from '@/components/visit/VisitMenuRow'
+import { REPORT_DAYS } from '@/constants/report'
 import { addDays } from '@/utils/date'
-
-// 리포트 기본 기간(최근 2주)
-const REPORT_DAYS = 14
 
 type ReportCardProps = {
   today: Date
+  onCreate: () => void
 }
 
 const formatShortDate = (date: Date) => `${date.getMonth() + 1}/${date.getDate()}`
 
-// Figma C-02 진료 리포트 카드. 리포트 화면은 다음 이슈에서 연결
-function ReportCard({ today }: ReportCardProps) {
+// Figma C-02 진료 리포트 카드. 지난 리포트는 다음 이슈에서 연결
+function ReportCard({ today, onCreate }: ReportCardProps) {
   const from = addDays(today, -(REPORT_DAYS - 1))
 
   return (
@@ -23,6 +22,7 @@ function ReportCard({ today }: ReportCardProps) {
         primary
         title="진료 리포트 만들기"
         description={`${formatShortDate(from)}–${formatShortDate(today)} 기록 · A4 1쪽`}
+        onClick={onCreate}
       />
       <hr className="border-grey-100" />
       <VisitMenuRow icon={iconArchive} title="지난 리포트" />
