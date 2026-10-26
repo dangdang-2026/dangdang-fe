@@ -1,9 +1,11 @@
 import { useCallback, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import iconCardClose from '@/assets/icons/community/card-close.svg'
 import iconCatAll from '@/assets/icons/community/cat-all.svg'
 import iconCatNews from '@/assets/icons/community/cat-news.svg'
 import iconCatPopular from '@/assets/icons/community/cat-popular.svg'
 import iconInfo from '@/assets/icons/community/info.svg'
+import iconNewsCheck from '@/assets/icons/community/news-check.svg'
 import iconNoticeClose from '@/assets/icons/community/notice-close.svg'
 import iconPencil from '@/assets/icons/community/pencil.svg'
 import iconRefresh from '@/assets/icons/community/refresh.svg'
@@ -17,16 +19,20 @@ import PostCard from '@/components/community/PostCard'
 import SearchResults from '@/components/community/SearchResults'
 import SortToggle from '@/components/community/SortToggle'
 import { BOARD_ICON, BOARD_LABEL, BOARD_ORDER } from '@/constants/community'
-import { ROUTES, communityBoardPath, communityPostPath } from '@/constants/routes'
+import {
+  ROUTES,
+  communityBoardPath,
+  communityNewsPath,
+  communityPostPath,
+} from '@/constants/routes'
 import { useNow } from '@/hooks/useNow'
 import { useOnline } from '@/hooks/useOnline'
 import { useVisiblePosts } from '@/hooks/useVisiblePosts'
 import { useCommunityStore } from '@/stores/useCommunityStore'
 import { useVisitStore } from '@/stores/useVisitStore'
+import { MOCK_NEWS } from '@/mocks/news'
 import type { PostSort } from '@/types/community'
 import { sortPosts } from '@/utils/community'
-
-const COMING_SOON = '다음 업데이트에서 열려요'
 
 type Category = { key: string; label: string; icon: string; onClick: () => void }
 
@@ -45,6 +51,10 @@ function CommunityPage() {
   const posts = useVisiblePosts()
   const noticeDismissed = useCommunityStore((state) => state.noticeDismissed)
   const dismissNotice = useCommunityStore((state) => state.dismissNotice)
+  const newsCardDismissed = useCommunityStore((state) => state.newsCardDismissed)
+  const dismissNewsCard = useCommunityStore((state) => state.dismissNewsCard)
+  // 메인에는 가장 최근 당당 소식 한 장
+  const latestNews = MOCK_NEWS[0]
   const nickname = useCommunityStore((state) => state.nickname)
   const setNickname = useCommunityStore((state) => state.setNickname)
   const [sort, setSort] = useState<PostSort>('popular')
@@ -54,15 +64,18 @@ function CommunityPage() {
   const closeToast = useCallback(() => setToast(null), [])
   const closeNickname = useCallback(() => setNicknameOpen(false), [])
 
-  const comingSoon = () => setToast(COMING_SOON)
   // 글쓰기는 닉네임을 정한 뒤에
   const startWriting = () => {
     if (nickname) navigate(ROUTES.COMMUNITY_WRITE)
     else setNicknameOpen(true)
   }
   const categories: Category[] = [
-    // 당당 소식 화면 연결 전
-    { key: 'news', label: '당당 소식', icon: iconCatNews, onClick: comingSoon },
+    {
+      key: 'news',
+      label: '당당 소식',
+      icon: iconCatNews,
+      onClick: () => navigate(ROUTES.COMMUNITY_NEWS),
+    },
     {
       key: 'popular',
       label: '인기',
@@ -191,6 +204,38 @@ function CommunityPage() {
                       <img src={iconNoticeClose} alt="" width={16} height={16} />
                     </button>
                   </p>
+                </div>
+              )}
+
+              {!newsCardDismissed && (
+                <div className="px-5 pb-2">
+                  <div className="flex items-center gap-3 rounded-2xl bg-yellow-50 p-3">
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      onClick={() => navigate(communityNewsPath(latestNews.id))}
+                    >
+                      <span className="rounded-tag text-caption text-grey-800 flex size-14 shrink-0 items-start bg-white p-2 font-bold">
+                        {latestNews.slides.length}장
+                      </span>
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-caption text-grey-800 flex items-center gap-1 font-bold">
+                          <img src={iconNewsCheck} alt="" width={12} height={12} />
+                          당당 공식 · {latestNews.series}
+                        </span>
+                        <span className="text-grey-900 truncate text-sm leading-snug font-bold">
+                          {latestNews.title}
+                        </span>
+                        <span className="text-caption text-grey-500 font-normal">
+                          출처 {latestNews.sources.length} · 확인일{' '}
+                          {latestNews.checkedAt.slice(5).replace('-', '/')}
+                        </span>
+                      </span>
+                    </button>
+                    <button type="button" aria-label="당당 소식 닫기" onClick={dismissNewsCard}>
+                      <img src={iconCardClose} alt="" width={16} height={16} />
+                    </button>
+                  </div>
                 </div>
               )}
 

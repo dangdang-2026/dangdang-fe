@@ -11,6 +11,8 @@ export const ROUTES = {
   COMMUNITY_POST: '/community/posts/:id',
   COMMUNITY_WRITE: '/community/write',
   COMMUNITY_POLICY: '/community/policy',
+  COMMUNITY_NEWS: '/community/news',
+  COMMUNITY_NEWS_DETAIL: '/community/news/:id',
   MY: '/my',
   MY_PROFILE: '/my/profile',
   MY_CRITERIA: '/my/criteria',
@@ -24,3 +26,4 @@ export const ROUTES = {
 
 export const communityBoardPath = (board: string) => `/community/board/${board}`
 export const communityPostPath = (id: string) => `/community/posts/${id}`
+export const communityNewsPath = (id: string) => `/community/news/${id}`
