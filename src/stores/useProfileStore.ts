@@ -16,6 +16,8 @@ export type Profile = {
   dueDate: string | null
   diagnosisDate: string | null
   careMode: CareMode
+  // 병원에서 들은 연락 기준. 예: 같은 시점에 계속 높으면 외래로 전화
+  contactMemo: string
 }
 
 type ProfileState = Profile & {
@@ -30,6 +32,7 @@ export const useProfileStore = create<ProfileState>()(
       dueDate: null,
       diagnosisDate: null,
       careMode: 'diet',
+      contactMemo: '',
       updateProfile: (changes) => set(changes),
     }),
     { name: 'dangdang-profile' },
