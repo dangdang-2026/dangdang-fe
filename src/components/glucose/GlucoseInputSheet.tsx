@@ -10,13 +10,15 @@ import { GLUCOSE_MAX_DIGITS, ON_TIME_MS } from '@/constants/glucose'
 import { MOCK_USER } from '@/mocks/user'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import type { GlucoseRecord, MeasureTarget } from '@/types/glucose'
-import { formatTime } from '@/utils/date'
+import { formatMonthDay, formatTime } from '@/utils/date'
 import { compareToTarget, getSlotLabel, getTarget, isValidGlucose } from '@/utils/glucose'
 
 type GlucoseInputSheetProps = {
   target: MeasureTarget
   onClose: () => void
   onSaved: (record: GlucoseRecord) => void
+  // 지난 날 나중에 채울 때 측정 시각. 없으면 지금
+  backfillAt?: Date
 }
 
 // 예: 측정 13:12 · 제시간 / 12분 늦게
@@ -31,9 +33,9 @@ function getMeasuredLabel(measuredAt: Date, dueAt?: string) {
 }
 
 // Figma G-01~G-08 혈당 입력 바텀시트
-function GlucoseInputSheet({ target, onClose, onSaved }: GlucoseInputSheetProps) {
+function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInputSheetProps) {
   const addRecord = useGlucoseStore((state) => state.addRecord)
-  const [measuredAt] = useState(() => new Date())
+  const [measuredAt] = useState(() => backfillAt ?? new Date())
   const [digits, setDigits] = useState('')
   const [triedSave, setTriedSave] = useState(false)
 
@@ -71,17 +73,20 @@ function GlucoseInputSheet({ target, onClose, onSaved }: GlucoseInputSheetProps)
           </h2>
           <p className="text-grey-800 flex items-center gap-1 rounded-full bg-yellow-50 px-2.5 py-1 text-xs leading-normal font-bold">
             <img src={iconClock} alt="" width={12} height={12} />
+            {backfillAt && `${formatMonthDay(backfillAt)} · `}
             {getMeasuredLabel(measuredAt, target.dueAt)}
           </p>
         </div>
-        {/* 알림 연동 전이라 시트만 닫음 */}
-        <button
-          type="button"
-          className="bg-grey-100 text-t7 text-grey-600 rounded-full px-3 py-2 font-bold"
-          onClick={onClose}
-        >
-          10분 뒤 다시
-        </button>
+        {/* 알림 연동 전이라 시트만 닫음. 지난 날 채우기엔 없음 */}
+        {!backfillAt && (
+          <button
+            type="button"
+            className="bg-grey-100 text-t7 text-grey-600 rounded-full px-3 py-2 font-bold"
+            onClick={onClose}
+          >
+            10분 뒤 다시
+          </button>
+        )}
       </div>
 
       <div className="flex flex-col items-center gap-1.5 py-3.5">
