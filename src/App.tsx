@@ -10,6 +10,7 @@ import CriteriaPage from '@/pages/visit/CriteriaPage'
 import CriteriaHistoryPage from '@/pages/visit/CriteriaHistoryPage'
 import CommunityPage from '@/pages/community/CommunityPage'
 import MyCriteriaPage from '@/pages/my/MyCriteriaPage'
+import MyFoodsPage from '@/pages/my/MyFoodsPage'
 import MyPage from '@/pages/my/MyPage'
 import NotificationsPage from '@/pages/my/NotificationsPage'
 import ProfilePage from '@/pages/my/ProfilePage'
@@ -32,6 +33,7 @@ function App() {
       <Route path={ROUTES.MY_PROFILE} element={<ProfilePage />} />
       <Route path={ROUTES.MY_CRITERIA} element={<MyCriteriaPage />} />
       <Route path={ROUTES.MY_NOTIFICATIONS} element={<NotificationsPage />} />
+      <Route path={ROUTES.MY_FOODS} element={<MyFoodsPage />} />
       {/* TODO: 404 페이지(Figma 149:1129) 구현 후 교체 */}
       <Route path="*" element={<Navigate to={ROUTES.TODAY} replace />} />
     </Routes>
