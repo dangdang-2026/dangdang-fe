@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { useNavigate } from 'react-router'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
@@ -6,14 +7,18 @@ import TodayHeader from '@/components/today/TodayHeader'
 import HeroCard from '@/components/today/HeroCard'
 import NotificationBanner from '@/components/today/NotificationBanner'
 import TodayRecordSection from '@/components/today/TodayRecordSection'
+import VisitCard from '@/components/today/VisitCard'
 import MealContentSheet from '@/components/meal/MealContentSheet'
+import { ROUTES } from '@/constants/routes'
 import { useFoods } from '@/hooks/useFoods'
 import { useNow } from '@/hooks/useNow'
 import { useCriteria } from '@/hooks/useCriteria'
 import { MOCK_USER } from '@/mocks/user'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
+import { useVisitStore } from '@/stores/useVisitStore'
 import type { GlucoseRecord, Meal, MeasureTarget, Portion } from '@/types/glucose'
-import { isSameDay } from '@/utils/date'
+import { isSameDay, startOfDay } from '@/utils/date'
+import { formatVisitDay, getHomeVisitCard } from '@/utils/visit'
 import { getHeroState, getMeasureTarget, getNextMealType, getSlotLabel } from '@/utils/glucose'
 import { formatMealSavedMessage } from '@/utils/meal'
 
@@ -33,6 +38,19 @@ function TodayPage() {
   const todayMeals = meals.filter((meal) => isSameDay(new Date(meal.startedAt), now))
   const todayRecords = records.filter((record) => isSameDay(new Date(record.measuredAt), now))
   const heroState = getHeroState(meals, records, criteria.postMealHours, now)
+
+  const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
+  const questionCount = useVisitStore((state) => state.questions.length)
+  const navigate = useNavigate()
+  const visitCard = getHomeVisitCard(nextVisitAt, now)
+  // 진료 다음 날 카드는 진료 뒤 기준을 이미 바꿨으면 숨김
+  const criteriaUpdated =
+    visitCard?.kind === 'yesterday' &&
+    criteria.version > 1 &&
+    new Date(criteria.appliedFrom) >= startOfDay(visitCard.at)
+  const openVisitCard = () => {
+    navigate(visitCard?.kind === 'yesterday' ? ROUTES.VISIT_CRITERIA : ROUTES.VISIT_REPORT)
+  }
 
   const handleStartMeal = () => {
     const current = new Date()
@@ -62,7 +80,7 @@ function TodayPage() {
   return (
     <main className="px-5 pt-15.5">
       <WarmBackground />
-      <TodayHeader name={MOCK_USER.name} date={now} />
+      <TodayHeader name={MOCK_USER.name} date={now} visitLabel={formatVisitDay(nextVisitAt, now)} />
       <div className="mt-6">
         <HeroCard
           state={heroState}
@@ -74,6 +92,11 @@ function TodayPage() {
           onWriteMeal={setWritingMeal}
         />
       </div>
+      {visitCard && !criteriaUpdated && (
+        <div className="mt-4.5">
+          <VisitCard card={visitCard} questionCount={questionCount} onOpen={openVisitCard} />
+        </div>
+      )}
       <div className="mt-4.5">
         <NotificationBanner />
       </div>
