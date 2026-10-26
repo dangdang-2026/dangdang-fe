@@ -12,7 +12,8 @@ import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
 import { MOCK_HOSPITAL } from '@/mocks/hospital'
-import { MOCK_USER } from '@/mocks/user'
+import { useProfileStore } from '@/stores/useProfileStore'
+import { formatPregnancyRange } from '@/utils/pregnancy'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { getCriteriaAt } from '@/utils/criteria'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
@@ -36,6 +37,8 @@ function ReportPage() {
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
   const saveReport = useReportStore((state) => state.saveReport)
   const [searchParams] = useSearchParams()
+  const name = useProfileStore((state) => state.name)
+  const dueDate = useProfileStore((state) => state.dueDate)
 
   const now = useNow()
   const today = startOfDay(now)
@@ -44,8 +47,9 @@ function ReportPage() {
   const from = parseDateKey(searchParams.get('from')) ?? addDays(to, -(REPORT_DAYS - 1))
   const report = buildReport({ records, meals, from, to, versions })
 
-  const periodLabel = `${formatMonthDay(from)} – ${formatMonthDay(to)}`
-  const title = hideName ? '혈당 기록' : `${MOCK_USER.name} 님 혈당 기록`
+  const pregnancy = formatPregnancyRange(dueDate, from, to)
+  const periodLabel = `${formatMonthDay(from)} – ${formatMonthDay(to)}${pregnancy ? ` · ${pregnancy}` : ''}`
+  const title = hideName ? '혈당 기록' : `${name} 님 혈당 기록`
   // 기준 줄은 리포트 마지막 날 기준
   const { targets, postMealHours } = getCriteriaAt(versions, to)
   const criteria = formatCriteria(targets, postMealHours)

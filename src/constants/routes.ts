@@ -8,4 +8,9 @@ export const ROUTES = {
   VISIT_CRITERIA_HISTORY: '/visit/criteria/history',
   COMMUNITY: '/community',
   MY: '/my',
+  MY_PROFILE: '/my/profile',
+  MY_CRITERIA: '/my/criteria',
+  MY_NOTIFICATIONS: '/my/notifications',
+  MY_FOODS: '/my/foods',
+  MY_TERMS: '/my/terms',
 } as const

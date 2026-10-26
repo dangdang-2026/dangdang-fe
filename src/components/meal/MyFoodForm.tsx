@@ -11,16 +11,19 @@ const MY_FOOD_UNIT = '인분'
 
 type MyFoodFormProps = {
   initialName: string
+  // 있으면 고치기(M-17), 없으면 추가(F-08)
+  editing?: MyFood
   onBack: () => void
   onAdd: (food: MyFood) => void
+  onDelete?: () => void
 }
 
-// 이름에 겹치는 글자가 많은 음식 순
-function useSimilarFoods(name: string) {
+// 이름에 겹치는 글자가 많은 음식 순. 고치는 음식 자신은 뺌
+function useSimilarFoods(name: string, exclude?: string) {
   const foods = useFoods()
   const letters = new Set(name.replace(/\s/g, ''))
   return foods
-    .filter((food) => food.name !== name)
+    .filter((food) => food.name !== name && food.name !== exclude)
     .map((food) => ({
       name: food.name,
       score: [...new Set(food.name)].filter((char) => letters.has(char)).length,
@@ -38,13 +41,16 @@ const chipClass = (selected: boolean) =>
       : 'border-grey-200 text-grey-800 bg-white font-medium'
   }`
 
-// Figma F-08 내 음식 추가. 식품 DB에 없는 음식을 이름·비슷한 음식·자주 먹는 양(주식만)으로 저장
-function MyFoodForm({ initialName, onBack, onAdd }: MyFoodFormProps) {
+// Figma F-08 내 음식 추가·M-17 고치기. 식품 DB에 없는 음식을 이름·비슷한 음식·자주 먹는 양(주식만)으로 저장
+function MyFoodForm({ initialName, editing, onBack, onAdd, onDelete }: MyFoodFormProps) {
   const [name, setName] = useState(initialName)
-  const [similarTo, setSimilarTo] = useState<string>()
-  const [portion, setPortion] = useState<Portion>('one')
+  const [similarTo, setSimilarTo] = useState(editing?.similarTo)
+  const [portion, setPortion] = useState<Portion>(editing?.portion ?? 'one')
   const foods = useFoods()
-  const similarFoods = useSimilarFoods(name.trim())
+  const suggested = useSimilarFoods(name.trim(), editing?.name)
+  // 전에 고른 비슷한 음식은 추천에 없어도 보여 줌
+  const similarFoods =
+    similarTo && !suggested.includes(similarTo) ? [similarTo, ...suggested] : suggested
   const trimmed = name.trim()
   // 비슷한 음식을 고르면 그 음식 기준, 아니면 이름(밥·면 등)으로 주식인지 판단
   const similar = similarTo ? findFood(similarTo, foods) : undefined
@@ -54,8 +60,8 @@ function MyFoodForm({ initialName, onBack, onAdd }: MyFoodFormProps) {
   return (
     <>
       <div className="flex items-center justify-between">
-        <h2 className="text-t4 text-grey-900">내 음식 추가</h2>
-        <button type="button" aria-label="검색으로 돌아가기" onClick={onBack}>
+        <h2 className="text-t4 text-grey-900">{editing ? '내 음식 고치기' : '내 음식 추가'}</h2>
+        <button type="button" aria-label={editing ? '닫기' : '검색으로 돌아가기'} onClick={onBack}>
           <img src={iconClose} alt="" width={22} height={22} />
         </button>
       </div>
@@ -118,7 +124,9 @@ function MyFoodForm({ initialName, onBack, onAdd }: MyFoodFormProps) {
       <p className="bg-grey-50 flex gap-2 rounded-xl px-3.5 py-3">
         <img src={iconPrivate} alt="" width={18} height={18} className="self-start" />
         <span className="text-grey-700 text-t7 flex-1 leading-relaxed">
-          내 음식은 나만 볼 수 있어요.
+          {editing
+            ? '고쳐도 이미 남긴 끼니 기록은 그대로예요. 다음 기록부터 바뀐 내용으로 보여요.'
+            : '내 음식은 나만 볼 수 있어요.'}
         </span>
       </p>
 
@@ -138,8 +146,17 @@ function MyFoodForm({ initialName, onBack, onAdd }: MyFoodFormProps) {
           })
         }
       >
-        추가하고 기록하기
+        {editing ? '저장' : '추가하고 기록하기'}
       </button>
+      {onDelete && (
+        <button
+          type="button"
+          className="text-grey-600 py-1 text-sm leading-normal font-medium"
+          onClick={onDelete}
+        >
+          이 음식 지우기
+        </button>
+      )}
     </>
   )
 }
