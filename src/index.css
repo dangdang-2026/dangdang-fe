@@ -3,6 +3,7 @@
 @theme {
   /* Figma 디자인시스템 Primitives */
   --color-yellow-50: #fff6e5;
+  --color-yellow-100: #ffeccb;
   --color-yellow-300: #ffd184;
   --color-yellow-500: #fbb315;
   --color-orange-400: #ffa927;
@@ -16,6 +17,13 @@
   --color-grey-800: #333d4b;
   --color-grey-900: #191f28;
 
+  --color-blue-50: #e8f3ff;
+  --color-blue-500: #3182f6;
+  --color-blue-600: #2272eb;
+  --color-red-50: #ffeeee;
+  --color-red-500: #f04452;
+  --color-red-600: #e42939;
+
   --color-primary: var(--color-yellow-500);
   --color-primary-light: #fef9c3;
   --color-primary-dark: #ca8a04;
@@ -24,7 +32,17 @@
   --color-bg-warm: #fffdf8;
   --color-hero-to: #ffe0ac;
 
+  /* 바텀시트 뒤 딤 */
+  --color-dim: rgb(160 160 160 / 0.46);
+
   /* Figma 타이포그래피. 자간은 Figma % 값을 em으로 변환 */
+  --text-display: 76px;
+  --text-display--line-height: 1.1;
+  --text-display--letter-spacing: -0.03em;
+  --text-display--font-weight: 700;
+  --text-number: 48px;
+  --text-number--line-height: 1.2;
+  --text-number--font-weight: 700;
   --text-title-2: 24px;
   --text-title-2--line-height: 1.25;
   --text-title-2--letter-spacing: -0.015em;
@@ -32,6 +50,9 @@
   --text-hero: 21px;
   --text-hero--line-height: 1.35;
   --text-hero--font-weight: 700;
+  --text-t4: 20px;
+  --text-t4--line-height: 1.45;
+  --text-t4--font-weight: 700;
   --text-title-3: 19px;
   --text-title-3--line-height: 1.3;
   --text-title-3--letter-spacing: -0.01em;
@@ -40,6 +61,10 @@
   --text-subtitle-1--line-height: 1.45;
   --text-subtitle-1--letter-spacing: -0.01em;
   --text-subtitle-1--font-weight: 700;
+  --text-body-2: 15px;
+  --text-body-2--line-height: 1.5;
+  --text-body-2--letter-spacing: -0.01em;
+  --text-body-2--font-weight: 500;
   --text-t6: 15px;
   --text-t6--line-height: 1.5;
   --text-body-3: 13px;
@@ -56,6 +81,8 @@
   --radius-hero: 28px;
   --radius-banner: 20px;
   --radius-tag: 10px;
+  --radius-sheet: 29px;
+  --radius-key: 14px;
 
   /* Figma 그림자 */
   --drop-shadow-tab-bar: 0 -4px 24px rgb(102 77 26 / 0.08);
@@ -64,6 +91,23 @@
   --shadow-banner: 0 4px 12px 0 rgb(128 89 0 / 0.06);
   --shadow-chatbot: 0 6px 14px 0 rgb(128 89 0 / 0.22);
   --shadow-chatbot-tag: 0 2px 6px 0 rgb(128 89 0 / 0.15);
+  --shadow-sheet: 0 0 7.3px 0 rgb(0 0 0 / 0.25);
+
+  /* 바텀시트 올라옴·딤 나타남 */
+  --animate-sheet-up: sheet-up 0.25s ease-out;
+  --animate-fade-in: fade-in 0.25s ease-out;
+
+  @keyframes sheet-up {
+    from {
+      transform: translateY(100%);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
 
   /* 챗봇 버튼 둥둥: Figma 위↔아래 상태를 0.9초마다 왕복 */
   --animate-float: float 0.9s ease-in-out infinite alternate;
