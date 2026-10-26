@@ -1,14 +1,19 @@
 import { useCallback, useState } from 'react'
 import iconEdit from '@/assets/icons/edit.svg'
+import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import NextVisitCard from '@/components/visit/NextVisitCard'
+import QuestionSheet from '@/components/visit/QuestionSheet'
+import QuestionsCard from '@/components/visit/QuestionsCard'
 import VisitDateSheet from '@/components/visit/VisitDateSheet'
 import { useNow } from '@/hooks/useNow'
 import { useVisitStore } from '@/stores/useVisitStore'
-import { startOfDay } from '@/utils/date'
+import type { Question } from '@/types/visit'
+import { formatMonthDay, startOfDay } from '@/utils/date'
 import { getVisitStatus } from '@/utils/visit'
 
 type DateSheet = 'first' | 'edit' | null
+type ToastState = { message: string; action?: { label: string; onClick: () => void } }
 
 function VisitPage() {
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
@@ -16,6 +21,12 @@ function VisitPage() {
   const setNextVisit = useVisitStore((state) => state.setNextVisit)
   // 첫 진입이면 다음 진료일부터 물어봄
   const [dateSheet, setDateSheet] = useState<DateSheet>(() => (asked ? null : 'first'))
+  const questions = useVisitStore((state) => state.questions)
+  const addQuestion = useVisitStore((state) => state.addQuestion)
+  const removeQuestion = useVisitStore((state) => state.removeQuestion)
+  const restoreQuestion = useVisitStore((state) => state.restoreQuestion)
+  const [questionSheetOpen, setQuestionSheetOpen] = useState(false)
+  const [toast, setToast] = useState<ToastState | null>(null)
 
   const now = useNow()
   const status = getVisitStatus(nextVisitAt, now)
@@ -36,6 +47,25 @@ function VisitPage() {
     setDateSheet(null)
   }
 
+  const handleAddQuestion = (text: string) => {
+    addQuestion(text)
+    setQuestionSheetOpen(false)
+  }
+
+  // 지운 직후 토스트에서 원래 자리로 되돌릴 수 있게
+  const handleRemoveQuestion = (question: Question) => {
+    const index = questions.findIndex((item) => item.id === question.id)
+    removeQuestion(question.id)
+    setToast({
+      message: '질문을 지웠어요',
+      action: { label: '되돌리기', onClick: () => restoreQuestion(question, index) },
+    })
+  }
+
+  const closeToast = useCallback(() => setToast(null), [])
+  const closeQuestionSheet = useCallback(() => setQuestionSheetOpen(false), [])
+  const visitLabel = status.kind === 'unknown' ? undefined : `${formatMonthDay(status.at)} 진료`
+
   return (
     <main className="px-5 pt-15.5">
       <WarmBackground />
@@ -54,6 +84,13 @@ function VisitPage() {
       <div className="mt-4">
         <NextVisitCard status={status} onEdit={() => setDateSheet('edit')} />
       </div>
+      <div className="mt-4">
+        <QuestionsCard
+          questions={questions}
+          onAdd={() => setQuestionSheetOpen(true)}
+          onRemove={handleRemoveQuestion}
+        />
+      </div>
 
       {dateSheet && (
         <VisitDateSheet
@@ -65,6 +102,14 @@ function VisitPage() {
           onClose={closeDateSheet}
         />
       )}
+      {questionSheetOpen && (
+        <QuestionSheet
+          visitLabel={visitLabel}
+          onSave={handleAddQuestion}
+          onClose={closeQuestionSheet}
+        />
+      )}
+      {toast && <Toast message={toast.message} action={toast.action} onClose={closeToast} />}
     </main>
   )
 }
