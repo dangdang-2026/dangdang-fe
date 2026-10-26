@@ -16,18 +16,34 @@ export function findFood(name: string, foods: Food[]) {
   return foods.find((food) => food.name === name)
 }
 
-// 예: 김치볶음밥 1공기 / 현미밥, 계란말이(여러 개면 양 생략)
+// 고른 음식 중 처음 나오는 주식
+export function findStaple(names: string[], foods: Food[]) {
+  return names.map((name) => findFood(name, foods)).find((food) => food?.staple)
+}
+
+// 예: 현미밥 1공기, 계란말이, 된장국(주식을 맨 앞에, 주식에만 양 표시)
 export function formatMealContent(meal: Meal, foods: Food[]) {
   if (!meal.foods?.length) return ''
-  if (meal.foods.length > 1 || !meal.portion) return meal.foods.join(', ')
-  const unit = findFood(meal.foods[0], foods)?.unit ?? '인분'
-  return `${meal.foods[0]} ${formatPortion(meal.portion, unit)}`
+  const staple = findStaple(meal.foods, foods)
+  if (!staple) return meal.foods.join(', ')
+  const others = meal.foods.filter((name) => name !== staple.name)
+  const main = meal.portion
+    ? `${staple.name} ${formatPortion(meal.portion, staple.unit)}`
+    : staple.name
+  return [main, ...others].join(', ')
 }
 
 // 목록 한 줄. 예: 점심 · 김치볶음밥 1공기, 내용 없으면 점심 식사
 export function formatMealLabel(meal: Meal, foods: Food[]) {
   const content = formatMealContent(meal, foods)
   return content ? `${MEAL_LABEL[meal.type]} · ${content}` : `${MEAL_LABEL[meal.type]} 식사`
+}
+
+// 이름에 이 글자가 있으면 주식으로 봄(내 음식 추가용)
+const STAPLE_KEYWORDS = /밥|면|국수|빵|떡|죽/
+
+export function looksLikeStaple(name: string) {
+  return STAPLE_KEYWORDS.test(name)
 }
 
 // 받침 있으면 을, 없으면 를

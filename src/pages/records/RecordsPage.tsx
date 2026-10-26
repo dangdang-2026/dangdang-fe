@@ -77,7 +77,7 @@ function RecordsPage() {
   const closeDeleteSheet = useCallback(() => setDeleting(null), [])
   const closeMealSheet = useCallback(() => setEditingMeal(null), [])
 
-  const handleMealEdited = (foods: string[], portion: Portion) => {
+  const handleMealEdited = (foods: string[], portion?: Portion) => {
     if (!editingMeal) return
     setMealContent(editingMeal.id, foods, portion)
     setEditingMeal(null)

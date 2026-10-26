@@ -9,8 +9,9 @@ export type Meal = {
   startedAt: string
   // 이번 끼니 식후 측정 건너뜀
   skipped: boolean
-  // 먹은 음식 이름과 양. 적기 전엔 없음
+  // 먹은 음식 이름. 적기 전엔 없음
   foods?: string[]
+  // 주식(밥·면 등) 양. 반찬은 양을 받지 않음
   portion?: Portion
 }
 
@@ -21,13 +22,16 @@ export type Portion = 'half' | 'one' | 'one-half'
 export type Food = {
   name: string
   unit: string
+  // 밥·면처럼 식후 혈당에 영향이 큰 주식. 이것만 양을 받음
+  staple?: boolean
 }
 
 // 사용자가 직접 추가한 음식
 export type MyFood = Food & {
   // 영양 참고값 기준으로 쓸 비슷한 음식
   similarTo?: string
-  portion: Portion
+  // 자주 먹는 양. 주식일 때만
+  portion?: Portion
 }
 
 export type GlucoseRecord = {

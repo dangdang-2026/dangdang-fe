@@ -7,7 +7,7 @@ type GlucoseState = {
   records: GlucoseRecord[]
   startMeal: (type: MealType, now?: Date) => void
   skipMeal: (mealId: string) => void
-  setMealContent: (mealId: string, foods: string[], portion: Portion) => void
+  setMealContent: (mealId: string, foods: string[], portion?: Portion) => void
   addRecord: (target: MeasureTarget, value: number, now?: Date) => GlucoseRecord
   updateRecord: (id: string, changes: { value: number; measuredAt: string }, now?: Date) => void
   deleteRecord: (id: string, now?: Date) => void

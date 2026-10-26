@@ -3,7 +3,7 @@ import iconClose from '@/assets/icons/close.svg'
 import iconPrivate from '@/assets/icons/private.svg'
 import { useFoods } from '@/hooks/useFoods'
 import type { MyFood, Portion } from '@/types/glucose'
-import { formatPortion } from '@/utils/meal'
+import { findFood, formatPortion, looksLikeStaple } from '@/utils/meal'
 
 const PORTIONS: Portion[] = ['half', 'one', 'one-half']
 const SIMILAR_LIMIT = 3
@@ -38,13 +38,18 @@ const chipClass = (selected: boolean) =>
       : 'border-grey-200 text-grey-800 bg-white font-medium'
   }`
 
-// Figma F-08 내 음식 추가. 식품 DB에 없는 음식을 이름·비슷한 음식·자주 먹는 양으로 저장
+// Figma F-08 내 음식 추가. 식품 DB에 없는 음식을 이름·비슷한 음식·자주 먹는 양(주식만)으로 저장
 function MyFoodForm({ initialName, onBack, onAdd }: MyFoodFormProps) {
   const [name, setName] = useState(initialName)
   const [similarTo, setSimilarTo] = useState<string>()
   const [portion, setPortion] = useState<Portion>('one')
+  const foods = useFoods()
   const similarFoods = useSimilarFoods(name.trim())
   const trimmed = name.trim()
+  // 비슷한 음식을 고르면 그 음식 기준, 아니면 이름(밥·면 등)으로 주식인지 판단
+  const similar = similarTo ? findFood(similarTo, foods) : undefined
+  const staple = similar ? !!similar.staple : looksLikeStaple(trimmed)
+  const unit = similar?.staple ? similar.unit : MY_FOOD_UNIT
 
   return (
     <>
@@ -90,22 +95,25 @@ function MyFoodForm({ initialName, onBack, onAdd }: MyFoodFormProps) {
         </div>
       )}
 
-      <div className="flex flex-col gap-2">
-        <span className="text-body-3 text-grey-600">자주 먹는 양</span>
-        <div className="flex gap-2">
-          {PORTIONS.map((item) => (
-            <button
-              key={item}
-              type="button"
-              aria-pressed={item === portion}
-              className={`flex-1 ${chipClass(item === portion)}`}
-              onClick={() => setPortion(item)}
-            >
-              {formatPortion(item, MY_FOOD_UNIT)}
-            </button>
-          ))}
+      {/* 주식일 때만 양을 받음 */}
+      {staple && (
+        <div className="flex flex-col gap-2">
+          <span className="text-body-3 text-grey-600">자주 먹는 양</span>
+          <div className="flex gap-2">
+            {PORTIONS.map((item) => (
+              <button
+                key={item}
+                type="button"
+                aria-pressed={item === portion}
+                className={`flex-1 ${chipClass(item === portion)}`}
+                onClick={() => setPortion(item)}
+              >
+                {formatPortion(item, unit)}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <p className="bg-grey-50 flex gap-2 rounded-xl px-3.5 py-3">
         <img src={iconPrivate} alt="" width={18} height={18} />
@@ -118,7 +126,15 @@ function MyFoodForm({ initialName, onBack, onAdd }: MyFoodFormProps) {
         type="button"
         disabled={!trimmed}
         className="disabled:bg-grey-100 disabled:text-grey-400 bg-primary text-grey-900 rounded-key py-4 text-base leading-normal font-bold"
-        onClick={() => onAdd({ name: trimmed, unit: MY_FOOD_UNIT, similarTo, portion })}
+        onClick={() =>
+          onAdd({
+            name: trimmed,
+            unit,
+            similarTo,
+            staple,
+            portion: staple ? portion : undefined,
+          })
+        }
       >
         추가하고 기록하기
       </button>

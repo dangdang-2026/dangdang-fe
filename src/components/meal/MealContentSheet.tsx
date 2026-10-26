@@ -13,7 +13,7 @@ import { useFoodStore } from '@/stores/useFoodStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import type { Meal, MyFood, Portion } from '@/types/glucose'
 import { formatTime } from '@/utils/date'
-import { findFood, formatPortion, getRecentFoods } from '@/utils/meal'
+import { findStaple, formatPortion, getRecentFoods } from '@/utils/meal'
 
 const PORTIONS: Portion[] = ['half', 'one', 'one-half']
 const RECENT_LIMIT = 3
@@ -24,7 +24,8 @@ type MealContentSheetProps = {
   // 이미 적은 식사를 고칠 때
   editing?: boolean
   onClose: () => void
-  onSaved: (foods: string[], portion: Portion) => void
+  // 주식을 고르지 않으면 portion 없음
+  onSaved: (foods: string[], portion?: Portion) => void
 }
 
 // Figma F-01·F-07·D-09 식사 내용 적기. 최근 음식·이름 검색으로 고르고 양 선택
@@ -53,9 +54,8 @@ function MealContentSheet({ meal, editing, onClose, onSaved }: MealContentSheetP
       ...searched,
     ]),
   ]
-  // 양 단위는 처음 고른 음식 기준(밥이면 공기, 반찬이면 접시 등)
-  const mainFood = selected[0]
-  const unit = (mainFood && findFood(mainFood, foods)?.unit) || '인분'
+  // 양은 주식(밥·면 등)만 받음. 반찬은 이름만 기록
+  const staple = findStaple(selected, foods)
 
   const keyword = query.trim()
   const results = keyword
@@ -78,7 +78,9 @@ function MealContentSheet({ meal, editing, onClose, onSaved }: MealContentSheetP
   // 내 음식을 추가하면 고른 음식에 더해 바로 저장
   const handleAddMyFood = (food: MyFood) => {
     addMyFood(food)
-    onSaved([...new Set([...selected, food.name])], food.portion)
+    // 이미 고른 주식이 있으면 그 양 유지
+    const nextPortion = staple ? portion : food.staple ? food.portion : undefined
+    onSaved([...new Set([...selected, food.name])], nextPortion)
   }
 
   const mealLabel = MEAL_LABEL[meal.type]
@@ -187,11 +189,11 @@ function MealContentSheet({ meal, editing, onClose, onSaved }: MealContentSheetP
             </button>
           </div>
 
-          {/* 음식을 고른 뒤에만 양 표시. 여러 개면 어느 음식 양인지 함께 표시 */}
-          {mainFood && (
+          {/* 주식을 고른 뒤에만 양 표시. 여러 개면 어느 음식 양인지 함께 표시 */}
+          {staple && (
             <>
               <p className="text-grey-800 text-sm leading-normal font-bold">
-                {selected.length > 1 ? `${mainFood} 양` : '양'}
+                {selected.length > 1 ? `${staple.name} 양` : '양'}
               </p>
               <div className="flex gap-2">
                 {PORTIONS.map((item) => {
@@ -208,7 +210,7 @@ function MealContentSheet({ meal, editing, onClose, onSaved }: MealContentSheetP
                       }`}
                       onClick={() => setPortion(item)}
                     >
-                      {formatPortion(item, unit)}
+                      {formatPortion(item, staple.unit)}
                     </button>
                   )
                 })}
@@ -222,7 +224,7 @@ function MealContentSheet({ meal, editing, onClose, onSaved }: MealContentSheetP
         type="button"
         disabled={selected.length === 0}
         className="text-subtitle-1 disabled:bg-grey-100 disabled:text-grey-400 bg-primary h-14 rounded-xl leading-none text-white"
-        onClick={() => onSaved(selected, portion)}
+        onClick={() => onSaved(selected, staple ? portion : undefined)}
       >
         확인한 것만 저장
       </button>

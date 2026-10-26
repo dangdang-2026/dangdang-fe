@@ -50,7 +50,7 @@ function TodayPage() {
     setToast(`${label} ${record.value} 저장했어요`)
   }
 
-  const handleMealSaved = (mealFoods: string[], portion: Portion) => {
+  const handleMealSaved = (mealFoods: string[], portion?: Portion) => {
     if (!writingMeal) return
     setMealContent(writingMeal.id, mealFoods, portion)
     setToast(formatMealSavedMessage({ ...writingMeal, foods: mealFoods, portion }, foods))
