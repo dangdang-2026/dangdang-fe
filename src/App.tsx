@@ -39,7 +39,7 @@ import TimingPage from '@/pages/onboarding/TimingPage'
 
 // 재실행 스플래시(당당 소식 카드)를 보여 주는 시간
 const SPLASH_MS = 1600
-// 첫 실행은 모션(4초) + 언덕 올라오기 + 페이드 아웃이 끝난 뒤 넘김
+// 첫 실행은 모션(4.4초) + 언덕 올라오기 + 페이드 아웃이 끝난 뒤 넘김
 const FIRST_SPLASH_MS = SPLASH_TOTAL_MS
 
 function App() {

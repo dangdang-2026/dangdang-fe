@@ -1,5 +1,11 @@
+// K2 쿵 착지(눌림) 포즈로 버티는 시간
+const LAND_HOLD_MS = 400
+
 // Figma 스플래시 v3 K0~K6 칸별 길이. 점프(K0→K4)는 빠르게, 꼭대기 착지 반동(K4→K5)은 2초, 워드마크(K5→K6)
-const STEP_MS = [350, 350, 350, 350, 2000, 600]
+const STEP_MS = [350, 350, 350 + LAND_HOLD_MS, 350, 2000, 600]
+
+// K2→K3 칸 중 버티는 비율
+const LAND_HOLD = LAND_HOLD_MS / STEP_MS[2]
 
 // 각 키프레임(K0~K6) 시작 시각
 const KEY_TIMES = STEP_MS.reduce((times, ms) => [...times, times[times.length - 1] + ms], [0])
@@ -29,42 +35,82 @@ const at = (step: number) => {
   return time / SPLASH_MOTION_MS
 }
 
-export const characterKeyframes: Keyframe[] = CHARACTER_KEYS.map(
-  ({ x, y, rotate, easing }, step) => ({
-    offset: at(step),
-    transform: `translate(${x}px, ${y}px) rotate(${rotate}deg)`,
-    easing,
-  }),
+// K2에선 제자리에 버틴 뒤 K3로 출발
+export const characterKeyframes: Keyframe[] = CHARACTER_KEYS.flatMap(
+  ({ x, y, rotate, easing }, step) => {
+    const transform = `translate(${x}px, ${y}px) rotate(${rotate}deg)`
+    if (step !== 2) return [{ offset: at(step), transform, easing }]
+    return [
+      { offset: at(step), transform, easing: 'linear' },
+      { offset: at(step + LAND_HOLD), transform, easing },
+    ]
+  },
 )
 
-// 꼭대기 착지 반동. 쿵 눌렸다가 출렁이며 점점 잦아듦(K4→K5, 2초)
-const RECOIL_KEYS = [
-  { at: 0, scale: '1, 1' },
-  { at: 0.06, scale: '1.16, 0.82' },
-  { at: 0.2, scale: '0.92, 1.1' },
-  { at: 0.36, scale: '1.06, 0.95' },
-  { at: 0.52, scale: '0.97, 1.03' },
-  { at: 0.7, scale: '1.015, 0.99' },
-  { at: 1, scale: '1, 1' },
+const EASE_UP = 'cubic-bezier(0.33, 1, 0.68, 1)'
+const EASE_DOWN = 'cubic-bezier(0.32, 0, 0.67, 0)'
+
+// 꼭대기 착지 반동 높이
+const TOP_RECOIL_HEIGHTS = [26]
+
+// K2 착지 때 자리보다 더 내려앉는 깊이
+const FIRST_SINK = 18
+
+// 꼭대기 착지 반동 끝(K4→K5 칸 비율). 2초 중 앞 0.6초
+const TOP_RECOIL_END = 0.3
+
+// 서 있는 포즈로 바뀌는 시점. 반동 끝나고 내려앉은 뒤
+const STAND_AT = 4.4
+
+// 눌린 포즈 그대로 위치만 통통 올라갔다 내려옴. 구간을 높이 개수만큼 나눔. 오를 땐 감속, 떨어질 땐 가속
+const recoil = (land: number, end: number, heights: number[]): Keyframe[] => {
+  const span = (end - land) / heights.length
+  return [
+    ...heights.flatMap((height, index) => {
+      const start = land + span * index
+      return [
+        { offset: at(start), transform: 'translateY(0)', easing: EASE_UP },
+        { offset: at(start + span / 2), transform: `translateY(-${height}px)`, easing: EASE_DOWN },
+      ]
+    }),
+    { offset: at(end), transform: 'translateY(0)' },
+  ]
+}
+
+// 떨어지던 힘 그대로 자리보다 아래로 쑥 내려앉았다가, 살짝 넘쳐 올라온 뒤 제자리로
+const sink = (land: number, end: number): Keyframe[] => {
+  const span = end - land
+  return [
+    { offset: at(land), transform: 'translateY(0)', easing: EASE_OUT },
+    {
+      offset: at(land + span * 0.3),
+      transform: `translateY(${FIRST_SINK}px)`,
+      easing: 'ease-in-out',
+    },
+    { offset: at(land + span * 0.7), transform: 'translateY(-4px)', easing: 'ease-in-out' },
+    { offset: at(end), transform: 'translateY(0)' },
+  ]
+}
+
+// 점프(K0→K4)는 Figma 포즈 그대로(폴짝 포즈에 높이 140px 포함). K2 착지·꼭대기 착지 반동만 겹침
+export const bounceKeyframes: Keyframe[] = [
+  { offset: 0, transform: 'translateY(0)' },
+  ...sink(2, 2 + LAND_HOLD),
+  ...recoil(4, 4 + TOP_RECOIL_END, TOP_RECOIL_HEIGHTS),
+  { offset: 1, transform: 'translateY(0)' },
 ]
 
-// 서 있는 포즈로 바뀌는 시점. 반동에서 위로 늘어날 때
-const STAND_AT = 4.2
+// 포즈 i → i+1 바뀌는 시점. 기본은 이동 구간 중간, K2는 버틴 뒤 이동 중간, K4는 튀어 오를 때
+const poseSwitchAt = (pose: number) => {
+  if (pose === 2) return at(2 + LAND_HOLD + (1 - LAND_HOLD) / 2)
+  if (pose === 4) return at(STAND_AT)
+  return at(pose + 0.5)
+}
 
-export const recoilKeyframes: Keyframe[] = [
-  { offset: 0, transform: 'scale(1, 1)' },
-  ...RECOIL_KEYS.map(({ at: t, scale }) => ({
-    offset: at(4 + t),
-    transform: `scale(${scale})`,
-    easing: t === 0 ? EASE_OUT : 'ease-in-out',
-  })),
-  { offset: 1, transform: 'scale(1, 1)' },
-]
-
-// 포즈 i는 앞뒤 키프레임의 중간 지점에서 바뀜. 마지막(5)은 서 있는 포즈
+// 마지막(5)은 서 있는 포즈
 export const poseKeyframes = (pose: number): Keyframe[] => {
-  const start = pose === 0 ? 0 : pose === 5 ? at(STAND_AT) : at(pose - 0.5)
-  const end = pose === 5 ? 1 : pose === 4 ? at(STAND_AT) : at(pose + 0.5)
+  const start = pose === 0 ? 0 : poseSwitchAt(pose - 1)
+  const end = pose === 5 ? 1 : poseSwitchAt(pose)
   return [
     { offset: 0, opacity: pose === 0 ? 1 : 0, easing: 'step-end' },
     { offset: start, opacity: 1, easing: 'step-end' },
@@ -101,10 +147,7 @@ export const hillRiseKeyframes: Keyframe[] = [
   { opacity: 1, transform: 'translate(19px, calc(50dvh - 800px)) scale(2.2)' },
 ]
 
-export const splashFadeKeyframes: Keyframe[] = [
-  { opacity: 1, easing: EASE_OUT },
-  { opacity: 0 },
-]
+export const splashFadeKeyframes: Keyframe[] = [{ opacity: 1, easing: EASE_OUT }, { opacity: 0 }]
 
 // 움직임 줄이기: 걷기 없이 슬로건 페이드 300ms만
 export const REDUCED_FADE: Keyframe[] = [{ opacity: 0 }, { opacity: 1 }]

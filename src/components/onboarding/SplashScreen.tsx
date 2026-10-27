@@ -14,7 +14,7 @@ import {
   HILL_RISE_MS,
   hillRiseKeyframes,
   poseKeyframes,
-  recoilKeyframes,
+  bounceKeyframes,
   REDUCED_FADE,
   REDUCED_FADE_MS,
   sloganKeyframes,
@@ -39,7 +39,7 @@ function SplashScreen({ news, onSkip }: SplashScreenProps) {
   const screenRef = useRef<HTMLDivElement>(null)
   const hillCoverRef = useRef<HTMLImageElement>(null)
   const characterRef = useRef<HTMLDivElement>(null)
-  const recoilRef = useRef<HTMLDivElement>(null)
+  const bounceRef = useRef<HTMLDivElement>(null)
   const poseRefs = useRef<(HTMLImageElement | null)[]>([])
   const wordmarkRef = useRef<HTMLImageElement>(null)
   const sloganRef = useRef<HTMLParagraphElement>(null)
@@ -56,7 +56,7 @@ function SplashScreen({ news, onSkip }: SplashScreenProps) {
         )
       : [
           characterRef.current?.animate(characterKeyframes, options),
-          recoilRef.current?.animate(recoilKeyframes, options),
+          bounceRef.current?.animate(bounceKeyframes, options),
           ...poseRefs.current.map((el, pose) => el?.animate(poseKeyframes(pose), options)),
           wordmarkRef.current?.animate(wordmarkKeyframes, options),
           sloganRef.current?.animate(sloganKeyframes, options),
@@ -98,8 +98,8 @@ function SplashScreen({ news, onSkip }: SplashScreenProps) {
         />
       ) : (
         <div ref={characterRef} className="absolute top-42 left-11">
-          {/* 발끝 기준으로 눌리고 늘어나도록 origin-bottom */}
-          <div ref={recoilRef} className="relative origin-bottom">
+          {/* 착지 반동(위치만 위아래) */}
+          <div ref={bounceRef} className="relative">
             {POSES.map((pose, index) => (
               <img
                 key={pose}
