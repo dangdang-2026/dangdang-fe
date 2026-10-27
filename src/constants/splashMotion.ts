@@ -29,6 +29,27 @@ export const characterKeyframes: Keyframe[] = CHARACTER_KEYS.map(
   }),
 )
 
+const EASE_RISE = 'cubic-bezier(0.33, 1, 0.68, 1)'
+const EASE_FALL = 'cubic-bezier(0.32, 0, 0.67, 0)'
+
+// K0~K4 한 칸마다 한 번씩 통통. 마지막(K4→K5)은 제자리에서 작게
+const HOP_HEIGHTS = [28, 28, 24, 20, 12]
+
+// 이동 경로 위에 겹치는 점프. 착지 때 납작, 공중에선 길쭉
+export const hopKeyframes: Keyframe[] = [
+  ...HOP_HEIGHTS.flatMap((height, step) => [
+    { offset: at(step), transform: 'translateY(0) scale(1.12, 0.86)', easing: EASE_RISE },
+    {
+      offset: at(step + 0.5),
+      transform: `translateY(-${height}px) scale(0.95, 1.06)`,
+      easing: EASE_FALL,
+    },
+  ]),
+  { offset: at(5), transform: 'translateY(0) scale(1.1, 0.88)', easing: EASE_SETTLE },
+  { offset: at(5.4), transform: 'translateY(0) scale(1)' },
+  { offset: 1, transform: 'translateY(0) scale(1)' },
+]
+
 // 포즈 i는 앞뒤 키프레임의 중간 지점에서 바뀜. 마지막(5)은 서 있는 포즈
 export const poseKeyframes = (pose: number): Keyframe[] => {
   const start = pose === 0 ? 0 : at(pose - 0.5)
