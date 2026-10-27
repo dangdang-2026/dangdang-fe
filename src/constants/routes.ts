@@ -1,4 +1,9 @@
 export const ROUTES = {
+  ONBOARDING: '/start',
+  ONBOARDING_TERMS: '/start/terms',
+  ONBOARDING_TIMING: '/start/timing',
+  ONBOARDING_SLOTS: '/start/slots',
+  ONBOARDING_DUE_DATE: '/start/due-date',
   TODAY: '/',
   RECORDS: '/records',
   VISIT: '/visit',

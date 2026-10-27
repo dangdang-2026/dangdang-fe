@@ -37,6 +37,12 @@
   --color-bg-warm: #fffdf8;
   --color-hero-to: #ffe0ac;
 
+  /* 서비스 소개 위쪽 그라디언트 · 카카오 버튼 */
+  --color-intro-from: #ffb700;
+  --color-intro-to: #fff0c1;
+  --color-kakao: #fee500;
+  --color-kakao-label: #191919;
+
   /* 바텀시트 뒤 딤 */
   --color-dim: rgb(160 160 160 / 0.46);
 
@@ -48,6 +54,9 @@
   --text-number: 48px;
   --text-number--line-height: 1.2;
   --text-number--font-weight: 700;
+  --text-t2: 26px;
+  --text-t2--line-height: 1.35;
+  --text-t2--font-weight: 700;
   --text-t3: 22px;
   --text-t3--line-height: 1.4;
   --text-t3--font-weight: 700;
@@ -92,6 +101,7 @@
   --radius-sheet: 29px;
   --radius-key: 14px;
   --radius-profile: 100px;
+  --radius-intro: 40px;
 
   /* Figma 그림자 */
   --drop-shadow-tab-bar: 0 -4px 24px rgb(102 77 26 / 0.08);
