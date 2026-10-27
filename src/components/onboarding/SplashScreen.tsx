@@ -13,7 +13,6 @@ import {
   HILL_RISE_DELAY_MS,
   HILL_RISE_MS,
   hillRiseKeyframes,
-  hopKeyframes,
   poseKeyframes,
   REDUCED_FADE,
   REDUCED_FADE_MS,
@@ -39,7 +38,6 @@ function SplashScreen({ news, onSkip }: SplashScreenProps) {
   const screenRef = useRef<HTMLDivElement>(null)
   const hillCoverRef = useRef<HTMLImageElement>(null)
   const characterRef = useRef<HTMLDivElement>(null)
-  const hopRef = useRef<HTMLDivElement>(null)
   const poseRefs = useRef<(HTMLImageElement | null)[]>([])
   const wordmarkRef = useRef<HTMLImageElement>(null)
   const sloganRef = useRef<HTMLParagraphElement>(null)
@@ -56,7 +54,6 @@ function SplashScreen({ news, onSkip }: SplashScreenProps) {
         )
       : [
           characterRef.current?.animate(characterKeyframes, options),
-          hopRef.current?.animate(hopKeyframes, options),
           ...poseRefs.current.map((el, pose) => el?.animate(poseKeyframes(pose), options)),
           wordmarkRef.current?.animate(wordmarkKeyframes, options),
           sloganRef.current?.animate(sloganKeyframes, options),
@@ -98,20 +95,17 @@ function SplashScreen({ news, onSkip }: SplashScreenProps) {
         />
       ) : (
         <div ref={characterRef} className="absolute top-42 left-11">
-          {/* 발끝 기준으로 찌그러지도록 origin-bottom */}
-          <div ref={hopRef} className="relative origin-bottom">
-            {POSES.map((pose, index) => (
-              <img
-                key={pose}
-                ref={(el) => {
-                  poseRefs.current[index] = el
-                }}
-                src={pose}
-                alt=""
-                className={`max-w-none ${index === POSES.length - 1 ? '' : 'absolute inset-0 opacity-0'}`}
-              />
-            ))}
-          </div>
+          {POSES.map((pose, index) => (
+            <img
+              key={pose}
+              ref={(el) => {
+                poseRefs.current[index] = el
+              }}
+              src={pose}
+              alt=""
+              className={`max-w-none ${index === POSES.length - 1 ? '' : 'absolute inset-0 opacity-0'}`}
+            />
+          ))}
         </div>
       )}
       <div
