@@ -1,8 +1,11 @@
-// Figma 스플래시 v3 K0~K6. Smart Animate 한 칸 300ms를 2배로 늦춤
-export const SPLASH_STEP_MS = 600
+// Figma 스플래시 v3 K0~K6 칸별 길이. 점프(K0→K4)는 빠르게, 꼭대기 착지 반동(K4→K5)은 2초, 워드마크(K5→K6)
+const STEP_MS = [350, 350, 350, 350, 2000, 600]
+
+// 각 키프레임(K0~K6) 시작 시각
+const KEY_TIMES = STEP_MS.reduce((times, ms) => [...times, times[times.length - 1] + ms], [0])
 
 // 전체 모션 길이(K0→K6)
-export const SPLASH_MOTION_MS = SPLASH_STEP_MS * 6
+export const SPLASH_MOTION_MS = KEY_TIMES[KEY_TIMES.length - 1]
 
 const EASE_OUT = 'cubic-bezier(0, 0, 0.2, 1)'
 const EASE_SETTLE = 'cubic-bezier(0.25, 1.2, 0.5, 1)'
@@ -19,7 +22,12 @@ const CHARACTER_KEYS = [
   { x: 0, y: 0, rotate: 0, easing: 'linear' },
 ]
 
-const at = (step: number) => (step * SPLASH_STEP_MS) / SPLASH_MOTION_MS
+// K 번호(소수 포함)를 전체 모션 기준 offset으로
+const at = (step: number) => {
+  const index = Math.floor(step)
+  const time = KEY_TIMES[index] + (step - index) * (STEP_MS[index] ?? 0)
+  return time / SPLASH_MOTION_MS
+}
 
 export const characterKeyframes: Keyframe[] = CHARACTER_KEYS.map(
   ({ x, y, rotate, easing }, step) => ({
@@ -29,10 +37,34 @@ export const characterKeyframes: Keyframe[] = CHARACTER_KEYS.map(
   }),
 )
 
+// 꼭대기 착지 반동. 쿵 눌렸다가 출렁이며 점점 잦아듦(K4→K5, 2초)
+const RECOIL_KEYS = [
+  { at: 0, scale: '1, 1' },
+  { at: 0.06, scale: '1.16, 0.82' },
+  { at: 0.2, scale: '0.92, 1.1' },
+  { at: 0.36, scale: '1.06, 0.95' },
+  { at: 0.52, scale: '0.97, 1.03' },
+  { at: 0.7, scale: '1.015, 0.99' },
+  { at: 1, scale: '1, 1' },
+]
+
+// 서 있는 포즈로 바뀌는 시점. 반동에서 위로 늘어날 때
+const STAND_AT = 4.2
+
+export const recoilKeyframes: Keyframe[] = [
+  { offset: 0, transform: 'scale(1, 1)' },
+  ...RECOIL_KEYS.map(({ at: t, scale }) => ({
+    offset: at(4 + t),
+    transform: `scale(${scale})`,
+    easing: t === 0 ? EASE_OUT : 'ease-in-out',
+  })),
+  { offset: 1, transform: 'scale(1, 1)' },
+]
+
 // 포즈 i는 앞뒤 키프레임의 중간 지점에서 바뀜. 마지막(5)은 서 있는 포즈
 export const poseKeyframes = (pose: number): Keyframe[] => {
-  const start = pose === 0 ? 0 : at(pose - 0.5)
-  const end = pose === 5 ? 1 : at(pose + 0.5)
+  const start = pose === 0 ? 0 : pose === 5 ? at(STAND_AT) : at(pose - 0.5)
+  const end = pose === 5 ? 1 : pose === 4 ? at(STAND_AT) : at(pose + 0.5)
   return [
     { offset: 0, opacity: pose === 0 ? 1 : 0, easing: 'step-end' },
     { offset: start, opacity: 1, easing: 'step-end' },

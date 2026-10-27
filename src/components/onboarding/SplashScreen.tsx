@@ -14,6 +14,7 @@ import {
   HILL_RISE_MS,
   hillRiseKeyframes,
   poseKeyframes,
+  recoilKeyframes,
   REDUCED_FADE,
   REDUCED_FADE_MS,
   sloganKeyframes,
@@ -38,6 +39,7 @@ function SplashScreen({ news, onSkip }: SplashScreenProps) {
   const screenRef = useRef<HTMLDivElement>(null)
   const hillCoverRef = useRef<HTMLImageElement>(null)
   const characterRef = useRef<HTMLDivElement>(null)
+  const recoilRef = useRef<HTMLDivElement>(null)
   const poseRefs = useRef<(HTMLImageElement | null)[]>([])
   const wordmarkRef = useRef<HTMLImageElement>(null)
   const sloganRef = useRef<HTMLParagraphElement>(null)
@@ -54,6 +56,7 @@ function SplashScreen({ news, onSkip }: SplashScreenProps) {
         )
       : [
           characterRef.current?.animate(characterKeyframes, options),
+          recoilRef.current?.animate(recoilKeyframes, options),
           ...poseRefs.current.map((el, pose) => el?.animate(poseKeyframes(pose), options)),
           wordmarkRef.current?.animate(wordmarkKeyframes, options),
           sloganRef.current?.animate(sloganKeyframes, options),
@@ -95,17 +98,20 @@ function SplashScreen({ news, onSkip }: SplashScreenProps) {
         />
       ) : (
         <div ref={characterRef} className="absolute top-42 left-11">
-          {POSES.map((pose, index) => (
-            <img
-              key={pose}
-              ref={(el) => {
-                poseRefs.current[index] = el
-              }}
-              src={pose}
-              alt=""
-              className={`max-w-none ${index === POSES.length - 1 ? '' : 'absolute inset-0 opacity-0'}`}
-            />
-          ))}
+          {/* 발끝 기준으로 눌리고 늘어나도록 origin-bottom */}
+          <div ref={recoilRef} className="relative origin-bottom">
+            {POSES.map((pose, index) => (
+              <img
+                key={pose}
+                ref={(el) => {
+                  poseRefs.current[index] = el
+                }}
+                src={pose}
+                alt=""
+                className={`max-w-none ${index === POSES.length - 1 ? '' : 'absolute inset-0 opacity-0'}`}
+              />
+            ))}
+          </div>
         </div>
       )}
       <div
