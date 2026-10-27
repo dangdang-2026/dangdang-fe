@@ -1,11 +1,12 @@
-// Figma 스플래시 v3 K0~K6. Smart Animate 한 칸 300ms
-export const SPLASH_STEP_MS = 300
+// Figma 스플래시 v3 K0~K6. Smart Animate 한 칸 300ms를 2배로 늦춤
+export const SPLASH_STEP_MS = 600
 
 // 전체 모션 길이(K0→K6)
 export const SPLASH_MOTION_MS = SPLASH_STEP_MS * 6
 
 const EASE_OUT = 'cubic-bezier(0, 0, 0.2, 1)'
 const EASE_SETTLE = 'cubic-bezier(0.25, 1.2, 0.5, 1)'
+const EASE_IN_OUT = 'cubic-bezier(0.4, 0, 0.2, 1)'
 
 // K0~K4 캐릭터 위치(마지막 자리 기준 중심 이동)·기울기. K5부터 제자리
 const CHARACTER_KEYS = [
@@ -52,6 +53,25 @@ export const sloganKeyframes: Keyframe[] = [
   { offset: 0, opacity: 0, transform: 'translateY(8px)' },
   { offset: at(5), opacity: 0, transform: 'translateY(8px)', easing: EASE_OUT },
   { offset: 1, opacity: 1, transform: 'translateY(0)' },
+]
+
+// 모션 끝나고 잠깐 머문 뒤 언덕이 올라와 화면을 덮고, 스플래시 전체가 페이드 아웃
+export const SPLASH_HOLD_MS = 400
+export const HILL_RISE_MS = 700
+export const SPLASH_FADE_MS = 300
+export const HILL_RISE_DELAY_MS = SPLASH_MOTION_MS + SPLASH_HOLD_MS
+export const SPLASH_FADE_DELAY_MS = HILL_RISE_DELAY_MS + HILL_RISE_MS
+export const SPLASH_TOTAL_MS = SPLASH_FADE_DELAY_MS + SPLASH_FADE_MS
+
+// 언덕 중심(196, 800)을 화면 중앙으로 옮기고 2.2배 키워 높이 1188px 화면까지 덮음
+export const hillRiseKeyframes: Keyframe[] = [
+  { opacity: 1, transform: 'translate(0, 0) scale(1)', easing: EASE_IN_OUT },
+  { opacity: 1, transform: 'translate(19px, calc(50dvh - 800px)) scale(2.2)' },
+]
+
+export const splashFadeKeyframes: Keyframe[] = [
+  { opacity: 1, easing: EASE_OUT },
+  { opacity: 0 },
 ]
 
 // 움직임 줄이기: 걷기 없이 슬로건 페이드 300ms만

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router'
 import SplashScreen from '@/components/onboarding/SplashScreen'
 import { ROUTES, communityNewsPath } from '@/constants/routes'
-import { SPLASH_MOTION_MS } from '@/constants/splashMotion'
+import { SPLASH_TOTAL_MS } from '@/constants/splashMotion'
 import { useTimeout } from '@/hooks/useTimeout'
 import OnboardingGate from '@/layouts/OnboardingGate'
 import { MOCK_NEWS } from '@/mocks/news'
@@ -39,8 +39,8 @@ import TimingPage from '@/pages/onboarding/TimingPage'
 
 // 재실행 스플래시(당당 소식 카드)를 보여 주는 시간
 const SPLASH_MS = 1600
-// 첫 실행은 모션(1.8초)이 끝나고 0.3초 머문 뒤 넘김
-const FIRST_SPLASH_MS = SPLASH_MOTION_MS + 300
+// 첫 실행은 모션(3.6초) + 언덕 올라오기 + 페이드 아웃이 끝난 뒤 넘김
+const FIRST_SPLASH_MS = SPLASH_TOTAL_MS
 
 function App() {
   const navigate = useNavigate()

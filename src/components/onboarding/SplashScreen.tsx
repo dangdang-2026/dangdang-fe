@@ -10,11 +10,17 @@ import splashPose4 from '@/assets/images/onboarding/splash-pose-4.svg'
 import wordmark from '@/assets/images/onboarding/wordmark.svg'
 import {
   characterKeyframes,
+  HILL_RISE_DELAY_MS,
+  HILL_RISE_MS,
+  hillRiseKeyframes,
   poseKeyframes,
   REDUCED_FADE,
   REDUCED_FADE_MS,
   sloganKeyframes,
+  SPLASH_FADE_DELAY_MS,
+  SPLASH_FADE_MS,
   SPLASH_MOTION_MS,
+  splashFadeKeyframes,
   wordmarkKeyframes,
 } from '@/constants/splashMotion'
 
@@ -29,6 +35,8 @@ type SplashScreenProps = {
 
 // Figma S-01 스플래시(v3 언덕을 통통 넘어오는 당당) · S-01b 재실행 스플래시(당당 소식 카드). 아무 데나 누르면 넘어감
 function SplashScreen({ news, onSkip }: SplashScreenProps) {
+  const screenRef = useRef<HTMLDivElement>(null)
+  const hillCoverRef = useRef<HTMLImageElement>(null)
   const characterRef = useRef<HTMLDivElement>(null)
   const poseRefs = useRef<(HTMLImageElement | null)[]>([])
   const wordmarkRef = useRef<HTMLImageElement>(null)
@@ -49,12 +57,23 @@ function SplashScreen({ news, onSkip }: SplashScreenProps) {
           ...poseRefs.current.map((el, pose) => el?.animate(poseKeyframes(pose), options)),
           wordmarkRef.current?.animate(wordmarkKeyframes, options),
           sloganRef.current?.animate(sloganKeyframes, options),
+          hillCoverRef.current?.animate(hillRiseKeyframes, {
+            duration: HILL_RISE_MS,
+            delay: HILL_RISE_DELAY_MS,
+            fill: 'forwards',
+          }),
+          screenRef.current?.animate(splashFadeKeyframes, {
+            duration: SPLASH_FADE_MS,
+            delay: SPLASH_FADE_DELAY_MS,
+            fill: 'forwards',
+          }),
         ]
     return () => animations.forEach((animation) => animation?.cancel())
   }, [news])
 
   return (
     <div
+      ref={screenRef}
       role="presentation"
       className={`fixed inset-0 z-70 mx-auto w-full max-w-107.5 overflow-hidden bg-white ${
         news ? 'animate-fade-in motion-reduce:animate-none' : ''
@@ -102,6 +121,15 @@ function SplashScreen({ news, onSkip }: SplashScreenProps) {
           하루가 끊기지 않게
         </p>
       </div>
+      {/* 올라올 때 캐릭터·글자까지 덮도록 맨 위에 같은 언덕 한 장 더. 올라오기 전엔 숨김 */}
+      {!news && (
+        <img
+          ref={hillCoverRef}
+          src={splashHill}
+          alt=""
+          className="absolute top-130 -left-46 max-w-none opacity-0"
+        />
+      )}
       {news && (
         <button
           type="button"
