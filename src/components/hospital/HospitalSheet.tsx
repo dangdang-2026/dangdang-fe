@@ -28,6 +28,8 @@ type HospitalSheetProps = {
   manual: boolean
   // 있으면 C-19 고치기
   editing?: boolean
+  // 대표 병원은 진료 탭에서 진료일을 바꾸므로 숨김
+  hideVisit?: boolean
   onSave: (input: Omit<Hospital, 'id'>) => void
   onDelete?: () => void
   onClose: () => void
@@ -40,6 +42,7 @@ function HospitalSheet({
   nextVisitAt,
   manual,
   editing,
+  hideVisit = false,
   onSave,
   onDelete,
   onClose,
@@ -114,33 +117,35 @@ function HospitalSheet({
         </div>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <span className="text-body-3 text-grey-600">다음 진료일</span>
-        <div className="flex gap-2">
-          {visitAt ? (
-            // 날짜가 길어 한 줄로 넓게
-            <span className={`${chipClass(true)} flex-3 px-2.5 text-center whitespace-nowrap`}>
-              {formatVisitAt(visitAt)}
-            </span>
-          ) : (
+      {!hideVisit && (
+        <div className="flex flex-col gap-2">
+          <span className="text-body-3 text-grey-600">다음 진료일</span>
+          <div className="flex gap-2">
+            {visitAt ? (
+              // 날짜가 길어 한 줄로 넓게
+              <span className={`${chipClass(true)} flex-3 px-2.5 text-center whitespace-nowrap`}>
+                {formatVisitAt(visitAt)}
+              </span>
+            ) : (
+              <button
+                type="button"
+                aria-pressed
+                className={`${chipClass(true)} flex-1`}
+                onClick={() => setVisitAt(null)}
+              >
+                아직 몰라요
+              </button>
+            )}
             <button
               type="button"
-              aria-pressed
-              className={`${chipClass(true)} flex-1`}
-              onClick={() => setVisitAt(null)}
+              className={`${chipClass(false)} ${visitAt ? 'flex-2' : 'flex-1'}`}
+              onClick={() => setDateSheet(true)}
             >
-              아직 몰라요
+              {visitAt ? '날짜 바꾸기' : '날짜 고르기'}
             </button>
-          )}
-          <button
-            type="button"
-            className={`${chipClass(false)} ${visitAt ? 'flex-2' : 'flex-1'}`}
-            onClick={() => setDateSheet(true)}
-          >
-            {visitAt ? '날짜 바꾸기' : '날짜 고르기'}
-          </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <p className="bg-grey-50 text-t7 text-grey-700 flex items-start gap-2 rounded-xl px-3.5 py-3 leading-relaxed">
         <img src={iconInfo} alt="" width={18} height={18} className="shrink-0" />

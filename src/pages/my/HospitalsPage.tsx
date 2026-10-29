@@ -66,7 +66,6 @@ function HospitalsPage() {
       addHospital(hospitals.length === 0 ? { ...input, nextVisitAt: null } : input)
       setToast(`${input.name}${objectParticle(input.name)} 추가했어요`)
     } else {
-      if (sheet.index === 0) setNextVisit(input.nextVisitAt)
       updateHospital(sheet.hospital.id, sheet.index === 0 ? { ...input, nextVisitAt: null } : input)
       setToast('병원 정보를 고쳤어요')
     }
@@ -175,6 +174,7 @@ function HospitalsPage() {
       {sheet?.mode === 'edit' && (
         <HospitalSheet
           editing
+          hideVisit={sheet.index === 0}
           info={sheet.hospital}
           department={sheet.hospital.department}
           nextVisitAt={visitOf(sheet.hospital, sheet.index)}
