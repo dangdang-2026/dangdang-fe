@@ -34,6 +34,7 @@ export const ROUTES = {
   POSTPARTUM_CHECK: '/postpartum/check',
   POSTPARTUM_CHECK_RESULT: '/postpartum/check/result',
   POSTPARTUM_GUIDE: '/postpartum/guide',
+  POSTPARTUM_GRADUATION: '/postpartum/graduation',
   MY_COMMUNITY: '/my/community',
   MY_NICKNAME: '/my/community/nickname',
   MY_COMMUNITY_ACTIVITY: '/my/community/activity',

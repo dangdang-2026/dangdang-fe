@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router'
 import SplashScreen from '@/components/onboarding/SplashScreen'
 import { ROUTES, communityNewsPath } from '@/constants/routes'
@@ -7,6 +6,7 @@ import { useTimeout } from '@/hooks/useTimeout'
 import OnboardingGate from '@/layouts/OnboardingGate'
 import { MOCK_NEWS } from '@/mocks/news'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
+import { useSplashStore } from '@/stores/useSplashStore'
 import TabLayout from '@/layouts/TabLayout'
 import TodayPage from '@/pages/today/TodayPage'
 import RecordsPage from '@/pages/records/RecordsPage'
@@ -45,6 +45,7 @@ import CheckGuidePage from '@/pages/postpartum/CheckGuidePage'
 import CheckResultPage from '@/pages/postpartum/CheckResultPage'
 import CheckSchedulePage from '@/pages/postpartum/CheckSchedulePage'
 import DeliveryPage from '@/pages/postpartum/DeliveryPage'
+import GraduationPage from '@/pages/postpartum/GraduationPage'
 import TimingPage from '@/pages/onboarding/TimingPage'
 
 // 재실행 스플래시(당당 소식 카드)를 보여 주는 시간
@@ -56,8 +57,9 @@ function App() {
   const navigate = useNavigate()
   const completed = useOnboardingStore((state) => state.completed)
   // 앱을 열 때 한 번. 설정을 마친 뒤엔 당당 소식 한 장과 함께
-  const [splash, setSplash] = useState(true)
-  useTimeout(() => setSplash(false), splash ? (completed ? SPLASH_MS : FIRST_SPLASH_MS) : null)
+  const splash = useSplashStore((state) => state.visible)
+  const hideSplash = useSplashStore((state) => state.hide)
+  useTimeout(hideSplash, splash ? (completed ? SPLASH_MS : FIRST_SPLASH_MS) : null)
   const latestNews = MOCK_NEWS[0]
 
   return (
@@ -69,13 +71,13 @@ function App() {
               ? {
                   title: latestNews.title,
                   onOpen: () => {
-                    setSplash(false)
+                    hideSplash()
                     navigate(communityNewsPath(latestNews.id))
                   },
                 }
               : undefined
           }
-          onSkip={() => setSplash(false)}
+          onSkip={() => hideSplash()}
         />
       )}
       <Routes>
@@ -114,6 +116,7 @@ function App() {
           <Route path={ROUTES.POSTPARTUM_CHECK} element={<CheckSchedulePage />} />
           <Route path={ROUTES.POSTPARTUM_CHECK_RESULT} element={<CheckResultPage />} />
           <Route path={ROUTES.POSTPARTUM_GUIDE} element={<CheckGuidePage />} />
+          <Route path={ROUTES.POSTPARTUM_GRADUATION} element={<GraduationPage />} />
           <Route path={ROUTES.MY_COMMUNITY} element={<CommunitySettingsPage />} />
           <Route path={ROUTES.MY_NICKNAME} element={<NicknamePage />} />
           <Route path={ROUTES.MY_COMMUNITY_ACTIVITY} element={<CommunityActivityPage />} />

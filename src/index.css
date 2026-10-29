@@ -126,6 +126,30 @@
   --shadow-chatbot-tag: 0 2px 6px 0 rgb(128 89 0 / 0.15);
   --shadow-sheet: 0 0 7.3px 0 rgb(0 0 0 / 0.25);
 
+  /* E-12 졸업 등장: 당당이 톡 커졌다 자리 잡기 → 글 → 기록·버튼 순서 */
+  --animate-pop-in: pop-in 0.6s ease-out both;
+  --animate-rise-in: rise-in 0.4s ease-out 0.35s both;
+  --animate-rise-in-late: rise-in 0.4s ease-out 0.75s both;
+
+  /* 54px → 134px → 120px */
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: scale(0.45);
+    }
+    60% {
+      opacity: 1;
+      transform: scale(1.12);
+    }
+  }
+
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(--spacing(3));
+    }
+  }
+
   /* 바텀시트 올라옴·딤 나타남 */
   --animate-sheet-up: sheet-up 0.25s ease-out;
   --animate-fade-in: fade-in 0.25s ease-out;
