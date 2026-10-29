@@ -13,6 +13,7 @@ export const ROUTES = {
   RECORDS: '/records',
   RECORDS_CALENDAR: '/records/calendar',
   RECORDS_STATS: '/records/stats',
+  RECORDS_FOOD_HISTORY: '/records/food-history',
   VISIT: '/visit',
   VISIT_REPORT: '/visit/report',
   VISIT_REPORTS: '/visit/reports',
@@ -56,3 +57,6 @@ export const ROUTES = {
 export const communityBoardPath = (board: string) => `/community/board/${board}`
 export const communityPostPath = (id: string) => `/community/posts/${id}`
 export const communityNewsPath = (id: string) => `/community/news/${id}`
+// 지금 적는 끼니는 지난 기록에서 뺌
+export const foodHistoryPath = (name: string, excludeMealId?: string) =>
+  `/records/food-history?${new URLSearchParams({ name, ...(excludeMealId && { exclude: excludeMealId }) })}`
