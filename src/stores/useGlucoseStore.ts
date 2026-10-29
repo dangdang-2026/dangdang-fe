@@ -1,6 +1,15 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { GlucoseRecord, Meal, MealType, MeasureTarget, Portion } from '@/types/glucose'
+import type {
+  GlucoseRecord,
+  InsulinRecord,
+  Meal,
+  MealType,
+  MeasureTarget,
+  Portion,
+} from '@/types/glucose'
+
+type InsulinInput = Pick<InsulinRecord, 'kind' | 'name' | 'units' | 'takenAt'>
 
 type GlucoseState = {
   meals: Meal[]
@@ -13,6 +22,9 @@ type GlucoseState = {
   deleteRecord: (id: string, now?: Date) => void
   // 지운 기록. 화면·리포트에선 빼고 기록용으로만 보관
   deletedRecords: (GlucoseRecord & { deletedAt: string })[]
+  insulins: InsulinRecord[]
+  addInsulin: (input: InsulinInput) => void
+  updateInsulin: (id: string, input: InsulinInput, now?: Date) => void
 }
 
 // API 연동 전까지 기기(localStorage)에 저장
@@ -80,6 +92,15 @@ export const useGlucoseStore = create<GlucoseState>()(
             deletedRecords: [...state.deletedRecords, { ...target, deletedAt: now.toISOString() }],
           }
         }),
+      insulins: [],
+      addInsulin: (input) =>
+        set((state) => ({ insulins: [...state.insulins, { id: crypto.randomUUID(), ...input }] })),
+      updateInsulin: (id, input, now = new Date()) =>
+        set((state) => ({
+          insulins: state.insulins.map((item) =>
+            item.id === id ? { ...item, ...input, editedAt: now.toISOString() } : item,
+          ),
+        })),
     }),
     { name: 'dangdang-glucose' },
   ),

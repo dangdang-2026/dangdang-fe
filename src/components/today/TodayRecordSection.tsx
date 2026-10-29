@@ -2,14 +2,16 @@ import { Link } from 'react-router'
 import EmptyRecordCard from '@/components/glucose/EmptyRecordCard'
 import { ROUTES } from '@/constants/routes'
 import { useFoods } from '@/hooks/useFoods'
-import type { Food, GlucoseRecord, Meal } from '@/types/glucose'
+import type { Food, GlucoseRecord, InsulinRecord, Meal } from '@/types/glucose'
 import { formatTime } from '@/utils/date'
 import { getSlotLabel } from '@/utils/glucose'
+import { formatInsulinLabel } from '@/utils/insulin'
 import { formatMealLabel } from '@/utils/meal'
 
 type TodayRecordSectionProps = {
   meals: Meal[]
   records: GlucoseRecord[]
+  insulins?: InsulinRecord[]
   postMealHours: number | null
   onInputGlucose: () => void
 }
@@ -21,8 +23,14 @@ type TimelineItem = {
   value?: number
 }
 
-// 식사·혈당을 시간순 한 줄씩
-function toTimeline(meals: Meal[], records: GlucoseRecord[], hours: number | null, foods: Food[]) {
+// 식사·혈당·인슐린을 시간순 한 줄씩
+function toTimeline(
+  meals: Meal[],
+  records: GlucoseRecord[],
+  insulins: InsulinRecord[],
+  hours: number | null,
+  foods: Food[],
+) {
   const items: TimelineItem[] = [
     ...meals.map((meal) => ({
       id: meal.id,
@@ -35,6 +43,11 @@ function toTimeline(meals: Meal[], records: GlucoseRecord[], hours: number | nul
       label: getSlotLabel(record.slot, record.mealType, hours),
       value: record.value,
     })),
+    ...insulins.map((insulin) => ({
+      id: insulin.id,
+      at: new Date(insulin.takenAt),
+      label: formatInsulinLabel(insulin),
+    })),
   ]
   return items.sort((a, b) => a.at.getTime() - b.at.getTime())
 }
@@ -42,11 +55,12 @@ function toTimeline(meals: Meal[], records: GlucoseRecord[], hours: number | nul
 function TodayRecordSection({
   meals,
   records,
+  insulins = [],
   postMealHours,
   onInputGlucose,
 }: TodayRecordSectionProps) {
   const foods = useFoods()
-  const timeline = toTimeline(meals, records, postMealHours, foods)
+  const timeline = toTimeline(meals, records, insulins, postMealHours, foods)
 
   return (
     <section>

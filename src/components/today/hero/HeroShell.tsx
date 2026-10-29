@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import iconPencil from '@/assets/icons/pencil.svg'
+import { useProfileStore } from '@/stores/useProfileStore'
 
 type HeroShellProps = {
   status: string
@@ -25,6 +26,10 @@ function HeroShell({
   decoration,
   children,
 }: HeroShellProps) {
+  // Figma H-13 인슐린 모드면 기준 칩 앞에 붙임
+  const insulinMode = useProfileStore((state) => state.careMode === 'insulin')
+  const criteriaLabel = postMealHours ? `식후 ${postMealHours}시간` : '측정 시점 모름'
+
   return (
     <section
       className={`rounded-hero relative flex h-75 flex-col overflow-hidden bg-linear-147 from-14% to-86% px-5 pt-4.5 pb-5 ${gradient}`}
@@ -42,7 +47,7 @@ function HeroShell({
             type="button"
             className="text-grey-800 flex items-center gap-1 rounded-full bg-white py-1 pr-2 pl-2.5 text-xs leading-normal font-semibold"
           >
-            {postMealHours ? `식후 ${postMealHours}시간` : '측정 시점 모름'}
+            {insulinMode ? `인슐린 모드 · ${criteriaLabel}` : criteriaLabel}
             <img src={iconPencil} alt="" width={12} height={12} />
           </button>
         )}

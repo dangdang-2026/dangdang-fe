@@ -28,6 +28,7 @@ import { formatMealSavedMessage } from '@/utils/meal'
 function TodayPage() {
   const meals = useGlucoseStore((state) => state.meals)
   const records = useGlucoseStore((state) => state.records)
+  const insulins = useGlucoseStore((state) => state.insulins)
   const startMeal = useGlucoseStore((state) => state.startMeal)
   const skipMeal = useGlucoseStore((state) => state.skipMeal)
   const setMealContent = useGlucoseStore((state) => state.setMealContent)
@@ -45,6 +46,7 @@ function TodayPage() {
   const now = useNow()
   const todayMeals = meals.filter((meal) => isSameDay(new Date(meal.startedAt), now))
   const todayRecords = records.filter((record) => isSameDay(new Date(record.measuredAt), now))
+  const todayInsulins = insulins.filter((insulin) => isSameDay(new Date(insulin.takenAt), now))
   const heroState = getHeroState(meals, records, criteria.postMealHours, now)
 
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
@@ -135,6 +137,7 @@ function TodayPage() {
         <TodayRecordSection
           meals={todayMeals}
           records={todayRecords}
+          insulins={todayInsulins}
           postMealHours={criteria.postMealHours}
           onInputGlucose={openGlucoseSheet}
         />

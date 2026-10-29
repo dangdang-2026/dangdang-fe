@@ -5,6 +5,7 @@ import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import EmptyRecordCard from '@/components/glucose/EmptyRecordCard'
 import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
+import InsulinSheet from '@/components/insulin/InsulinSheet'
 import MealContentSheet from '@/components/meal/MealContentSheet'
 import RecordDeleteSheet from '@/components/records/RecordDeleteSheet'
 import RecordEditSheet from '@/components/records/RecordEditSheet'
@@ -14,7 +15,7 @@ import { MEAL_LABEL } from '@/constants/glucose'
 import { useNow } from '@/hooks/useNow'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
-import type { GlucoseRecord, Meal, MeasureTarget, Portion } from '@/types/glucose'
+import type { GlucoseRecord, InsulinRecord, Meal, MeasureTarget, Portion } from '@/types/glucose'
 import { formatMonthDayWeekday, isSameDay, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 import { getBackfillTarget, getMeasureTarget, getSlotLabel } from '@/utils/glucose'
 
@@ -23,6 +24,9 @@ type InputSheet = { target: MeasureTarget; backfillAt?: Date }
 function RecordsPage() {
   const meals = useGlucoseStore((state) => state.meals)
   const records = useGlucoseStore((state) => state.records)
+  const insulins = useGlucoseStore((state) => state.insulins)
+  const updateInsulin = useGlucoseStore((state) => state.updateInsulin)
+  const [editingInsulin, setEditingInsulin] = useState<InsulinRecord | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [inputSheet, setInputSheet] = useState<InputSheet | null>(null)
   const [editing, setEditing] = useState<GlucoseRecord | null>(null)
@@ -43,11 +47,13 @@ function RecordsPage() {
 
   const dayMeals = meals.filter((meal) => isSameDay(new Date(meal.startedAt), selected))
   const dayRecords = records.filter((record) => isSameDay(new Date(record.measuredAt), selected))
-  const count = dayMeals.length + dayRecords.length
+  const dayInsulins = insulins.filter((insulin) => isSameDay(new Date(insulin.takenAt), selected))
+  const count = dayMeals.length + dayRecords.length + dayInsulins.length
 
   const hasRecord = (date: Date) =>
     records.some((record) => isSameDay(new Date(record.measuredAt), date)) ||
-    meals.some((meal) => isSameDay(new Date(meal.startedAt), date))
+    meals.some((meal) => isSameDay(new Date(meal.startedAt), date)) ||
+    insulins.some((insulin) => isSameDay(new Date(insulin.takenAt), date))
 
   const selectDate = (date: Date) => {
     setSearchParams(isSameDay(date, today) ? {} : { date: toDateKey(date) }, { replace: true })
@@ -151,9 +157,11 @@ function RecordsPage() {
             <RecordTimeline
               meals={dayMeals}
               records={dayRecords}
+              insulins={dayInsulins}
               allMeals={meals}
               onSelectRecord={setEditing}
               onSelectMeal={setEditingMeal}
+              onSelectInsulin={setEditingInsulin}
             />
           ) : (
             <EmptyRecordCard
@@ -188,6 +196,17 @@ function RecordsPage() {
           editing
           onClose={closeMealSheet}
           onSaved={handleMealEdited}
+        />
+      )}
+      {editingInsulin && (
+        <InsulinSheet
+          record={editingInsulin}
+          onSave={(input) => {
+            updateInsulin(editingInsulin.id, input)
+            setEditingInsulin(null)
+            setToast('인슐린 기록을 고쳤어요')
+          }}
+          onClose={() => setEditingInsulin(null)}
         />
       )}
       {toast && <Toast message={toast} onClose={closeToast} />}
