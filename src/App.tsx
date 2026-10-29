@@ -41,6 +41,7 @@ import DueDatePage from '@/pages/onboarding/DueDatePage'
 import IntroPage from '@/pages/onboarding/IntroPage'
 import SlotsPage from '@/pages/onboarding/SlotsPage'
 import TermsAgreePage from '@/pages/onboarding/TermsAgreePage'
+import CheckResultPage from '@/pages/postpartum/CheckResultPage'
 import CheckSchedulePage from '@/pages/postpartum/CheckSchedulePage'
 import DeliveryPage from '@/pages/postpartum/DeliveryPage'
 import TimingPage from '@/pages/onboarding/TimingPage'
@@ -110,6 +111,7 @@ function App() {
           <Route path={ROUTES.MY_DATA} element={<DataPage />} />
           <Route path={ROUTES.POSTPARTUM_DELIVERY} element={<DeliveryPage />} />
           <Route path={ROUTES.POSTPARTUM_CHECK} element={<CheckSchedulePage />} />
+          <Route path={ROUTES.POSTPARTUM_CHECK_RESULT} element={<CheckResultPage />} />
           <Route path={ROUTES.MY_COMMUNITY} element={<CommunitySettingsPage />} />
           <Route path={ROUTES.MY_NICKNAME} element={<NicknamePage />} />
           <Route path={ROUTES.MY_COMMUNITY_ACTIVITY} element={<CommunityActivityPage />} />
