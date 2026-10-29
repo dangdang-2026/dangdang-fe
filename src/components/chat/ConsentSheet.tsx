@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import iconCheck from '@/assets/icons/chat/consent-check.svg'
 import iconClose from '@/assets/icons/close.svg'
 import BottomSheet from '@/components/common/BottomSheet'
-import { AI_TRANSFER_LINES } from '@/constants/chat'
+import { ROUTES } from '@/constants/routes'
 
 const ITEMS = [
   '필요한 기록만 골라 보내요 (혈당 숫자·날짜)',
@@ -18,7 +18,7 @@ type ConsentSheetProps = {
 
 // Figma Q-01 기록 보기 동의(ASK-01). 거절하면 일반 질문만
 function ConsentSheet({ onAgree, onDecline, onClose }: ConsentSheetProps) {
-  const [showTransfer, setShowTransfer] = useState(false)
+  const navigate = useNavigate()
 
   return (
     <BottomSheet label="기록 보기 동의" onClose={onClose}>
@@ -38,21 +38,11 @@ function ConsentSheet({ onAgree, onDecline, onClose }: ConsentSheetProps) {
         ))}
         <button
           type="button"
-          aria-expanded={showTransfer}
           className="text-body-3 self-start pl-7 text-blue-700"
-          onClick={() => setShowTransfer((value) => !value)}
+          onClick={() => navigate(ROUTES.LEGAL_TRANSFER)}
         >
-          받는 곳·보관 기간 보기 {showTransfer ? '⌃' : '›'}
+          받는 곳·보관 기간 보기 ›
         </button>
-        {showTransfer && (
-          <p className="text-t7 text-grey-700 bg-grey-50 rounded-tag ml-7 px-3 py-2.5">
-            {AI_TRANSFER_LINES.map((line) => (
-              <span key={line} className="block">
-                {line}
-              </span>
-            ))}
-          </p>
-        )}
         <p className="text-t7 text-grey-600">마이 › AI 설정에서 언제든 끌 수 있어요.</p>
       </div>
 

@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useNavigate } from 'react-router'
+import { Routes, Route, useNavigate } from 'react-router'
 import SplashScreen from '@/components/onboarding/SplashScreen'
 import { ROUTES, communityNewsPath } from '@/constants/routes'
 import { SPLASH_TOTAL_MS } from '@/constants/splashMotion'
@@ -49,6 +49,11 @@ import CheckSchedulePage from '@/pages/postpartum/CheckSchedulePage'
 import DeliveryPage from '@/pages/postpartum/DeliveryPage'
 import GraduationPage from '@/pages/postpartum/GraduationPage'
 import TimingPage from '@/pages/onboarding/TimingPage'
+import NotFoundPage from '@/pages/NotFoundPage'
+import PrivacyPolicyPage from '@/pages/legal/PrivacyPolicyPage'
+import SensitiveConsentPage from '@/pages/legal/SensitiveConsentPage'
+import ServiceTermsPage from '@/pages/legal/ServiceTermsPage'
+import TransferNoticePage from '@/pages/legal/TransferNoticePage'
 
 // 재실행 스플래시(당당 소식 카드)를 보여 주는 시간
 const SPLASH_MS = 1600
@@ -93,6 +98,11 @@ function App() {
         <Route path={ROUTES.ONBOARDING_TIMING} element={<TimingPage />} />
         <Route path={ROUTES.ONBOARDING_SLOTS} element={<SlotsPage />} />
         <Route path={ROUTES.ONBOARDING_DUE_DATE} element={<DueDatePage />} />
+        {/* 약관 문서는 가입 전에도 봄 */}
+        <Route path={ROUTES.LEGAL_PRIVACY} element={<PrivacyPolicyPage />} />
+        <Route path={ROUTES.LEGAL_TERMS} element={<ServiceTermsPage />} />
+        <Route path={ROUTES.LEGAL_SENSITIVE} element={<SensitiveConsentPage />} />
+        <Route path={ROUTES.LEGAL_TRANSFER} element={<TransferNoticePage />} />
         <Route element={<OnboardingGate />}>
           <Route element={<TabLayout />}>
             <Route path={ROUTES.TODAY} element={<TodayPage />} />
@@ -129,9 +139,8 @@ function App() {
           <Route path={ROUTES.COMMUNITY_POLICY} element={<PolicyPage />} />
           <Route path={ROUTES.COMMUNITY_NEWS} element={<NewsListPage />} />
           <Route path={ROUTES.COMMUNITY_NEWS_DETAIL} element={<NewsDetailPage />} />
-          {/* TODO: 404 페이지(Figma 149:1129) 구현 후 교체 */}
-          <Route path="*" element={<Navigate to={ROUTES.TODAY} replace />} />
         </Route>
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </>
   )

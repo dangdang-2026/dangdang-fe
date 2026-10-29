@@ -1,18 +1,20 @@
-import { useCallback, useState } from 'react'
+import { useNavigate } from 'react-router'
 import iconFileGrey from '@/assets/icons/file-grey.svg'
-import BottomSheet from '@/components/common/BottomSheet'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import VisitMenuRow from '@/components/visit/VisitMenuRow'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 
-const TERMS = ['개인정보 처리방침', '이용약관', '민감정보 수집·이용 동의']
+const TERMS = [
+  { title: '개인정보 처리방침', to: ROUTES.LEGAL_PRIVACY },
+  { title: '이용약관', to: ROUTES.LEGAL_TERMS },
+  { title: '민감정보 수집·이용 동의', to: ROUTES.LEGAL_SENSITIVE },
+]
 
-// Figma M-11 약관 · 고지. 약관 본문은 확정 전이라 안내만
+// Figma M-11 약관 · 고지. 누르면 N-01·N-03·N-04 문서로
 function TermsPage() {
+  const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.MY)
-  const [opened, setOpened] = useState<string | null>(null)
-  const closeSheet = useCallback(() => setOpened(null), [])
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-30">
@@ -30,29 +32,13 @@ function TermsPage() {
         </section>
 
         <ul className="bg-grey-50 rounded-banner flex flex-col px-4.5 py-2">
-          {TERMS.map((title) => (
+          {TERMS.map(({ title, to }) => (
             <li key={title} className="py-2">
-              <VisitMenuRow icon={iconFileGrey} title={title} onClick={() => setOpened(title)} />
+              <VisitMenuRow icon={iconFileGrey} title={title} onClick={() => navigate(to)} />
             </li>
           ))}
         </ul>
       </div>
-
-      {opened && (
-        <BottomSheet label={opened} onClose={closeSheet}>
-          <div className="flex flex-col gap-1.5">
-            <h2 className="text-t4 text-grey-900">{opened}</h2>
-            <p className="text-t6 text-grey-700">정식 출시 전에 본문을 올려 둘게요.</p>
-          </div>
-          <button
-            type="button"
-            className="text-subtitle-1 bg-grey-100 text-grey-700 h-14 rounded-xl leading-none"
-            onClick={closeSheet}
-          >
-            닫기
-          </button>
-        </BottomSheet>
-      )}
     </main>
   )
 }

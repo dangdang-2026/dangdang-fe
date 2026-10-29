@@ -41,6 +41,13 @@ const MARKETING: Agreement = {
   document: true,
 }
 
+// 본문 화면이 있는 문서. 광고성 정보는 아직 시트로 안내
+const DOCUMENT_ROUTES: Partial<Record<AgreementKey, string>> = {
+  terms: ROUTES.LEGAL_TERMS,
+  privacy: ROUTES.LEGAL_PRIVACY,
+  sensitive: ROUTES.LEGAL_SENSITIVE,
+}
+
 const ALL_KEYS = [...BASIC, SENSITIVE, MARKETING].map((item) => item.key)
 
 // Figma A-01 약관·민감정보 동의
@@ -54,6 +61,17 @@ function TermsAgreePage() {
 
   const allAgreed = ALL_KEYS.every((key) => agreed.includes(key))
   const requiredAgreed = REQUIRED_AGREEMENTS.every((key) => agreed.includes(key))
+
+  const openDocument = (item: Agreement) => {
+    const route = DOCUMENT_ROUTES[item.key]
+    if (!route) {
+      setDocument(item)
+      return
+    }
+    // 문서를 보고 돌아와도 체크가 남게 저장. 민감정보는 문서에서 바로 동의
+    setAnswers({ agreements: agreed })
+    navigate(route, { state: { agree: true } })
+  }
 
   const toggle = (key: AgreementKey) =>
     setAgreed((prev) => (prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]))
@@ -79,7 +97,7 @@ function TermsAgreePage() {
         <button
           type="button"
           aria-label={`${label} 보기`}
-          onClick={() => setDocument({ key, label, description })}
+          onClick={() => openDocument({ key, label, description })}
         >
           <img src={iconAgreeChev} alt="" width={18} height={18} />
         </button>
