@@ -20,6 +20,7 @@ import ContactMemoSheet from '@/components/my/ContactMemoSheet'
 import { CHAT_INFOS, CHAT_THINKING_MS } from '@/constants/chat'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
+import { useAiStore } from '@/stores/useAiStore'
 import { useChatStore } from '@/stores/useChatStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useProfileStore } from '@/stores/useProfileStore'
@@ -41,8 +42,8 @@ const newId = () => crypto.randomUUID()
 function ChatPage() {
   const navigate = useNavigate()
   const messages = useChatStore((state) => state.messages)
-  const consent = useChatStore((state) => state.consent)
-  const setConsent = useChatStore((state) => state.setConsent)
+  const consent = useAiStore((state) => state.chat)
+  const setConsent = useAiStore((state) => state.setConsent)
   const addMessage = useChatStore((state) => state.addMessage)
   const updateMessage = useChatStore((state) => state.updateMessage)
   const removeMessage = useChatStore((state) => state.removeMessage)
@@ -75,7 +76,7 @@ function ChatPage() {
   const answer = (question: string): BotMessageType => {
     const intent = classifyQuestion(question)
     const now = new Date()
-    const agreed = useChatStore.getState().consent === 'agreed'
+    const agreed = !!useAiStore.getState().chat?.agreed
 
     if (intent === 'records') {
       const slot = detectSlot(question) ?? pickDefaultSlot(records, criteria, now)
@@ -127,7 +128,7 @@ function ChatPage() {
       addMessage({ id: newId(), from: 'bot', kind: 'risk' })
       return
     }
-    if (intent === 'records' && useChatStore.getState().consent !== 'agreed') {
+    if (intent === 'records' && !useAiStore.getState().chat?.agreed) {
       addMessage({ id: newId(), from: 'bot', kind: 'need-consent', question })
       return
     }
@@ -161,7 +162,7 @@ function ChatPage() {
   }, [])
 
   const chooseConsent = (agreed: boolean) => {
-    setConsent(agreed ? 'agreed' : 'declined')
+    setConsent('chat', agreed)
     setConsentSheet(false)
     if (agreed && pendingQuestion) reply(pendingQuestion)
     setPendingQuestion(null)

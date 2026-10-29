@@ -1,5 +1,12 @@
 import type { ChatInfo } from '@/types/chat'
 
+// 국외 이전 고지. 동의 시트·AI 설정에서 같이 씀
+// TODO: AI 업체 계약 후 받는 곳·나라·보관 기간 확정해서 교체
+export const AI_TRANSFER_LINES = [
+  '보내는 것: 질문, 고른 기록의 혈당 숫자·날짜',
+  '받는 곳·보관 기간: AI 서비스 연결 때 이곳에 안내해요',
+]
+
 // 생각 중 말풍선을 보여 주는 시간
 export const CHAT_THINKING_MS = 900
 

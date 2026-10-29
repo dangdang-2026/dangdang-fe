@@ -1,8 +1,5 @@
 import type { MeasureSlotKey } from '@/types/criteria'
 
-// 기록 보기 동의: 동의 · 일반 질문만 · 아직 안 물어봄
-export type ChatConsent = 'agreed' | 'declined' | null
-
 // 지난 7일 한 시점 기록 요약. 값만 보여 주고 괜찮은지 판단하지 않음
 export type RecordsSummary = {
   slot: MeasureSlotKey
