@@ -5,7 +5,7 @@ import introCharacter from '@/assets/images/onboarding/intro-character.svg'
 import { ROUTES } from '@/constants/routes'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
 
-// Figma S-02 서비스 소개. 로그인하기는 이메일 로그인, 나머지는 가입 연동 전이라 약관 동의로
+// Figma S-02 서비스 소개. 카카오는 연동 전이라 바로 약관 동의로
 function IntroPage() {
   const navigate = useNavigate()
   const completed = useOnboardingStore((state) => state.completed)
@@ -55,7 +55,7 @@ function IntroPage() {
         </button>
         <p className="text-body-3 text-grey-400 flex items-center justify-center gap-1.5">
           <img src={iconMail} alt="" width={16} height={16} />
-          <button type="button" onClick={start}>
+          <button type="button" onClick={() => navigate(ROUTES.SIGNUP)}>
             회원가입하기
           </button>
           <span aria-hidden>·</span>

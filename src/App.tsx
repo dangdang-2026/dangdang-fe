@@ -23,6 +23,7 @@ import NewsListPage from '@/pages/community/NewsListPage'
 import PolicyPage from '@/pages/community/PolicyPage'
 import WritePage from '@/pages/community/WritePage'
 import LoginPage from '@/pages/auth/LoginPage'
+import SignupPage from '@/pages/auth/SignupPage'
 import CommunityActivityPage from '@/pages/my/CommunityActivityPage'
 import CommunitySettingsPage from '@/pages/my/CommunitySettingsPage'
 import MyCriteriaPage from '@/pages/my/MyCriteriaPage'
@@ -71,6 +72,7 @@ function App() {
       )}
       <Routes>
         <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+        <Route path={ROUTES.SIGNUP} element={<SignupPage />} />
         {/* 첫 진입 설정 */}
         <Route path={ROUTES.ONBOARDING} element={<IntroPage />} />
         <Route path={ROUTES.ONBOARDING_TERMS} element={<TermsAgreePage />} />
