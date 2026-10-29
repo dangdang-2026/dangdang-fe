@@ -17,7 +17,12 @@ export function useFinishLogin() {
     login({ method, email })
     // 데모 계정은 설정을 마친 상태로 계정 정보를 넣고 바로 홈으로
     if (profile) {
-      updateProfile({ ...profile, hospitalized: false, checkRemindAt: null })
+      updateProfile({
+        ...profile,
+        hospitalized: false,
+        checkRemindAt: null,
+        postpartumChecks: [],
+      })
       completeOnboarding()
     }
     navigate(completed || profile ? ROUTES.TODAY : ROUTES.ONBOARDING_TERMS, { replace: true })
