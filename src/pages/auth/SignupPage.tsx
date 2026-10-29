@@ -5,20 +5,18 @@ import iconAlert from '@/assets/icons/auth/alert.svg'
 import iconInfoBlue from '@/assets/icons/auth/caps-lock.svg'
 import iconCheck from '@/assets/icons/auth/check.svg'
 import iconClear from '@/assets/icons/auth/clear.svg'
-import iconEyeOff from '@/assets/icons/auth/eye-off.svg'
-import iconEye from '@/assets/icons/auth/eye.svg'
 import iconLoading from '@/assets/icons/auth/loading.svg'
 import iconToastOffline from '@/assets/icons/auth/toast-offline.svg'
 import AuthField, { type FieldHelper } from '@/components/auth/AuthField'
 import AuthHeader from '@/components/auth/AuthHeader'
 import AuthToast from '@/components/auth/AuthToast'
 import EmailVerifyStep from '@/components/auth/EmailVerifyStep'
-import PasswordChecks from '@/components/auth/PasswordChecks'
+import NewPasswordFields from '@/components/auth/NewPasswordFields'
 import { ROUTES } from '@/constants/routes'
 import { useFinishLogin } from '@/hooks/useFinishLogin'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useProfileStore } from '@/stores/useProfileStore'
-import { EMAIL_PATTERN, checkPassword, replaceDomain, suggestDomain } from '@/utils/auth'
+import { EMAIL_PATTERN, isNewPasswordValid, replaceDomain, suggestDomain } from '@/utils/auth'
 
 const NAME_MAX = 20
 // 가입 → 약관 → 병원 기준
@@ -45,12 +43,6 @@ function SignupPage() {
   const [confirm, setConfirm] = useState('')
   // 어느 이메일을 확인한 결과인지 함께 둠. 그 사이 고치면 결과는 버려짐
   const [emailCheck, setEmailCheck] = useState<{ email: string; status: EmailStatus } | null>(null)
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
-  const [passwordFocused, setPasswordFocused] = useState(false)
-  const [capsLock, setCapsLock] = useState(false)
-  // 확인 칸은 떠날 때나 다음을 누를 때 다름을 알림
-  const [confirmChecked, setConfirmChecked] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [offlineToast, setOfflineToast] = useState(false)
@@ -59,13 +51,7 @@ function SignupPage() {
   const [sentAt, setSentAt] = useState<number | null>(null)
 
   const emailStatus = emailCheck?.email === email ? emailCheck.status : null
-  const checks = checkPassword(password)
   const nameEmpty = submitted && !name.trim()
-  const passwordInvalid =
-    checks.space || (submitted && (!password || !checks.length || !checks.mix))
-  const confirmEmpty = submitted && !confirm
-  const confirmMatch = !!confirm && confirm === password
-  const confirmMismatch = confirmChecked && !!confirm && !confirmMatch
 
   // 칸을 떠날 때 형식 → 오타 → 중복 순으로 확인
   const inspectEmail = async (value: string) => {
@@ -99,7 +85,6 @@ function SignupPage() {
     setName(trimmedName)
     setEmail(trimmedEmail)
     setSubmitted(true)
-    setConfirmChecked(true)
 
     const emailInvalid = !trimmedEmail || !EMAIL_PATTERN.test(trimmedEmail)
     if (emailInvalid) {
@@ -111,11 +96,7 @@ function SignupPage() {
       emailInvalid ||
       emailStatus?.kind === 'taken' ||
       emailStatus?.kind === 'kakao' ||
-      !password ||
-      checks.space ||
-      !checks.length ||
-      !checks.mix ||
-      confirm !== password
+      !isNewPasswordValid(password, confirm)
     if (blocked) return
 
     if (!navigator.onLine) {
@@ -193,26 +174,6 @@ function SignupPage() {
                   }
                 : null
   const emailInvalid = ['empty', 'format', 'taken', 'kakao'].includes(emailStatus?.kind ?? '')
-
-  const passwordHelper: FieldHelper | null = checks.space
-    ? { icon: iconAlert, text: '비밀번호에는 띄어쓰기를 쓸 수 없어요', tone: 'error' }
-    : submitted && !password
-      ? { icon: iconAlert, text: '비밀번호를 입력해 주세요', tone: 'error' }
-      : passwordFocused && capsLock
-        ? { icon: iconInfoBlue, text: 'Caps Lock이 켜져 있어요', tone: 'info' }
-        : null
-
-  const confirmHelper: FieldHelper | null = confirmEmpty
-    ? { icon: iconAlert, text: '비밀번호를 한 번 더 입력해 주세요', tone: 'error' }
-    : confirmMismatch
-      ? { icon: iconAlert, text: '위에 입력한 비밀번호와 달라요', tone: 'error' }
-      : confirmMatch
-        ? { icon: iconCheck, text: '비밀번호가 같아요', tone: 'success' }
-        : null
-
-  // 가려 둔 비밀번호는 점을 크게
-  const secretClass = (value: string, shown: boolean) =>
-    value && !shown ? 'text-t4 font-medium' : 'text-input'
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-14.5 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
@@ -309,72 +270,14 @@ function SignupPage() {
             )}
           </AuthField>
 
-          <AuthField
-            label="비밀번호"
-            inputId="signup-password"
-            invalid={passwordInvalid}
-            helper={passwordHelper}
-            footer={
-              (password || submitted) && (
-                <PasswordChecks password={password} submitted={submitted} />
-              )
-            }
-          >
-            <input
-              id="signup-password"
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="new-password"
-              placeholder="8자 이상, 영문·숫자"
-              value={password}
-              aria-invalid={passwordInvalid}
-              className={`placeholder:text-input ${secretClass(password, showPassword)} ${INPUT_CLASS}`}
-              onChange={(event) => setPassword(event.target.value)}
-              onFocus={() => setPasswordFocused(true)}
-              onBlur={() => setPasswordFocused(false)}
-              onKeyDown={(event) => setCapsLock(event.getModifierState('CapsLock'))}
-              onKeyUp={(event) => setCapsLock(event.getModifierState('CapsLock'))}
-            />
-            <button
-              type="button"
-              aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
-              aria-pressed={showPassword}
-              className="shrink-0"
-              onClick={() => setShowPassword((shown) => !shown)}
-            >
-              <img src={showPassword ? iconEye : iconEyeOff} alt="" width={20} height={20} />
-            </button>
-          </AuthField>
-
-          <AuthField
-            label="비밀번호 확인"
-            inputId="signup-confirm"
-            invalid={confirmEmpty || confirmMismatch}
-            helper={confirmHelper}
-          >
-            <input
-              id="signup-confirm"
-              type={showConfirm ? 'text' : 'password'}
-              autoComplete="new-password"
-              placeholder="한 번 더 입력해 주세요"
-              value={confirm}
-              aria-invalid={confirmEmpty || confirmMismatch}
-              className={`placeholder:text-input ${secretClass(confirm, showConfirm)} ${INPUT_CLASS}`}
-              onChange={(event) => {
-                setConfirm(event.target.value)
-                setConfirmChecked(false)
-              }}
-              onBlur={() => setConfirmChecked(true)}
-            />
-            <button
-              type="button"
-              aria-label={showConfirm ? '비밀번호 확인 숨기기' : '비밀번호 확인 보기'}
-              aria-pressed={showConfirm}
-              className="shrink-0"
-              onClick={() => setShowConfirm((shown) => !shown)}
-            >
-              <img src={showConfirm ? iconEye : iconEyeOff} alt="" width={20} height={20} />
-            </button>
-          </AuthField>
+          <NewPasswordFields
+            idPrefix="signup"
+            password={password}
+            confirm={confirm}
+            onPasswordChange={setPassword}
+            onConfirmChange={setConfirm}
+            submitted={submitted}
+          />
         </div>
 
         <button

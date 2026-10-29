@@ -35,3 +35,9 @@ export function checkPassword(password: string) {
     space: /\s/.test(password),
   }
 }
+
+// 조건을 다 맞추고 확인 칸까지 같아야 제출 가능
+export function isNewPasswordValid(password: string, confirm: string) {
+  const checks = checkPassword(password)
+  return checks.length && checks.mix && !checks.space && confirm === password
+}
