@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
+import InsulinSheet from '@/components/insulin/InsulinSheet'
+import ContactMemoSheet from '@/components/my/ContactMemoSheet'
 import TodayHeader from '@/components/today/TodayHeader'
 import HeroCard from '@/components/today/HeroCard'
 import HospitalHero from '@/components/today/hero/HospitalHero'
 import NotificationBanner from '@/components/today/NotificationBanner'
+import QuickActions from '@/components/today/QuickActions'
 import TodayRecordSection from '@/components/today/TodayRecordSection'
 import VisitCard from '@/components/today/VisitCard'
 import MealContentSheet from '@/components/meal/MealContentSheet'
@@ -18,7 +21,7 @@ import { useCriteria } from '@/hooks/useCriteria'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useVisitStore } from '@/stores/useVisitStore'
-import type { GlucoseRecord, Meal, MeasureTarget, Portion } from '@/types/glucose'
+import type { GlucoseRecord, InsulinKind, Meal, MeasureTarget, Portion } from '@/types/glucose'
 import { isSameDay, startOfDay } from '@/utils/date'
 import { formatPregnancyAge } from '@/utils/pregnancy'
 import { formatVisitDay, getHomeVisitCard } from '@/utils/visit'
@@ -32,16 +35,21 @@ function TodayPage() {
   const startMeal = useGlucoseStore((state) => state.startMeal)
   const skipMeal = useGlucoseStore((state) => state.skipMeal)
   const setMealContent = useGlucoseStore((state) => state.setMealContent)
+  const addInsulin = useGlucoseStore((state) => state.addInsulin)
   const foods = useFoods()
   const [sheetTarget, setSheetTarget] = useState<MeasureTarget | null>(null)
   const [writingMeal, setWritingMeal] = useState<Meal | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [insulinSheet, setInsulinSheet] = useState(false)
+  const [memoSheet, setMemoSheet] = useState(false)
   const criteria = useCriteria()
   const name = useProfileStore((state) => state.name)
   const dueDate = useProfileStore((state) => state.dueDate)
   const hospitalized = useProfileStore((state) => state.hospitalized)
   const deliveryDate = useProfileStore((state) => state.deliveryDate)
   const updateProfile = useProfileStore((state) => state.updateProfile)
+  const insulinMode = useProfileStore((state) => state.careMode === 'insulin')
+  const contactMemo = useProfileStore((state) => state.contactMemo)
 
   const now = useNow()
   const todayMeals = meals.filter((meal) => isSameDay(new Date(meal.startedAt), now))
@@ -65,6 +73,21 @@ function TodayPage() {
   const handleStartMeal = () => {
     const current = new Date()
     startMeal(getNextMealType(meals, current), current)
+  }
+
+  // 같은 종류로 마지막에 적은 단위. 새로 적을 때 시작값
+  const lastUnits: Partial<Record<InsulinKind, number>> = {}
+  ;[...insulins]
+    .sort((a, b) => new Date(a.takenAt).getTime() - new Date(b.takenAt).getTime())
+    .forEach((insulin) => {
+      lastUnits[insulin.kind] = insulin.units
+    })
+
+  // 식사 적기는 오늘 마지막 끼니. 아직 없으면 식사 시작부터
+  const writeLatestMeal = () => {
+    const latest = todayMeals.at(-1)
+    if (latest) setWritingMeal(latest)
+    else setToast('식사 시작을 먼저 눌러 주세요')
   }
 
   const openGlucoseSheet = () => {
@@ -125,6 +148,16 @@ function TodayPage() {
           />
         )}
       </div>
+      <div className="mt-5">
+        <QuickActions
+          insulinMode={insulinMode}
+          onInputGlucose={openGlucoseSheet}
+          onWriteMeal={writeLatestMeal}
+          onOpenReport={() => navigate(ROUTES.VISIT_REPORTS)}
+          onInsulin={() => setInsulinSheet(true)}
+          onContactMemo={() => setMemoSheet(true)}
+        />
+      </div>
       {visitCard && !criteriaUpdated && (
         <div className="mt-4.5">
           <VisitCard card={visitCard} questionCount={questionCount} onOpen={openVisitCard} />
@@ -148,6 +181,28 @@ function TodayPage() {
       )}
       {writingMeal && (
         <MealContentSheet meal={writingMeal} onClose={closeMealSheet} onSaved={handleMealSaved} />
+      )}
+      {insulinSheet && (
+        <InsulinSheet
+          lastUnits={lastUnits}
+          onSave={(input) => {
+            addInsulin(input)
+            setInsulinSheet(false)
+            setToast(`인슐린 ${input.units}단위 기록했어요`)
+          }}
+          onClose={() => setInsulinSheet(false)}
+        />
+      )}
+      {memoSheet && (
+        <ContactMemoSheet
+          initialMemo={contactMemo}
+          onSave={(memo) => {
+            updateProfile({ contactMemo: memo })
+            setMemoSheet(false)
+            setToast('연락 기준 메모를 저장했어요')
+          }}
+          onClose={() => setMemoSheet(false)}
+        />
       )}
       {toast && <Toast message={toast} onClose={closeToast} />}
     </main>
