@@ -2,8 +2,10 @@ import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
 import iconChevron from '@/assets/icons/nav-next.svg'
 import iconArchive from '@/assets/icons/postpartum/archive-lg.svg'
+import iconChevronMd from '@/assets/icons/postpartum/chevron-md.svg'
 import iconCalendar from '@/assets/icons/postpartum/calendar.svg'
 import Toast from '@/components/common/Toast'
+import WarmBackground from '@/components/common/WarmBackground'
 import CheckScheduleCard from '@/components/postpartum/CheckScheduleCard'
 import RemindLaterSheet from '@/components/postpartum/RemindLaterSheet'
 import TodayHeader from '@/components/today/TodayHeader'
@@ -45,19 +47,16 @@ function PostpartumToday({ name, deliveryDate, now }: PostpartumTodayProps) {
   const remindAt = parseDateKey(checkRemindAt)
   // 다시 물어볼 날 전까지는 할 일 카드를 숨김
   const showCheckTask = !remindAt || remindAt <= startOfDay(now)
+  const archiveSummary = `리포트 ${reportCount}장 · 기록 ${recordCount}개`
 
-  return (
-    <>
-      <TodayHeader
-        name={name}
-        date={now}
-        pregnancyLabel={formatSinceDelivery(delivered, now)}
-        greeting="몸은 좀 어떠세요?"
-        showBell={false}
-      />
-
-      {/* 일정을 적었으면 히어로 대신 검사 일정 카드 */}
-      {pendingCheck ? (
+  // E-10 일정을 적은 뒤엔 흰 바탕에 검사 일정 카드 + 테두리 보관함
+  if (pendingCheck) {
+    return (
+      <div className="pt-4">
+        <header className="flex flex-col gap-5.5">
+          <p className="text-body-3 text-grey-600">{formatSinceDelivery(delivered, now)}</p>
+          <h1 className="text-title-2 text-grey-900 leading-snug">{name}님, 몸은 좀 어떠세요?</h1>
+        </header>
         <div className="mt-5.5">
           <CheckScheduleCard
             check={pendingCheck}
@@ -68,13 +67,40 @@ function PostpartumToday({ name, deliveryDate, now }: PostpartumTodayProps) {
             onChangeDate={() => navigate(`${ROUTES.POSTPARTUM_CHECK}?id=${pendingCheck.id}`)}
           />
         </div>
-      ) : (
-        <div className="mt-6">
-          <PostpartumHero onOpenSettings={() => navigate(ROUTES.MY_NOTIFICATIONS)} />
-        </div>
-      )}
+        <button
+          type="button"
+          className="border-grey-200 mt-5.5 flex w-full items-center gap-3 rounded-2xl border py-4 pr-4 pl-4.5 text-left"
+          onClick={() => navigate(ROUTES.RECORDS)}
+        >
+          <img src={iconArchive} alt="" width={22} height={22} />
+          <span className="flex flex-1 flex-col gap-0.5 leading-snug">
+            <span className="text-t6 text-grey-900 leading-snug font-bold">
+              임신 중 기록 보관함
+            </span>
+            <span className="text-t7 text-grey-600 leading-snug">{archiveSummary}</span>
+          </span>
+          <img src={iconChevronMd} alt="" width={16} height={16} />
+        </button>
+      </div>
+    )
+  }
 
-      {!pendingCheck && showCheckTask && (
+  return (
+    <>
+      <WarmBackground />
+      <TodayHeader
+        name={name}
+        date={now}
+        pregnancyLabel={formatSinceDelivery(delivered, now)}
+        greeting="몸은 좀 어떠세요?"
+        showBell={false}
+      />
+
+      <div className="mt-6">
+        <PostpartumHero onOpenSettings={() => navigate(ROUTES.MY_NOTIFICATIONS)} />
+      </div>
+
+      {showCheckTask && (
         <section className="rounded-hero shadow-task mt-4.5 flex flex-col gap-3.5 bg-white p-5">
           <div className="flex items-center gap-3">
             <span className="rounded-2xl bg-yellow-50 p-3">
@@ -114,9 +140,7 @@ function PostpartumToday({ name, deliveryDate, now }: PostpartumTodayProps) {
         <img src={iconArchive} alt="" width={22} height={22} />
         <span className="flex flex-1 flex-col gap-0.5">
           <span className="text-t6 text-grey-800 font-bold">임신 중 기록 보관함</span>
-          <span className="text-t7 text-grey-600">
-            리포트 {reportCount}장 · 기록 {recordCount}개
-          </span>
+          <span className="text-t7 text-grey-600">{archiveSummary}</span>
         </span>
         <img src={iconChevron} alt="" width={18} height={18} />
       </button>
