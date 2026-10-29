@@ -1,5 +1,7 @@
 import { MEAL_LABEL } from '@/constants/glucose'
-import type { Food, Meal, MyFood, Nutrition, Portion } from '@/types/glucose'
+import type { Criteria } from '@/types/criteria'
+import type { Food, GlucoseRecord, Meal, MyFood, Nutrition, Portion } from '@/types/glucose'
+import { getCriteriaAt } from '@/utils/criteria'
 
 const PORTION_AMOUNT: Record<Portion, string> = {
   half: '반',
@@ -97,4 +99,30 @@ export function getRecentFoods(meals: Meal[], limit: number) {
     }
   }
   return names.slice(0, limit)
+}
+
+// 같은 음식을 먹은 끼니 하나. 식후 수치를 안 쟀으면 record 없음
+export type FoodHistoryEntry = {
+  meal: Meal
+  record?: GlucoseRecord
+  // 그때 기준의 식후 측정 시점
+  postMealHours: number | null
+}
+
+// 같은 메뉴 지난 기록(최신순). 날짜·양·식후 수치만, 평가 없음
+export function getFoodHistory(
+  name: string,
+  meals: Meal[],
+  records: GlucoseRecord[],
+  versions: Criteria[],
+  excludeMealId?: string,
+): FoodHistoryEntry[] {
+  return meals
+    .filter((meal) => meal.id !== excludeMealId && meal.foods?.includes(name))
+    .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+    .map((meal) => ({
+      meal,
+      record: records.find((record) => record.slot === 'post-meal' && record.mealId === meal.id),
+      postMealHours: getCriteriaAt(versions, new Date(meal.startedAt)).postMealHours,
+    }))
 }
