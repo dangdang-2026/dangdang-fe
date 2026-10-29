@@ -73,7 +73,7 @@ function TodayPage() {
     criteria.version > 1 &&
     new Date(criteria.appliedFrom) >= startOfDay(visitCard.at)
   const openVisitCard = () => {
-    navigate(visitCard?.kind === 'yesterday' ? ROUTES.VISIT_CRITERIA : ROUTES.VISIT_REPORT)
+    navigate(visitCard?.kind === 'yesterday' ? ROUTES.VISIT_NOTE : ROUTES.VISIT_REPORT)
   }
 
   const handleStartMeal = () => {

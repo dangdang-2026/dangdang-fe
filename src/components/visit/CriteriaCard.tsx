@@ -1,3 +1,4 @@
+import iconEditGrey from '@/assets/icons/edit-grey.svg'
 import iconHistory from '@/assets/icons/history.svg'
 import iconTarget from '@/assets/icons/target.svg'
 import VisitMenuRow from '@/components/visit/VisitMenuRow'
@@ -6,11 +7,13 @@ import { formatCriteria } from '@/utils/report'
 
 type CriteriaCardProps = {
   onChange: () => void
+  // 진료 탭에서만 진료 후 메모 줄
+  onNote?: () => void
   onHistory: () => void
 }
 
 // Figma C-02 지금 병원 기준 카드
-function CriteriaCard({ onChange, onHistory }: CriteriaCardProps) {
+function CriteriaCard({ onChange, onNote, onHistory }: CriteriaCardProps) {
   const criteria = useCriteria()
   const appliedFrom = new Date(criteria.appliedFrom)
   // 진료 후 바꾼 기준이면 그날 진료로, 아니면 출처 그대로
@@ -42,6 +45,17 @@ function CriteriaCard({ onChange, onHistory }: CriteriaCardProps) {
         진료 후 기준 바꾸기
       </button>
       <hr className="border-grey-100" />
+      {onNote && (
+        <>
+          <VisitMenuRow
+            icon={iconEditGrey}
+            title="진료 후 메모 쓰기"
+            description="들은 말을 적으면 AI가 정리해 줘요"
+            onClick={onNote}
+          />
+          <hr className="border-grey-100" />
+        </>
+      )}
       <VisitMenuRow icon={iconHistory} title="기준 변경 이력" onClick={onHistory} />
     </section>
   )

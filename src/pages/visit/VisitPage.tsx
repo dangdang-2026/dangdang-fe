@@ -1,11 +1,12 @@
 import { useCallback, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import iconEdit from '@/assets/icons/edit.svg'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import CriteriaCard from '@/components/visit/CriteriaCard'
 import NextVisitCard from '@/components/visit/NextVisitCard'
 import ReportCard from '@/components/visit/ReportCard'
+import VisitDoneCard from '@/components/visit/VisitDoneCard'
 import QuestionSheet from '@/components/visit/QuestionSheet'
 import QuestionsCard from '@/components/visit/QuestionsCard'
 import VisitDateSheet from '@/components/visit/VisitDateSheet'
@@ -14,7 +15,7 @@ import { useNow } from '@/hooks/useNow'
 import { useVisitStore } from '@/stores/useVisitStore'
 import type { Question } from '@/types/visit'
 import { formatMonthDay, startOfDay } from '@/utils/date'
-import { getVisitStatus } from '@/utils/visit'
+import { getVisitStatus, getVisitedDay } from '@/utils/visit'
 
 type DateSheet = 'first' | 'edit' | null
 type ToastState = { message: string; action?: { label: string; onClick: () => void } }
@@ -31,10 +32,15 @@ function VisitPage() {
   const removeQuestion = useVisitStore((state) => state.removeQuestion)
   const restoreQuestion = useVisitStore((state) => state.restoreQuestion)
   const [questionSheetOpen, setQuestionSheetOpen] = useState(false)
-  const [toast, setToast] = useState<ToastState | null>(null)
+  // 진료 후 메모 정리에서 다음 진료일만 바꾸고 오면 안내
+  const savedToast = (useLocation().state as { toast?: string } | null)?.toast
+  const [toast, setToast] = useState<ToastState | null>(() =>
+    savedToast ? { message: savedToast } : null,
+  )
 
   const now = useNow()
   const status = getVisitStatus(nextVisitAt, now)
+  const visitedDay = getVisitedDay(nextVisitAt, now)
 
   const closeDateSheet = useCallback(() => {
     // 처음 묻기를 그냥 닫아도 다시 묻지 않음
@@ -87,7 +93,11 @@ function VisitPage() {
       </header>
 
       <div className="mt-4">
-        <NextVisitCard status={status} onEdit={() => setDateSheet('edit')} />
+        {visitedDay ? (
+          <VisitDoneCard day={visitedDay} onWrite={() => navigate(ROUTES.VISIT_NOTE)} />
+        ) : (
+          <NextVisitCard status={status} onEdit={() => setDateSheet('edit')} />
+        )}
       </div>
       <div className="mt-4">
         <QuestionsCard
@@ -106,6 +116,7 @@ function VisitPage() {
       <div className="mt-4">
         <CriteriaCard
           onChange={() => navigate(ROUTES.VISIT_CRITERIA)}
+          onNote={() => navigate(ROUTES.VISIT_NOTE)}
           onHistory={() => navigate(ROUTES.VISIT_CRITERIA_HISTORY)}
         />
       </div>
