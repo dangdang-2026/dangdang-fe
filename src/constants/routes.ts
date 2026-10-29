@@ -21,6 +21,8 @@ export const ROUTES = {
   VISIT_CRITERIA_HISTORY: '/visit/criteria/history',
   VISIT_NOTE: '/visit/note',
   VISIT_NOTE_RESULT: '/visit/note/result',
+  VISIT_RESOURCES: '/visit/resources',
+  VISIT_RESOURCE_SUMMARY: '/visit/resources/:id',
   COMMUNITY: '/community',
   COMMUNITY_BOARD: '/community/board/:board',
   COMMUNITY_POST: '/community/posts/:id',
@@ -60,3 +62,4 @@ export const communityNewsPath = (id: string) => `/community/news/${id}`
 // 지금 적는 끼니는 지난 기록에서 뺌
 export const foodHistoryPath = (name: string, excludeMealId?: string) =>
   `/records/food-history?${new URLSearchParams({ name, ...(excludeMealId && { exclude: excludeMealId }) })}`
+export const resourceSummaryPath = (id: string) => `/visit/resources/${id}`
