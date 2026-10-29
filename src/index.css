@@ -55,6 +55,10 @@
   --text-display--line-height: 1.1;
   --text-display--letter-spacing: -0.03em;
   --text-display--font-weight: 700;
+  /* 인슐린 단위 스테퍼 숫자 */
+  --text-stepper: 56px;
+  --text-stepper--line-height: 1.1;
+  --text-stepper--font-weight: 700;
   --text-number: 48px;
   --text-number--line-height: 1.2;
   --text-number--font-weight: 700;
@@ -119,6 +123,7 @@
   --shadow-banner: 0 4px 12px 0 rgb(128 89 0 / 0.06);
   --shadow-card: 0 4px 12px 0 rgb(128 89 0 / 0.05);
   --shadow-task: 0 8px 24px 0 rgb(128 89 0 / 0.08);
+  --shadow-quick: 0 6px 16px 0 rgb(128 89 0 / 0.08);
   --shadow-receipt: 0 10px 30px 0 rgb(102 77 26 / 0.1);
   --shadow-segment: 0 2px 6px 0 rgb(25 31 40 / 0.08);
   --shadow-notification: 0 4px 12px 0 rgb(25 31 40 / 0.1);
