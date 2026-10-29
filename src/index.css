@@ -26,6 +26,8 @@
   --color-blue-500: #3182f6;
   --color-blue-600: #2272eb;
   --color-blue-700: #1b64da;
+  --color-green-50: #f0faf6;
+  --color-green-500: #03b26c;
   --color-red-50: #ffeeee;
   --color-red-500: #f04452;
   --color-red-600: #e42939;
@@ -184,6 +186,12 @@ button {
 
 button:disabled {
   cursor: not-allowed;
+}
+
+/* Edge 기본 비밀번호 보기·지우기 버튼 숨김. 칸마다 직접 만든 버튼을 씀 */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
 }
 
 /* 진료 리포트 인쇄·PDF: A4 한 장, 배경색까지 출력 */
