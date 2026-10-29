@@ -16,3 +16,10 @@ export type Criteria = {
   // 목표(mg/dL 미만). 비우면 비교 안 함
   targets: Targets
 }
+
+// 진료 후 메모 정리에서 체크한 값. 기준 바꾸기 화면을 이 값으로 채워 열기
+export type CriteriaPrefill = {
+  postMealHours?: number
+  fasting?: number
+  postMeal?: number
+}
