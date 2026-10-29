@@ -6,8 +6,8 @@ import ConfirmDialog from '@/components/common/ConfirmDialog'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import Switch from '@/components/common/Switch'
 import Toast from '@/components/common/Toast'
-import { AI_TRANSFER_LINES } from '@/constants/chat'
 import { ROUTES } from '@/constants/routes'
+import { useNavigate } from 'react-router'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useAiStore, type AiConsent, type AiFeature } from '@/stores/useAiStore'
 
@@ -29,12 +29,12 @@ function formatConsent(consent: AiConsent) {
 
 // Figma M-06 AI 설정 · M-12 동의 철회 확인
 function AiSettingsPage() {
+  const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.MY)
   const photo = useAiStore((state) => state.photo)
   const chat = useAiStore((state) => state.chat)
   const setConsent = useAiStore((state) => state.setConsent)
   const withdrawAll = useAiStore((state) => state.withdrawAll)
-  const [showTransfer, setShowTransfer] = useState(false)
   const [confirm, setConfirm] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
@@ -88,21 +88,11 @@ function AiSettingsPage() {
         <p className="text-t7 text-grey-600">이름·연락처는 보내지 않아요.</p>
         <button
           type="button"
-          aria-expanded={showTransfer}
           className="text-body-3 text-grey-700 self-start underline"
-          onClick={() => setShowTransfer((value) => !value)}
+          onClick={() => navigate(ROUTES.LEGAL_TRANSFER)}
         >
-          받는 곳·보관 기간 보기 {showTransfer ? '⌃' : '›'}
+          받는 곳·보관 기간 보기 ›
         </button>
-        {showTransfer && (
-          <p className="text-t7 text-grey-700 bg-grey-50 rounded-tag px-3 py-2.5">
-            {AI_TRANSFER_LINES.map((line) => (
-              <span key={line} className="block">
-                {line}
-              </span>
-            ))}
-          </p>
-        )}
       </section>
 
       <button
