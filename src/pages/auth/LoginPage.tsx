@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type Keyboard
 import { useNavigate, useSearchParams } from 'react-router'
 import { LOGIN_MAX_FAILURES, loginWithEmail, loginWithKakao } from '@/api/auth'
 import iconAlert from '@/assets/icons/auth/alert.svg'
-import iconBack from '@/assets/icons/auth/back.svg'
 import iconCapsLock from '@/assets/icons/auth/caps-lock.svg'
 import iconClear from '@/assets/icons/auth/clear.svg'
 import iconEyeOff from '@/assets/icons/auth/eye-off.svg'
@@ -16,26 +15,26 @@ import iconToastOffline from '@/assets/icons/auth/toast-offline.svg'
 import iconKakao from '@/assets/icons/onboarding/kakao.svg'
 import loginCharacter from '@/assets/images/auth/login-character.svg'
 import AuthField, { type FieldHelper } from '@/components/auth/AuthField'
+import AuthHeader from '@/components/auth/AuthHeader'
 import AuthToast from '@/components/auth/AuthToast'
 import KakaoAccountSheet from '@/components/auth/KakaoAccountSheet'
 import { ROUTES } from '@/constants/routes'
+import { useFinishLogin } from '@/hooks/useFinishLogin'
 import { useGoBack } from '@/hooks/useGoBack'
-import { useAuthStore, type LoginMethod } from '@/stores/useAuthStore'
-import { useOnboardingStore } from '@/stores/useOnboardingStore'
-
-// @ 없음, 도메인 없음, 한글·특수문자 포함은 형식 오류
-const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
+import { useAuthStore } from '@/stores/useAuthStore'
+import { EMAIL_PATTERN } from '@/utils/auth'
 
 type EmailError = 'empty' | 'format'
 type PasswordError =
-  | { kind: 'empty' }
-  | { kind: 'wrong'; failures: number }
-  | { kind: 'locked'; minutes: number }
+  { kind: 'empty' } | { kind: 'wrong'; failures: number } | { kind: 'locked'; minutes: number }
 type ToastKind = 'kakaoCancel' | 'kakaoFail' | 'offline'
 
 const TOAST: Record<ToastKind, { icon: string; message: string }> = {
   kakaoCancel: { icon: iconToastInfo, message: '카카오 로그인을 취소했어요' },
-  kakaoFail: { icon: iconToastAlert, message: '카카오 로그인에 실패했어요. 잠시 후 다시 시도해 주세요' },
+  kakaoFail: {
+    icon: iconToastAlert,
+    message: '카카오 로그인에 실패했어요. 잠시 후 다시 시도해 주세요',
+  },
   offline: {
     icon: iconToastOffline,
     message: '인터넷 연결이 불안정해요. 연결을 확인하고 다시 시도해 주세요',
@@ -61,9 +60,8 @@ function LoginPage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.ONBOARDING)
   const [searchParams, setSearchParams] = useSearchParams()
-  const completed = useOnboardingStore((state) => state.completed)
   const lastMethod = useAuthStore((state) => state.lastMethod)
-  const setLastMethod = useAuthStore((state) => state.setLastMethod)
+  const finish = useFinishLogin()
 
   const emailRef = useRef<HTMLInputElement>(null)
   const [email, setEmail] = useState('')
@@ -85,14 +83,9 @@ function LoginPage() {
 
   const locked = passwordError?.kind === 'locked'
 
-  const finish = (method: LoginMethod) => {
-    setLastMethod(method)
-    navigate(completed ? ROUTES.TODAY : ROUTES.ONBOARDING_TERMS, { replace: true })
-  }
-
-  // TODO: 비밀번호 찾기(R-01) · 이메일 회원가입(J-01) 구현 후 연결
+  // TODO: 비밀번호 찾기(R-01) 구현 후 연결
   const findPassword = () => {}
-  const signUp = () => navigate(ROUTES.ONBOARDING_TERMS)
+  const signUp = () => navigate(ROUTES.SIGNUP)
 
   const loginKakao = async () => {
     setKakaoSheet(false)
@@ -130,7 +123,8 @@ function LoginPage() {
 
     if (result.status === 'ok') finish('email')
     else if (result.status === 'kakao') setKakaoSheet(true)
-    else if (result.status === 'wrong') setPasswordError({ kind: 'wrong', failures: result.failures })
+    else if (result.status === 'wrong')
+      setPasswordError({ kind: 'wrong', failures: result.failures })
     else setPasswordError({ kind: 'locked', minutes: result.minutes })
   }
 
@@ -142,7 +136,11 @@ function LoginPage() {
     emailError === 'empty'
       ? { icon: iconAlert, text: '이메일을 입력해 주세요', tone: 'error' }
       : emailError === 'format'
-        ? { icon: iconAlert, text: '이메일 형식을 확인해 주세요 (예: name@email.com)', tone: 'error' }
+        ? {
+            icon: iconAlert,
+            text: '이메일 형식을 확인해 주세요 (예: name@email.com)',
+            tone: 'error',
+          }
         : null
 
   const findAction = { label: '비밀번호 찾기', onClick: findPassword }
@@ -170,28 +168,26 @@ function LoginPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-14.5 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
-      <header className="flex h-11 items-center">
-        <button
-          type="button"
-          aria-label="뒤로"
-          className="bg-grey-100 flex size-10 items-center justify-center rounded-full"
-          onClick={goBack}
-        >
-          <img src={iconBack} alt="" width={20} height={20} />
-        </button>
-      </header>
+      <AuthHeader onBack={goBack} />
 
       <div className="mt-3.5 flex items-center justify-between">
         <div className="flex flex-col gap-1.5">
           <h1 className="text-t2 text-grey-900">로그인</h1>
-          <p className="text-grey-500 text-sm leading-normal">지난 기록을 그대로 이어서 볼 수 있어요</p>
+          <p className="text-grey-500 text-sm leading-normal">
+            지난 기록을 그대로 이어서 볼 수 있어요
+          </p>
         </div>
         <img src={loginCharacter} alt="" width={70} height={70} />
       </div>
 
       <form noValidate className="mt-6 flex flex-col" onSubmit={submit}>
         <div className="flex flex-col gap-4">
-          <AuthField label="이메일" inputId="login-email" invalid={!!emailError} helper={emailHelper}>
+          <AuthField
+            label="이메일"
+            inputId="login-email"
+            invalid={!!emailError}
+            helper={emailHelper}
+          >
             <input
               ref={emailRef}
               id="login-email"
