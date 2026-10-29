@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { useNavigate } from 'react-router'
 import iconClear from '@/assets/icons/clear.svg'
 import iconPlusMd from '@/assets/icons/plus-md.svg'
 import iconSearch from '@/assets/icons/search.svg'
@@ -9,6 +10,7 @@ import MyFoodForm from '@/components/meal/MyFoodForm'
 import NutritionCard from '@/components/meal/NutritionCard'
 import NutritionSourceSheet from '@/components/meal/NutritionSourceSheet'
 import { MEAL_LABEL } from '@/constants/glucose'
+import { foodHistoryPath } from '@/constants/routes'
 import { useFoods } from '@/hooks/useFoods'
 import { DEFAULT_RECENT_FOODS } from '@/mocks/foods'
 import { useFoodStore } from '@/stores/useFoodStore'
@@ -38,6 +40,7 @@ type MealContentSheetProps = {
 
 // Figma F-01·F-07·D-09 식사 내용 적기. 최근 음식·이름 검색으로 고르고 양 선택
 function MealContentSheet({ meal, editing, onClose, onSaved }: MealContentSheetProps) {
+  const navigate = useNavigate()
   const meals = useGlucoseStore((state) => state.meals)
   const foods = useFoods()
   const [selected, setSelected] = useState<string[]>(meal.foods ?? [])
@@ -69,6 +72,12 @@ function MealContentSheet({ meal, editing, onClose, onSaved }: MealContentSheetP
     .map((name) => findFood(name, foods))
     .filter((food) => food?.nutrition !== undefined)
     .map((food) => ({ food: food!, portion: food === staple ? portion : undefined }))
+  // 고른 음식 중 전에 먹은 적 있는 것 하나(주식 먼저). 지난 기록 링크로
+  const pastMeals = meals.filter((item) => item.id !== meal.id)
+  const countEaten = (name: string) => pastMeals.filter((item) => item.foods?.includes(name)).length
+  const historyFood = [...(staple ? [staple.name] : []), ...selected].find(
+    (name) => countEaten(name) > 0,
+  )
   const [sourceItem, setSourceItem] = useState<NutritionItem | null>(null)
   const closeSource = useCallback(() => setSourceItem(null), [])
 
@@ -205,6 +214,15 @@ function MealContentSheet({ meal, editing, onClose, onSaved }: MealContentSheetP
                 이름 검색
               </button>
             </div>
+            {historyFood && (
+              <button
+                type="button"
+                className="text-t7 text-grey-600 self-start font-medium"
+                onClick={() => navigate(foodHistoryPath(historyFood, meal.id))}
+              >
+                {historyFood} 먹은 날 {countEaten(historyFood)}번 · 지난 기록 보기 ›
+              </button>
+            )}
 
             {/* 주식을 고른 뒤에만 양 표시. 여러 개면 어느 음식 양인지 함께 표시 */}
             {staple && (
