@@ -10,6 +10,7 @@ import NotificationBanner from '@/components/today/NotificationBanner'
 import TodayRecordSection from '@/components/today/TodayRecordSection'
 import VisitCard from '@/components/today/VisitCard'
 import MealContentSheet from '@/components/meal/MealContentSheet'
+import PostpartumToday from '@/components/postpartum/PostpartumToday'
 import { ROUTES } from '@/constants/routes'
 import { useFoods } from '@/hooks/useFoods'
 import { useNow } from '@/hooks/useNow'
@@ -38,6 +39,7 @@ function TodayPage() {
   const name = useProfileStore((state) => state.name)
   const dueDate = useProfileStore((state) => state.dueDate)
   const hospitalized = useProfileStore((state) => state.hospitalized)
+  const deliveryDate = useProfileStore((state) => state.deliveryDate)
   const updateProfile = useProfileStore((state) => state.updateProfile)
 
   const now = useNow()
@@ -81,6 +83,16 @@ function TodayPage() {
     setMealContent(writingMeal.id, mealFoods, portion)
     setToast(formatMealSavedMessage({ ...writingMeal, foods: mealFoods, portion }, foods))
     setWritingMeal(null)
+  }
+
+  // 출산일을 적었으면 산후 홈
+  if (deliveryDate) {
+    return (
+      <main className="px-5 pt-15.5">
+        <WarmBackground />
+        <PostpartumToday name={name} deliveryDate={deliveryDate} now={now} />
+      </main>
+    )
   }
 
   return (

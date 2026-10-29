@@ -8,8 +8,8 @@ type ProfileDateSheetProps = {
   initialDate: Date | null
   today: Date
   pick: 'future' | 'past'
-  // 기본 '저장'
-  submitLabel?: string
+  // 기본 '저장'. 고른 날짜를 넣으려면 함수로
+  submitLabel?: string | ((date: Date) => string)
   onSave: (date: Date) => void
   onClose: () => void
 }
@@ -42,7 +42,11 @@ function ProfileDateSheet({
         className="text-subtitle-1 disabled:bg-grey-100 disabled:text-grey-400 bg-primary h-14 rounded-xl leading-none text-white"
         onClick={() => date && onSave(date)}
       >
-        {submitLabel}
+        {typeof submitLabel === 'function'
+          ? date
+            ? submitLabel(date)
+            : '날짜를 골라 주세요'
+          : submitLabel}
       </button>
     </BottomSheet>
   )
