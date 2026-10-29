@@ -23,6 +23,7 @@ import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useNow } from '@/hooks/useNow'
 import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
+import { useHospitalStore } from '@/stores/useHospitalStore'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useFoodStore } from '@/stores/useFoodStore'
 import { useNotificationStore } from '@/stores/useNotificationStore'
@@ -43,6 +44,7 @@ const formatVisitAt = (at: Date) =>
 // Figma M-01 마이 메인
 function MyPage() {
   const hospital = usePrimaryHospital()
+  const hospitalCount = useHospitalStore((state) => state.hospitals.length)
   const navigate = useNavigate()
   const now = useNow()
   const { name, dueDate, careMode } = useProfileStore()
@@ -155,7 +157,12 @@ function MyPage() {
         <MyMenuGroup
           title="내 관리"
           items={[
-            { icon: iconMenuHospital, title: '다니는 병원', description: hospital.name },
+            {
+              icon: iconMenuHospital,
+              title: '다니는 병원',
+              description: `${hospital.name}${hospitalCount > 1 ? ` 외 ${hospitalCount - 1}곳` : ''}`,
+              onClick: () => navigate(ROUTES.MY_HOSPITALS),
+            },
             {
               icon: iconMenuTarget,
               title: '병원 기준 · 관리 모드',
