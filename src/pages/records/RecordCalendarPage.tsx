@@ -8,8 +8,8 @@ import WarmBackground from '@/components/common/WarmBackground'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
+import { useRecordStart } from '@/hooks/useRecordStart'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
-import { useOnboardingStore } from '@/stores/useOnboardingStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import {
   addMonths,
@@ -33,22 +33,15 @@ function RecordCalendarPage() {
   const meals = useGlucoseStore((state) => state.meals)
   const records = useGlucoseStore((state) => state.records)
   const insulins = useGlucoseStore((state) => state.insulins)
-  const completedAt = useOnboardingStore((state) => state.completedAt)
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
   const today = startOfDay(useNow())
 
-  // 기록을 시작한 날: 설정을 마친 날과 가장 이른 기록 중 앞선 날
+  const start = useRecordStart(today)
   const recordDates = [
     ...records.map((record) => record.measuredAt),
     ...meals.map((meal) => meal.startedAt),
     ...insulins.map((insulin) => insulin.takenAt),
   ].map((iso) => new Date(iso))
-  const startCandidates = completedAt ? [...recordDates, new Date(completedAt)] : recordDates
-  const start = startOfDay(
-    startCandidates.length
-      ? new Date(Math.min(...startCandidates.map((date) => date.getTime())))
-      : today,
-  )
 
   const [month, setMonth] = useState(() => startOfMonth(today))
   const isStartMonth = month <= startOfMonth(start)
