@@ -9,6 +9,7 @@ export const ROUTES = {
   PASSWORD_FIND: '/password/find',
   PASSWORD_RESET: '/password/reset',
   TODAY: '/',
+  INBOX: '/inbox',
   RECORDS: '/records',
   RECORDS_CALENDAR: '/records/calendar',
   RECORDS_STATS: '/records/stats',

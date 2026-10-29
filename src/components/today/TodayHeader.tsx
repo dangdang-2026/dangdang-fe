@@ -1,5 +1,6 @@
 import { formatMonthDayWeekday } from '@/utils/date'
 import iconBell from '@/assets/icons/bell.svg'
+import iconUnread from '@/assets/icons/notification/unread.svg'
 
 type TodayHeaderProps = {
   name: string
@@ -12,6 +13,9 @@ type TodayHeaderProps = {
   greeting?: string
   // 산후 홈엔 알림 버튼 없음
   showBell?: boolean
+  // 안 읽은 알림이 있으면 종에 점
+  unread?: boolean
+  onBell?: () => void
 }
 
 function TodayHeader({
@@ -21,6 +25,8 @@ function TodayHeader({
   visitLabel,
   greeting = '반가워요',
   showBell = true,
+  unread = false,
+  onBell,
 }: TodayHeaderProps) {
   return (
     <header className="flex items-center justify-between">
@@ -36,10 +42,20 @@ function TodayHeader({
       {showBell && (
         <button
           type="button"
-          aria-label="알림"
-          className="shadow-icon-button flex size-10.5 items-center justify-center rounded-full bg-white"
+          aria-label={unread ? '알림, 안 읽은 알림 있음' : '알림'}
+          className="shadow-icon-button relative flex size-10.5 items-center justify-center rounded-full bg-white"
+          onClick={onBell}
         >
           <img src={iconBell} alt="" width={20} height={20} />
+          {unread && (
+            <img
+              src={iconUnread}
+              alt=""
+              width={6}
+              height={6}
+              className="absolute top-2.5 right-2.5"
+            />
+          )}
         </button>
       )}
     </header>

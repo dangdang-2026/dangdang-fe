@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
@@ -21,6 +21,7 @@ import { useNow } from '@/hooks/useNow'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
+import { useInboxStore } from '@/stores/useInboxStore'
 import { useNotificationStore } from '@/stores/useNotificationStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import type { GlucoseRecord, InsulinKind, Meal, MeasureTarget, Portion } from '@/types/glucose'
@@ -39,7 +40,15 @@ function TodayPage() {
   const setMealContent = useGlucoseStore((state) => state.setMealContent)
   const addInsulin = useGlucoseStore((state) => state.addInsulin)
   const foods = useFoods()
-  const [sheetTarget, setSheetTarget] = useState<MeasureTarget | null>(null)
+  const criteria = useCriteria()
+  const navigate = useNavigate()
+  const location = useLocation()
+  // 알림함에서 측정 알림을 누르고 오면 혈당 입력 시트부터
+  const fromMeasureAlert = !!(location.state as { openGlucose?: boolean } | null)?.openGlucose
+  const [sheetTarget, setSheetTarget] = useState<MeasureTarget | null>(() =>
+    fromMeasureAlert ? getMeasureTarget(meals, records, criteria.postMealHours, new Date()) : null,
+  )
+  const hasUnread = useInboxStore((state) => state.items.some((item) => !item.readAt))
   const [writingMeal, setWritingMeal] = useState<Meal | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [insulinSheet, setInsulinSheet] = useState(false)
@@ -48,7 +57,6 @@ function TodayPage() {
   const permissionAsked = useNotificationStore((state) => state.permissionAsked)
   const markPermissionAsked = useNotificationStore((state) => state.markPermissionAsked)
   const updateNotification = useNotificationStore((state) => state.updateSettings)
-  const criteria = useCriteria()
   const name = useProfileStore((state) => state.name)
   const dueDate = useProfileStore((state) => state.dueDate)
   const hospitalized = useProfileStore((state) => state.hospitalized)
@@ -65,7 +73,6 @@ function TodayPage() {
 
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
   const questionCount = useVisitStore((state) => state.questions.length)
-  const navigate = useNavigate()
   const visitCard = getHomeVisitCard(nextVisitAt, now)
   // 진료 다음 날 카드는 진료 뒤 기준을 이미 바꿨으면 숨김
   const criteriaUpdated =
@@ -118,12 +125,16 @@ function TodayPage() {
   const openGlucoseSheet = () => {
     setSheetTarget(getMeasureTarget(meals, records, criteria.postMealHours, new Date()))
   }
-  const closeGlucoseSheet = useCallback(() => setSheetTarget(null), [])
+  // 알림에서 연 시트를 닫으면 기록에서 지워 뒤로 와도 다시 안 열리게
+  const closeGlucoseSheet = useCallback(() => {
+    setSheetTarget(null)
+    if (fromMeasureAlert) navigate(ROUTES.TODAY, { replace: true })
+  }, [fromMeasureAlert, navigate])
   const closeMealSheet = useCallback(() => setWritingMeal(null), [])
   const closeToast = useCallback(() => setToast(null), [])
 
   const handleSaved = (record: GlucoseRecord) => {
-    setSheetTarget(null)
+    closeGlucoseSheet()
     const label = getSlotLabel(record.slot, record.mealType, criteria.postMealHours)
     setToast(`${label} ${record.value} 저장했어요`)
   }
@@ -152,6 +163,8 @@ function TodayPage() {
         date={now}
         pregnancyLabel={formatPregnancyAge(dueDate, now)}
         visitLabel={formatVisitDay(nextVisitAt, now)}
+        unread={hasUnread}
+        onBell={() => navigate(ROUTES.INBOX)}
       />
       <div className="mt-6">
         {hospitalized ? (
