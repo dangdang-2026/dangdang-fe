@@ -4,6 +4,10 @@ import iconPencil from '@/assets/icons/pencil.svg'
 type HeroShellProps = {
   status: string
   postMealHours: number | null
+  // 병원 기준 대신 띄울 칩. 예: 알림 멈춤
+  chip?: string
+  // 입원·산후처럼 측정이 멈춘 상태는 상태 줄을 회색으로
+  muted?: boolean
   // 상태별 그라디언트 시작·끝 색
   gradient?: string
   // 언덕·당당이 등 카드 뒤 장식
@@ -15,6 +19,8 @@ type HeroShellProps = {
 function HeroShell({
   status,
   postMealHours,
+  chip,
+  muted = false,
   gradient = 'from-yellow-50 to-yellow-100',
   decoration,
   children,
@@ -26,14 +32,20 @@ function HeroShell({
       {decoration}
 
       <div className="relative flex items-start justify-between">
-        <p className="text-body-3 text-primary mt-0.5">{status}</p>
-        <button
-          type="button"
-          className="text-grey-800 flex items-center gap-1 rounded-full bg-white py-1 pr-2 pl-2.5 text-xs leading-normal font-semibold"
-        >
-          {postMealHours ? `식후 ${postMealHours}시간` : '측정 시점 모름'}
-          <img src={iconPencil} alt="" width={12} height={12} />
-        </button>
+        <p className={`text-body-3 mt-0.5 ${muted ? 'text-grey-700' : 'text-primary'}`}>{status}</p>
+        {chip ? (
+          <span className="text-grey-800 rounded-full bg-white px-2.5 py-1 text-xs leading-normal font-semibold">
+            {chip}
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="text-grey-800 flex items-center gap-1 rounded-full bg-white py-1 pr-2 pl-2.5 text-xs leading-normal font-semibold"
+          >
+            {postMealHours ? `식후 ${postMealHours}시간` : '측정 시점 모름'}
+            <img src={iconPencil} alt="" width={12} height={12} />
+          </button>
+        )}
       </div>
       <div className="relative flex flex-1 flex-col">{children}</div>
     </section>
