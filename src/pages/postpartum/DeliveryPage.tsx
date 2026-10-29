@@ -46,7 +46,8 @@ function DeliveryPage() {
 
   const switchToPostpartum = () => {
     updateProfile({ deliveryDate: toDateKey(date), hospitalized: false, checkRemindAt: null })
-    navigate(ROUTES.TODAY, { replace: true })
+    // 산후 홈 전에 임신 중 관리 졸업을 한 번 보여 줌
+    navigate(ROUTES.POSTPARTUM_GRADUATION, { replace: true })
   }
 
   return (

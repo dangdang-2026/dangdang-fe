@@ -45,6 +45,7 @@ import CheckGuidePage from '@/pages/postpartum/CheckGuidePage'
 import CheckResultPage from '@/pages/postpartum/CheckResultPage'
 import CheckSchedulePage from '@/pages/postpartum/CheckSchedulePage'
 import DeliveryPage from '@/pages/postpartum/DeliveryPage'
+import GraduationPage from '@/pages/postpartum/GraduationPage'
 import TimingPage from '@/pages/onboarding/TimingPage'
 
 // 재실행 스플래시(당당 소식 카드)를 보여 주는 시간
@@ -114,6 +115,7 @@ function App() {
           <Route path={ROUTES.POSTPARTUM_CHECK} element={<CheckSchedulePage />} />
           <Route path={ROUTES.POSTPARTUM_CHECK_RESULT} element={<CheckResultPage />} />
           <Route path={ROUTES.POSTPARTUM_GUIDE} element={<CheckGuidePage />} />
+          <Route path={ROUTES.POSTPARTUM_GRADUATION} element={<GraduationPage />} />
           <Route path={ROUTES.MY_COMMUNITY} element={<CommunitySettingsPage />} />
           <Route path={ROUTES.MY_NICKNAME} element={<NicknamePage />} />
           <Route path={ROUTES.MY_COMMUNITY_ACTIVITY} element={<CommunityActivityPage />} />
