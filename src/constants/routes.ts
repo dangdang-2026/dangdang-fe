@@ -11,6 +11,7 @@ export const ROUTES = {
   TODAY: '/',
   RECORDS: '/records',
   RECORDS_CALENDAR: '/records/calendar',
+  RECORDS_STATS: '/records/stats',
   VISIT: '/visit',
   VISIT_REPORT: '/visit/report',
   VISIT_REPORTS: '/visit/reports',

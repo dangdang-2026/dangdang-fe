@@ -11,6 +11,7 @@ import TabLayout from '@/layouts/TabLayout'
 import TodayPage from '@/pages/today/TodayPage'
 import RecordsPage from '@/pages/records/RecordsPage'
 import RecordCalendarPage from '@/pages/records/RecordCalendarPage'
+import StatsPage from '@/pages/records/StatsPage'
 import VisitPage from '@/pages/visit/VisitPage'
 import ReportPage from '@/pages/visit/ReportPage'
 import ReportsPage from '@/pages/visit/ReportsPage'
@@ -115,6 +116,7 @@ function App() {
           </Route>
           {/* 탭 바 없는 화면 */}
           <Route path={ROUTES.RECORDS_CALENDAR} element={<RecordCalendarPage />} />
+          <Route path={ROUTES.RECORDS_STATS} element={<StatsPage />} />
           <Route path={ROUTES.VISIT_REPORT} element={<ReportPage />} />
           <Route path={ROUTES.VISIT_REPORTS} element={<ReportsPage />} />
           <Route path={ROUTES.VISIT_CRITERIA} element={<CriteriaPage />} />

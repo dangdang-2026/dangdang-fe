@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import iconCalendar from '@/assets/icons/calendar.svg'
+import iconChart from '@/assets/icons/stats/chart.svg'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import EmptyRecordCard from '@/components/glucose/EmptyRecordCard'
@@ -114,14 +115,24 @@ function RecordsPage() {
       <WarmBackground />
       <header className="flex items-center justify-between">
         <h1 className="text-title-2 text-grey-900">기록</h1>
-        <button
-          type="button"
-          aria-label="기록 달력"
-          className="shadow-icon-button flex size-10.5 items-center justify-center rounded-full bg-white"
-          onClick={() => navigate(ROUTES.RECORDS_CALENDAR)}
-        >
-          <img src={iconCalendar} alt="" width={20} height={20} />
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            aria-label="혈당 통계"
+            className="shadow-icon-button flex size-10.5 items-center justify-center rounded-full bg-white"
+            onClick={() => navigate(ROUTES.RECORDS_STATS)}
+          >
+            <img src={iconChart} alt="" width={20} height={20} />
+          </button>
+          <button
+            type="button"
+            aria-label="기록 달력"
+            className="shadow-icon-button flex size-10.5 items-center justify-center rounded-full bg-white"
+            onClick={() => navigate(ROUTES.RECORDS_CALENDAR)}
+          >
+            <img src={iconCalendar} alt="" width={20} height={20} />
+          </button>
+        </div>
       </header>
 
       <div className="mt-4.5">
