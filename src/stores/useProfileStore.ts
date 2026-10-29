@@ -10,6 +10,17 @@ export const CARE_MODE_LABEL: Record<CareMode, string> = {
   oral: '먹는 약 함께',
 }
 
+// 병원에서 들은 산후 검사 하나. 결과 메모를 적으면 끝난 검사
+export type PostpartumCheck = {
+  id: string
+  name: string
+  // YYYY-MM-DD
+  date: string
+  // 전날 저녁 · 당일 아침 알림
+  remind: ('eve' | 'morning')[]
+  memo: string | null
+}
+
 export type Profile = {
   name: string
   // YYYY-MM-DD. 모르면 null
@@ -24,6 +35,7 @@ export type Profile = {
   deliveryDate: string | null
   // YYYY-MM-DD. 산후 검사일을 이날 다시 물어봄
   checkRemindAt: string | null
+  postpartumChecks: PostpartumCheck[]
 }
 
 type ProfileState = Profile & {
@@ -42,6 +54,7 @@ export const useProfileStore = create<ProfileState>()(
       hospitalized: false,
       deliveryDate: null,
       checkRemindAt: null,
+      postpartumChecks: [],
       updateProfile: (changes) => set(changes),
     }),
     { name: 'dangdang-profile' },

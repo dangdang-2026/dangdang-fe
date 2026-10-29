@@ -89,7 +89,6 @@ function TodayPage() {
   if (deliveryDate) {
     return (
       <main className="px-5 pt-15.5">
-        <WarmBackground />
         <PostpartumToday name={name} deliveryDate={deliveryDate} now={now} />
       </main>
     )
