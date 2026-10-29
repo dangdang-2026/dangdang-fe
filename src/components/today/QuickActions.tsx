@@ -33,7 +33,8 @@ function QuickActions({
   ]
 
   return (
-    <nav aria-label="바로가기" className="flex justify-between">
+    // 양옆을 살짝 들여 칸 사이를 좁힘
+    <nav aria-label="바로가기" className="flex justify-between px-4">
       {actions.map((action) => (
         <button
           key={action.label}
