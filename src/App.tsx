@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useNavigate } from 'react-router'
+import { Routes, Route, useNavigate } from 'react-router'
 import SplashScreen from '@/components/onboarding/SplashScreen'
 import { ROUTES, communityNewsPath } from '@/constants/routes'
 import { SPLASH_TOTAL_MS } from '@/constants/splashMotion'
@@ -49,6 +49,7 @@ import CheckSchedulePage from '@/pages/postpartum/CheckSchedulePage'
 import DeliveryPage from '@/pages/postpartum/DeliveryPage'
 import GraduationPage from '@/pages/postpartum/GraduationPage'
 import TimingPage from '@/pages/onboarding/TimingPage'
+import NotFoundPage from '@/pages/NotFoundPage'
 import PrivacyPolicyPage from '@/pages/legal/PrivacyPolicyPage'
 import SensitiveConsentPage from '@/pages/legal/SensitiveConsentPage'
 import ServiceTermsPage from '@/pages/legal/ServiceTermsPage'
@@ -138,9 +139,8 @@ function App() {
           <Route path={ROUTES.COMMUNITY_POLICY} element={<PolicyPage />} />
           <Route path={ROUTES.COMMUNITY_NEWS} element={<NewsListPage />} />
           <Route path={ROUTES.COMMUNITY_NEWS_DETAIL} element={<NewsDetailPage />} />
-          {/* TODO: 404 페이지(Figma 149:1129) 구현 후 교체 */}
-          <Route path="*" element={<Navigate to={ROUTES.TODAY} replace />} />
         </Route>
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </>
   )
