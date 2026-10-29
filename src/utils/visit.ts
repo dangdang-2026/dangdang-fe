@@ -35,3 +35,13 @@ export function formatVisitDay(nextVisitAt: string | null, now: Date) {
   if (dDay === -1) return '어제 진료'
   return null
 }
+
+// 진료 다녀온 뒤: 당일 진료 시각이 지났거나 다음 날
+export function getVisitedDay(nextVisitAt: string | null, now: Date) {
+  if (!nextVisitAt) return null
+  const at = new Date(nextVisitAt)
+  const dDay = diffInDays(now, at)
+  if (dDay === 0 && now >= at) return 'today'
+  if (dDay === -1) return 'yesterday'
+  return null
+}

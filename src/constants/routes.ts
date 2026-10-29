@@ -17,6 +17,8 @@ export const ROUTES = {
   VISIT_REPORTS: '/visit/reports',
   VISIT_CRITERIA: '/visit/criteria',
   VISIT_CRITERIA_HISTORY: '/visit/criteria/history',
+  VISIT_NOTE: '/visit/note',
+  VISIT_NOTE_RESULT: '/visit/note/result',
   COMMUNITY: '/community',
   COMMUNITY_BOARD: '/community/board/:board',
   COMMUNITY_POST: '/community/posts/:id',

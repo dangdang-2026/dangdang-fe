@@ -17,6 +17,8 @@ import ReportPage from '@/pages/visit/ReportPage'
 import ReportsPage from '@/pages/visit/ReportsPage'
 import CriteriaPage from '@/pages/visit/CriteriaPage'
 import CriteriaHistoryPage from '@/pages/visit/CriteriaHistoryPage'
+import VisitNotePage from '@/pages/visit/VisitNotePage'
+import VisitNoteResultPage from '@/pages/visit/VisitNoteResultPage'
 import ChatPage from '@/pages/chat/ChatPage'
 import BoardPage from '@/pages/community/BoardPage'
 import CommunityPage from '@/pages/community/CommunityPage'
@@ -123,6 +125,8 @@ function App() {
           <Route path={ROUTES.VISIT_REPORTS} element={<ReportsPage />} />
           <Route path={ROUTES.VISIT_CRITERIA} element={<CriteriaPage />} />
           <Route path={ROUTES.VISIT_CRITERIA_HISTORY} element={<CriteriaHistoryPage />} />
+          <Route path={ROUTES.VISIT_NOTE} element={<VisitNotePage />} />
+          <Route path={ROUTES.VISIT_NOTE_RESULT} element={<VisitNoteResultPage />} />
           <Route path={ROUTES.MY_PROFILE} element={<ProfilePage />} />
           <Route path={ROUTES.MY_CRITERIA} element={<MyCriteriaPage />} />
           <Route path={ROUTES.MY_NOTIFICATIONS} element={<NotificationsPage />} />

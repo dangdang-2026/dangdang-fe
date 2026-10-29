@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import iconChevronSm from '@/assets/icons/chevron-sm.svg'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import FoodChip from '@/components/meal/FoodChip'
@@ -8,7 +8,7 @@ import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
-import type { MeasureSlotKey } from '@/types/criteria'
+import type { CriteriaPrefill, MeasureSlotKey } from '@/types/criteria'
 import { MEASURE_SLOT_LABEL, MEASURE_SLOT_ORDER, diffCriteria } from '@/utils/criteria'
 import { formatMonthDay } from '@/utils/date'
 
@@ -51,10 +51,14 @@ function CriteriaPage() {
   const goBack = useGoBack(ROUTES.VISIT)
   const current = useCriteria()
   const addCriteria = useCriteriaStore((state) => state.addCriteria)
-  const [hours, setHours] = useState(current.postMealHours ?? 1)
+  // 진료 후 메모 정리에서 왔으면 체크한 값으로 채움
+  const prefill = (useLocation().state as { prefill?: CriteriaPrefill } | null)?.prefill ?? {}
+  const [hours, setHours] = useState(prefill.postMealHours ?? current.postMealHours ?? 1)
   const [slots, setSlots] = useState<MeasureSlotKey[]>(current.measureSlots)
-  const [fasting, setFasting] = useState(String(current.targets.fasting ?? ''))
-  const [postMeal, setPostMeal] = useState(String(current.targets.postMeal ?? ''))
+  const [fasting, setFasting] = useState(String(prefill.fasting ?? current.targets.fasting ?? ''))
+  const [postMeal, setPostMeal] = useState(
+    String(prefill.postMeal ?? current.targets.postMeal ?? ''),
+  )
 
   const draft = {
     postMealHours: hours,
