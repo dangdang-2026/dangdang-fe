@@ -1,4 +1,4 @@
-import { MOCK_HOSPITAL } from '@/mocks/hospital'
+import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
 import { formatMeridiemTime, formatMonthDayWeekday } from '@/utils/date'
 import type { VisitStatus } from '@/utils/visit'
 
@@ -19,6 +19,7 @@ function getCardText(status: VisitStatus) {
 
 // Figma C-02·C-03·C-04 다음 진료 카드. 누르면 진료일 고치기
 function NextVisitCard({ status, onEdit }: NextVisitCardProps) {
+  const hospital = usePrimaryHospital()
   const { chip, title } = getCardText(status)
 
   return (
@@ -32,7 +33,7 @@ function NextVisitCard({ status, onEdit }: NextVisitCardProps) {
       </span>
       <span className="text-t4 text-grey-900">{title}</span>
       <span className="text-grey-700 text-sm leading-normal font-medium">
-        {MOCK_HOSPITAL.name} · {MOCK_HOSPITAL.department}
+        {hospital.name} · 외래
       </span>
     </button>
   )

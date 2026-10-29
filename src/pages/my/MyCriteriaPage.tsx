@@ -8,7 +8,7 @@ import ContactMemoSheet from '@/components/my/ContactMemoSheet'
 import CriteriaCard from '@/components/visit/CriteriaCard'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { MOCK_HOSPITAL } from '@/mocks/hospital'
+import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
 import { useProfileStore, type CareMode } from '@/stores/useProfileStore'
 
 const CARE_MODE_OPTIONS: { value: CareMode; label: string }[] = [
@@ -19,6 +19,7 @@ const CARE_MODE_OPTIONS: { value: CareMode; label: string }[] = [
 
 // Figma M-03 병원 기준 · 관리 모드. 기준 입력은 진료 탭 화면(C-09·C-10) 그대로 사용
 function MyCriteriaPage() {
+  const hospital = usePrimaryHospital()
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.MY)
   const { careMode, contactMemo, updateProfile } = useProfileStore()
@@ -79,7 +80,7 @@ function MyCriteriaPage() {
           >
             {contactMemo ? `“${contactMemo}”` : '병원에 언제 연락하라고 들었는지 적어 두세요'}
           </span>
-          <span className="text-t7 text-grey-500">{MOCK_HOSPITAL.name} 외래</span>
+          <span className="text-t7 text-grey-500">{hospital.name} 외래</span>
         </button>
       </div>
 

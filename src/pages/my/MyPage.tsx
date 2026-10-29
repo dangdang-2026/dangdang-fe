@@ -22,7 +22,8 @@ import MyMenuGroup from '@/components/my/MyMenuGroup'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useNow } from '@/hooks/useNow'
-import { MOCK_HOSPITAL } from '@/mocks/hospital'
+import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
+import { useHospitalStore } from '@/stores/useHospitalStore'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useFoodStore } from '@/stores/useFoodStore'
 import { useNotificationStore } from '@/stores/useNotificationStore'
@@ -42,6 +43,8 @@ const formatVisitAt = (at: Date) =>
 
 // Figma M-01 마이 메인
 function MyPage() {
+  const hospital = usePrimaryHospital()
+  const hospitalCount = useHospitalStore((state) => state.hospitals.length)
   const navigate = useNavigate()
   const now = useNow()
   const { name, dueDate, careMode } = useProfileStore()
@@ -123,7 +126,7 @@ function MyPage() {
             <img src={iconHospital} alt="" width={24} height={24} />
           </span>
           <span className="flex min-w-0 flex-1 flex-col gap-0.5 leading-snug">
-            <span className="text-body-3 text-grey-500">다음 진료 · {MOCK_HOSPITAL.name}</span>
+            <span className="text-body-3 text-grey-500">다음 진료 · {hospital.name}</span>
             <span className="text-grey-900 text-base font-bold">
               {visit.kind === 'unknown' ? '다음 진료일을 적어 주세요' : formatVisitAt(visit.at)}
             </span>
@@ -154,7 +157,12 @@ function MyPage() {
         <MyMenuGroup
           title="내 관리"
           items={[
-            { icon: iconMenuHospital, title: '다니는 병원', description: MOCK_HOSPITAL.name },
+            {
+              icon: iconMenuHospital,
+              title: '다니는 병원',
+              description: `${hospital.name}${hospitalCount > 1 ? ` 외 ${hospitalCount - 1}곳` : ''}`,
+              onClick: () => navigate(ROUTES.MY_HOSPITALS),
+            },
             {
               icon: iconMenuTarget,
               title: '병원 기준 · 관리 모드',

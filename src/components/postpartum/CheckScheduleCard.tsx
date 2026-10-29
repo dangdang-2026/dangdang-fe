@@ -1,5 +1,5 @@
 import iconCalendar from '@/assets/icons/postpartum/calendar.svg'
-import { MOCK_HOSPITAL } from '@/mocks/hospital'
+import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
 import type { PostpartumCheck } from '@/stores/useProfileStore'
 import { parseDateKey } from '@/utils/date'
 import { formatDday, formatMonthDayWeekday, formatRemind } from '@/utils/postpartum'
@@ -13,6 +13,7 @@ type CheckScheduleCardProps = {
 
 // Figma E-10 산후 홈 검사 일정 카드
 function CheckScheduleCard({ check, now, onWriteResult, onChangeDate }: CheckScheduleCardProps) {
+  const hospital = usePrimaryHospital()
   const date = parseDateKey(check.date) ?? now
 
   return (
@@ -25,7 +26,7 @@ function CheckScheduleCard({ check, now, onWriteResult, onChangeDate }: CheckSch
         </span>
       </div>
       <p className="text-t4 text-grey-900">
-        {formatMonthDayWeekday(date)} · {MOCK_HOSPITAL.name}
+        {formatMonthDayWeekday(date)} · {hospital.name}
       </p>
       <p className="text-t7 text-grey-700 leading-snug">{formatRemind(check.remind)}</p>
       <div className="flex gap-2">

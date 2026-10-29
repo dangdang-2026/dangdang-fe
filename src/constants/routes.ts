@@ -33,6 +33,8 @@ export const ROUTES = {
   MY_PASSWORD: '/my/password',
   MY_DATA: '/my/data',
   MY_AI: '/my/ai',
+  MY_HOSPITALS: '/my/hospitals',
+  MY_HOSPITAL_SEARCH: '/my/hospitals/search',
   LEGAL_PRIVACY: '/legal/privacy',
   LEGAL_TERMS: '/legal/terms',
   LEGAL_SENSITIVE: '/legal/sensitive',

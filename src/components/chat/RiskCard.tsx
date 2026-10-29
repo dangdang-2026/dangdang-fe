@@ -2,10 +2,11 @@ import iconFixed from '@/assets/icons/chat/fixed.svg'
 import iconPhone from '@/assets/icons/chat/phone.svg'
 import iconPhoneWhite from '@/assets/icons/chat/phone-white.svg'
 import ChatActionButton from '@/components/chat/ChatActionButton'
-import { MOCK_HOSPITAL } from '@/mocks/hospital'
+import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
 
 // Figma Q-07 위험 신호. AI 답변 없이 정해진 문구만, 아바타 없음
 function RiskCard() {
+  const hospital = usePrimaryHospital()
   return (
     <>
       <p className="text-grey-600 flex items-center gap-1.5 text-xs leading-snug font-medium">
@@ -19,8 +20,8 @@ function RiskCard() {
           분만실에 바로 연락하세요.
         </p>
         <div className="flex gap-2 pt-1">
-          <ChatActionButton icon={iconPhoneWhite} primary href={`tel:${MOCK_HOSPITAL.phone}`}>
-            {MOCK_HOSPITAL.name}에 전화
+          <ChatActionButton icon={iconPhoneWhite} primary href={`tel:${hospital.phone}`}>
+            {hospital.name}에 전화
           </ChatActionButton>
           <ChatActionButton icon={iconPhone} href="tel:119">
             119

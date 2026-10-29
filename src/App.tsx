@@ -30,6 +30,8 @@ import PasswordFindPage from '@/pages/auth/PasswordFindPage'
 import PasswordResetPage from '@/pages/auth/PasswordResetPage'
 import SignupPage from '@/pages/auth/SignupPage'
 import AiSettingsPage from '@/pages/my/AiSettingsPage'
+import HospitalSearchPage from '@/pages/my/HospitalSearchPage'
+import HospitalsPage from '@/pages/my/HospitalsPage'
 import CommunityActivityPage from '@/pages/my/CommunityActivityPage'
 import CommunitySettingsPage from '@/pages/my/CommunitySettingsPage'
 import DataPage from '@/pages/my/DataPage'
@@ -129,6 +131,8 @@ function App() {
           <Route path={ROUTES.MY_PASSWORD} element={<PasswordChangePage />} />
           <Route path={ROUTES.MY_DATA} element={<DataPage />} />
           <Route path={ROUTES.MY_AI} element={<AiSettingsPage />} />
+          <Route path={ROUTES.MY_HOSPITALS} element={<HospitalsPage />} />
+          <Route path={ROUTES.MY_HOSPITAL_SEARCH} element={<HospitalSearchPage />} />
           <Route path={ROUTES.POSTPARTUM_DELIVERY} element={<DeliveryPage />} />
           <Route path={ROUTES.POSTPARTUM_CHECK} element={<CheckSchedulePage />} />
           <Route path={ROUTES.POSTPARTUM_CHECK_RESULT} element={<CheckResultPage />} />

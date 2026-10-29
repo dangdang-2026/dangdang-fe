@@ -4,7 +4,7 @@ import iconHospital from '@/assets/icons/hospital.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import TimeWheelSheet from '@/components/common/TimeWheelSheet'
 import MonthCalendar from '@/components/visit/MonthCalendar'
-import { MOCK_HOSPITAL } from '@/mocks/hospital'
+import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
 import { formatMeridiemTime, formatTime, startOfDay } from '@/utils/date'
 
 // 시각을 정하지 않았을 때 기본 진료 시각
@@ -13,6 +13,8 @@ const DEFAULT_TIME = '10:30'
 type VisitDateSheetProps = {
   // 처음 묻기(C-01) / 고치기(C-18)
   editing?: boolean
+  // 다른 병원 진료일을 고를 때. 없으면 대표 병원
+  hospitalName?: string
   initialAt: Date | null
   today: Date
   onSave: (at: Date) => void
@@ -23,12 +25,14 @@ type VisitDateSheetProps = {
 // Figma C-01·C-18 다음 진료일 고르기
 function VisitDateSheet({
   editing,
+  hospitalName,
   initialAt,
   today,
   onSave,
   onUnknown,
   onClose,
 }: VisitDateSheetProps) {
+  const hospital = usePrimaryHospital()
   const [date, setDate] = useState<Date | null>(initialAt ? startOfDay(initialAt) : null)
   const [time, setTime] = useState(initialAt ? formatTime(initialAt) : DEFAULT_TIME)
   const [timeSheet, setTimeSheet] = useState(false)
@@ -70,7 +74,7 @@ function VisitDateSheet({
         {/* 병원 등록 연동 전이라 표시만 */}
         <span className="bg-grey-100 text-grey-700 flex items-center gap-1 rounded-full px-3.5 py-2 text-sm leading-normal font-bold">
           <img src={iconHospital} alt="" width={14} height={14} />
-          {MOCK_HOSPITAL.name}
+          {hospitalName ?? hospital.name}
         </span>
       </div>
 
