@@ -184,7 +184,12 @@ function MyPage() {
               description: `잠금화면 문구 가리기 ${hideOnLockScreen ? '켜짐' : '꺼짐'}`,
               onClick: () => navigate(ROUTES.MY_NOTIFICATIONS),
             },
-            { icon: iconMenuAi, title: 'AI 설정', description: '사진 찾기 · 당당이' },
+            {
+              icon: iconMenuAi,
+              title: 'AI 설정',
+              description: '사진 찾기 · 당당이',
+              onClick: () => navigate(ROUTES.MY_AI),
+            },
             {
               icon: iconMenuData,
               title: '데이터 · 개인정보',
