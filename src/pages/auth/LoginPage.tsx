@@ -83,8 +83,7 @@ function LoginPage() {
 
   const locked = passwordError?.kind === 'locked'
 
-  // TODO: 비밀번호 찾기(R-01) 구현 후 연결
-  const findPassword = () => {}
+  const findPassword = () => navigate(ROUTES.PASSWORD_FIND)
   const signUp = () => navigate(ROUTES.SIGNUP)
 
   const loginKakao = async () => {

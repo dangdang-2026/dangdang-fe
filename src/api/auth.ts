@@ -1,4 +1,4 @@
-import { MOCK_ACCOUNTS, MOCK_VERIFY_CODE } from '@/mocks/auth'
+import { MOCK_ACCOUNTS, MOCK_RESET_TOKEN, MOCK_VERIFY_CODE } from '@/mocks/auth'
 
 // 연속으로 틀리면 잠깐 잠금. 횟수·시간은 서버 정책 값
 export const LOGIN_MAX_FAILURES = 5
@@ -125,4 +125,44 @@ export async function verifyEmailCode(email: string, code: string): Promise<Veri
   const failures = pending.failures + 1
   pendingSignUps.set(email, { ...pending, failures })
   return failures >= VERIFY_MAX_FAILURES ? { status: 'tooMany' } : { status: 'wrong', failures }
+}
+
+// 재설정 링크는 30분, 한 번만 씀
+const RESET_TTL_MS = 30 * 60 * 1000
+
+// 메일 발송 연동 전이라 링크 토큰 고정. 마지막으로 요청한 이메일에 묶임
+const resetTokens = new Map<string, { email: string; issuedAt: number }>()
+
+// 가입 여부와 상관없이 같은 응답(계정 노출 방지). 이메일로 가입한 계정에만 링크 발급
+export async function requestPasswordReset(email: string): Promise<void> {
+  await wait(MOCK_DELAY_MS)
+  const account = MOCK_ACCOUNTS.find((item) => item.email === email)
+  if (account?.method === 'email') {
+    resetTokens.set(MOCK_RESET_TOKEN, { email, issuedAt: Date.now() })
+  }
+}
+
+export type ResetTokenResult = { status: 'ok'; email: string } | { status: 'expired' }
+
+export async function checkResetToken(token: string): Promise<ResetTokenResult> {
+  await wait(MOCK_DELAY_MS / 2)
+  const issued = resetTokens.get(token)
+  if (!issued || Date.now() - issued.issuedAt > RESET_TTL_MS) return { status: 'expired' }
+  return { status: 'ok', email: issued.email }
+}
+
+export type ResetPasswordResult = { status: 'ok' } | { status: 'same' } | { status: 'expired' }
+
+export async function resetPassword(token: string, password: string): Promise<ResetPasswordResult> {
+  await wait(MOCK_DELAY_MS)
+  const issued = resetTokens.get(token)
+  if (!issued || Date.now() - issued.issuedAt > RESET_TTL_MS) return { status: 'expired' }
+
+  const account = MOCK_ACCOUNTS.find((item) => item.email === issued.email)
+  if (!account) return { status: 'expired' }
+  if (account.password === password) return { status: 'same' }
+
+  account.password = password
+  resetTokens.delete(token)
+  return { status: 'ok' }
 }

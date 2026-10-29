@@ -6,6 +6,8 @@ export const ROUTES = {
   ONBOARDING_DUE_DATE: '/start/due-date',
   LOGIN: '/login',
   SIGNUP: '/signup',
+  PASSWORD_FIND: '/password/find',
+  PASSWORD_RESET: '/password/reset',
   TODAY: '/',
   RECORDS: '/records',
   VISIT: '/visit',
