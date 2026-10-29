@@ -28,6 +28,7 @@ import PasswordResetPage from '@/pages/auth/PasswordResetPage'
 import SignupPage from '@/pages/auth/SignupPage'
 import CommunityActivityPage from '@/pages/my/CommunityActivityPage'
 import CommunitySettingsPage from '@/pages/my/CommunitySettingsPage'
+import DataPage from '@/pages/my/DataPage'
 import MyCriteriaPage from '@/pages/my/MyCriteriaPage'
 import MyFoodsPage from '@/pages/my/MyFoodsPage'
 import MyPage from '@/pages/my/MyPage'
@@ -104,6 +105,7 @@ function App() {
           <Route path={ROUTES.MY_FOODS} element={<MyFoodsPage />} />
           <Route path={ROUTES.MY_TERMS} element={<TermsPage />} />
           <Route path={ROUTES.MY_PASSWORD} element={<PasswordChangePage />} />
+          <Route path={ROUTES.MY_DATA} element={<DataPage />} />
           <Route path={ROUTES.MY_COMMUNITY} element={<CommunitySettingsPage />} />
           <Route path={ROUTES.MY_NICKNAME} element={<NicknamePage />} />
           <Route path={ROUTES.MY_COMMUNITY_ACTIVITY} element={<CommunityActivityPage />} />

@@ -182,3 +182,17 @@ export async function changePassword(
   account.password = next
   return { status: 'ok' }
 }
+
+// 탈퇴할 때 커뮤니티 글·댓글을 지울지, '탈퇴한 회원'으로 남길지
+export type CommunityPostsOnLeave = 'delete' | 'keep'
+
+export async function deleteAccount(
+  email: string | null,
+  posts: CommunityPostsOnLeave,
+): Promise<void> {
+  await wait(MOCK_DELAY_MS)
+  // 서버 연동 전이라 글 처리 방식은 받기만 함
+  void posts
+  const index = MOCK_ACCOUNTS.findIndex((item) => item.email === email)
+  if (index >= 0) MOCK_ACCOUNTS.splice(index, 1)
+}

@@ -185,7 +185,12 @@ function MyPage() {
               onClick: () => navigate(ROUTES.MY_NOTIFICATIONS),
             },
             { icon: iconMenuAi, title: 'AI 설정', description: '사진 찾기 · 당당이' },
-            { icon: iconMenuData, title: '데이터 · 개인정보', description: '내 기록 PDF · 탈퇴' },
+            {
+              icon: iconMenuData,
+              title: '데이터 · 개인정보',
+              description: '내 기록 PDF · 탈퇴',
+              onClick: () => navigate(ROUTES.MY_DATA),
+            },
           ]}
         />
         <MyMenuGroup
