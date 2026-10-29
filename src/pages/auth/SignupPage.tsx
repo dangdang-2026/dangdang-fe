@@ -131,7 +131,7 @@ function SignupPage() {
         }}
         onVerified={() => {
           updateProfile({ name })
-          finish('email')
+          finish('email', email)
         }}
       />
     )

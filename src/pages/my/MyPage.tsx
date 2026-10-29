@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import iconBell from '@/assets/icons/my/bell.svg'
 import iconChevronDark from '@/assets/icons/my/chevron-dark.svg'
@@ -16,11 +17,13 @@ import iconTarget from '@/assets/icons/my/target.svg'
 import iconUtensils from '@/assets/icons/my/utensils.svg'
 import profileBody from '@/assets/images/dangdang/profile-body.svg'
 import profileFace from '@/assets/images/dangdang/profile-face.svg'
+import LogoutSheet from '@/components/my/LogoutSheet'
 import MyMenuGroup from '@/components/my/MyMenuGroup'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useNow } from '@/hooks/useNow'
 import { MOCK_HOSPITAL } from '@/mocks/hospital'
+import { useAuthStore } from '@/stores/useAuthStore'
 import { useFoodStore } from '@/stores/useFoodStore'
 import { useNotificationStore } from '@/stores/useNotificationStore'
 import { CARE_MODE_LABEL, useProfileStore } from '@/stores/useProfileStore'
@@ -46,6 +49,8 @@ function MyPage() {
   const myFoodCount = useFoodStore((state) => state.myFoods.length)
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
   const hideOnLockScreen = useNotificationStore((state) => state.hideOnLockScreen)
+  const logout = useAuthStore((state) => state.logout)
+  const [logoutSheet, setLogoutSheet] = useState(false)
 
   const age = getPregnancyAge(dueDate, now)
   const visit = getVisitStatus(nextVisitAt, now)
@@ -196,13 +201,27 @@ function MyPage() {
         />
 
         <div className="text-t7 flex justify-between px-2 pt-1">
-          {/* 로그인 연동 전이라 동작 없음 */}
-          <button type="button" className="text-grey-500 font-medium underline">
+          <button
+            type="button"
+            className="text-grey-500 font-medium underline"
+            onClick={() => setLogoutSheet(true)}
+          >
             로그아웃
           </button>
           <span className="text-grey-400">당당 {APP_VERSION}</span>
         </div>
       </div>
+
+      {logoutSheet && (
+        <LogoutSheet
+          onLogout={() => {
+            // 기록은 기기에 남기고 로그인만 풂
+            logout()
+            navigate(ROUTES.ONBOARDING, { replace: true })
+          }}
+          onClose={() => setLogoutSheet(false)}
+        />
+      )}
     </main>
   )
 }
