@@ -1,4 +1,4 @@
-import { MOCK_ACCOUNTS } from '@/mocks/auth'
+import { MOCK_ACCOUNTS, MOCK_VERIFY_CODE } from '@/mocks/auth'
 
 // 연속으로 틀리면 잠깐 잠금. 횟수·시간은 서버 정책 값
 export const LOGIN_MAX_FAILURES = 5
@@ -46,4 +46,83 @@ export async function loginWithEmail(email: string, password: string): Promise<E
 // 카카오 SDK·서버 연동 전이라 바로 성공
 export async function loginWithKakao(): Promise<void> {
   await wait(MOCK_DELAY_MS)
+}
+
+export type EmailOwner = 'none' | 'email' | 'kakao'
+
+// 가입 화면 중복 확인. 이미 쓰는 이메일이면 가입 방법까지 알려 줌
+export async function checkEmail(email: string): Promise<EmailOwner> {
+  await wait(MOCK_DELAY_MS / 2)
+  return MOCK_ACCOUNTS.find((item) => item.email === email)?.method ?? 'none'
+}
+
+// 인증번호는 5분 동안만, 5번 틀리면 무효, 하루 5번까지 발송. 서버 정책 값
+export const VERIFY_CODE_LENGTH = 6
+export const VERIFY_TTL_MS = 5 * 60 * 1000
+export const VERIFY_MAX_FAILURES = 5
+export const VERIFY_MAX_SENDS = 5
+
+type PendingSignUp = {
+  name: string
+  password: string
+  sentAt: number
+  sends: number
+  failures: number
+}
+
+// 인증을 마치기 전 가입 정보. 서버 연동 전이라 메모리에만
+const pendingSignUps = new Map<string, PendingSignUp>()
+
+export type SignUpResult =
+  { status: 'ok'; sentAt: number } | { status: Exclude<EmailOwner, 'none'> }
+
+// 가입 정보를 받아 두고 인증번호 메일 발송
+export async function signUpWithEmail(
+  name: string,
+  email: string,
+  password: string,
+): Promise<SignUpResult> {
+  await wait(MOCK_DELAY_MS)
+  const owner = MOCK_ACCOUNTS.find((item) => item.email === email)?.method
+  if (owner) return { status: owner }
+
+  const sentAt = Date.now()
+  const sends = (pendingSignUps.get(email)?.sends ?? 0) + 1
+  pendingSignUps.set(email, { name, password, sentAt, sends, failures: 0 })
+  return { status: 'ok', sentAt }
+}
+
+export type ResendResult = { status: 'ok'; sentAt: number } | { status: 'limit' }
+
+export async function resendVerifyCode(email: string): Promise<ResendResult> {
+  await wait(MOCK_DELAY_MS / 2)
+  const pending = pendingSignUps.get(email)
+  if (!pending || pending.sends >= VERIFY_MAX_SENDS) return { status: 'limit' }
+
+  const sentAt = Date.now()
+  pendingSignUps.set(email, { ...pending, sentAt, sends: pending.sends + 1, failures: 0 })
+  return { status: 'ok', sentAt }
+}
+
+export type VerifyResult =
+  | { status: 'ok' }
+  | { status: 'wrong'; failures: number }
+  | { status: 'tooMany' }
+  | { status: 'expired' }
+
+export async function verifyEmailCode(email: string, code: string): Promise<VerifyResult> {
+  await wait(MOCK_DELAY_MS / 2)
+  const pending = pendingSignUps.get(email)
+  if (!pending || Date.now() - pending.sentAt > VERIFY_TTL_MS) return { status: 'expired' }
+  if (pending.failures >= VERIFY_MAX_FAILURES) return { status: 'tooMany' }
+
+  if (code === MOCK_VERIFY_CODE) {
+    pendingSignUps.delete(email)
+    MOCK_ACCOUNTS.push({ email, method: 'email', password: pending.password })
+    return { status: 'ok' }
+  }
+
+  const failures = pending.failures + 1
+  pendingSignUps.set(email, { ...pending, failures })
+  return failures >= VERIFY_MAX_FAILURES ? { status: 'tooMany' } : { status: 'wrong', failures }
 }
