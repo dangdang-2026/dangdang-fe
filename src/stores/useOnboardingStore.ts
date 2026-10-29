@@ -19,6 +19,8 @@ export type OnboardingAnswers = {
 type OnboardingState = OnboardingAnswers & {
   // 첫 진입 설정을 마쳤는지. 안 마쳤으면 앱을 열 때 온보딩으로
   completed: boolean
+  // 설정을 마친 시각. 달력에서 이 날 전은 흐리게
+  completedAt: string | null
   setAnswers: (changes: Partial<OnboardingAnswers>) => void
   complete: () => void
 }
@@ -28,12 +30,13 @@ export const useOnboardingStore = create<OnboardingState>()(
   persist(
     (set) => ({
       completed: false,
+      completedAt: null,
       agreements: [],
       postMealHours: undefined,
       measureSlots: [],
       dueDate: null,
       setAnswers: (changes) => set(changes),
-      complete: () => set({ completed: true }),
+      complete: () => set({ completed: true, completedAt: new Date().toISOString() }),
     }),
     {
       name: 'dangdang-onboarding',

@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { useCallback, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router'
 import iconCalendar from '@/assets/icons/calendar.svg'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
@@ -12,6 +12,7 @@ import RecordEditSheet from '@/components/records/RecordEditSheet'
 import RecordTimeline from '@/components/records/RecordTimeline'
 import WeekPicker from '@/components/records/WeekPicker'
 import { MEAL_LABEL } from '@/constants/glucose'
+import { ROUTES } from '@/constants/routes'
 import { useNow } from '@/hooks/useNow'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
@@ -36,7 +37,7 @@ function RecordsPage() {
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const criteria = useCriteria()
-  const dateInputRef = useRef<HTMLInputElement>(null)
+  const navigate = useNavigate()
 
   const now = useNow()
   const today = startOfDay(now)
@@ -57,13 +58,6 @@ function RecordsPage() {
 
   const selectDate = (date: Date) => {
     setSearchParams(isSameDay(date, today) ? {} : { date: toDateKey(date) }, { replace: true })
-  }
-
-  const openDatePicker = () => {
-    const input = dateInputRef.current
-    if (!input) return
-    if (typeof input.showPicker === 'function') input.showPicker()
-    else input.click()
   }
 
   const openInputSheet = () => {
@@ -122,24 +116,11 @@ function RecordsPage() {
         <h1 className="text-title-2 text-grey-900">기록</h1>
         <button
           type="button"
-          aria-label="날짜 고르기"
-          className="shadow-icon-button relative flex size-10.5 items-center justify-center rounded-full bg-white"
-          onClick={openDatePicker}
+          aria-label="기록 달력"
+          className="shadow-icon-button flex size-10.5 items-center justify-center rounded-full bg-white"
+          onClick={() => navigate(ROUTES.RECORDS_CALENDAR)}
         >
           <img src={iconCalendar} alt="" width={20} height={20} />
-          <input
-            ref={dateInputRef}
-            type="date"
-            tabIndex={-1}
-            aria-hidden
-            max={toDateKey(today)}
-            value={toDateKey(selected)}
-            className="pointer-events-none absolute inset-0 opacity-0"
-            onChange={(event) => {
-              const date = parseDateKey(event.target.value)
-              if (date) selectDate(date)
-            }}
-          />
         </button>
       </header>
 
