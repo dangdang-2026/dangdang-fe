@@ -49,6 +49,10 @@ import CheckSchedulePage from '@/pages/postpartum/CheckSchedulePage'
 import DeliveryPage from '@/pages/postpartum/DeliveryPage'
 import GraduationPage from '@/pages/postpartum/GraduationPage'
 import TimingPage from '@/pages/onboarding/TimingPage'
+import PrivacyPolicyPage from '@/pages/legal/PrivacyPolicyPage'
+import SensitiveConsentPage from '@/pages/legal/SensitiveConsentPage'
+import ServiceTermsPage from '@/pages/legal/ServiceTermsPage'
+import TransferNoticePage from '@/pages/legal/TransferNoticePage'
 
 // 재실행 스플래시(당당 소식 카드)를 보여 주는 시간
 const SPLASH_MS = 1600
@@ -93,6 +97,11 @@ function App() {
         <Route path={ROUTES.ONBOARDING_TIMING} element={<TimingPage />} />
         <Route path={ROUTES.ONBOARDING_SLOTS} element={<SlotsPage />} />
         <Route path={ROUTES.ONBOARDING_DUE_DATE} element={<DueDatePage />} />
+        {/* 약관 문서는 가입 전에도 봄 */}
+        <Route path={ROUTES.LEGAL_PRIVACY} element={<PrivacyPolicyPage />} />
+        <Route path={ROUTES.LEGAL_TERMS} element={<ServiceTermsPage />} />
+        <Route path={ROUTES.LEGAL_SENSITIVE} element={<SensitiveConsentPage />} />
+        <Route path={ROUTES.LEGAL_TRANSFER} element={<TransferNoticePage />} />
         <Route element={<OnboardingGate />}>
           <Route element={<TabLayout />}>
             <Route path={ROUTES.TODAY} element={<TodayPage />} />
