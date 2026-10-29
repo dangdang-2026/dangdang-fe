@@ -1,0 +1,14 @@
+import type { LoginMethod } from '@/stores/useAuthStore'
+
+type MockAccount = {
+  email: string
+  method: LoginMethod
+  // 카카오로 가입한 계정은 비밀번호 없음
+  password?: string
+}
+
+// 서버 로그인 연동 전 임시 계정
+export const MOCK_ACCOUNTS: MockAccount[] = [
+  { email: 'dahyun@gmail.com', method: 'email', password: 'dang2026' },
+  { email: 'kakao@kakao.com', method: 'kakao' },
+]

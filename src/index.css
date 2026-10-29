@@ -25,6 +25,7 @@
   --color-blue-50: #e8f3ff;
   --color-blue-500: #3182f6;
   --color-blue-600: #2272eb;
+  --color-blue-700: #1b64da;
   --color-red-50: #ffeeee;
   --color-red-500: #f04452;
   --color-red-600: #e42939;
@@ -93,6 +94,11 @@
   --text-caption: 11px;
   --text-caption--line-height: 1.27;
   --text-caption--font-weight: 600;
+  /* 로그인·가입 입력칸 글자 */
+  --text-input: 16px;
+  --text-input--line-height: 1.5;
+  --text-input--letter-spacing: -0.01em;
+  --text-input--font-weight: 500;
 
   /* Figma 모서리 (기본 스케일에 없는 값) */
   --radius-hero: 28px;
