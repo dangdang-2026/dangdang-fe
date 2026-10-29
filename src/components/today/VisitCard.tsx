@@ -1,5 +1,5 @@
 import iconArrowRightWhite from '@/assets/icons/arrow-right-white.svg'
-import { MOCK_HOSPITAL } from '@/mocks/hospital'
+import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
 import { formatMeridiemTime } from '@/utils/date'
 import type { HomeVisitCard } from '@/utils/visit'
 
@@ -37,6 +37,7 @@ function getCardText({ kind, at }: HomeVisitCard, questionCount: number) {
 
 // Figma H-08·H-09·H-10 진료 전날·당일·다음 날 카드
 function VisitCard({ card, questionCount, onOpen }: VisitCardProps) {
+  const hospital = usePrimaryHospital()
   const { when, title, footer } = getCardText(card, questionCount)
 
   return (
@@ -48,7 +49,7 @@ function VisitCard({ card, questionCount, onOpen }: VisitCardProps) {
       >
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="text-grey-800 text-xs leading-normal font-medium">
-            {when} · {MOCK_HOSPITAL.name}
+            {when} · {hospital.name}
           </span>
           <span className="text-subtitle-1 text-grey-900">{title}</span>
         </span>

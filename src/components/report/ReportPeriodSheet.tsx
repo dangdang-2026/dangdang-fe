@@ -4,7 +4,7 @@ import iconInfo from '@/assets/icons/info-lg.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import FoodChip from '@/components/meal/FoodChip'
 import { REPORT_DAYS } from '@/constants/report'
-import { MOCK_HOSPITAL } from '@/mocks/hospital'
+import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import { countCriteriaChanges } from '@/utils/criteria'
@@ -27,6 +27,7 @@ type ReportPeriodSheetProps = {
 
 // Figma C-25 기간 골라 리포트 만들기
 function ReportPeriodSheet({ today, onCreate, onClose }: ReportPeriodSheetProps) {
+  const hospital = usePrimaryHospital()
   const records = useGlucoseStore((state) => state.records)
   const versions = useCriteriaStore((state) => state.versions)
   const [preset, setPreset] = useState<Preset>('recent')
@@ -111,7 +112,7 @@ function ReportPeriodSheet({ today, onCreate, onClose }: ReportPeriodSheetProps)
           </p>
           <p className="text-grey-500 text-xs leading-normal">
             측정 {measured}
-            {changes > 0 && ` · 기준 ${changes}번 바뀜`} · {MOCK_HOSPITAL.name}
+            {changes > 0 && ` · 기준 ${changes}번 바뀜`} · {hospital.name}
           </p>
         </div>
       )}

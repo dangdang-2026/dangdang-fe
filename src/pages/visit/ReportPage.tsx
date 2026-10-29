@@ -11,7 +11,7 @@ import { REPORT_DAYS } from '@/constants/report'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
-import { MOCK_HOSPITAL } from '@/mocks/hospital'
+import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { formatPregnancyRange } from '@/utils/pregnancy'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
@@ -24,6 +24,7 @@ import { buildReport, formatCriteria, formatReportText } from '@/utils/report'
 
 // Figma C-06 진료 리포트. 최근 2주 기록을 A4 1쪽으로
 function ReportPage() {
+  const hospital = usePrimaryHospital()
   const goBack = useGoBack(ROUTES.VISIT)
   const records = useGlucoseStore((state) => state.records)
   const meals = useGlucoseStore((state) => state.meals)
@@ -55,7 +56,7 @@ function ReportPage() {
   const criteria = formatCriteria(targets, postMealHours)
   const criteriaLines = [
     criteria ? `기준: ${criteria}` : '기준: 적은 목표가 없어 비교하지 않았어요',
-    `${MOCK_HOSPITAL.name} 안내 · 본인 입력`,
+    `${hospital.name} 안내 · 본인 입력`,
   ]
 
   // 인쇄 창이 닫히면 PDF 저장 안내
@@ -71,7 +72,7 @@ function ReportPage() {
     saveReport({
       from: toDateKey(from),
       to: toDateKey(to),
-      hospital: MOCK_HOSPITAL.name,
+      hospital: hospital.name,
       visitAt: nextVisitAt ?? undefined,
     })
   }

@@ -1,6 +1,6 @@
 import iconAlert from '@/assets/icons/alert.svg'
 import BottomSheet from '@/components/common/BottomSheet'
-import { MOCK_HOSPITAL } from '@/mocks/hospital'
+import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
 import type { PostWarning } from '@/utils/postCheck'
 
 const CONTENT = {
@@ -15,7 +15,8 @@ const CONTENT = {
     title: '지금은 병원에 먼저 연락해 주세요',
     description:
       '출혈이나 태동이 줄어든 느낌, 심한 통증은 글로 기다리지 말고 다니는 병원이나 분만실에 바로 연락하세요.',
-    primary: `${MOCK_HOSPITAL.name}에 먼저 연락할게요`,
+    // 대표 병원 이름은 그릴 때 채움
+    primary: '{hospital}에 먼저 연락할게요',
     secondary: '그래도 글 올리기',
   },
 }
@@ -29,6 +30,7 @@ type PostWarningSheetProps = {
 
 // Figma U-15 약·용량 감지 · U-30 위급할 수 있는 말
 function PostWarningSheet({ warning, onBack, onPostAnyway }: PostWarningSheetProps) {
+  const hospital = usePrimaryHospital()
   const content = CONTENT[warning.kind]
 
   return (
@@ -48,7 +50,7 @@ function PostWarningSheet({ warning, onBack, onPostAnyway }: PostWarningSheetPro
         className="bg-primary text-grey-900 rounded-key py-4 text-base leading-snug font-bold"
         onClick={onBack}
       >
-        {content.primary}
+        {content.primary.replace('{hospital}', hospital.name)}
       </button>
       {warning.kind === 'urgent' && (
         <p className="text-grey-500 text-center text-xs leading-normal">
