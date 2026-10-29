@@ -55,7 +55,7 @@ function InsulinSheet({ record, lastUnits = {}, onSave, onClose }: InsulinSheetP
         key={value}
         type="button"
         aria-pressed={selected}
-        className={`flex items-center gap-1 rounded-full border px-3.5 py-2 text-sm leading-normal font-bold ${
+        className={`flex shrink-0 items-center gap-1 rounded-full border px-3.5 py-2 text-sm leading-normal font-bold ${
           selected
             ? 'text-grey-800 border-primary bg-yellow-50'
             : 'bg-grey-100 text-grey-700 border-transparent'
@@ -81,7 +81,8 @@ function InsulinSheet({ record, lastUnits = {}, onSave, onClose }: InsulinSheetP
       </div>
 
       <h3 className="text-grey-700 -mb-1 text-sm leading-normal font-bold">종류</h3>
-      <div className="flex flex-wrap gap-2">
+      {/* Figma처럼 한 줄. 좁은 화면에선 옆으로 밀어서 봄 */}
+      <div className="-mx-5 flex gap-2 overflow-x-auto px-5 whitespace-nowrap">
         {(Object.keys(INSULIN_KIND_LABEL) as Exclude<InsulinKind, 'custom'>[]).map((key) =>
           chip(key, INSULIN_KIND_LABEL[key]),
         )}
@@ -115,7 +116,7 @@ function InsulinSheet({ record, lastUnits = {}, onSave, onClose }: InsulinSheetP
             inputMode="numeric"
             aria-label="단위"
             value={units}
-            className="text-grey-900 w-28 bg-transparent text-center text-6xl leading-tight font-bold outline-none"
+            className="text-stepper text-grey-900 w-28 bg-transparent text-center outline-none"
             onChange={(event) => {
               const digits = event.target.value.replace(/\D/g, '')
               setUnits(Math.min(UNITS_MAX, Number(digits || 0)))

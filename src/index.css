@@ -55,6 +55,10 @@
   --text-display--line-height: 1.1;
   --text-display--letter-spacing: -0.03em;
   --text-display--font-weight: 700;
+  /* 인슐린 단위 스테퍼 숫자 */
+  --text-stepper: 56px;
+  --text-stepper--line-height: 1.1;
+  --text-stepper--font-weight: 700;
   --text-number: 48px;
   --text-number--line-height: 1.2;
   --text-number--font-weight: 700;
