@@ -1,12 +1,14 @@
 import { useCallback, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import iconEdit from '@/assets/icons/edit.svg'
+import iconFileGrey from '@/assets/icons/file-grey.svg'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import CriteriaCard from '@/components/visit/CriteriaCard'
 import NextVisitCard from '@/components/visit/NextVisitCard'
 import ReportCard from '@/components/visit/ReportCard'
 import VisitDoneCard from '@/components/visit/VisitDoneCard'
+import VisitMenuRow from '@/components/visit/VisitMenuRow'
 import QuestionSheet from '@/components/visit/QuestionSheet'
 import QuestionsCard from '@/components/visit/QuestionsCard'
 import VisitDateSheet from '@/components/visit/VisitDateSheet'
@@ -120,6 +122,14 @@ function VisitPage() {
           onHistory={() => navigate(ROUTES.VISIT_CRITERIA_HISTORY)}
         />
       </div>
+      <section className="shadow-card mt-4 rounded-3xl bg-white px-4.5 py-3.5">
+        <VisitMenuRow
+          icon={iconFileGrey}
+          title="공식 자료"
+          description="믿을 수 있는 곳의 자료만 모았어요"
+          onClick={() => navigate(ROUTES.VISIT_RESOURCES)}
+        />
+      </section>
 
       {dateSheet && (
         <VisitDateSheet
