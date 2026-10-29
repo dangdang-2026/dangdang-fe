@@ -60,6 +60,9 @@
   --text-stepper: 56px;
   --text-stepper--line-height: 1.1;
   --text-stepper--font-weight: 700;
+  --text-stat: 34px;
+  --text-stat--line-height: 1.2;
+  --text-stat--font-weight: 700;
   --text-number: 48px;
   --text-number--line-height: 1.2;
   --text-number--font-weight: 700;
