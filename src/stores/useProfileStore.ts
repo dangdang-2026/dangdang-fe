@@ -18,6 +18,12 @@ export type Profile = {
   careMode: CareMode
   // 병원에서 들은 연락 기준. 예: 같은 시점에 계속 높으면 외래로 전화
   contactMemo: string
+  // 입원 중이면 측정 알림 멈춤
+  hospitalized: boolean
+  // YYYY-MM-DD. 있으면 산후 모드
+  deliveryDate: string | null
+  // YYYY-MM-DD. 산후 검사일을 이날 다시 물어봄
+  checkRemindAt: string | null
 }
 
 type ProfileState = Profile & {
@@ -33,6 +39,9 @@ export const useProfileStore = create<ProfileState>()(
       diagnosisDate: null,
       careMode: 'diet',
       contactMemo: '',
+      hospitalized: false,
+      deliveryDate: null,
+      checkRemindAt: null,
       updateProfile: (changes) => set(changes),
     }),
     { name: 'dangdang-profile' },
