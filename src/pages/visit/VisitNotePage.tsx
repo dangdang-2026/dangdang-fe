@@ -53,12 +53,15 @@ function VisitNotePage() {
         </p>
       </div>
 
+      {/* 적어 둔 메모가 있으면 포커스 없이도 노란 테두리 */}
       <textarea
         aria-label="진료 후 메모"
         value={note}
         maxLength={NOTE_MAX}
         placeholder="예: 오늘부터 식후 2시간에 재래요. 다음 진료는 11월 4일 오전."
-        className="border-grey-200 focus:border-primary text-grey-900 placeholder:text-grey-400 rounded-key mt-5 h-55 resize-none border-2 px-4 py-3.5 text-base leading-relaxed outline-none"
+        className={`focus:border-primary text-grey-900 placeholder:text-grey-400 rounded-key mt-5 h-55 resize-none border-2 px-4 py-3.5 text-base leading-relaxed outline-none ${
+          note ? 'border-primary' : 'border-grey-200'
+        }`}
         onChange={(event) => setNote(event.target.value)}
       />
 
