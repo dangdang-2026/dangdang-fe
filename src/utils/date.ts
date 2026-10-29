@@ -67,3 +67,19 @@ export function parseDateKey(key: string | null) {
   const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
   return Number.isNaN(date.getTime()) ? null : date
 }
+
+export function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1)
+}
+
+export function addMonths(date: Date, months: number) {
+  return new Date(date.getFullYear(), date.getMonth() + months, 1)
+}
+
+// 달력 칸. 1일 앞 요일은 null로 채움
+export function getMonthGrid(month: Date) {
+  const first = startOfMonth(month)
+  const days = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate()
+  const blanks: null[] = Array.from({ length: first.getDay() }, () => null)
+  return [...blanks, ...Array.from({ length: days }, (_, index) => addDays(first, index))]
+}

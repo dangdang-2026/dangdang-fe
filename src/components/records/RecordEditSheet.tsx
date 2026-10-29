@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import iconInfo from '@/assets/icons/info-md.svg'
 import iconTrash from '@/assets/icons/trash.svg'
 import BottomSheet from '@/components/common/BottomSheet'
+import TimeWheelSheet from '@/components/common/TimeWheelSheet'
 import { GLUCOSE_MAX, GLUCOSE_MAX_DIGITS, GLUCOSE_MIN } from '@/constants/glucose'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
@@ -29,7 +30,7 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
     useCriteriaStore((state) => state.versions),
     measuredAt,
   )
-  const timeInputRef = useRef<HTMLInputElement>(null)
+  const [timeSheet, setTimeSheet] = useState(false)
 
   const value = Number(digits)
   const isInvalid = !isValidGlucose(value)
@@ -41,13 +42,6 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
     next.setHours(hours, minutes)
     updateRecord(record.id, { value, measuredAt: next.toISOString() })
     onSaved()
-  }
-
-  const openTimePicker = () => {
-    const input = timeInputRef.current
-    if (!input) return
-    if (typeof input.showPicker === 'function') input.showPicker()
-    else input.focus()
   }
 
   return (
@@ -85,23 +79,14 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
 
       <div className="flex flex-col gap-2">
         <span className="text-t7 text-grey-700 font-bold">측정 시각</span>
-        {/* 기기 시간 형식과 무관하게 24시간 표기. 누르면 기본 시간 선택기 */}
+        {/* 24시간 표기. 누르면 D-16 시간 휠 시트 */}
         <button
           type="button"
-          className={`${FIELD_CLASS} bg-grey-50 relative border-transparent text-left`}
-          onClick={openTimePicker}
+          className={`${FIELD_CLASS} bg-grey-50 border-transparent text-left`}
+          onClick={() => setTimeSheet(true)}
         >
           <span className="text-grey-900 flex-1 text-base leading-normal font-medium">{time}</span>
           <span className="text-grey-500 text-sm leading-normal font-medium">바꾸기</span>
-          <input
-            ref={timeInputRef}
-            type="time"
-            tabIndex={-1}
-            aria-label="측정 시각"
-            value={time}
-            className="pointer-events-none absolute inset-0 opacity-0"
-            onChange={(event) => event.target.value && setTime(event.target.value)}
-          />
         </button>
       </div>
 
@@ -128,6 +113,17 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
       >
         <img src={iconTrash} alt="" width={16} height={16} />이 기록 삭제
       </button>
+      {timeSheet && (
+        <TimeWheelSheet
+          title="잰 시각"
+          value={time}
+          onDone={(next) => {
+            setTime(next)
+            setTimeSheet(false)
+          }}
+          onClose={() => setTimeSheet(false)}
+        />
+      )}
     </BottomSheet>
   )
 }

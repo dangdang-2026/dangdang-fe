@@ -99,6 +99,9 @@
   --text-body-3--font-weight: 500;
   --text-t7: 13px;
   --text-t7--line-height: 1.5;
+  --text-mini: 9px;
+  --text-mini--line-height: 1.45;
+  --text-mini--font-weight: 700;
   --text-caption: 11px;
   --text-caption--line-height: 1.27;
   --text-caption--font-weight: 600;
