@@ -1,10 +1,12 @@
 import { useCallback, useState, type ReactNode } from 'react'
+import { useLocation, useNavigate } from 'react-router'
 import iconInfoSm from '@/assets/icons/info-sm.svg'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import Toast from '@/components/common/Toast'
 import ProfileDateSheet from '@/components/my/ProfileDateSheet'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
+import { useAuthStore } from '@/stores/useAuthStore'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 
@@ -40,11 +42,18 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 // Figma M-02 내 정보
 function ProfilePage() {
+  const navigate = useNavigate()
+  const location = useLocation()
   const goBack = useGoBack(ROUTES.MY)
+  // 비밀번호는 이메일로 가입한 계정만 있음
+  const hasPassword = useAuthStore((state) => state.account?.method === 'email')
   const { name, dueDate, diagnosisDate, updateProfile } = useProfileStore()
   const [nameDraft, setNameDraft] = useState(name)
   const [editing, setEditing] = useState<DateField | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
+  // 비밀번호를 바꾸고 돌아오면 알림
+  const [toast, setToast] = useState<string | null>(
+    () => (location.state as { toast?: string } | null)?.toast ?? null,
+  )
   const closeToast = useCallback(() => setToast(null), [])
   const closeSheet = useCallback(() => setEditing(null), [])
   const today = startOfDay(new Date())
@@ -127,14 +136,15 @@ function ProfilePage() {
         </button>
       </section>
 
-      {/* 로그인 연동 전이라 안내만 */}
-      <button
-        type="button"
-        className="text-body-2 text-grey-700 mt-21 leading-normal"
-        onClick={() => setToast('로그인 연결 후 바꿀 수 있어요')}
-      >
-        비밀번호 바꾸기 ›
-      </button>
+      {hasPassword && (
+        <button
+          type="button"
+          className="text-body-2 text-grey-700 mt-21 leading-normal"
+          onClick={() => navigate(ROUTES.MY_PASSWORD)}
+        >
+          비밀번호 바꾸기 ›
+        </button>
+      )}
 
       {editing && (
         <ProfileDateSheet

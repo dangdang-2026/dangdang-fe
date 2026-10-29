@@ -10,6 +10,8 @@ import { checkPassword } from '@/utils/auth'
 
 type NewPasswordFieldsProps = {
   idPrefix: string
+  // 비밀번호 바꾸기에선 '새 비밀번호'
+  passwordLabel?: string
   password: string
   confirm: string
   onPasswordChange: (value: string) => void
@@ -30,6 +32,7 @@ const secretClass = (value: string, shown: boolean) =>
 // Figma 입력/비밀번호 · 입력/비밀번호 확인. 가입(J)·재설정(R)에서 같이 씀
 function NewPasswordFields({
   idPrefix,
+  passwordLabel = '비밀번호',
   password,
   confirm,
   onPasswordChange,
@@ -79,7 +82,7 @@ function NewPasswordFields({
   return (
     <>
       <AuthField
-        label="비밀번호"
+        label={passwordLabel}
         inputId={passwordId}
         invalid={passwordInvalid}
         helper={passwordHelper}
