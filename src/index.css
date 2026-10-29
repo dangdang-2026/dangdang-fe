@@ -32,6 +32,7 @@
   --color-red-100: #ffd4d6;
   --color-red-500: #f04452;
   --color-red-600: #e42939;
+  --color-red-700: #d22030;
 
   --color-primary: var(--color-yellow-500);
   --color-primary-light: #fef9c3;
@@ -115,6 +116,7 @@
   --radius-key: 14px;
   --radius-profile: 100px;
   --radius-intro: 40px;
+  --radius-bubble: 18px;
 
   /* Figma 그림자 */
   --drop-shadow-tab-bar: 0 -4px 24px rgb(102 77 26 / 0.08);

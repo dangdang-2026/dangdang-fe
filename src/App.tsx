@@ -15,6 +15,7 @@ import ReportPage from '@/pages/visit/ReportPage'
 import ReportsPage from '@/pages/visit/ReportsPage'
 import CriteriaPage from '@/pages/visit/CriteriaPage'
 import CriteriaHistoryPage from '@/pages/visit/CriteriaHistoryPage'
+import ChatPage from '@/pages/chat/ChatPage'
 import BoardPage from '@/pages/community/BoardPage'
 import CommunityPage from '@/pages/community/CommunityPage'
 import PostDetailPage from '@/pages/community/PostDetailPage'
@@ -26,6 +27,7 @@ import LoginPage from '@/pages/auth/LoginPage'
 import PasswordFindPage from '@/pages/auth/PasswordFindPage'
 import PasswordResetPage from '@/pages/auth/PasswordResetPage'
 import SignupPage from '@/pages/auth/SignupPage'
+import AiSettingsPage from '@/pages/my/AiSettingsPage'
 import CommunityActivityPage from '@/pages/my/CommunityActivityPage'
 import CommunitySettingsPage from '@/pages/my/CommunitySettingsPage'
 import DataPage from '@/pages/my/DataPage'
@@ -112,11 +114,13 @@ function App() {
           <Route path={ROUTES.MY_TERMS} element={<TermsPage />} />
           <Route path={ROUTES.MY_PASSWORD} element={<PasswordChangePage />} />
           <Route path={ROUTES.MY_DATA} element={<DataPage />} />
+          <Route path={ROUTES.MY_AI} element={<AiSettingsPage />} />
           <Route path={ROUTES.POSTPARTUM_DELIVERY} element={<DeliveryPage />} />
           <Route path={ROUTES.POSTPARTUM_CHECK} element={<CheckSchedulePage />} />
           <Route path={ROUTES.POSTPARTUM_CHECK_RESULT} element={<CheckResultPage />} />
           <Route path={ROUTES.POSTPARTUM_GUIDE} element={<CheckGuidePage />} />
           <Route path={ROUTES.POSTPARTUM_GRADUATION} element={<GraduationPage />} />
+          <Route path={ROUTES.ASK} element={<ChatPage />} />
           <Route path={ROUTES.MY_COMMUNITY} element={<CommunitySettingsPage />} />
           <Route path={ROUTES.MY_NICKNAME} element={<NicknamePage />} />
           <Route path={ROUTES.MY_COMMUNITY_ACTIVITY} element={<CommunityActivityPage />} />

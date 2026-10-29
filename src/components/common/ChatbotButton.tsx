@@ -1,9 +1,13 @@
 import dangdangBody from '@/assets/images/dangdang/chatbot-body.svg'
 import dangdangFace from '@/assets/images/dangdang/chatbot-face.svg'
 import floorShadow from '@/assets/images/dangdang/chatbot-shadow.svg'
+import { useNavigate } from 'react-router'
+import { ROUTES } from '@/constants/routes'
 
 // Figma 「당당/챗봇 버튼 (떠다님)」. 탭 화면 오른쪽 아래 고정
 function ChatbotButton() {
+  const navigate = useNavigate()
+
   return (
     // 탭 바(80px) + 하단 여백(20px 또는 Safe Area) 위에 고정
     <div className="pointer-events-none fixed bottom-[calc(--spacing(20)+max(--spacing(5),env(safe-area-inset-bottom)))] left-1/2 z-40 flex w-full max-w-107.5 -translate-x-1/2 justify-end">
@@ -11,6 +15,7 @@ function ChatbotButton() {
         type="button"
         aria-label="당당이에게 물어봐"
         className="pointer-events-auto relative h-24 w-31"
+        onClick={() => navigate(ROUTES.ASK)}
       >
         <img
           src={floorShadow}
