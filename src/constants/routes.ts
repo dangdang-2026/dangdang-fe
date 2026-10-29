@@ -28,6 +28,8 @@ export const ROUTES = {
   MY_NOTIFICATIONS: '/my/notifications',
   MY_FOODS: '/my/foods',
   MY_TERMS: '/my/terms',
+  MY_PASSWORD: '/my/password',
+  MY_DATA: '/my/data',
   MY_COMMUNITY: '/my/community',
   MY_NICKNAME: '/my/community/nickname',
   MY_COMMUNITY_ACTIVITY: '/my/community/activity',

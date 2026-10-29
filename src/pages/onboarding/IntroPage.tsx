@@ -1,18 +1,26 @@
 import { Navigate, useNavigate } from 'react-router'
+import { loginWithKakao } from '@/api/auth'
 import iconKakao from '@/assets/icons/onboarding/kakao.svg'
 import iconMail from '@/assets/icons/onboarding/mail.svg'
 import introCharacter from '@/assets/images/onboarding/intro-character.svg'
 import { ROUTES } from '@/constants/routes'
+import { useFinishLogin } from '@/hooks/useFinishLogin'
+import { useAuthStore } from '@/stores/useAuthStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
 
-// Figma S-02 서비스 소개. 카카오는 연동 전이라 바로 약관 동의로
+// Figma S-02 서비스 소개. 로그인·설정을 다 마쳤으면 바로 홈으로
 function IntroPage() {
   const navigate = useNavigate()
+  const finish = useFinishLogin()
+  const loggedIn = useAuthStore((state) => state.account !== null)
   const completed = useOnboardingStore((state) => state.completed)
 
-  if (completed) return <Navigate to={ROUTES.TODAY} replace />
+  if (loggedIn && completed) return <Navigate to={ROUTES.TODAY} replace />
 
-  const start = () => navigate(ROUTES.ONBOARDING_TERMS)
+  const loginKakao = async () => {
+    await loginWithKakao()
+    finish('kakao')
+  }
 
   return (
     <main className="relative mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
@@ -48,7 +56,7 @@ function IntroPage() {
         <button
           type="button"
           className="bg-kakao text-kakao-label text-subtitle-1 flex h-14 items-center justify-center gap-1 rounded-xl leading-none"
-          onClick={start}
+          onClick={loginKakao}
         >
           <img src={iconKakao} alt="" width={20} height={20} />
           카카오로 로그인
