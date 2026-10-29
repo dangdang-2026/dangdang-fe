@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import iconCheckDark from '@/assets/icons/check-dark.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import ProfileDateSheet from '@/components/my/ProfileDateSheet'
+import ChoiceChip from '@/components/postpartum/ChoiceChip'
 import { addDays, formatMonthDay, isSameDay, startOfDay } from '@/utils/date'
 
 type RemindLaterSheetProps = {
@@ -23,13 +23,6 @@ function RemindLaterSheet({ onConfirm, onClose }: RemindLaterSheetProps) {
   const [date, setDate] = useState(presets[1].date)
   const [picking, setPicking] = useState(false)
 
-  const chipClass = (selected: boolean) =>
-    `flex items-center gap-1 rounded-full border px-3.5 py-2 text-sm leading-snug ${
-      selected
-        ? 'bg-primary text-grey-900 border-transparent font-bold'
-        : 'border-grey-200 text-grey-800 bg-white font-medium'
-    }`
-
   return (
     <>
       <BottomSheet label="다시 물어볼 날" onClose={onClose}>
@@ -41,24 +34,18 @@ function RemindLaterSheet({ onConfirm, onClose }: RemindLaterSheetProps) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {presets.map((preset) => {
-            const selected = isSameDay(preset.date, date)
-            return (
-              <button
-                key={preset.label}
-                type="button"
-                aria-pressed={selected}
-                className={chipClass(selected)}
-                onClick={() => setDate(preset.date)}
-              >
-                {selected && <img src={iconCheckDark} alt="" width={14} height={14} />}
-                {preset.label}
-              </button>
-            )
-          })}
-          <button type="button" className={chipClass(false)} onClick={() => setPicking(true)}>
+          {presets.map((preset) => (
+            <ChoiceChip
+              key={preset.label}
+              selected={isSameDay(preset.date, date)}
+              onClick={() => setDate(preset.date)}
+            >
+              {preset.label}
+            </ChoiceChip>
+          ))}
+          <ChoiceChip selected={false} onClick={() => setPicking(true)}>
             날짜 고르기
-          </button>
+          </ChoiceChip>
         </div>
 
         <button
