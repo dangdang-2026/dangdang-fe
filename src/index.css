@@ -187,6 +187,12 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* Edge 기본 비밀번호 보기·지우기 버튼 숨김. 칸마다 직접 만든 버튼을 씀 */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
 /* 진료 리포트 인쇄·PDF: A4 한 장, 배경색까지 출력 */
 @media print {
   @page {
