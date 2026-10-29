@@ -41,6 +41,7 @@ import DueDatePage from '@/pages/onboarding/DueDatePage'
 import IntroPage from '@/pages/onboarding/IntroPage'
 import SlotsPage from '@/pages/onboarding/SlotsPage'
 import TermsAgreePage from '@/pages/onboarding/TermsAgreePage'
+import DeliveryPage from '@/pages/postpartum/DeliveryPage'
 import TimingPage from '@/pages/onboarding/TimingPage'
 
 // 재실행 스플래시(당당 소식 카드)를 보여 주는 시간
@@ -106,6 +107,7 @@ function App() {
           <Route path={ROUTES.MY_TERMS} element={<TermsPage />} />
           <Route path={ROUTES.MY_PASSWORD} element={<PasswordChangePage />} />
           <Route path={ROUTES.MY_DATA} element={<DataPage />} />
+          <Route path={ROUTES.POSTPARTUM_DELIVERY} element={<DeliveryPage />} />
           <Route path={ROUTES.MY_COMMUNITY} element={<CommunitySettingsPage />} />
           <Route path={ROUTES.MY_NICKNAME} element={<NicknamePage />} />
           <Route path={ROUTES.MY_COMMUNITY_ACTIVITY} element={<CommunityActivityPage />} />
