@@ -13,6 +13,9 @@ export type NotificationSettings = {
 type NotificationState = NotificationSettings & {
   // 공복 측정 알림 시각. 식사 시작이 없어 정한 시각에 알림. 예: 07:00
   fastingTime: string
+  // 첫 식사 시작 때 알림 허용을 물어봤는지. 한 번만
+  permissionAsked: boolean
+  markPermissionAsked: () => void
   updateSettings: (changes: Partial<NotificationSettings>) => void
   setFastingTime: (time: string) => void
 }
@@ -25,6 +28,8 @@ export const useNotificationStore = create<NotificationState>()(
       remind: true,
       hideOnLockScreen: true,
       fastingTime: '07:00',
+      permissionAsked: false,
+      markPermissionAsked: () => set({ permissionAsked: true }),
       updateSettings: (changes) => set(changes),
       setFastingTime: (fastingTime) => set({ fastingTime }),
     }),

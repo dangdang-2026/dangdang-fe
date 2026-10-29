@@ -9,6 +9,7 @@ import TodayHeader from '@/components/today/TodayHeader'
 import HeroCard from '@/components/today/HeroCard'
 import HospitalHero from '@/components/today/hero/HospitalHero'
 import NotificationBanner from '@/components/today/NotificationBanner'
+import NotificationPermissionSheet from '@/components/today/NotificationPermissionSheet'
 import QuickActions from '@/components/today/QuickActions'
 import TodayRecordSection from '@/components/today/TodayRecordSection'
 import VisitCard from '@/components/today/VisitCard'
@@ -20,6 +21,7 @@ import { useNow } from '@/hooks/useNow'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
+import { useNotificationStore } from '@/stores/useNotificationStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import type { GlucoseRecord, InsulinKind, Meal, MeasureTarget, Portion } from '@/types/glucose'
 import { isSameDay, startOfDay } from '@/utils/date'
@@ -42,6 +44,10 @@ function TodayPage() {
   const [toast, setToast] = useState<string | null>(null)
   const [insulinSheet, setInsulinSheet] = useState(false)
   const [memoSheet, setMemoSheet] = useState(false)
+  const [permissionSheet, setPermissionSheet] = useState(false)
+  const permissionAsked = useNotificationStore((state) => state.permissionAsked)
+  const markPermissionAsked = useNotificationStore((state) => state.markPermissionAsked)
+  const updateNotification = useNotificationStore((state) => state.updateSettings)
   const criteria = useCriteria()
   const name = useProfileStore((state) => state.name)
   const dueDate = useProfileStore((state) => state.dueDate)
@@ -73,6 +79,25 @@ function TodayPage() {
   const handleStartMeal = () => {
     const current = new Date()
     startMeal(getNextMealType(meals, current), current)
+    // 첫 식사 시작 때 한 번만 알림 허용 안내
+    if (!permissionAsked) setPermissionSheet(true)
+  }
+
+  const finishPermission = (granted: boolean) => {
+    markPermissionAsked()
+    updateNotification({ measure: granted })
+    setPermissionSheet(false)
+    setToast(granted ? '측정 시간에 알려 드릴게요' : '알림 없이 기록만 할게요')
+  }
+
+  const allowNotification = async () => {
+    // 알림을 못 쓰는 브라우저(홈 화면 추가 전 iPhone 등)는 기록만
+    if (!('Notification' in window)) {
+      finishPermission(false)
+      return
+    }
+    const permission = await Notification.requestPermission()
+    finishPermission(permission === 'granted')
   }
 
   // 같은 종류로 마지막에 적은 단위. 새로 적을 때 시작값
@@ -202,6 +227,12 @@ function TodayPage() {
             setToast('연락 기준 메모를 저장했어요')
           }}
           onClose={() => setMemoSheet(false)}
+        />
+      )}
+      {permissionSheet && (
+        <NotificationPermissionSheet
+          onAllow={allowNotification}
+          onSkip={() => finishPermission(false)}
         />
       )}
       {toast && <Toast message={toast} onClose={closeToast} />}
