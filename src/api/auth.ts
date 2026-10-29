@@ -1,4 +1,9 @@
-import { MOCK_ACCOUNTS, MOCK_RESET_TOKEN, MOCK_VERIFY_CODE } from '@/mocks/auth'
+import {
+  MOCK_ACCOUNTS,
+  MOCK_RESET_TOKEN,
+  MOCK_VERIFY_CODE,
+  type AccountProfile,
+} from '@/mocks/auth'
 
 // 연속으로 틀리면 잠깐 잠금. 횟수·시간은 서버 정책 값
 export const LOGIN_MAX_FAILURES = 5
@@ -6,7 +11,8 @@ const LOCK_MS = 10 * 60 * 1000
 const MOCK_DELAY_MS = 800
 
 export type EmailLoginResult =
-  | { status: 'ok' }
+  // 데모 계정이면 계정 정보도 함께
+  | { status: 'ok'; profile?: AccountProfile }
   | { status: 'wrong'; failures: number }
   | { status: 'locked'; minutes: number }
   // 카카오로 가입한 이메일이라 비밀번호 없음
@@ -30,7 +36,7 @@ export async function loginWithEmail(email: string, password: string): Promise<E
   if (account?.method === 'kakao') return { status: 'kakao' }
   if (account?.password === password) {
     failureCount.delete(email)
-    return { status: 'ok' }
+    return { status: 'ok', profile: account.profile }
   }
 
   const failures = (failureCount.get(email) ?? 0) + 1

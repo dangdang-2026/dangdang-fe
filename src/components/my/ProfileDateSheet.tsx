@@ -8,17 +8,20 @@ type ProfileDateSheetProps = {
   initialDate: Date | null
   today: Date
   pick: 'future' | 'past'
+  // 기본 '저장'. 고른 날짜를 넣으려면 함수로
+  submitLabel?: string | ((date: Date) => string)
   onSave: (date: Date) => void
   onClose: () => void
 }
 
-// M-02 출산예정일·진단일 고르기
+// M-02 출산예정일·진단일 · E-06b 출산일 · E-09b 다시 물어볼 날 고르기
 function ProfileDateSheet({
   title,
   description,
   initialDate,
   today,
   pick,
+  submitLabel = '저장',
   onSave,
   onClose,
 }: ProfileDateSheetProps) {
@@ -39,7 +42,11 @@ function ProfileDateSheet({
         className="text-subtitle-1 disabled:bg-grey-100 disabled:text-grey-400 bg-primary h-14 rounded-xl leading-none text-white"
         onClick={() => date && onSave(date)}
       >
-        저장
+        {typeof submitLabel === 'function'
+          ? date
+            ? submitLabel(date)
+            : '날짜를 골라 주세요'
+          : submitLabel}
       </button>
     </BottomSheet>
   )

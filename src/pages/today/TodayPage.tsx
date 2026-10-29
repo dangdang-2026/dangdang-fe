@@ -5,10 +5,12 @@ import WarmBackground from '@/components/common/WarmBackground'
 import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
 import TodayHeader from '@/components/today/TodayHeader'
 import HeroCard from '@/components/today/HeroCard'
+import HospitalHero from '@/components/today/hero/HospitalHero'
 import NotificationBanner from '@/components/today/NotificationBanner'
 import TodayRecordSection from '@/components/today/TodayRecordSection'
 import VisitCard from '@/components/today/VisitCard'
 import MealContentSheet from '@/components/meal/MealContentSheet'
+import PostpartumToday from '@/components/postpartum/PostpartumToday'
 import { ROUTES } from '@/constants/routes'
 import { useFoods } from '@/hooks/useFoods'
 import { useNow } from '@/hooks/useNow'
@@ -36,6 +38,9 @@ function TodayPage() {
   const criteria = useCriteria()
   const name = useProfileStore((state) => state.name)
   const dueDate = useProfileStore((state) => state.dueDate)
+  const hospitalized = useProfileStore((state) => state.hospitalized)
+  const deliveryDate = useProfileStore((state) => state.deliveryDate)
+  const updateProfile = useProfileStore((state) => state.updateProfile)
 
   const now = useNow()
   const todayMeals = meals.filter((meal) => isSameDay(new Date(meal.startedAt), now))
@@ -80,6 +85,16 @@ function TodayPage() {
     setWritingMeal(null)
   }
 
+  // 출산일을 적었으면 산후 홈
+  if (deliveryDate) {
+    return (
+      <main className="px-5 pt-15.5">
+        <WarmBackground />
+        <PostpartumToday name={name} deliveryDate={deliveryDate} now={now} />
+      </main>
+    )
+  }
+
   return (
     <main className="px-5 pt-15.5">
       <WarmBackground />
@@ -90,15 +105,24 @@ function TodayPage() {
         visitLabel={formatVisitDay(nextVisitAt, now)}
       />
       <div className="mt-6">
-        <HeroCard
-          state={heroState}
-          now={now}
-          postMealHours={criteria.postMealHours}
-          onStartMeal={handleStartMeal}
-          onInputGlucose={openGlucoseSheet}
-          onSkipMeal={skipMeal}
-          onWriteMeal={setWritingMeal}
-        />
+        {hospitalized ? (
+          <HospitalHero
+            onResume={() => {
+              updateProfile({ hospitalized: false })
+              setToast('측정 알림을 다시 켰어요')
+            }}
+          />
+        ) : (
+          <HeroCard
+            state={heroState}
+            now={now}
+            postMealHours={criteria.postMealHours}
+            onStartMeal={handleStartMeal}
+            onInputGlucose={openGlucoseSheet}
+            onSkipMeal={skipMeal}
+            onWriteMeal={setWritingMeal}
+          />
+        )}
       </div>
       {visitCard && !criteriaUpdated && (
         <div className="mt-4.5">

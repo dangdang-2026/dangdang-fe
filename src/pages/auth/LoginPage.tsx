@@ -120,7 +120,7 @@ function LoginPage() {
     const result = await loginWithEmail(trimmed, password)
     setLoading(false)
 
-    if (result.status === 'ok') finish('email', trimmed)
+    if (result.status === 'ok') finish('email', trimmed, result.profile)
     else if (result.status === 'kakao') setKakaoSheet(true)
     else if (result.status === 'wrong')
       setPasswordError({ kind: 'wrong', failures: result.failures })

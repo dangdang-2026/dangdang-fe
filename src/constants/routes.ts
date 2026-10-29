@@ -30,6 +30,7 @@ export const ROUTES = {
   MY_TERMS: '/my/terms',
   MY_PASSWORD: '/my/password',
   MY_DATA: '/my/data',
+  POSTPARTUM_DELIVERY: '/postpartum/delivery',
   MY_COMMUNITY: '/my/community',
   MY_NICKNAME: '/my/community/nickname',
   MY_COMMUNITY_ACTIVITY: '/my/community/activity',

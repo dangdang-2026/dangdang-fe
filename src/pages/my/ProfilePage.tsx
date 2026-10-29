@@ -4,6 +4,7 @@ import iconInfoSm from '@/assets/icons/info-sm.svg'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import Toast from '@/components/common/Toast'
 import ProfileDateSheet from '@/components/my/ProfileDateSheet'
+import BirthOrHospitalSheet from '@/components/postpartum/BirthOrHospitalSheet'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useAuthStore } from '@/stores/useAuthStore'
@@ -47,9 +48,10 @@ function ProfilePage() {
   const goBack = useGoBack(ROUTES.MY)
   // 비밀번호는 이메일로 가입한 계정만 있음
   const hasPassword = useAuthStore((state) => state.account?.method === 'email')
-  const { name, dueDate, diagnosisDate, updateProfile } = useProfileStore()
+  const { name, dueDate, diagnosisDate, deliveryDate, updateProfile } = useProfileStore()
   const [nameDraft, setNameDraft] = useState(name)
   const [editing, setEditing] = useState<DateField | null>(null)
+  const [birthSheet, setBirthSheet] = useState(false)
   // 비밀번호를 바꾸고 돌아오면 알림
   const [toast, setToast] = useState<string | null>(
     () => (location.state as { toast?: string } | null)?.toast ?? null,
@@ -119,22 +121,24 @@ function ProfilePage() {
         </p>
       </div>
 
-      <section className="mt-6 flex flex-col gap-2.5 rounded-3xl bg-yellow-50 p-4.5">
-        <h2 className="text-subtitle-1 text-grey-900">출산·입원하셨나요?</h2>
-        <p className="text-grey-700 text-sm leading-normal">
-          입원하면 알림만 잠시 멈추고, 출산일을 적으면
-          <br />
-          산후 모드로 바뀌어요.
-        </p>
-        {/* 산후 모드(M-02 전환) 구현 전이라 안내만 */}
-        <button
-          type="button"
-          className="bg-grey-900 h-12 rounded-xl text-base leading-none font-bold text-white"
-          onClick={() => setToast('산후 모드는 준비 중이에요')}
-        >
-          출산·입원했어요
-        </button>
-      </section>
+      {/* 산후 모드로 바뀐 뒤엔 숨김 */}
+      {!deliveryDate && (
+        <section className="mt-6 flex flex-col gap-2.5 rounded-3xl bg-yellow-50 p-4.5">
+          <h2 className="text-subtitle-1 text-grey-900">출산·입원하셨나요?</h2>
+          <p className="text-grey-700 text-sm leading-normal">
+            입원하면 알림만 잠시 멈추고, 출산일을 적으면
+            <br />
+            산후 모드로 바뀌어요.
+          </p>
+          <button
+            type="button"
+            className="bg-grey-900 h-12 rounded-xl text-base leading-none font-bold text-white"
+            onClick={() => setBirthSheet(true)}
+          >
+            출산·입원했어요
+          </button>
+        </section>
+      )}
 
       {hasPassword && (
         <button
@@ -157,6 +161,20 @@ function ProfilePage() {
             setToast(`${DATE_SHEET[editing].title}을 저장했어요`)
           }}
           onClose={closeSheet}
+        />
+      )}
+      {birthSheet && (
+        <BirthOrHospitalSheet
+          onNext={(choice) => {
+            if (choice === 'birth') {
+              navigate(ROUTES.POSTPARTUM_DELIVERY)
+              return
+            }
+            // 입원은 알림만 멈추고 홈에서 바로 보여 줌
+            updateProfile({ hospitalized: true })
+            navigate(ROUTES.TODAY)
+          }}
+          onClose={() => setBirthSheet(false)}
         />
       )}
       {toast && <Toast message={toast} onClose={closeToast} />}
