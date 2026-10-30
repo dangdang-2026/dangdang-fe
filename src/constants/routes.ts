@@ -23,6 +23,7 @@ export const ROUTES = {
   VISIT_NOTE_RESULT: '/visit/note/result',
   VISIT_RESOURCES: '/visit/resources',
   VISIT_RESOURCE_SUMMARY: '/visit/resources/:id',
+  VISIT_SUPPLY_SUPPORT: '/visit/supply-support',
   COMMUNITY: '/community',
   COMMUNITY_BOARD: '/community/board/:board',
   COMMUNITY_POST: '/community/posts/:id',
