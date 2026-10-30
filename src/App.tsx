@@ -22,6 +22,7 @@ import VisitNotePage from '@/pages/visit/VisitNotePage'
 import VisitNoteResultPage from '@/pages/visit/VisitNoteResultPage'
 import ResourcesPage from '@/pages/visit/ResourcesPage'
 import ResourceSummaryPage from '@/pages/visit/ResourceSummaryPage'
+import SupplySupportPage from '@/pages/visit/SupplySupportPage'
 import InboxPage from '@/pages/today/InboxPage'
 import ChatPage from '@/pages/chat/ChatPage'
 import BoardPage from '@/pages/community/BoardPage'
@@ -134,6 +135,7 @@ function App() {
           <Route path={ROUTES.VISIT_NOTE_RESULT} element={<VisitNoteResultPage />} />
           <Route path={ROUTES.VISIT_RESOURCES} element={<ResourcesPage />} />
           <Route path={ROUTES.VISIT_RESOURCE_SUMMARY} element={<ResourceSummaryPage />} />
+          <Route path={ROUTES.VISIT_SUPPLY_SUPPORT} element={<SupplySupportPage />} />
           <Route path={ROUTES.INBOX} element={<InboxPage />} />
           <Route path={ROUTES.MY_PROFILE} element={<ProfilePage />} />
           <Route path={ROUTES.MY_CRITERIA} element={<MyCriteriaPage />} />
