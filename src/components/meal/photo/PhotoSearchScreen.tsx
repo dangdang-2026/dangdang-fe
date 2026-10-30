@@ -10,7 +10,8 @@ const SEARCH_LIMIT = 8
 
 type PhotoSearchScreenProps = {
   photoUrl: string
-  topCandidate: string
+  // 고치는 음식의 AI 후보. 빠진 음식을 추가할 땐 없음
+  topCandidate?: string
   onPick: (name: string) => void
   onAddMyFood: (name: string) => void
   onBack: () => void
@@ -28,7 +29,7 @@ function HighlightedName({ name, keyword }: { name: string; keyword: string }) {
   )
 }
 
-// Figma F-14 AI 후보가 틀렸을 때 직접 검색. 없으면 내 음식으로 추가
+// Figma F-14 AI 후보가 틀렸을 때·빠진 음식 직접 검색. 없으면 내 음식으로 추가
 function PhotoSearchScreen({
   photoUrl,
   topCandidate,
@@ -52,8 +53,12 @@ function PhotoSearchScreen({
           className="size-14 shrink-0 rounded-xl object-cover"
         />
         <div className="flex min-w-0 flex-col gap-0.5 leading-snug">
-          <p className="text-grey-600 text-sm font-medium">AI 후보: {topCandidate}</p>
-          <p className="text-grey-900 text-base font-bold">맞는 음식을 찾아 주세요</p>
+          {topCandidate && (
+            <p className="text-grey-600 text-sm font-medium">AI 후보: {topCandidate}</p>
+          )}
+          <p className="text-grey-900 text-base font-bold">
+            {topCandidate ? '맞는 음식을 찾아 주세요' : '빠진 음식을 찾아 주세요'}
+          </p>
         </div>
       </div>
 
