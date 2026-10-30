@@ -57,11 +57,10 @@ function ResourcesPage() {
       </div>
 
       <div className="mt-5 flex flex-col gap-5">
-        {/* 소모품 지원 안내 화면은 다음 작업에서 연결 */}
         <Shortcut
           icon={iconDrop}
           title="검사지·채혈침 건강보험 지원 안내"
-          onClick={() => ask.showToast('지원 안내는 준비 중이에요')}
+          onClick={() => navigate(ROUTES.VISIT_SUPPLY_SUPPORT)}
         />
 
         <section className="flex flex-col gap-2">
