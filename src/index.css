@@ -50,6 +50,8 @@
 
   /* 바텀시트 뒤 딤 */
   --color-dim: rgb(160 160 160 / 0.46);
+  /* F-10 카메라 배경 */
+  --color-camera: #0d0d0f;
 
   /* Figma 타이포그래피. 자간은 Figma % 값을 em으로 변환 */
   --text-display: 76px;
@@ -193,6 +195,18 @@
   @keyframes float-shadow {
     to {
       transform: scaleX(1.29);
+    }
+  }
+
+  /* F-11 스캔 선: 사진 위에서 아래로 반복 */
+  --animate-scan: scan 1.6s ease-in-out infinite;
+
+  @keyframes scan {
+    from {
+      top: --spacing(-20);
+    }
+    to {
+      top: 100%;
     }
   }
 

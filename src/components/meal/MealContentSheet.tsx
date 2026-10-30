@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
 import iconClear from '@/assets/icons/clear.svg'
+import iconAlert from '@/assets/icons/meal/alert.svg'
 import iconPlusMd from '@/assets/icons/plus-md.svg'
 import iconSearch from '@/assets/icons/search.svg'
 import iconSearchSm from '@/assets/icons/search-sm.svg'
@@ -33,19 +34,21 @@ type MealContentSheetProps = {
   meal: Meal
   // 이미 적은 식사를 고칠 때
   editing?: boolean
+  // 사진에서 후보를 못 찾고 넘어온 경우(F-05). 검색부터 열림
+  photoFailed?: boolean
   onClose: () => void
   // 주식을 고르지 않으면 portion 없음
   onSaved: (foods: string[], portion?: Portion) => void
 }
 
-// Figma F-01·F-07·D-09 식사 내용 적기. 최근 음식·이름 검색으로 고르고 양 선택
-function MealContentSheet({ meal, editing, onClose, onSaved }: MealContentSheetProps) {
+// Figma F-01·F-05·F-07·D-09 식사 내용 적기. 최근 음식·이름 검색으로 고르고 양 선택
+function MealContentSheet({ meal, editing, photoFailed, onClose, onSaved }: MealContentSheetProps) {
   const navigate = useNavigate()
   const meals = useGlucoseStore((state) => state.meals)
   const foods = useFoods()
   const [selected, setSelected] = useState<string[]>(meal.foods ?? [])
   const [portion, setPortion] = useState<Portion>(meal.portion ?? 'one')
-  const [searching, setSearching] = useState(false)
+  const [searching, setSearching] = useState(!!photoFailed)
   const [query, setQuery] = useState('')
   // 검색으로 고른 음식도 칩으로 계속 보여 줌
   const [searched, setSearched] = useState<string[]>([])
@@ -137,6 +140,18 @@ function MealContentSheet({ meal, editing, onClose, onSaved }: MealContentSheetP
             </p>
           )}
         </div>
+
+        {photoFailed && (
+          <div className="bg-grey-50 rounded-bubble flex items-start gap-2.5 px-4 py-3.5">
+            <img src={iconAlert} alt="" width={18} height={18} className="mt-0.5 shrink-0" />
+            <div className="flex flex-col gap-0.5">
+              <p className="text-t6 text-grey-800 font-bold">음식 후보를 찾지 못했어요</p>
+              <p className="text-t7 text-grey-700">
+                이름으로 바로 적을 수 있어요. 알림은 그대로 와요.
+              </p>
+            </div>
+          </div>
+        )}
 
         {searching ? (
           <>

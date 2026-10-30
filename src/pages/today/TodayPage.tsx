@@ -13,7 +13,7 @@ import NotificationPermissionSheet from '@/components/today/NotificationPermissi
 import QuickActions from '@/components/today/QuickActions'
 import TodayRecordSection from '@/components/today/TodayRecordSection'
 import VisitCard from '@/components/today/VisitCard'
-import MealContentSheet from '@/components/meal/MealContentSheet'
+import MealWriteFlow from '@/components/meal/MealWriteFlow'
 import PostpartumToday from '@/components/postpartum/PostpartumToday'
 import { ROUTES } from '@/constants/routes'
 import { useFoods } from '@/hooks/useFoods'
@@ -218,7 +218,7 @@ function TodayPage() {
         <GlucoseInputSheet target={sheetTarget} onClose={closeGlucoseSheet} onSaved={handleSaved} />
       )}
       {writingMeal && (
-        <MealContentSheet meal={writingMeal} onClose={closeMealSheet} onSaved={handleMealSaved} />
+        <MealWriteFlow meal={writingMeal} onClose={closeMealSheet} onSaved={handleMealSaved} />
       )}
       {insulinSheet && (
         <InsulinSheet
