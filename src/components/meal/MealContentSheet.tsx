@@ -1,12 +1,15 @@
 import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
 import iconClear from '@/assets/icons/clear.svg'
+import iconGuideArrow from '@/assets/icons/community/source-arrow.svg'
+import iconGuide from '@/assets/icons/meal-guide/utensils.svg'
 import iconAlert from '@/assets/icons/meal/alert.svg'
 import iconPlusMd from '@/assets/icons/plus-md.svg'
 import iconSearch from '@/assets/icons/search.svg'
 import iconSearchSm from '@/assets/icons/search-sm.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import FoodChip from '@/components/meal/FoodChip'
+import MealGuideSheet from '@/components/meal/MealGuideSheet'
 import MyFoodForm from '@/components/meal/MyFoodForm'
 import NutritionCard from '@/components/meal/NutritionCard'
 import NutritionSourceSheet from '@/components/meal/NutritionSourceSheet'
@@ -83,6 +86,8 @@ function MealContentSheet({ meal, editing, photoFailed, onClose, onSaved }: Meal
     (name) => countEaten(name) > 0,
   )
   const [sourceItem, setSourceItem] = useState<NutritionItem | null>(null)
+  const [guideOpen, setGuideOpen] = useState(false)
+  const closeGuide = useCallback(() => setGuideOpen(false), [])
   const closeSource = useCallback(() => setSourceItem(null), [])
 
   const keyword = query.trim()
@@ -128,7 +133,10 @@ function MealContentSheet({ meal, editing, photoFailed, onClose, onSaved }: Meal
   return (
     <>
       {/* 출처 시트가 떠 있으면 Esc·딤은 출처 시트만 닫음 */}
-      <BottomSheet label="식사 내용" onClose={sourceItem ? closeSource : onClose}>
+      <BottomSheet
+        label="식사 내용"
+        onClose={sourceItem ? closeSource : guideOpen ? closeGuide : onClose}
+      >
         <div className="flex flex-col gap-1">
           <h2 className="text-t4 text-grey-900">
             {editing ? `${mealLabel} 기록 고치기` : `${mealLabel}에 뭐 드셨어요?`}
@@ -141,6 +149,19 @@ function MealContentSheet({ meal, editing, photoFailed, onClose, onSaved }: Meal
             </p>
           )}
         </div>
+
+        {/* Figma F-01 → F-20 내 식사 안내 보기 */}
+        {!searching && (
+          <button
+            type="button"
+            className="border-grey-200 text-body-3 text-grey-700 flex items-center gap-1.5 rounded-xl border bg-white py-2.5 pr-3 pl-3.5 text-left"
+            onClick={() => setGuideOpen(true)}
+          >
+            <img src={iconGuide} alt="" width={16} height={16} />
+            <span className="flex-1">내 식사 안내 보기</span>
+            <img src={iconGuideArrow} alt="" width={14} height={14} />
+          </button>
+        )}
 
         {photoFailed && (
           <div className="bg-grey-50 rounded-bubble flex items-start gap-2.5 px-4 py-3.5">
@@ -292,6 +313,7 @@ function MealContentSheet({ meal, editing, photoFailed, onClose, onSaved }: Meal
 
       {/* 시트 밖에 둬야 transform 영향 없이 화면 기준으로 뜸 */}
       {sourceItem && <NutritionSourceSheet item={sourceItem} onClose={closeSource} />}
+      {guideOpen && <MealGuideSheet onClose={closeGuide} />}
     </>
   )
 }

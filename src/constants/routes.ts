@@ -35,6 +35,7 @@ export const ROUTES = {
   MY: '/my',
   MY_PROFILE: '/my/profile',
   MY_CRITERIA: '/my/criteria',
+  MY_MEAL_GUIDE: '/my/criteria/meal-guide',
   MY_NOTIFICATIONS: '/my/notifications',
   MY_FOODS: '/my/foods',
   MY_TERMS: '/my/terms',
