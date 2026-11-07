@@ -1,4 +1,5 @@
 import {
+  DAY_END_HOUR,
   GLUCOSE_MAX,
   GLUCOSE_MIN,
   JUST_SAVED_MS,
@@ -136,11 +137,32 @@ export function compareToTarget(value: number, target: number | null): TargetCom
 
 export type HeroState =
   | { kind: 'first-day' }
+  | { kind: 'day-end'; meal: Meal; dueAt: Date }
   | { kind: 'before-meal'; nextMeal: MealType; lastRecord?: GlucoseRecord }
   | { kind: 'eating' | 'measure-time' | 'overdue'; meal: Meal; dueAt: Date }
   | { kind: 'saved'; record: GlucoseRecord; nextMeal: MealType }
 
-// 히어로 카드 상태 우선순위: 측정 대기 > 저장 직후 > 식사 전 > 첫날
+// 오늘 식후 측정을 놓친 끼니(건너뜀·기록함 제외, 측정할 시간이 지남)
+export function getMissedMeals(
+  meals: Meal[],
+  records: GlucoseRecord[],
+  hours: number | null,
+  now: Date,
+) {
+  if (!hours) return []
+  return meals
+    .filter((meal) => isSameDay(new Date(meal.startedAt), now) && !meal.skipped)
+    .filter((meal) => !records.some((record) => record.mealId === meal.id))
+    .map((meal) => ({ meal, dueAt: getDueAt(meal, hours) }))
+    .filter(({ dueAt }) => now.getTime() - dueAt.getTime() >= MEASURE_WINDOW_MS)
+}
+
+// 저녁 이후(21시~)인지. 놓친 측정은 빨강 없이 나중에 채우기
+export function isDayEnd(now: Date) {
+  return now.getHours() >= DAY_END_HOUR
+}
+
+// 히어로 카드 상태 우선순위: 측정 대기 > 저장 직후 > 하루 정리 > 식사 전 > 첫날
 export function getHeroState(
   meals: Meal[],
   records: GlucoseRecord[],
@@ -148,10 +170,12 @@ export function getHeroState(
   now: Date,
 ): HeroState {
   const pending = getPendingMeal(meals, records, hours, now)
+  const missed = isDayEnd(now) ? getMissedMeals(meals, records, hours, now) : []
   if (pending) {
     const diff = now.getTime() - pending.dueAt.getTime()
     const kind = diff < 0 ? 'eating' : diff < MEASURE_WINDOW_MS ? 'measure-time' : 'overdue'
-    return { kind, ...pending }
+    // 저녁 이후엔 시간 지남 대신 하루 정리
+    if (!(kind === 'overdue' && missed.length > 0)) return { kind, ...pending }
   }
 
   const nextMeal = getNextMealType(meals, now)
@@ -160,6 +184,7 @@ export function getHeroState(
     return { kind: 'saved', record: lastRecord, nextMeal }
   }
 
+  if (missed.length > 0) return { kind: 'day-end', ...missed[missed.length - 1] }
   if (meals.length === 0 && records.length === 0) return { kind: 'first-day' }
 
   const lastRecordToday =

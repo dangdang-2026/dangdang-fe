@@ -13,6 +13,8 @@ type TodayRecordSectionProps = {
   records: GlucoseRecord[]
   insulins?: InsulinRecord[]
   postMealHours: number | null
+  // 저녁 이후 놓친 식후 측정. "나중에 채우기" 줄로
+  missed?: { meal: Meal; dueAt: Date }[]
   onInputGlucose: () => void
 }
 
@@ -21,6 +23,8 @@ type TimelineItem = {
   at: Date
   label: string
   value?: number
+  // 비어 있는 측정 자리(값 대신 —)
+  blank?: boolean
 }
 
 // 식사·혈당·인슐린을 시간순 한 줄씩
@@ -57,10 +61,19 @@ function TodayRecordSection({
   records,
   insulins = [],
   postMealHours,
+  missed = [],
   onInputGlucose,
 }: TodayRecordSectionProps) {
   const foods = useFoods()
-  const timeline = toTimeline(meals, records, insulins, postMealHours, foods)
+  const blanks: TimelineItem[] = missed.map(({ meal, dueAt }) => ({
+    id: `missed-${meal.id}`,
+    at: dueAt,
+    label: `${getSlotLabel('post-meal', meal.type, postMealHours)} · 나중에 채우기`,
+    blank: true,
+  }))
+  const timeline = [...toTimeline(meals, records, insulins, postMealHours, foods), ...blanks].sort(
+    (a, b) => a.at.getTime() - b.at.getTime(),
+  )
 
   return (
     <section>
@@ -78,7 +91,7 @@ function TodayRecordSection({
       {timeline.length > 0 ? (
         // Figma H-02 타임라인
         <ul className="mt-5 rounded-3xl bg-white py-1.5">
-          {timeline.map(({ id, at, label, value }) => (
+          {timeline.map(({ id, at, label, value, blank }) => (
             <li key={id} className="flex items-center gap-3 px-4.5 py-3">
               <time dateTime={at.toISOString()} className="text-body-3 text-grey-400">
                 {formatTime(at)}
@@ -92,6 +105,7 @@ function TodayRecordSection({
                   </span>
                 </p>
               )}
+              {blank && <span className="text-t4 text-blue-500">—</span>}
             </li>
           ))}
         </ul>
