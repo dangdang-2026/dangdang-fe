@@ -1,4 +1,5 @@
 import BeforeMealHero from '@/components/today/hero/BeforeMealHero'
+import DayEndHero from '@/components/today/hero/DayEndHero'
 import EatingHero from '@/components/today/hero/EatingHero'
 import FirstDayHero from '@/components/today/hero/FirstDayHero'
 import MeasureTimeHero from '@/components/today/hero/MeasureTimeHero'
@@ -15,6 +16,8 @@ type HeroCardProps = {
   onInputGlucose: () => void
   onSkipMeal: (mealId: string) => void
   onWriteMeal: (meal: Meal) => void
+  // 하루 정리에서 비어 있는 식후 측정 채우기
+  onFillMissed: (meal: Meal, dueAt: Date) => void
 }
 
 // 기록·식사 상태에 따라 히어로 카드 한 장만 표시
@@ -26,6 +29,7 @@ function HeroCard({
   onInputGlucose,
   onSkipMeal,
   onWriteMeal,
+  onFillMissed,
 }: HeroCardProps) {
   switch (state.kind) {
     case 'first-day':
@@ -67,6 +71,14 @@ function HeroCard({
           now={now}
           onInputGlucose={onInputGlucose}
           onSkipMeal={() => onSkipMeal(state.meal.id)}
+        />
+      )
+    case 'day-end':
+      return (
+        <DayEndHero
+          postMealHours={postMealHours}
+          meal={state.meal}
+          onFill={() => onFillMissed(state.meal, state.dueAt)}
         />
       )
     case 'saved':

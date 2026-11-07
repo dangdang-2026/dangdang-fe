@@ -15,6 +15,7 @@ import OfflineBanner from '@/components/today/OfflineBanner'
 import QuickActions from '@/components/today/QuickActions'
 import TodayRecordSection from '@/components/today/TodayRecordSection'
 import VisitCard from '@/components/today/VisitCard'
+import WaitingMeasureCard from '@/components/today/WaitingMeasureCard'
 import MealWriteFlow from '@/components/meal/MealWriteFlow'
 import PostpartumToday from '@/components/postpartum/PostpartumToday'
 import { ROUTES } from '@/constants/routes'
@@ -35,11 +36,30 @@ import type {
   NutritionEdits,
   Portion,
 } from '@/types/glucose'
-import { isSameDay, startOfDay } from '@/utils/date'
+import { formatTime, isSameDay, startOfDay } from '@/utils/date'
 import { formatPregnancyAge } from '@/utils/pregnancy'
 import { formatVisitDay, getHomeVisitCard } from '@/utils/visit'
-import { getHeroState, getMeasureTarget, getNextMealType, getSlotLabel } from '@/utils/glucose'
+import {
+  getHeroState,
+  getMeasureTarget,
+  getMissedMeals,
+  getNextMealType,
+  getSlotLabel,
+  isDayEnd,
+  type HeroState,
+} from '@/utils/glucose'
 import { formatMealSavedMessage } from '@/utils/meal'
+
+// Figma H-03~H-07 상태별 헤더 제목. 없으면 인사
+const HEADER_TITLE: Partial<Record<HeroState['kind'], string>> = {
+  eating: '식사 시작했어요',
+  'measure-time': '지금 재 주세요',
+  overdue: '측정이 조금 늦었어요',
+  'day-end': '오늘 하루 수고했어요',
+}
+
+// 측정을 기다리는 동안엔 히어로와 기다리는 측정만
+const WAITING_KINDS: HeroState['kind'][] = ['eating', 'measure-time', 'overdue']
 
 function TodayPage() {
   const meals = useGlucoseStore((state) => state.meals)
@@ -65,6 +85,7 @@ function TodayPage() {
   const [memoSheet, setMemoSheet] = useState(false)
   const [permissionSheet, setPermissionSheet] = useState(false)
   const permissionAsked = useNotificationStore((state) => state.permissionAsked)
+  const measureNotification = useNotificationStore((state) => state.measure)
   const markPermissionAsked = useNotificationStore((state) => state.markPermissionAsked)
   const updateNotification = useNotificationStore((state) => state.updateSettings)
   const name = useProfileStore((state) => state.name)
@@ -81,6 +102,15 @@ function TodayPage() {
   const todayRecords = records.filter((record) => isSameDay(new Date(record.measuredAt), now))
   const todayInsulins = insulins.filter((insulin) => isSameDay(new Date(insulin.takenAt), now))
   const heroState = getHeroState(meals, records, criteria.postMealHours, now)
+  const waitingMeasure = !hospitalized && WAITING_KINDS.includes(heroState.kind)
+  const firstDay = heroState.kind === 'first-day'
+  // 저녁 이후 놓친 식후 측정은 오늘 기록에 나중에 채우기 줄로
+  const missedMeals = isDayEnd(now)
+    ? getMissedMeals(meals, records, criteria.postMealHours, now)
+    : []
+  // 측정 알림을 껐거나 브라우저 권한이 없으면 알림 꺼짐 배너
+  const notificationsOff =
+    !measureNotification || !('Notification' in window) || Notification.permission !== 'granted'
 
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
   const questionCount = useVisitStore((state) => state.questions.length)
@@ -98,7 +128,16 @@ function TodayPage() {
     const current = new Date()
     startMeal(getNextMealType(meals, current), current)
     // 첫 식사 시작 때 한 번만 알림 허용 안내
-    if (!permissionAsked) setPermissionSheet(true)
+    if (!permissionAsked) {
+      setPermissionSheet(true)
+      return
+    }
+    const hours = criteria.postMealHours
+    setToast(
+      hours && !notificationsOff
+        ? `식사 시작을 적었어요 · ${formatTime(new Date(current.getTime() + hours * 3600000))}에 알려 드릴게요`
+        : '식사 시작을 적었어요',
+    )
   }
 
   const finishPermission = (granted: boolean) => {
@@ -131,6 +170,16 @@ function TodayPage() {
     const latest = todayMeals.at(-1)
     if (latest) setWritingMeal(latest)
     else setToast('식사 시작을 먼저 눌러 주세요')
+  }
+
+  // 하루 정리에서 비어 있는 식후 측정 채우기
+  const fillMissed = (meal: Meal, dueAt: Date) => {
+    setSheetTarget({
+      slot: 'post-meal',
+      mealId: meal.id,
+      mealType: meal.type,
+      dueAt: dueAt.toISOString(),
+    })
   }
 
   const openGlucoseSheet = () => {
@@ -184,8 +233,11 @@ function TodayPage() {
         date={now}
         pregnancyLabel={formatPregnancyAge(dueDate, now)}
         visitLabel={formatVisitDay(nextVisitAt, now)}
+        greeting={firstDay ? '반가워요' : '안녕하세요'}
+        title={hospitalized ? undefined : HEADER_TITLE[heroState.kind]}
         unread={hasUnread}
         onBell={() => navigate(ROUTES.INBOX)}
+        onCalendar={firstDay ? undefined : () => navigate(ROUTES.RECORDS_CALENDAR)}
       />
       {!online && (
         <div className="mt-6">
@@ -212,36 +264,53 @@ function TodayPage() {
             onInputGlucose={openGlucoseSheet}
             onSkipMeal={skipMeal}
             onWriteMeal={setWritingMeal}
+            onFillMissed={fillMissed}
           />
         )}
       </div>
-      <div className="mt-5">
-        <QuickActions
-          insulinMode={insulinMode}
-          onInputGlucose={openGlucoseSheet}
-          onWriteMeal={writeLatestMeal}
-          onOpenReport={() => navigate(ROUTES.VISIT_REPORTS)}
-          onInsulin={() => setInsulinSheet(true)}
-          onContactMemo={() => setMemoSheet(true)}
-        />
-      </div>
-      {visitCard && !criteriaUpdated && (
-        <div className="mt-4.5">
-          <VisitCard card={visitCard} questionCount={questionCount} onOpen={openVisitCard} />
+      {waitingMeasure && 'meal' in heroState ? (
+        <div className="mt-5">
+          <WaitingMeasureCard
+            label={getSlotLabel('post-meal', heroState.meal.type, criteria.postMealHours)}
+            dueAt={heroState.dueAt}
+          />
         </div>
+      ) : (
+        <>
+          {!firstDay && (
+            <div className="mt-5">
+              <QuickActions
+                insulinMode={insulinMode}
+                onInputGlucose={openGlucoseSheet}
+                onWriteMeal={writeLatestMeal}
+                onOpenReport={() => navigate(ROUTES.VISIT_REPORTS)}
+                onInsulin={() => setInsulinSheet(true)}
+                onContactMemo={() => setMemoSheet(true)}
+              />
+            </div>
+          )}
+          {visitCard && !criteriaUpdated && (
+            <div className="mt-4.5">
+              <VisitCard card={visitCard} questionCount={questionCount} onOpen={openVisitCard} />
+            </div>
+          )}
+          {notificationsOff && (
+            <div className="mt-4.5">
+              <NotificationBanner onTurnOn={() => setPermissionSheet(true)} />
+            </div>
+          )}
+          <div className="mt-5.5">
+            <TodayRecordSection
+              meals={todayMeals}
+              records={todayRecords}
+              insulins={todayInsulins}
+              postMealHours={criteria.postMealHours}
+              missed={missedMeals}
+              onInputGlucose={openGlucoseSheet}
+            />
+          </div>
+        </>
       )}
-      <div className="mt-4.5">
-        <NotificationBanner />
-      </div>
-      <div className="mt-5.5">
-        <TodayRecordSection
-          meals={todayMeals}
-          records={todayRecords}
-          insulins={todayInsulins}
-          postMealHours={criteria.postMealHours}
-          onInputGlucose={openGlucoseSheet}
-        />
-      </div>
 
       {sheetTarget && (
         <GlucoseInputSheet target={sheetTarget} onClose={closeGlucoseSheet} onSaved={handleSaved} />

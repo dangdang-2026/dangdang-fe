@@ -21,5 +21,7 @@ export const MEASURE_WINDOW_MS = 30 * MINUTE
 export const PENDING_EXPIRE_MS = 3 * 60 * MINUTE
 // 저장 후 30분간 "저장 직후" 카드 유지
 export const JUST_SAVED_MS = 30 * MINUTE
+// 이 시각부터 놓친 식후 측정은 "하루 정리"로 나중에 채우기 안내
+export const DAY_END_HOUR = 21
 // 예정 시각과 5분 이내면 제시간
 export const ON_TIME_MS = 5 * MINUTE
