@@ -143,6 +143,7 @@
   --shadow-chatbot-tag: 0 2px 6px 0 rgb(128 89 0 / 0.15);
   --shadow-sheet: 0 0 7.3px 0 rgb(0 0 0 / 0.25);
   --shadow-guide: 0 8px 24px 0 rgb(0 0 0 / 0.1);
+  --shadow-offline: 0 6px 16px 0 rgb(128 89 0 / 0.06);
   /* A-05 스포트라이트: 구멍 밖 화면 전체를 가림 */
   --shadow-spotlight: 0 0 0 100vmax var(--color-veil);
 
