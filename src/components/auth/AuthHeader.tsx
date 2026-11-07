@@ -7,14 +7,14 @@ type AuthHeaderProps = {
   children?: ReactNode
 }
 
-// Figma 로그인·가입 머리: 회색 원 뒤로 버튼 + 가운데 내용
+// Figma 로그인·가입 머리: 뒤로 화살표 + 가운데 내용
 function AuthHeader({ onBack, children }: AuthHeaderProps) {
   return (
     <header className="relative flex h-11 items-center">
       <button
         type="button"
         aria-label="뒤로"
-        className="bg-grey-100 flex size-10 items-center justify-center rounded-full"
+        className="-ml-2.5 flex size-10 items-center justify-center"
         onClick={onBack}
       >
         <img src={iconBack} alt="" width={20} height={20} />

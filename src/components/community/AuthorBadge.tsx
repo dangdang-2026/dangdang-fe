@@ -1,6 +1,6 @@
 type AuthorBadgeProps = {
   label: string
-  // Best는 흰 바탕, 주수는 노란 바탕
+  // Best는 흰 바탕, 주수는 노란 바탕, 산후는 파란 바탕
   variant?: 'week' | 'best'
 }
 
@@ -8,8 +8,12 @@ type AuthorBadgeProps = {
 function AuthorBadge({ label, variant = 'week' }: AuthorBadgeProps) {
   return (
     <span
-      className={`text-caption text-grey-800 rounded-full border px-2 py-px font-bold ${
-        variant === 'best' ? 'border-primary bg-white' : 'border-yellow-300 bg-yellow-50'
+      className={`text-caption rounded-full border px-2 py-px font-bold ${
+        variant === 'best'
+          ? 'border-primary text-grey-800 bg-white'
+          : label.startsWith('산후')
+            ? 'border-blue-50 bg-blue-50 text-blue-700'
+            : 'text-grey-800 border-yellow-300 bg-yellow-50'
       }`}
     >
       {label}
