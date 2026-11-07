@@ -5,6 +5,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import App from './App'
 import './index.css'
+import { registerServiceWorker } from '@/utils/serviceWorker'
+
+registerServiceWorker()
 
 const queryClient = new QueryClient({
   defaultOptions: {
