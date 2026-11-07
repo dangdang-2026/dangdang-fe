@@ -4,6 +4,7 @@ export const ROUTES = {
   ONBOARDING_TIMING: '/start/timing',
   ONBOARDING_SLOTS: '/start/slots',
   ONBOARDING_DUE_DATE: '/start/due-date',
+  ONBOARDING_TOUR: '/start/tour',
   LOGIN: '/login',
   SIGNUP: '/signup',
   PASSWORD_FIND: '/password/find',

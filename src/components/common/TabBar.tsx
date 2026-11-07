@@ -45,9 +45,14 @@ function TabIndicator({ index, children }: { index: number; children: ReactNode 
   )
 }
 
-function TabBar() {
+type TabBarProps = {
+  // 가이드 투어처럼 다른 경로에서 특정 탭을 활성으로 보여 줄 때
+  activePath?: string
+}
+
+function TabBar({ activePath }: TabBarProps) {
   const { pathname } = useLocation()
-  const activeIndex = getActiveIndex(pathname)
+  const activeIndex = getActiveIndex(activePath ?? pathname)
 
   return (
     <nav
