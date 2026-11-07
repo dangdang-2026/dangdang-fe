@@ -11,9 +11,13 @@ import { useFoodStore } from '@/stores/useFoodStore'
 import type { MyFood } from '@/types/glucose'
 import { formatPortion, withObjectParticle } from '@/utils/meal'
 
-// 예: 비슷한 음식: 함박스테이크 기준 · 자주 1공기
+// 예: 비슷한 음식: 함박스테이크 기준 · 자주 1공기 / 내가 입력한 값 · 250 g
 function describeMyFood(food: MyFood) {
-  const basis = food.similarTo ? `비슷한 음식: ${food.similarTo} 기준` : '영양 참고값 없음'
+  const basis = food.similarTo
+    ? `비슷한 음식: ${food.similarTo} 기준`
+    : food.nutrition
+      ? `내가 입력한 값 · ${food.nutrition.grams} g`
+      : '영양 참고값 없음'
   return food.portion ? `${basis} · 자주 ${formatPortion(food.portion, food.unit)}` : basis
 }
 

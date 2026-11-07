@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import iconCommentChevron from '@/assets/icons/chevron-right.svg'
 import { Navigate, useNavigate, useParams } from 'react-router'
 import iconBack from '@/assets/icons/back.svg'
 import iconAvatar from '@/assets/icons/community/avatar-lg.svg'
@@ -239,8 +240,9 @@ function PostDetailPage() {
           </article>
 
           <section className="border-grey-50 flex flex-col gap-5 border-t-8 px-5 pt-5">
-            <h2 className="text-subtitle-1 text-grey-900 tracking-normal">
+            <h2 className="text-subtitle-1 text-grey-900 flex items-center gap-0.5 tracking-normal">
               댓글 {formatCount(post.comments.length)}개
+              <img src={iconCommentChevron} alt="" width={18} height={18} />
             </h2>
             {post.comments.length === 0 ? (
               <p className="text-grey-500 py-6 text-center text-sm leading-normal">

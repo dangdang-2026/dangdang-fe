@@ -101,21 +101,22 @@ function VisitPage() {
           <NextVisitCard status={status} onEdit={() => setDateSheet('edit')} />
         )}
       </div>
-      <div className="mt-4">
+      {/* Figma C-02 카드 간격 12 · 28 · 14px */}
+      <div className="mt-3">
         <QuestionsCard
           questions={questions}
           onAdd={() => setQuestionSheetOpen(true)}
           onRemove={handleRemoveQuestion}
         />
       </div>
-      <div className="mt-4">
+      <div className="mt-7">
         <ReportCard
           today={startOfDay(now)}
           onCreate={() => navigate(ROUTES.VISIT_REPORT)}
           onPast={() => navigate(ROUTES.VISIT_REPORTS)}
         />
       </div>
-      <div className="mt-4">
+      <div className="mt-3.5">
         <CriteriaCard
           onChange={() => navigate(ROUTES.VISIT_CRITERIA)}
           onNote={() => navigate(ROUTES.VISIT_NOTE)}

@@ -8,7 +8,7 @@ const RULE = `${NICKNAME_MIN}~${NICKNAME_MAX}자, 한글·영문·숫자`
 const ERROR_MESSAGE: Record<Exclude<NicknameCheck, 'ok'>, string> = {
   length: `${RULE}로 적어 주세요`,
   chars: `${RULE}만 쓸 수 있어요`,
-  taken: '이미 누가 쓰고 있는 이름이에요. 다른 이름을 골라 주세요.',
+  taken: '이미 누가 쓰고 있는 이름이에요. 다른 이름을 적거나 ↻를 눌러 보세요.',
 }
 
 type NicknameFieldProps = {

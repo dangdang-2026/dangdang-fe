@@ -37,8 +37,12 @@ function ClauseList({ clauses }: ClauseListProps) {
               onClick={() => (onOpen ? onOpen() : toggle(title))}
             >
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="text-body-2 text-grey-900">{title}</span>
-                {description && <span className="text-t7 text-grey-600">{description}</span>}
+                <span className={`text-body-2 text-grey-900 ${open ? 'font-bold' : ''}`}>
+                  {title}
+                </span>
+                {description && !open && (
+                  <span className="text-t7 text-grey-600">{description}</span>
+                )}
               </span>
               <img src={open ? iconChevUp : iconChevDown} alt="" width={16} height={16} />
             </button>

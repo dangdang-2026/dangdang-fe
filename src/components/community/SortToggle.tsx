@@ -21,7 +21,9 @@ function SortToggle({ value, onChange }: SortToggleProps) {
             type="button"
             aria-pressed={value === option.value}
             className={
-              value === option.value ? 'text-grey-900 font-bold' : 'text-grey-400 font-medium'
+              value === option.value
+                ? 'text-grey-900 font-bold underline decoration-2 underline-offset-4'
+                : 'text-grey-400 font-medium'
             }
             onClick={() => onChange(option.value)}
           >
