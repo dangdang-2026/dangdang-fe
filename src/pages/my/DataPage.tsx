@@ -79,8 +79,18 @@ function DataPage() {
       description: '전체 기간 · 이 기기에서 만들어요',
       onClick: printRecords,
     },
-    { icon: iconFileGrey, tone: 'grey', title: '개인정보 처리방침', onClick: openTerms },
-    { icon: iconFileGrey, tone: 'grey', title: '이용약관', onClick: openTerms },
+    {
+      icon: iconFileGrey,
+      tone: 'grey',
+      title: '개인정보 처리방침',
+      onClick: () => navigate(ROUTES.LEGAL_PRIVACY),
+    },
+    {
+      icon: iconFileGrey,
+      tone: 'grey',
+      title: '이용약관',
+      onClick: () => navigate(ROUTES.LEGAL_TERMS),
+    },
     { icon: iconInfo, tone: 'grey', title: '의료기기 아님 고지', onClick: openTerms },
   ]
 
