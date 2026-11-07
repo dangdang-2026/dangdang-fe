@@ -1,5 +1,8 @@
 import { useCallback, useState } from 'react'
+import { useNavigate } from 'react-router'
 import iconEdit from '@/assets/icons/edit.svg'
+import iconGuideEdit from '@/assets/icons/meal-guide/edit.svg'
+import iconUtensils from '@/assets/icons/meal-guide/utensils.svg'
 import iconPhone from '@/assets/icons/phone.svg'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import Toast from '@/components/common/Toast'
@@ -14,6 +17,7 @@ import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
 import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
+import { useMealGuideStore } from '@/stores/useMealGuideStore'
 import { useProfileStore, type CareMode } from '@/stores/useProfileStore'
 import type { Criteria, MeasureSlotKey } from '@/types/criteria'
 import {
@@ -31,11 +35,21 @@ const CARE_MODE_OPTIONS: { value: CareMode; label: string }[] = [
   { value: 'oral', label: '먹는 약 함께' },
 ]
 
+// 예: 10/14 ○○산부인과 · 사진 1장
+function formatGuideMeta(receivedOn: string, place: string, hasPhoto: boolean) {
+  const [, month, day] = receivedOn.split('-').map(Number)
+  return [`${month}/${day}${place ? ` ${place}` : ''}`, hasPhoto && '사진 1장']
+    .filter(Boolean)
+    .join(' · ')
+}
+
 type CriteriaChanges = Partial<Pick<Criteria, 'postMealHours' | 'measureSlots' | 'targets'>>
 
 // Figma M-03 병원 기준 · 관리 모드. 바꾸면 바로 새 기준으로 저장(진료 탭 이력에 남음)
 function MyCriteriaPage() {
   const hospital = usePrimaryHospital()
+  const navigate = useNavigate()
+  const mealGuide = useMealGuideStore((state) => state.guide)
   const goBack = useGoBack(ROUTES.MY)
   const criteria = useCriteria()
   const addCriteria = useCriteriaStore((state) => state.addCriteria)
@@ -201,6 +215,27 @@ function MyCriteriaPage() {
           <span className="text-t7 text-grey-500">
             {hospital.name} 외래{hospital.phone && ` ${hospital.phone}`}
           </span>
+        </button>
+
+        {/* Figma M-03 내 식사 안내 카드 → M-15 */}
+        <button
+          type="button"
+          className="bg-grey-50 rounded-banner flex flex-col gap-2 p-4.5 text-left"
+          onClick={() => navigate(ROUTES.MY_MEAL_GUIDE)}
+        >
+          <span className="flex w-full items-center gap-2">
+            <img src={iconUtensils} alt="" width={18} height={18} />
+            <span className="text-t6 text-grey-900 flex-1 font-bold">내 식사 안내</span>
+            <img src={iconGuideEdit} alt="" width={16} height={16} />
+          </span>
+          <span className="text-grey-800 text-sm leading-normal font-medium">
+            영양 상담에서 받은 안내를 적어 두는 곳이에요
+          </span>
+          {mealGuide && (
+            <span className="text-t7 text-grey-700">
+              {formatGuideMeta(mealGuide.receivedOn, mealGuide.place, !!mealGuide.photo)}
+            </span>
+          )}
         </button>
       </div>
 

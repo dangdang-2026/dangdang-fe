@@ -43,6 +43,7 @@ import CommunityActivityPage from '@/pages/my/CommunityActivityPage'
 import CommunitySettingsPage from '@/pages/my/CommunitySettingsPage'
 import DataPage from '@/pages/my/DataPage'
 import MyCriteriaPage from '@/pages/my/MyCriteriaPage'
+import MealGuidePage from '@/pages/my/MealGuidePage'
 import MyFoodsPage from '@/pages/my/MyFoodsPage'
 import MyPage from '@/pages/my/MyPage'
 import NicknamePage from '@/pages/my/NicknamePage'
@@ -141,6 +142,7 @@ function App() {
           <Route path={ROUTES.INBOX} element={<InboxPage />} />
           <Route path={ROUTES.MY_PROFILE} element={<ProfilePage />} />
           <Route path={ROUTES.MY_CRITERIA} element={<MyCriteriaPage />} />
+          <Route path={ROUTES.MY_MEAL_GUIDE} element={<MealGuidePage />} />
           <Route path={ROUTES.MY_NOTIFICATIONS} element={<NotificationsPage />} />
           <Route path={ROUTES.MY_FOODS} element={<MyFoodsPage />} />
           <Route path={ROUTES.MY_TERMS} element={<TermsPage />} />
