@@ -60,6 +60,7 @@ import CheckSchedulePage from '@/pages/postpartum/CheckSchedulePage'
 import DeliveryPage from '@/pages/postpartum/DeliveryPage'
 import GraduationPage from '@/pages/postpartum/GraduationPage'
 import TimingPage from '@/pages/onboarding/TimingPage'
+import TourPage from '@/pages/onboarding/TourPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 import PrivacyPolicyPage from '@/pages/legal/PrivacyPolicyPage'
 import SensitiveConsentPage from '@/pages/legal/SensitiveConsentPage'
@@ -115,6 +116,7 @@ function App() {
         <Route path={ROUTES.LEGAL_SENSITIVE} element={<SensitiveConsentPage />} />
         <Route path={ROUTES.LEGAL_TRANSFER} element={<TransferNoticePage />} />
         <Route element={<OnboardingGate />}>
+          <Route path={ROUTES.ONBOARDING_TOUR} element={<TourPage />} />
           <Route element={<TabLayout />}>
             <Route path={ROUTES.TODAY} element={<TodayPage />} />
             <Route path={ROUTES.RECORDS} element={<RecordsPage />} />

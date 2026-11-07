@@ -18,7 +18,7 @@ const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 const formatFullDate = (date: Date) =>
   `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일 (${WEEKDAYS[date.getDay()]})`
 
-// Figma A-03 출산 예정일(선택). 마치면 프로필·병원 기준을 만들고 홈으로
+// Figma A-03 출산 예정일(선택). 마치면 프로필·병원 기준을 만들고 가이드 투어로
 function DueDatePage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.ONBOARDING_SLOTS)
@@ -42,7 +42,7 @@ function DueDatePage() {
     })
     answers.setAnswers({ dueDate: finalDueDate })
     answers.complete()
-    navigate(ROUTES.TODAY, { replace: true })
+    navigate(ROUTES.ONBOARDING_TOUR, { replace: true })
   }
 
   return (

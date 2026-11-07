@@ -50,6 +50,8 @@
 
   /* 바텀시트 뒤 딤 */
   --color-dim: rgb(160 160 160 / 0.46);
+  /* A-05 가이드 투어 화면 가림 */
+  --color-veil: rgb(25 31 40 / 0.5);
   /* F-10 카메라 배경 */
   --color-camera: #0d0d0f;
 
@@ -140,6 +142,9 @@
   --shadow-chatbot: 0 6px 14px 0 rgb(128 89 0 / 0.22);
   --shadow-chatbot-tag: 0 2px 6px 0 rgb(128 89 0 / 0.15);
   --shadow-sheet: 0 0 7.3px 0 rgb(0 0 0 / 0.25);
+  --shadow-guide: 0 8px 24px 0 rgb(0 0 0 / 0.1);
+  /* A-05 스포트라이트: 구멍 밖 화면 전체를 가림 */
+  --shadow-spotlight: 0 0 0 100vmax var(--color-veil);
 
   /* E-12 졸업 등장: 당당이 톡 커졌다 자리 잡기 → 글 → 기록·버튼 순서 */
   --animate-pop-in: pop-in 0.6s ease-out both;
@@ -195,6 +200,39 @@
   @keyframes float-shadow {
     to {
       transform: scaleX(1.29);
+    }
+  }
+
+  /* A-05 말풍선은 고리가 옮겨 간 뒤 살짝 올라오며 나타남 */
+  --animate-guide-in: guide-in 0.3s ease-out 0.2s both;
+  /* A-05h 완료 카드 등장 */
+  --animate-dialog-in: dialog-in 0.3s ease-out both;
+
+  @keyframes guide-in {
+    from {
+      opacity: 0;
+      transform: translateY(--spacing(2));
+    }
+  }
+
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      transform: scale(0.92);
+    }
+  }
+
+  /* A-05 스포트라이트 바깥 고리가 퍼지며 사라짐 */
+  --animate-spotlight-pulse: spotlight-pulse 1.4s ease-out infinite;
+
+  @keyframes spotlight-pulse {
+    from {
+      opacity: 1;
+      transform: scale(0.97);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1.04);
     }
   }
 
