@@ -10,7 +10,7 @@ import { useNow } from '@/hooks/useNow'
 import { useRecordStart } from '@/hooks/useRecordStart'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
-import { countCriteriaChanges } from '@/utils/criteria'
+import { countCriteriaChanges, formatDuration } from '@/utils/criteria'
 import { addDays, startOfDay } from '@/utils/date'
 import {
   PERIOD_DAYS,
@@ -129,7 +129,7 @@ function StatsPage() {
     slot === 'fasting'
       ? '공복'
       : criteria.postMealHours
-        ? `식후 ${criteria.postMealHours}시간`
+        ? `식후 ${formatDuration(criteria.postMealHours)}`
         : '식후'
   const periodLabel =
     period === 'custom' && custom ? formatRangeLabel(custom) : `최근 ${PERIOD_LABEL[period]}`

@@ -9,6 +9,7 @@ import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useNotificationStore, type NotificationSettings } from '@/stores/useNotificationStore'
+import { formatDuration } from '@/utils/criteria'
 
 type Permission = NotificationPermission | 'unsupported'
 
@@ -49,7 +50,7 @@ function NotificationsPage() {
 
   const previewText = hideOnLockScreen
     ? '확인할 일이 있어요'
-    : `식후 ${postMealHours ?? 1}시간 혈당을 잴 시간이에요`
+    : `식후 ${formatDuration(postMealHours ?? 1)} 혈당을 잴 시간이에요`
 
   const rows: { key: keyof NotificationSettings; title: string; description: string }[] = [
     { key: 'measure', title: '측정 알림', description: '식사 시작 후 병원에서 정한 시간에' },

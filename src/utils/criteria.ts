@@ -1,4 +1,6 @@
+import { GLUCOSE_MAX, GLUCOSE_MIN } from '@/constants/glucose'
 import type { Criteria, MeasureSlotKey } from '@/types/criteria'
+import { formatMeridiemTime } from '@/utils/date'
 
 // 그 날짜에 적용되던 기준. 적용 전 날짜면 첫 버전
 export function getCriteriaAt(versions: Criteria[], date: Date) {
@@ -39,8 +41,29 @@ export function formatTarget(value: number | null) {
   return value === null ? '비교 안 함' : `${value} 미만`
 }
 
+// 식후 측정 시점. 직접 입력은 10분 단위라 시간이 소수일 수 있음. 예: 1.5 → 1시간 30분
+export function formatDuration(hours: number) {
+  const total = Math.round(hours * 60)
+  const whole = Math.floor(total / 60)
+  const minutes = total % 60
+  if (whole === 0) return `${minutes}분`
+  return minutes ? `${whole}시간 ${minutes}분` : `${whole}시간`
+}
+
+// 목표 입력값. 비우면 비교 안 함
+export const toTarget = (value: string) => (value === '' ? null : Number(value))
+export const isValidTarget = (value: string) =>
+  value === '' || (Number(value) >= GLUCOSE_MIN && Number(value) <= GLUCOSE_MAX)
+
+// 알림 시각. 예: 07:00 → 아침 7:00, 13:30 → 오후 1:30
+export function formatAlarmTime(time: string) {
+  const [hours, minutes] = time.split(':').map(Number)
+  const label = formatMeridiemTime(new Date(2000, 0, 1, hours, minutes))
+  return hours >= 4 && hours < 11 ? label.replace('오전', '아침') : label
+}
+
 export function formatPostMealHours(hours: number | null) {
-  return hours ? `식후 ${hours}시간` : '모름'
+  return hours ? `식후 ${formatDuration(hours)}` : '모름'
 }
 
 export function formatMeasureSlots(slots: MeasureSlotKey[]) {

@@ -17,6 +17,7 @@ import type {
   MeasureTarget,
   TargetComparison,
 } from '@/types/glucose'
+import { formatDuration } from '@/utils/criteria'
 import { isSameDay } from '@/utils/date'
 
 const HOUR = 60 * 60 * 1000
@@ -52,7 +53,7 @@ export function getSlotLabel(
   if (slot === 'fasting') return '공복'
   if (slot === 'bedtime') return '자기 전'
   const meal = mealType ? `${MEAL_LABEL[mealType]} ` : ''
-  return hours ? `${meal}식후 ${hours}시간` : `${meal}식후`
+  return hours ? `${meal}식후 ${formatDuration(hours)}` : `${meal}식후`
 }
 
 export function getDueAt(meal: Meal, hours: number) {

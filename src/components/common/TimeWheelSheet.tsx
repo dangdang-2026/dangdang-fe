@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import BottomSheet from '@/components/common/BottomSheet'
 
 // 한 줄 높이(h-10)
@@ -7,7 +8,7 @@ const ROW_PX = 40
 const MERIDIEMS = ['오전', '오후']
 // 12시를 맨 앞에 둬서 순서 = 0시부터
 const HOURS = ['12', ...Array.from({ length: 11 }, (_, index) => String(index + 1))]
-const MINUTES = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0'))
+const pad = (number: number) => String(number).padStart(2, '0')
 
 type WheelColumnProps = {
   label: string
@@ -17,7 +18,7 @@ type WheelColumnProps = {
 }
 
 // 위아래로 밀어서 고르는 한 칸. 가운데 줄이 고른 값
-function WheelColumn({ label, items, initialIndex, onChange }: WheelColumnProps) {
+export function WheelColumn({ label, items, initialIndex, onChange }: WheelColumnProps) {
   const listRef = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(initialIndex)
 
@@ -74,22 +75,29 @@ type TimeWheelSheetProps = {
   title: string
   // 'HH:MM' 24시간
   value: string
+  // 분 휠 간격. 예: 공복 알림은 5분
+  minuteStep?: number
   onDone: (value: string) => void
   onClose: () => void
 }
 
-// Figma D-16 시간 시트: 오전·오후 · 시 · 분 휠
-function TimeWheelSheet({ title, value, onDone, onClose }: TimeWheelSheetProps) {
+// Figma D-16 시간 시트: 오전·오후 · 시 · 분 휠. 다른 시트 안에서 열어도 화면 기준으로 뜨게 body로
+function TimeWheelSheet({ title, value, minuteStep = 1, onDone, onClose }: TimeWheelSheetProps) {
+  const minuteItems = Array.from({ length: Math.ceil(60 / minuteStep) }, (_, index) =>
+    pad(index * minuteStep),
+  )
   // 처음 값. 휠을 밀어도 스크롤 위치를 다시 맞추지 않게 따로 둠
   const [hours, minutes] = value.split(':').map(Number)
-  const initial = { meridiem: hours >= 12 ? 1 : 0, hour: hours % 12, minute: minutes }
+  const initial = {
+    meridiem: hours >= 12 ? 1 : 0,
+    hour: hours % 12,
+    minute: Math.min(minuteItems.length - 1, Math.round(minutes / minuteStep)),
+  }
   const [meridiem, setMeridiem] = useState(initial.meridiem)
   const [hour, setHour] = useState(initial.hour)
   const [minute, setMinute] = useState(initial.minute)
 
-  const pad = (number: number) => String(number).padStart(2, '0')
-
-  return (
+  return createPortal(
     <BottomSheet label={title} onClose={onClose}>
       <h2 className="text-grey-900 text-lg leading-normal font-bold">{title}</h2>
       <div className="flex justify-center gap-3">
@@ -102,7 +110,7 @@ function TimeWheelSheet({ title, value, onDone, onClose }: TimeWheelSheetProps) 
         <WheelColumn label="시" items={HOURS} initialIndex={initial.hour} onChange={setHour} />
         <WheelColumn
           label="분"
-          items={MINUTES}
+          items={minuteItems}
           initialIndex={initial.minute}
           onChange={setMinute}
         />
@@ -110,11 +118,12 @@ function TimeWheelSheet({ title, value, onDone, onClose }: TimeWheelSheetProps) 
       <button
         type="button"
         className="text-subtitle-1 bg-primary mt-1.5 h-14 rounded-xl leading-none text-white"
-        onClick={() => onDone(`${pad(meridiem * 12 + hour)}:${pad(minute)}`)}
+        onClick={() => onDone(`${pad(meridiem * 12 + hour)}:${pad(minute * minuteStep)}`)}
       >
         완료
       </button>
-    </BottomSheet>
+    </BottomSheet>,
+    document.body,
   )
 }
 

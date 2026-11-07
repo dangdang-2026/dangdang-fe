@@ -4,6 +4,7 @@ import dangdangBody from '@/assets/images/dangdang/hero-body.svg'
 import dangdangFace from '@/assets/images/dangdang/hero-face.svg'
 import HeroShell from '@/components/today/hero/HeroShell'
 import { HeroButton } from '@/components/today/hero/HeroParts'
+import { formatDuration } from '@/utils/criteria'
 
 type FirstDayHeroProps = {
   postMealHours: number | null
@@ -40,7 +41,7 @@ function FirstDayHero({ postMealHours, onStartMeal }: FirstDayHeroProps) {
       </h2>
       <p className="text-grey-700 mt-4 text-sm leading-normal font-medium">
         {postMealHours
-          ? `${postMealHours}시간 뒤에 잴 시간을 알려 드려요`
+          ? `${formatDuration(postMealHours)} 뒤에 잴 시간을 알려 드려요`
           : '식사 시작 시각만 적어 둘게요'}
       </p>
       <HeroButton icon={iconUtensils} onClick={onStartMeal}>

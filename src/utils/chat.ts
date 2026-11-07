@@ -2,7 +2,7 @@ import { CHAT_INFOS, DRAFT_KEYWORDS, RECORDS_KEYWORDS, RISK_KEYWORDS } from '@/c
 import type { RecordsSummary } from '@/types/chat'
 import type { Criteria, MeasureSlotKey } from '@/types/criteria'
 import type { GlucoseRecord } from '@/types/glucose'
-import { MEASURE_SLOT_LABEL } from '@/utils/criteria'
+import { MEASURE_SLOT_LABEL, formatDuration } from '@/utils/criteria'
 import { addDays, isSameDay, startOfDay } from '@/utils/date'
 import { compareToTarget } from '@/utils/glucose'
 
@@ -77,7 +77,7 @@ export function summarizeRecords(
   const measured = days.filter((day) => day.value !== null).length
   const hoursLabel =
     slot !== 'fasting' && slot !== 'bedtime' && criteria.postMealHours
-      ? ` ${criteria.postMealHours}시간`
+      ? ` ${formatDuration(criteria.postMealHours)}`
       : ''
 
   return {
