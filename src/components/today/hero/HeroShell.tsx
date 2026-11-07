@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import iconPencil from '@/assets/icons/pencil.svg'
 import { useProfileStore } from '@/stores/useProfileStore'
+import { formatDuration } from '@/utils/criteria'
 
 type HeroShellProps = {
   status: string
@@ -28,7 +29,7 @@ function HeroShell({
 }: HeroShellProps) {
   // Figma H-13 인슐린 모드면 기준 칩 앞에 붙임
   const insulinMode = useProfileStore((state) => state.careMode === 'insulin')
-  const criteriaLabel = postMealHours ? `식후 ${postMealHours}시간` : '측정 시점 모름'
+  const criteriaLabel = postMealHours ? `식후 ${formatDuration(postMealHours)}` : '측정 시점 모름'
 
   return (
     <section

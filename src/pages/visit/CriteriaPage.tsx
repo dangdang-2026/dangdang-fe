@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import iconChevronSm from '@/assets/icons/chevron-sm.svg'
 import SubPageHeader from '@/components/common/SubPageHeader'
+import PostMealTimeSegment from '@/components/criteria/PostMealTimeSegment'
+import TargetField from '@/components/criteria/TargetField'
 import FoodChip from '@/components/meal/FoodChip'
 import { GLUCOSE_MAX, GLUCOSE_MIN } from '@/constants/glucose'
 import { ROUTES } from '@/constants/routes'
@@ -9,41 +11,15 @@ import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import type { CriteriaPrefill, MeasureSlotKey } from '@/types/criteria'
-import { MEASURE_SLOT_LABEL, MEASURE_SLOT_ORDER, diffCriteria } from '@/utils/criteria'
+import {
+  MEASURE_SLOT_LABEL,
+  MEASURE_SLOT_ORDER,
+  diffCriteria,
+  formatDuration,
+  isValidTarget,
+  toTarget,
+} from '@/utils/criteria'
 import { formatMonthDay } from '@/utils/date'
-
-const HOUR_OPTIONS = [1, 2]
-
-type TargetFieldProps = {
-  label: string
-  value: string
-  onChange: (value: string) => void
-}
-
-// 목표 입력칸. 숫자만, 비우면 비교 안 함
-function TargetField({ label, value, onChange }: TargetFieldProps) {
-  return (
-    <label className="flex min-w-0 flex-1 flex-col gap-2">
-      <span className="text-t7 text-grey-700 font-bold">{label}</span>
-      <span className="bg-grey-50 focus-within:border-primary flex h-14 items-center gap-2 rounded-2xl border-2 border-transparent px-4 focus-within:bg-white">
-        <input
-          type="text"
-          inputMode="numeric"
-          aria-label={`${label} 목표`}
-          placeholder="비움"
-          value={value}
-          className="text-grey-900 placeholder:text-grey-400 min-w-0 flex-1 bg-transparent text-base leading-normal font-medium outline-none"
-          onChange={(event) => onChange(event.target.value.replace(/\D/g, '').slice(0, 3))}
-        />
-        <span className="text-grey-500 text-sm leading-normal">미만</span>
-      </span>
-    </label>
-  )
-}
-
-const toTarget = (value: string) => (value === '' ? null : Number(value))
-const isValidTarget = (value: string) =>
-  value === '' || (Number(value) >= GLUCOSE_MIN && Number(value) <= GLUCOSE_MAX)
 
 // Figma C-09 진료 후 기준 반영. 오늘부터 새 버전으로 적용
 function CriteriaPage() {
@@ -94,21 +70,7 @@ function CriteriaPage() {
       <div className="mt-7 flex flex-col gap-5">
         <section className="flex flex-col gap-2">
           <h3 className="text-grey-700 text-sm leading-normal font-bold">측정 시점</h3>
-          <div className="bg-grey-100 flex gap-1 rounded-2xl p-1">
-            {HOUR_OPTIONS.map((option) => (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={hours === option}
-                className={`text-t6 flex-1 rounded-xl py-3 font-bold ${
-                  hours === option ? 'shadow-segment text-grey-900 bg-white' : 'text-grey-500'
-                }`}
-                onClick={() => setHours(option)}
-              >
-                식후 {option}시간
-              </button>
-            ))}
-          </div>
+          <PostMealTimeSegment value={hours} onChange={setHours} />
         </section>
 
         <section className="flex flex-col gap-2">
@@ -134,7 +96,11 @@ function CriteriaPage() {
           </h3>
           <div className="flex gap-2.5">
             <TargetField label="공복" value={fasting} onChange={setFasting} />
-            <TargetField label={`식후 ${hours}시간`} value={postMeal} onChange={setPostMeal} />
+            <TargetField
+              label={`식후 ${formatDuration(hours)}`}
+              value={postMeal}
+              onChange={setPostMeal}
+            />
           </div>
           {!isValid && (
             <p className="text-t7 text-red-500">

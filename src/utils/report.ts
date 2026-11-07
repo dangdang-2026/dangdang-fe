@@ -1,7 +1,7 @@
 import { MEAL_ORDER } from '@/constants/glucose'
 import type { Criteria, MeasureSlotKey } from '@/types/criteria'
 import type { GlucoseRecord, Meal, MeasureSlot, MealType } from '@/types/glucose'
-import { getCriteriaAt } from '@/utils/criteria'
+import { formatDuration, getCriteriaAt } from '@/utils/criteria'
 import { addDays, isSameDay, startOfDay } from '@/utils/date'
 import {
   compareToTarget,
@@ -15,7 +15,7 @@ import {
 export function formatCriteria(targets: Targets, postMealHours: number | null) {
   const parts: string[] = []
   if (targets.postMeal !== null && postMealHours) {
-    parts.push(`식후 ${postMealHours}시간 ${targets.postMeal} 미만`)
+    parts.push(`식후 ${formatDuration(postMealHours)} ${targets.postMeal} 미만`)
   }
   if (targets.fasting !== null) parts.push(`공복 ${targets.fasting} 미만`)
   return parts.length ? parts.join(' · ') : null

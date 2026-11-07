@@ -32,6 +32,7 @@ import { useVisitStore } from '@/stores/useVisitStore'
 import { formatMeridiemTime } from '@/utils/date'
 import { getPregnancyAge } from '@/utils/pregnancy'
 import { getVisitStatus } from '@/utils/visit'
+import { formatDuration } from '@/utils/criteria'
 
 const APP_VERSION = '1.0.0'
 
@@ -66,7 +67,7 @@ function MyPage() {
   ]
 
   const criteriaSummary = [
-    criteria.postMealHours ? `식후 ${criteria.postMealHours}시간` : '측정 시점 모름',
+    criteria.postMealHours ? `식후 ${formatDuration(criteria.postMealHours)}` : '측정 시점 모름',
     criteria.targets.postMeal !== null ? `목표 ${criteria.targets.postMeal} 미만` : '목표 없음',
   ].join(' · ')
 

@@ -8,6 +8,7 @@ import { useGoBack } from '@/hooks/useGoBack'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import { getLateMinutes } from '@/utils/glucose'
+import { formatDuration } from '@/utils/criteria'
 import {
   findFood,
   findStaple,
@@ -32,7 +33,7 @@ function HistoryRow({ entry, portion, lateMinutes }: HistoryRowProps) {
   const at = new Date(meal.startedAt)
   const details = [
     portion,
-    postMealHours && `식후 ${postMealHours}시간`,
+    postMealHours && `식후 ${formatDuration(postMealHours)}`,
     lateMinutes > 0 && `${lateMinutes}분 늦게 잼`,
   ].filter(Boolean)
 

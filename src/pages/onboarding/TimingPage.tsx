@@ -3,26 +3,36 @@ import { useNavigate } from 'react-router'
 import iconOptionCheckOff from '@/assets/icons/onboarding/option-check-off.svg'
 import iconOptionCheckOn from '@/assets/icons/onboarding/option-check-on.svg'
 import iconInfoSm from '@/assets/icons/info-sm.svg'
+import PostMealTimeSheet from '@/components/criteria/PostMealTimeSheet'
 import OnboardingHeader from '@/components/onboarding/OnboardingHeader'
+import { POST_MEAL_PRESETS } from '@/constants/criteria'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
+import { formatDuration } from '@/utils/criteria'
 
 type Option = { value: number | null; title: string; description: string }
 
 const OPTIONS: Option[] = [
   { value: 1, title: '식후 1시간', description: '첫술을 뜬 시각부터 1시간' },
   { value: 2, title: '식후 2시간', description: '첫술을 뜬 시각부터 2시간' },
-  { value: null, title: '아직 몰라요', description: '다음 진료 때 확인해도 괜찮아요.' },
+  {
+    value: null,
+    title: '아직 몰라요',
+    description: '다음 진료 때 확인해도 괜찮아요. 그동안 목표 비교는 꺼 둘게요.',
+  },
 ]
 
-// Figma A-02 식후 측정 시점 · A-02c 아직 몰라요(식후 알림 없음 안내)
+// Figma A-02 식후 측정 시점 · A-02c 아직 몰라요(식후 알림 없음 안내) · A-02e 직접 입력
 function TimingPage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.ONBOARDING_TERMS)
   const saved = useOnboardingStore((state) => state.postMealHours)
   const setAnswers = useOnboardingStore((state) => state.setAnswers)
   const [hours, setHours] = useState<number | null | undefined>(saved)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  // 1·2시간 말고 직접 고른 시간
+  const custom = typeof hours === 'number' && !POST_MEAL_PRESETS.includes(hours)
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-13 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
@@ -44,7 +54,7 @@ function TimingPage() {
         {OPTIONS.map(({ value, title, description }) => {
           const selected = hours === value
           return (
-            <li key={title}>
+            <li key={title} className={value === null ? 'order-last' : ''}>
               <button
                 type="button"
                 role="radio"
@@ -75,6 +85,27 @@ function TimingPage() {
             </li>
           )
         })}
+        <li>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={custom}
+            className={`flex w-full items-center gap-2 rounded-xl py-3 pr-3.5 pl-4 text-left text-sm leading-snug ${
+              custom ? 'bg-yellow-50' : 'bg-grey-50'
+            }`}
+            onClick={() => setSheetOpen(true)}
+          >
+            <span className="text-grey-800 flex-1 font-medium">다른 시간으로 들었어요</span>
+            {custom ? (
+              <span className="text-grey-900 font-bold">식후 {formatDuration(hours)}</span>
+            ) : (
+              <span className="text-grey-700">예: 1시간 30분</span>
+            )}
+            <span className="text-t7 text-grey-700 font-medium">
+              {custom ? '바꾸기' : '직접 입력'}
+            </span>
+          </button>
+        </li>
       </ul>
 
       {hours === null && (
@@ -109,6 +140,17 @@ function TimingPage() {
       >
         다음
       </button>
+
+      {sheetOpen && (
+        <PostMealTimeSheet
+          value={custom ? hours : null}
+          onDone={(value) => {
+            setHours(value)
+            setSheetOpen(false)
+          }}
+          onClose={() => setSheetOpen(false)}
+        />
+      )}
     </main>
   )
 }

@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import iconCheck from '@/assets/icons/insulin/check.svg'
 import iconClock from '@/assets/icons/insulin/clock.svg'
 import iconInfo from '@/assets/icons/insulin/info.svg'
 import iconMinus from '@/assets/icons/insulin/minus.svg'
 import iconPlus from '@/assets/icons/insulin/plus.svg'
 import BottomSheet from '@/components/common/BottomSheet'
+import TimeWheelSheet from '@/components/common/TimeWheelSheet'
 import type { InsulinKind, InsulinRecord } from '@/types/glucose'
 import { INSULIN_KIND_LABEL, formatTakenAt } from '@/utils/insulin'
 
@@ -33,7 +34,7 @@ const pad = (value: number) => String(value).padStart(2, '0')
 
 // Figma E-02 인슐린 기록 · D-10 고치기. 단위를 권하지 않고 처방 확인만 안내
 function InsulinSheet({ record, lastUnits = {}, onSave, onClose }: InsulinSheetProps) {
-  const timeRef = useRef<HTMLInputElement>(null)
+  const [timeSheet, setTimeSheet] = useState(false)
   const [kind, setKind] = useState<InsulinKind>(record?.kind ?? 'meal')
   const [name, setName] = useState(record?.name ?? '')
   const [units, setUnits] = useState(record?.units ?? lastUnits[record?.kind ?? 'meal'] ?? 0)
@@ -147,26 +148,22 @@ function InsulinSheet({ record, lastUnits = {}, onSave, onClose }: InsulinSheetP
         <button
           type="button"
           className="text-grey-800 text-sm leading-normal font-bold"
-          onClick={() => {
-            const input = timeRef.current
-            if (!input) return
-            if (typeof input.showPicker === 'function') input.showPicker()
-            else input.focus()
-          }}
+          onClick={() => setTimeSheet(true)}
         >
           바꾸기
         </button>
-        <input
-          ref={timeRef}
-          type="time"
-          aria-label="맞은 시각"
-          value={`${pad(takenAt.getHours())}:${pad(takenAt.getMinutes())}`}
-          className="sr-only"
-          onChange={(event) =>
-            event.target.value && setTakenAt(withTime(takenAt, event.target.value))
-          }
-        />
       </div>
+      {timeSheet && (
+        <TimeWheelSheet
+          title="맞은 시각"
+          value={`${pad(takenAt.getHours())}:${pad(takenAt.getMinutes())}`}
+          onDone={(time) => {
+            setTakenAt(withTime(takenAt, time))
+            setTimeSheet(false)
+          }}
+          onClose={() => setTimeSheet(false)}
+        />
+      )}
 
       <button
         type="button"

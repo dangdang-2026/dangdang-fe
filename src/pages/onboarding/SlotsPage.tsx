@@ -1,42 +1,24 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
+import FastingTimeRow from '@/components/criteria/FastingTimeRow'
 import OnboardingHeader from '@/components/onboarding/OnboardingHeader'
 import FoodChip from '@/components/meal/FoodChip'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { useNotificationStore } from '@/stores/useNotificationStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
 import type { MeasureSlotKey } from '@/types/criteria'
 import { MEASURE_SLOT_LABEL, MEASURE_SLOT_ORDER } from '@/utils/criteria'
-import { formatMeridiemTime } from '@/utils/date'
 
-// 예: 07:00 → 오전 7:00
-const formatTimeKey = (time: string) => {
-  const [hours, minutes] = time.split(':').map(Number)
-  return formatMeridiemTime(new Date(2000, 0, 1, hours, minutes))
-}
-
-// Figma A-02b 재는 때(병원에서 들은 것만)
+// Figma A-02b 재는 때(병원에서 들은 것만) · A-02d 공복 알림 시각
 function SlotsPage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.ONBOARDING_TIMING)
   const saved = useOnboardingStore((state) => state.measureSlots)
   const setAnswers = useOnboardingStore((state) => state.setAnswers)
-  const fastingTime = useNotificationStore((state) => state.fastingTime)
-  const setFastingTime = useNotificationStore((state) => state.setFastingTime)
   const [slots, setSlots] = useState<MeasureSlotKey[]>(saved)
-  const timeInputRef = useRef<HTMLInputElement>(null)
 
   const toggle = (key: MeasureSlotKey) =>
     setSlots((prev) => (prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]))
-
-  // 네이티브 시간 선택 창 열기
-  const openTimePicker = () => {
-    const input = timeInputRef.current
-    if (!input) return
-    if (typeof input.showPicker === 'function') input.showPicker()
-    else input.focus()
-  }
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-13 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
@@ -65,24 +47,9 @@ function SlotsPage() {
       </div>
 
       {slots.includes('fasting') && (
-        <button
-          type="button"
-          className="bg-grey-50 relative mt-6 flex items-center gap-2 rounded-xl py-3 pr-3.5 pl-4 text-left text-sm leading-snug"
-          onClick={openTimePicker}
-        >
-          <span className="text-grey-800 flex-1 font-medium">공복 알림</span>
-          <span className="text-grey-900 font-bold">{formatTimeKey(fastingTime)}</span>
-          <span className="text-t7 text-grey-500 font-medium">바꾸기</span>
-          <input
-            ref={timeInputRef}
-            type="time"
-            tabIndex={-1}
-            aria-label="공복 알림 시각"
-            value={fastingTime}
-            className="pointer-events-none absolute inset-0 opacity-0"
-            onChange={(event) => event.target.value && setFastingTime(event.target.value)}
-          />
-        </button>
+        <div className="mt-6">
+          <FastingTimeRow />
+        </div>
       )}
 
       <p className="text-grey-500 mt-6 text-xs leading-normal">
