@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocation } from 'react-router'
 import { useNavigate } from 'react-router'
 import iconRecords from '@/assets/icons/chat/records.svg'
 import iconRetry from '@/assets/icons/chat/retry.svg'
@@ -145,6 +146,20 @@ function ChatPage() {
     addMessage({ id: newId(), from: 'user', text })
     reply(text)
   }
+
+  // 커뮤니티 검색 등에서 질문을 들고 오면 한 번만 바로 물어봄
+  const location = useLocation()
+  const initialAsk = (location.state as { ask?: string } | null)?.ask
+  const askedRef = useRef(false)
+  useEffect(() => {
+    if (!initialAsk || askedRef.current) return
+    askedRef.current = true
+    navigate(location.pathname, { replace: true, state: null })
+    // 주소의 state를 비우면 effect가 다시 돌아도 askedRef로 한 번만 물어봄
+    window.setTimeout(() => ask(initialAsk))
+    // 들어올 때 한 번만
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialAsk])
 
   const addDraft = (id: string, text: string) => {
     addQuestion(text)

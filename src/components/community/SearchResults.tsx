@@ -33,7 +33,7 @@ function SearchResults({ query, posts, now, onOpen, onAsk, onWrite }: SearchResu
         }
         action={
           medical
-            ? { label: '진료 때 물어볼 것에 적기', onClick: onAsk }
+            ? { label: '당당이와 물어볼 말 정리하기', onClick: onAsk }
             : { label: '질문 글 쓰기', onClick: onWrite }
         }
       />

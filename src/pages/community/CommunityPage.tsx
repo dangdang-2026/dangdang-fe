@@ -29,8 +29,7 @@ import { useNow } from '@/hooks/useNow'
 import { useOnline } from '@/hooks/useOnline'
 import { useVisiblePosts } from '@/hooks/useVisiblePosts'
 import { useCommunityStore } from '@/stores/useCommunityStore'
-import { useVisitStore } from '@/stores/useVisitStore'
-import { MOCK_NEWS } from '@/mocks/news'
+import { LATEST_NEWS } from '@/mocks/news'
 import type { PostSort } from '@/types/community'
 import { sortPosts } from '@/utils/community'
 
@@ -43,7 +42,6 @@ function CommunityPage() {
   const [params, setParams] = useSearchParams()
   const query = params.get('q') ?? ''
   const searching = query.trim() !== ''
-  const addQuestion = useVisitStore((state) => state.addQuestion)
   // 게시판·글 보기의 검색 버튼으로 오면 바로 입력
   const focusSearch = !!(useLocation().state as { focusSearch?: boolean } | null)?.focusSearch
   const now = useNow()
@@ -54,7 +52,7 @@ function CommunityPage() {
   const newsCardDismissed = useCommunityStore((state) => state.newsCardDismissed)
   const dismissNewsCard = useCommunityStore((state) => state.dismissNewsCard)
   // 메인에는 가장 최근 당당 소식 한 장
-  const latestNews = MOCK_NEWS[0]
+  const latestNews = LATEST_NEWS
   const nickname = useCommunityStore((state) => state.nickname)
   const setNickname = useCommunityStore((state) => state.setNickname)
   const [sort, setSort] = useState<PostSort>('popular')
@@ -151,10 +149,9 @@ function CommunityPage() {
           posts={posts}
           now={now}
           onOpen={(post) => navigate(communityPostPath(post.id))}
-          onAsk={() => {
-            addQuestion(`${query.trim()} 물어보기`)
-            setToast('진료 탭 물어볼 것에 적었어요')
-          }}
+          onAsk={() =>
+            navigate(ROUTES.ASK, { state: { ask: `${query.trim()} 물어볼 말 정리해 줘` } })
+          }
           onWrite={() => navigate(`${ROUTES.COMMUNITY_WRITE}?board=question`)}
         />
       ) : (
