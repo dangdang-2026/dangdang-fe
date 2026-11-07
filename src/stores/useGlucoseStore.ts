@@ -6,6 +6,7 @@ import type {
   Meal,
   MealType,
   MeasureTarget,
+  NutritionEdits,
   Portion,
 } from '@/types/glucose'
 
@@ -16,7 +17,13 @@ type GlucoseState = {
   records: GlucoseRecord[]
   startMeal: (type: MealType, now?: Date) => void
   skipMeal: (mealId: string) => void
-  setMealContent: (mealId: string, foods: string[], portion?: Portion) => void
+  // nutritionEdits를 안 넘기면 원래 고친 값 유지
+  setMealContent: (
+    mealId: string,
+    foods: string[],
+    portion?: Portion,
+    nutritionEdits?: NutritionEdits,
+  ) => void
   addRecord: (target: MeasureTarget, value: number, now?: Date) => GlucoseRecord
   updateRecord: (id: string, changes: { value: number; measuredAt: string }, now?: Date) => void
   deleteRecord: (id: string, now?: Date) => void
@@ -25,6 +32,12 @@ type GlucoseState = {
   insulins: InsulinRecord[]
   addInsulin: (input: InsulinInput) => void
   updateInsulin: (id: string, input: InsulinInput, now?: Date) => void
+}
+
+// 뺀 음식의 고친 값은 버림. 남는 게 없으면 없음
+function keepEdits(edits: NutritionEdits | undefined, foods: string[]) {
+  const kept = Object.entries(edits ?? {}).filter(([name]) => foods.includes(name))
+  return kept.length > 0 ? Object.fromEntries(kept) : undefined
 }
 
 // API 연동 전까지 기기(localStorage)에 저장
@@ -46,10 +59,17 @@ export const useGlucoseStore = create<GlucoseState>()(
             meal.id === mealId ? { ...meal, skipped: true } : meal,
           ),
         })),
-      setMealContent: (mealId, foods, portion) =>
+      setMealContent: (mealId, foods, portion, nutritionEdits) =>
         set((state) => ({
           meals: state.meals.map((meal) =>
-            meal.id === mealId ? { ...meal, foods, portion } : meal,
+            meal.id === mealId
+              ? {
+                  ...meal,
+                  foods,
+                  portion,
+                  nutritionEdits: keepEdits(nutritionEdits ?? meal.nutritionEdits, foods),
+                }
+              : meal,
           ),
         })),
       addRecord: (target, value, now = new Date()) => {

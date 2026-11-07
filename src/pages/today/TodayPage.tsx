@@ -8,8 +8,10 @@ import ContactMemoSheet from '@/components/my/ContactMemoSheet'
 import TodayHeader from '@/components/today/TodayHeader'
 import HeroCard from '@/components/today/HeroCard'
 import HospitalHero from '@/components/today/hero/HospitalHero'
+import OfflineHero from '@/components/today/hero/OfflineHero'
 import NotificationBanner from '@/components/today/NotificationBanner'
 import NotificationPermissionSheet from '@/components/today/NotificationPermissionSheet'
+import OfflineBanner from '@/components/today/OfflineBanner'
 import QuickActions from '@/components/today/QuickActions'
 import TodayRecordSection from '@/components/today/TodayRecordSection'
 import VisitCard from '@/components/today/VisitCard'
@@ -18,13 +20,21 @@ import PostpartumToday from '@/components/postpartum/PostpartumToday'
 import { ROUTES } from '@/constants/routes'
 import { useFoods } from '@/hooks/useFoods'
 import { useNow } from '@/hooks/useNow'
+import { useOnline } from '@/hooks/useOnline'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useInboxStore } from '@/stores/useInboxStore'
 import { useNotificationStore } from '@/stores/useNotificationStore'
 import { useVisitStore } from '@/stores/useVisitStore'
-import type { GlucoseRecord, InsulinKind, Meal, MeasureTarget, Portion } from '@/types/glucose'
+import type {
+  GlucoseRecord,
+  InsulinKind,
+  Meal,
+  MeasureTarget,
+  NutritionEdits,
+  Portion,
+} from '@/types/glucose'
 import { isSameDay, startOfDay } from '@/utils/date'
 import { formatPregnancyAge } from '@/utils/pregnancy'
 import { formatVisitDay, getHomeVisitCard } from '@/utils/visit'
@@ -66,6 +76,7 @@ function TodayPage() {
   const contactMemo = useProfileStore((state) => state.contactMemo)
 
   const now = useNow()
+  const { online, recheck } = useOnline()
   const todayMeals = meals.filter((meal) => isSameDay(new Date(meal.startedAt), now))
   const todayRecords = records.filter((record) => isSameDay(new Date(record.measuredAt), now))
   const todayInsulins = insulins.filter((insulin) => isSameDay(new Date(insulin.takenAt), now))
@@ -133,15 +144,25 @@ function TodayPage() {
   const closeMealSheet = useCallback(() => setWritingMeal(null), [])
   const closeToast = useCallback(() => setToast(null), [])
 
+  // 다시 연결하기. 아직 끊겨 있으면 알려 줌
+  const retryConnection = () => {
+    recheck()
+    if (!navigator.onLine) setToast('아직 인터넷에 연결되지 않았어요')
+  }
+
   const handleSaved = (record: GlucoseRecord) => {
     closeGlucoseSheet()
     const label = getSlotLabel(record.slot, record.mealType, criteria.postMealHours)
     setToast(`${label} ${record.value} 저장했어요`)
   }
 
-  const handleMealSaved = (mealFoods: string[], portion?: Portion) => {
+  const handleMealSaved = (
+    mealFoods: string[],
+    portion?: Portion,
+    nutritionEdits?: NutritionEdits,
+  ) => {
     if (!writingMeal) return
-    setMealContent(writingMeal.id, mealFoods, portion)
+    setMealContent(writingMeal.id, mealFoods, portion, nutritionEdits)
     setToast(formatMealSavedMessage({ ...writingMeal, foods: mealFoods, portion }, foods))
     setWritingMeal(null)
   }
@@ -166,7 +187,12 @@ function TodayPage() {
         unread={hasUnread}
         onBell={() => navigate(ROUTES.INBOX)}
       />
-      <div className="mt-6">
+      {!online && (
+        <div className="mt-6">
+          <OfflineBanner />
+        </div>
+      )}
+      <div className={online ? 'mt-6' : 'mt-3.5'}>
         {hospitalized ? (
           <HospitalHero
             onResume={() => {
@@ -174,6 +200,9 @@ function TodayPage() {
               setToast('측정 알림을 다시 켰어요')
             }}
           />
+        ) : !online && heroState.kind === 'eating' ? (
+          // Figma H-12 식사 중 연결이 끊기면 알림 예약 안 됨 안내
+          <OfflineHero meal={heroState.meal} dueAt={heroState.dueAt} onRetry={retryConnection} />
         ) : (
           <HeroCard
             state={heroState}

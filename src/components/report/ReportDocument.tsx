@@ -7,7 +7,8 @@ type ReportDocumentProps = {
   periodLabel: string
   title: string
   criteriaLines: string[]
-  questions: Question[]
+  // 진료 리포트만. 내 기록 PDF(M-07)엔 없음
+  questions?: Question[]
   createdAt: Date
 }
 
@@ -131,18 +132,20 @@ function ReportDocument({
         </section>
       )}
 
-      <section>
-        <h2 className="mb-1 font-bold">물어볼 것</h2>
-        {questions.length ? (
-          <ol className="list-decimal pl-4">
-            {questions.map((question) => (
-              <li key={question.id}>{question.text}</li>
-            ))}
-          </ol>
-        ) : (
-          <p className="text-grey-600">적어 둔 질문이 없어요</p>
-        )}
-      </section>
+      {questions && (
+        <section>
+          <h2 className="mb-1 font-bold">물어볼 것</h2>
+          {questions.length ? (
+            <ol className="list-decimal pl-4">
+              {questions.map((question) => (
+                <li key={question.id}>{question.text}</li>
+              ))}
+            </ol>
+          ) : (
+            <p className="text-grey-600">적어 둔 질문이 없어요</p>
+          )}
+        </section>
+      )}
 
       <footer className="border-grey-300 text-grey-600 border-t pt-2">
         해석이나 권고 없이 기록만 담았어요 · {formatMonthDay(createdAt)} {formatTime(createdAt)}{' '}

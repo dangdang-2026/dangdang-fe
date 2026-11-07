@@ -14,7 +14,7 @@ import { MEAL_LABEL } from '@/constants/glucose'
 import { useAiStore } from '@/stores/useAiStore'
 import { useFoodStore } from '@/stores/useFoodStore'
 import type { DetectedFood } from '@/types/foodPhoto'
-import type { Meal, MyFood, Portion } from '@/types/glucose'
+import type { Meal, MyFood, NutritionEdits, Portion } from '@/types/glucose'
 
 type Step =
   | 'consent'
@@ -34,7 +34,7 @@ type SearchTarget = { mode: 'single' } | { mode: 'table'; id: string | null }
 type MealWriteFlowProps = {
   meal: Meal
   onClose: () => void
-  onSaved: (foods: string[], portion?: Portion) => void
+  onSaved: (foods: string[], portion?: Portion, nutritionEdits?: NutritionEdits) => void
 }
 
 // 이미 적은 식사는 이름으로 고치기. 사진 동의를 안 물어봤으면 동의부터, 거절했으면 이름으로
@@ -68,6 +68,7 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
   // 한상(F-13): 음식별 줄
   const [items, setItems] = useState<TableItem[]>([])
   const [portion, setPortion] = useState<Portion>('one')
+  const [nutritionEdits, setNutritionEdits] = useState<NutritionEdits>({})
   const [searchTarget, setSearchTarget] = useState<SearchTarget>({ mode: 'single' })
   const [myFoodName, setMyFoodName] = useState('')
   // 다시 찍거나 이름으로 넘어가면 늦게 온 결과는 버림
@@ -204,7 +205,9 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
           onToggle={toggleChip}
           onPortionChange={setPortion}
           onSearch={() => openSearch({ mode: 'single' })}
-          onSave={(savedPortion) => onSaved(selected, savedPortion)}
+          nutritionEdits={nutritionEdits}
+          onNutritionEditsChange={setNutritionEdits}
+          onSave={(savedPortion) => onSaved(selected, savedPortion, nutritionEdits)}
           onClose={onClose}
         />
       )

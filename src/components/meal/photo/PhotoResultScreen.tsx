@@ -10,7 +10,7 @@ import PhotoScreen from '@/components/meal/photo/PhotoScreen'
 import { foodHistoryPath } from '@/constants/routes'
 import { useFoods } from '@/hooks/useFoods'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
-import type { Meal, Portion } from '@/types/glucose'
+import type { Meal, NutritionEdits, Portion } from '@/types/glucose'
 import { findFood, findStaple, formatPortion, type NutritionItem } from '@/utils/meal'
 
 const PORTIONS: Portion[] = ['half', 'one', 'one-half']
@@ -52,6 +52,9 @@ type PhotoResultScreenProps = {
   onToggle: (name: string) => void
   onPortionChange: (portion: Portion) => void
   onSearch: () => void
+  // 내가 잰 영양값(F-18)
+  nutritionEdits: NutritionEdits
+  onNutritionEditsChange: (edits: NutritionEdits) => void
   // 주식을 고르지 않으면 portion 없음
   onSave: (portion?: Portion) => void
   onClose: () => void
@@ -68,6 +71,8 @@ function PhotoResultScreen({
   onToggle,
   onPortionChange,
   onSearch,
+  nutritionEdits,
+  onNutritionEditsChange,
   onSave,
   onClose,
 }: PhotoResultScreenProps) {
@@ -173,7 +178,12 @@ function PhotoResultScreen({
         )}
 
         {nutritionItems.length > 0 && (
-          <NutritionCard items={nutritionItems} onShowSource={setSourceItem} />
+          <NutritionCard
+            items={nutritionItems}
+            edits={nutritionEdits}
+            onEditsChange={onNutritionEditsChange}
+            onShowSource={setSourceItem}
+          />
         )}
       </PhotoScreen>
 

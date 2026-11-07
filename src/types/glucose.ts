@@ -13,6 +13,8 @@ export type Meal = {
   foods?: string[]
   // 주식(밥·면 등) 양. 반찬은 양을 받지 않음
   portion?: Portion
+  // 음식 이름별 내가 잰 영양값(F-18). 없으면 식약처 참고값
+  nutritionEdits?: NutritionEdits
 }
 
 // 양: 반 · 1 · 1.5
@@ -37,6 +39,14 @@ export type Nutrition = {
   protein: number
   fat: number
 }
+
+// 내가 잰 무게·영양성분표로 고친 값. 먹은 양 전체 기준, 영양성분표로 적으면 무게 없음
+export type NutritionEdit = Omit<Nutrition, 'grams'> & {
+  grams?: number
+  editedAt: string
+}
+
+export type NutritionEdits = Record<string, NutritionEdit>
 
 // 사용자가 직접 추가한 음식
 export type MyFood = Food & {

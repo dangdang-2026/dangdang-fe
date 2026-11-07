@@ -20,9 +20,14 @@ const PORTION_FACTOR: Record<Portion, number> = {
   'one-half': 1.5,
 }
 
-// 1인분 값에 고른 양을 곱함. 양이 없으면(반찬) 1인분
+// 1인분 대비 배수. 양이 없으면(반찬) 1인분
+export function getPortionFactor(portion?: Portion) {
+  return portion ? PORTION_FACTOR[portion] : 1
+}
+
+// 1인분 값에 고른 양을 곱함
 export function scaleNutrition(nutrition: Nutrition, portion?: Portion) {
-  const factor = portion ? PORTION_FACTOR[portion] : 1
+  const factor = getPortionFactor(portion)
   return {
     kcal: Math.round(nutrition.kcal * factor),
     carbs: Math.round(nutrition.carbs * factor),
@@ -83,6 +88,14 @@ export function withObjectParticle(word: string) {
   const code = word.charCodeAt(word.length - 1) - 0xac00
   if (code < 0 || code > 11171) return `${word}를`
   return `${word}${code % 28 ? '을' : '를'}`
+}
+
+// 받침 있으면 으로, 없거나 ㄹ받침이면 로
+export function getDirectionParticle(word: string) {
+  const code = word.charCodeAt(word.length - 1) - 0xac00
+  if (code < 0 || code > 11171) return '로'
+  const final = code % 28
+  return final && final !== 8 ? '으로' : '로'
 }
 
 // 저장 토스트. 예: 점심에 김치볶음밥 1공기를 적었어요

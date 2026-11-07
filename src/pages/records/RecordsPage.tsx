@@ -17,7 +17,14 @@ import { ROUTES } from '@/constants/routes'
 import { useNow } from '@/hooks/useNow'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
-import type { GlucoseRecord, InsulinRecord, Meal, MeasureTarget, Portion } from '@/types/glucose'
+import type {
+  GlucoseRecord,
+  InsulinRecord,
+  Meal,
+  MeasureTarget,
+  NutritionEdits,
+  Portion,
+} from '@/types/glucose'
 import { formatMonthDayWeekday, isSameDay, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 import { getBackfillTarget, getMeasureTarget, getSlotLabel } from '@/utils/glucose'
 
@@ -79,9 +86,13 @@ function RecordsPage() {
   const closeDeleteSheet = useCallback(() => setDeleting(null), [])
   const closeMealSheet = useCallback(() => setEditingMeal(null), [])
 
-  const handleMealEdited = (foods: string[], portion?: Portion) => {
+  const handleMealEdited = (
+    foods: string[],
+    portion?: Portion,
+    nutritionEdits?: NutritionEdits,
+  ) => {
     if (!editingMeal) return
-    setMealContent(editingMeal.id, foods, portion)
+    setMealContent(editingMeal.id, foods, portion, nutritionEdits)
     setEditingMeal(null)
     setToast(`${MEAL_LABEL[editingMeal.type]} 기록을 고쳤어요`)
   }

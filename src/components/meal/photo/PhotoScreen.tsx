@@ -7,12 +7,14 @@ type PhotoScreenProps = {
   // 검색에서 결과로 돌아갈 때만 뒤로, 나머지는 닫기
   back?: boolean
   onBack: () => void
+  // 머리 오른쪽 글자 버튼. 예: 처음 값으로
+  action?: ReactNode
   footer?: ReactNode
   children: ReactNode
 }
 
 // Figma F-11~F-15 사진 흐름 전체 화면 틀: 머리 + 내용 + 아래 버튼
-function PhotoScreen({ title, back, onBack, footer, children }: PhotoScreenProps) {
+function PhotoScreen({ title, back, onBack, action, footer, children }: PhotoScreenProps) {
   return (
     <div role="dialog" aria-modal="true" aria-label={title} className="fixed inset-0 z-60 bg-white">
       <div className="mx-auto flex h-full w-full max-w-107.5 flex-col pt-12.5">
@@ -23,6 +25,7 @@ function PhotoScreen({ title, back, onBack, footer, children }: PhotoScreenProps
           <h1 className="text-subtitle-1 text-grey-900 absolute left-1/2 -translate-x-1/2">
             {title}
           </h1>
+          {action && <div className="ml-auto">{action}</div>}
         </header>
 
         <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 pt-2 pb-5">{children}</div>

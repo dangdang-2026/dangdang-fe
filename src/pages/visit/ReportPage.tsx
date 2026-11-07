@@ -11,53 +11,35 @@ import { REPORT_DAYS } from '@/constants/report'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
-import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
-import { useProfileStore } from '@/stores/useProfileStore'
-import { formatPregnancyRange } from '@/utils/pregnancy'
-import { useCriteriaStore } from '@/stores/useCriteriaStore'
-import { getCriteriaAt } from '@/utils/criteria'
-import { useGlucoseStore } from '@/stores/useGlucoseStore'
+import { useReportContent } from '@/hooks/useReportContent'
 import { useReportStore } from '@/stores/useReportStore'
 import { useVisitStore } from '@/stores/useVisitStore'
-import { addDays, formatMonthDay, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
-import { buildReport, formatCriteria, formatReportText } from '@/utils/report'
+import { addDays, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
+import { formatReportText } from '@/utils/report'
 
 // Figma C-06 진료 리포트. 최근 2주 기록을 A4 1쪽으로
 function ReportPage() {
-  const hospital = usePrimaryHospital()
   const goBack = useGoBack(ROUTES.VISIT)
-  const records = useGlucoseStore((state) => state.records)
-  const meals = useGlucoseStore((state) => state.meals)
   const questions = useVisitStore((state) => state.questions)
   const [shareOpen, setShareOpen] = useState(false)
   // 병원 밖으로 보낼 때 이름 빼기
   const [hideName, setHideName] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
-  const versions = useCriteriaStore((state) => state.versions)
 
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
   const saveReport = useReportStore((state) => state.saveReport)
   const [searchParams] = useSearchParams()
-  const name = useProfileStore((state) => state.name)
-  const dueDate = useProfileStore((state) => state.dueDate)
 
   const now = useNow()
   const today = startOfDay(now)
   // ?from=&to= 로 기간 지정(지난 리포트·기간 고르기). 없으면 최근 2주
   const to = parseDateKey(searchParams.get('to')) ?? today
   const from = parseDateKey(searchParams.get('from')) ?? addDays(to, -(REPORT_DAYS - 1))
-  const report = buildReport({ records, meals, from, to, versions })
-
-  const pregnancy = formatPregnancyRange(dueDate, from, to)
-  const periodLabel = `${formatMonthDay(from)} – ${formatMonthDay(to)}${pregnancy ? ` · ${pregnancy}` : ''}`
-  const title = hideName ? '혈당 기록' : `${name} 님 혈당 기록`
-  // 기준 줄은 리포트 마지막 날 기준
-  const { targets, postMealHours } = getCriteriaAt(versions, to)
-  const criteria = formatCriteria(targets, postMealHours)
-  const criteriaLines = [
-    criteria ? `기준: ${criteria}` : '기준: 적은 목표가 없어 비교하지 않았어요',
-    `${hospital.name} 안내 · 본인 입력`,
-  ]
+  const { report, title, periodLabel, criteriaLines, hospital } = useReportContent({
+    from,
+    to,
+    hideName,
+  })
 
   // 인쇄 창이 닫히면 PDF 저장 안내
   useEffect(() => {
