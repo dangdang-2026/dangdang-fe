@@ -5,6 +5,8 @@ import type { Question } from '@/types/visit'
 type VisitState = {
   // 다음 진료 일시. 모르면 null
   nextVisitAt: string | null
+  // 지나간 진료일. 달력에 진료 태그로(D-13)
+  pastVisits: string[]
   // 진료 탭 첫 진입에 다음 진료일을 물어봤는지
   asked: boolean
   questions: Question[]
@@ -23,10 +25,24 @@ export const useVisitStore = create<VisitState>()(
   persist(
     (set) => ({
       nextVisitAt: null,
+      pastVisits: [],
       asked: false,
       questions: [],
       note: '',
-      setNextVisit: (at) => set({ nextVisitAt: at, asked: true }),
+      // 다녀온 진료일을 새 날짜로 바꾸면 지난 진료일에 남김
+      setNextVisit: (at) =>
+        set((state) => {
+          const previous = state.nextVisitAt
+          const visited = previous && new Date(previous) < new Date() && previous !== at
+          return {
+            nextVisitAt: at,
+            asked: true,
+            pastVisits:
+              visited && !state.pastVisits.includes(previous)
+                ? [...state.pastVisits, previous]
+                : state.pastVisits,
+          }
+        }),
       setNote: (note) => set({ note }),
       addQuestion: (text, now = new Date()) =>
         set((state) => ({

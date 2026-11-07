@@ -4,7 +4,7 @@ import { ROUTES, communityNewsPath } from '@/constants/routes'
 import { SPLASH_TOTAL_MS } from '@/constants/splashMotion'
 import { useTimeout } from '@/hooks/useTimeout'
 import OnboardingGate from '@/layouts/OnboardingGate'
-import { MOCK_NEWS } from '@/mocks/news'
+import { LATEST_NEWS } from '@/mocks/news'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
 import { useSplashStore } from '@/stores/useSplashStore'
 import TabLayout from '@/layouts/TabLayout'
@@ -80,7 +80,7 @@ function App() {
   const splash = useSplashStore((state) => state.visible)
   const hideSplash = useSplashStore((state) => state.hide)
   useTimeout(hideSplash, splash ? (completed ? SPLASH_MS : FIRST_SPLASH_MS) : null)
-  const latestNews = MOCK_NEWS[0]
+  const latestNews = LATEST_NEWS
 
   return (
     <>
