@@ -88,6 +88,8 @@ function SplashScreen({ news, onSkip }: SplashScreenProps) {
         alt=""
         className={`absolute -left-46 max-w-none ${news ? 'top-90' : 'top-130'}`}
       />
+      {/* 언덕(타원) 가장 넓은 곳(360+280px)부터 아래를 같은 색으로 채워 긴 화면에서도 끝까지 노랑 */}
+      {news && <div aria-hidden className="absolute inset-x-0 top-160 bottom-0 bg-yellow-400" />}
       {news ? (
         <img
           src={splashCharacter}

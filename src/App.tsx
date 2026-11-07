@@ -2,6 +2,7 @@ import { Routes, Route, useNavigate } from 'react-router'
 import SplashScreen from '@/components/onboarding/SplashScreen'
 import { ROUTES, communityNewsPath } from '@/constants/routes'
 import { SPLASH_TOTAL_MS } from '@/constants/splashMotion'
+import { useMeasureReminder } from '@/hooks/useMeasureReminder'
 import { useTimeout } from '@/hooks/useTimeout'
 import OnboardingGate from '@/layouts/OnboardingGate'
 import { LATEST_NEWS } from '@/mocks/news'
@@ -75,6 +76,8 @@ const FIRST_SPLASH_MS = SPLASH_TOTAL_MS
 
 function App() {
   const navigate = useNavigate()
+  // 앱이 열려 있는 동안 측정 알림 · 알림 누르면 혈당 입력
+  useMeasureReminder()
   const completed = useOnboardingStore((state) => state.completed)
   // 앱을 열 때 한 번. 설정을 마친 뒤엔 당당 소식 한 장과 함께
   const splash = useSplashStore((state) => state.visible)
