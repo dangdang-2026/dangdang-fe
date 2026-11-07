@@ -16,7 +16,7 @@ import { useFoods } from '@/hooks/useFoods'
 import { DEFAULT_RECENT_FOODS } from '@/mocks/foods'
 import { useFoodStore } from '@/stores/useFoodStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
-import type { Meal, MyFood, Portion } from '@/types/glucose'
+import type { Meal, MyFood, NutritionEdits, Portion } from '@/types/glucose'
 import { formatTime } from '@/utils/date'
 import {
   findFood,
@@ -37,8 +37,8 @@ type MealContentSheetProps = {
   // 사진에서 후보를 못 찾고 넘어온 경우(F-05). 검색부터 열림
   photoFailed?: boolean
   onClose: () => void
-  // 주식을 고르지 않으면 portion 없음
-  onSaved: (foods: string[], portion?: Portion) => void
+  // 주식을 고르지 않으면 portion 없음. nutritionEdits는 내가 잰 영양값
+  onSaved: (foods: string[], portion?: Portion, nutritionEdits?: NutritionEdits) => void
 }
 
 // Figma F-01·F-05·F-07·D-09 식사 내용 적기. 최근 음식·이름 검색으로 고르고 양 선택
@@ -48,6 +48,7 @@ function MealContentSheet({ meal, editing, photoFailed, onClose, onSaved }: Meal
   const foods = useFoods()
   const [selected, setSelected] = useState<string[]>(meal.foods ?? [])
   const [portion, setPortion] = useState<Portion>(meal.portion ?? 'one')
+  const [nutritionEdits, setNutritionEdits] = useState<NutritionEdits>(meal.nutritionEdits ?? {})
   const [searching, setSearching] = useState(!!photoFailed)
   const [query, setQuery] = useState('')
   // 검색으로 고른 음식도 칩으로 계속 보여 줌
@@ -107,7 +108,7 @@ function MealContentSheet({ meal, editing, photoFailed, onClose, onSaved }: Meal
     addMyFood(food)
     // 이미 고른 주식이 있으면 그 양 유지
     const nextPortion = staple ? portion : food.staple ? food.portion : undefined
-    onSaved([...new Set([...selected, food.name])], nextPortion)
+    onSaved([...new Set([...selected, food.name])], nextPortion, nutritionEdits)
   }
 
   const mealLabel = MEAL_LABEL[meal.type]
@@ -269,7 +270,12 @@ function MealContentSheet({ meal, editing, photoFailed, onClose, onSaved }: Meal
             )}
 
             {nutritionItems.length > 0 && (
-              <NutritionCard items={nutritionItems} onShowSource={setSourceItem} />
+              <NutritionCard
+                items={nutritionItems}
+                edits={nutritionEdits}
+                onEditsChange={setNutritionEdits}
+                onShowSource={setSourceItem}
+              />
             )}
           </>
         )}
@@ -278,7 +284,7 @@ function MealContentSheet({ meal, editing, photoFailed, onClose, onSaved }: Meal
           type="button"
           disabled={selected.length === 0}
           className="text-subtitle-1 disabled:bg-grey-100 disabled:text-grey-400 bg-primary h-14 rounded-xl leading-none text-white"
-          onClick={() => onSaved(selected, staple ? portion : undefined)}
+          onClick={() => onSaved(selected, staple ? portion : undefined, nutritionEdits)}
         >
           확인한 것만 저장
         </button>

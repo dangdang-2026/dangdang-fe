@@ -24,7 +24,14 @@ import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useInboxStore } from '@/stores/useInboxStore'
 import { useNotificationStore } from '@/stores/useNotificationStore'
 import { useVisitStore } from '@/stores/useVisitStore'
-import type { GlucoseRecord, InsulinKind, Meal, MeasureTarget, Portion } from '@/types/glucose'
+import type {
+  GlucoseRecord,
+  InsulinKind,
+  Meal,
+  MeasureTarget,
+  NutritionEdits,
+  Portion,
+} from '@/types/glucose'
 import { isSameDay, startOfDay } from '@/utils/date'
 import { formatPregnancyAge } from '@/utils/pregnancy'
 import { formatVisitDay, getHomeVisitCard } from '@/utils/visit'
@@ -139,9 +146,13 @@ function TodayPage() {
     setToast(`${label} ${record.value} 저장했어요`)
   }
 
-  const handleMealSaved = (mealFoods: string[], portion?: Portion) => {
+  const handleMealSaved = (
+    mealFoods: string[],
+    portion?: Portion,
+    nutritionEdits?: NutritionEdits,
+  ) => {
     if (!writingMeal) return
-    setMealContent(writingMeal.id, mealFoods, portion)
+    setMealContent(writingMeal.id, mealFoods, portion, nutritionEdits)
     setToast(formatMealSavedMessage({ ...writingMeal, foods: mealFoods, portion }, foods))
     setWritingMeal(null)
   }
