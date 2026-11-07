@@ -32,11 +32,14 @@ function TourPage() {
           건너뛰기
         </button>
         <div className="flex flex-1 flex-col items-center justify-center text-center">
-          <img src={welcome} alt="" />
-          <h1 className="text-grey-900 mt-14.5 text-2xl leading-snug font-bold">
+          {/* 톡 커졌다 자리 잡은 뒤 둥둥 */}
+          <span className="animate-pop-in block motion-reduce:animate-none">
+            <img src={welcome} alt="" className="animate-float motion-reduce:animate-none" />
+          </span>
+          <h1 className="text-grey-900 animate-rise-in mt-14.5 text-2xl leading-snug font-bold motion-reduce:animate-none">
             안녕하세요! 저는 당당이에요 👋
           </h1>
-          <p className="text-grey-600 mt-3.5 text-base leading-normal font-medium">
+          <p className="text-grey-600 animate-rise-in mt-3.5 text-base leading-normal font-medium motion-reduce:animate-none">
             매일의 식사와 혈당 기록,
             <br />
             당당이가 함께 도와드릴게요.
@@ -44,7 +47,7 @@ function TourPage() {
         </div>
         <button
           type="button"
-          className="bg-primary text-subtitle-1 h-14 rounded-xl leading-none text-white"
+          className="bg-primary text-subtitle-1 animate-rise-in-late h-14 rounded-xl leading-none text-white motion-reduce:animate-none"
           onClick={() => setPhase(0)}
         >
           시작하기
@@ -60,11 +63,17 @@ function TourPage() {
     <div className="mx-auto h-dvh w-full max-w-107.5 overflow-hidden">
       {/* 뒤 화면은 보여 주기만 하고 누를 수 없음 */}
       <div ref={stageRef} inert>
-        {stage === 'visit' ? (
-          <TourVisitStage />
-        ) : (
-          <TourHomeStage eating={stage !== 'home-before'} />
-        )}
+        {/* 홈 → 진료로 넘어갈 때 뒤 화면이 부드럽게 바뀜 */}
+        <div
+          key={stage === 'visit' ? 'visit' : 'home'}
+          className="animate-fade-in motion-reduce:animate-none"
+        >
+          {stage === 'visit' ? (
+            <TourVisitStage />
+          ) : (
+            <TourHomeStage eating={stage !== 'home-before'} />
+          )}
+        </div>
         {stage === 'glucose' && <TourGlucoseSheet />}
         <ChatbotButton />
         <TabBar activePath={stage === 'visit' ? ROUTES.VISIT : ROUTES.TODAY} />
@@ -72,7 +81,6 @@ function TourPage() {
 
       {step && typeof phase === 'number' ? (
         <TourSpotlight
-          key={phase}
           rootRef={stageRef}
           step={step}
           index={phase}

@@ -203,6 +203,25 @@
     }
   }
 
+  /* A-05 말풍선은 고리가 옮겨 간 뒤 살짝 올라오며 나타남 */
+  --animate-guide-in: guide-in 0.3s ease-out 0.2s both;
+  /* A-05h 완료 카드 등장 */
+  --animate-dialog-in: dialog-in 0.3s ease-out both;
+
+  @keyframes guide-in {
+    from {
+      opacity: 0;
+      transform: translateY(--spacing(2));
+    }
+  }
+
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      transform: scale(0.92);
+    }
+  }
+
   /* A-05 스포트라이트 바깥 고리가 퍼지며 사라짐 */
   --animate-spotlight-pulse: spotlight-pulse 1.4s ease-out infinite;
 

@@ -12,8 +12,19 @@ const PULSE_GAP = 8
 const GUIDE_GAP = 20
 // 말풍선이 아래에 들어갈 높이(말풍선 + 건너뛰기 + 탭 바)
 const GUIDE_SPACE = 320
+// 고리 위치·크기 이동
+const HOLE_MOTION =
+  'transition-[top,left,width,height,border-radius] duration-300 ease-out motion-reduce:transition-none'
 
-type Hole = { top: number; left: number; width: number; height: number; radius: number }
+// index: 어느 단계 대상을 잰 값인지. 새 단계 위치를 재기 전엔 말풍선을 숨김
+type Hole = {
+  top: number
+  left: number
+  width: number
+  height: number
+  radius: number
+  index: number
+}
 
 type TourSpotlightProps = {
   rootRef: RefObject<HTMLElement | null>
@@ -33,7 +44,7 @@ function findTarget(root: HTMLElement, target: TourTarget) {
   )
 }
 
-function measureHole(element: HTMLElement, step: TourStep): Hole {
+function measureHole(element: HTMLElement, step: TourStep, index: number): Hole {
   const box = element.getBoundingClientRect()
   const pad = step.pad ?? DEFAULT_PAD
   // rounded-full은 높이 절반까지만
@@ -47,6 +58,7 @@ function measureHole(element: HTMLElement, step: TourStep): Hole {
     width: box.width + pad * 2,
     height: box.height + pad * 2,
     radius: (ownRadius || step.radius || 0) + pad,
+    index,
   }
 }
 
@@ -58,32 +70,45 @@ function TourSpotlight({ rootRef, step, index, total, onNext, onSkip }: TourSpot
   useEffect(() => {
     const root = rootRef.current
     if (!root) return
+    let cancelled = false
     const measure = () => {
       const element = findTarget(root, step.target)
-      if (element) setHole(measureHole(element, step))
+      if (element && !cancelled) setHole(measureHole(element, step, index))
     }
-    const frame = requestAnimationFrame(measure)
-    // 시트가 올라오는 애니메이션이 끝난 뒤 위치로 다시 잼
-    root.addEventListener('animationend', measure)
+    // 시트 올라옴·화면 전환처럼 끝나는 애니메이션이 멈춘 뒤 잼(둥둥 같은 반복은 제외)
+    const measureWhenSettled = async () => {
+      const running = root
+        .getAnimations({ subtree: true })
+        .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+      await Promise.allSettled(running.map((animation) => animation.finished))
+      measure()
+    }
+    const frame = requestAnimationFrame(() => void measureWhenSettled())
     window.addEventListener('resize', measure)
     return () => {
+      cancelled = true
       cancelAnimationFrame(frame)
-      root.removeEventListener('animationend', measure)
       window.removeEventListener('resize', measure)
     }
-  }, [rootRef, step])
+  }, [rootRef, step, index])
 
   const bottom = hole ? hole.top + hole.height : 0
   const below = hole ? bottom + GUIDE_SPACE <= window.innerHeight : true
   const centerX = hole ? hole.left + hole.width / 2 : 0
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="가이드 투어" className="fixed inset-0 z-70">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="가이드 투어"
+      className="animate-fade-in fixed inset-0 z-70 motion-reduce:animate-none"
+    >
       {hole ? (
         <>
+          {/* 단계가 바뀌면 고리가 다음 대상으로 미끄러져 감 */}
           <div
             aria-hidden
-            className="shadow-spotlight absolute border-3 border-yellow-500"
+            className={`shadow-spotlight absolute border-3 border-yellow-500 ${HOLE_MOTION}`}
             style={{
               top: hole.top,
               left: hole.left,
@@ -94,7 +119,7 @@ function TourSpotlight({ rootRef, step, index, total, onNext, onSkip }: TourSpot
           />
           <div
             aria-hidden
-            className="animate-spotlight-pulse absolute border-2 border-yellow-500 motion-reduce:animate-none"
+            className={`animate-spotlight-pulse absolute border-2 border-yellow-500 motion-reduce:animate-none ${HOLE_MOTION}`}
             style={{
               top: hole.top - PULSE_GAP,
               left: hole.left - PULSE_GAP,
@@ -103,48 +128,56 @@ function TourSpotlight({ rootRef, step, index, total, onNext, onSkip }: TourSpot
               borderRadius: hole.radius + PULSE_GAP,
             }}
           />
-          {/* 꼬리는 대상 가운데를 가리킴 */}
-          <img
-            src={tail}
-            alt=""
-            className={`absolute -translate-x-1/2 ${below ? '-translate-y-full' : 'rotate-180'}`}
-            style={{ left: centerX, top: below ? bottom + GUIDE_GAP : hole.top - GUIDE_GAP }}
-          />
-          <div
-            className="absolute inset-x-0 mx-auto flex w-full max-w-107.5 items-start gap-2 px-5"
-            style={
-              below
-                ? { top: bottom + GUIDE_GAP }
-                : { bottom: window.innerHeight - hole.top + GUIDE_GAP }
-            }
-          >
-            <span
-              aria-hidden
-              className="relative size-13 shrink-0 overflow-hidden rounded-full bg-yellow-50"
+          {/* 이번 단계 위치를 잰 뒤에만, 단계마다 새로 그려 말풍선 등장을 다시 보여 줌 */}
+          {hole.index === index && (
+            <div
+              key={index}
+              className="animate-guide-in absolute inset-0 motion-reduce:animate-none"
             >
-              <span className="absolute -top-0.5 -left-1 size-15.5">
-                <img src={body52} alt="" className="absolute top-2/15 left-7/40 max-w-none" />
-                <img src={hello52} alt="" className="absolute inset-0 max-w-none" />
-              </span>
-            </span>
-            <div className="shadow-guide rounded-banner flex min-w-0 flex-1 flex-col gap-1.5 bg-white px-4.5 py-4">
-              <h2 className="text-grey-900 text-base leading-normal font-bold">{step.title}</h2>
-              <p className="text-grey-700 text-sm leading-normal">{step.description}</p>
-              <div className="flex items-center justify-between pt-1.5">
-                <span className="text-t7 text-grey-500 font-medium">
-                  {index + 1} / {total}
-                </span>
-                <button
-                  type="button"
-                  autoFocus
-                  className="bg-primary rounded-full px-4 py-2 text-sm leading-snug font-bold text-white"
-                  onClick={onNext}
+              {/* 꼬리는 대상 가운데를 가리킴 */}
+              <img
+                src={tail}
+                alt=""
+                className={`absolute -translate-x-1/2 ${below ? '-translate-y-full' : 'rotate-180'}`}
+                style={{ left: centerX, top: below ? bottom + GUIDE_GAP : hole.top - GUIDE_GAP }}
+              />
+              <div
+                className="absolute inset-x-0 mx-auto flex w-full max-w-107.5 items-start gap-2 px-5"
+                style={
+                  below
+                    ? { top: bottom + GUIDE_GAP }
+                    : { bottom: window.innerHeight - hole.top + GUIDE_GAP }
+                }
+              >
+                <span
+                  aria-hidden
+                  className="relative size-13 shrink-0 overflow-hidden rounded-full bg-yellow-50"
                 >
-                  {last ? '완료' : '다음'}
-                </button>
+                  <span className="absolute -top-0.5 -left-1 size-15.5">
+                    <img src={body52} alt="" className="absolute top-2/15 left-7/40 max-w-none" />
+                    <img src={hello52} alt="" className="absolute inset-0 max-w-none" />
+                  </span>
+                </span>
+                <div className="shadow-guide rounded-banner flex min-w-0 flex-1 flex-col gap-1.5 bg-white px-4.5 py-4">
+                  <h2 className="text-grey-900 text-base leading-normal font-bold">{step.title}</h2>
+                  <p className="text-grey-700 text-sm leading-normal">{step.description}</p>
+                  <div className="flex items-center justify-between pt-1.5">
+                    <span className="text-t7 text-grey-500 font-medium">
+                      {index + 1} / {total}
+                    </span>
+                    <button
+                      type="button"
+                      autoFocus
+                      className="bg-primary rounded-full px-4 py-2 text-sm leading-snug font-bold text-white"
+                      onClick={onNext}
+                    >
+                      {last ? '완료' : '다음'}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </>
       ) : (
         <div aria-hidden className="bg-veil absolute inset-0" />
