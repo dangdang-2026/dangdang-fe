@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router'
+import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import { subscribePush } from '@/api/push'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
@@ -73,11 +74,22 @@ function TodayPage() {
   const criteria = useCriteria()
   const navigate = useNavigate()
   const location = useLocation()
-  // 알림함에서 측정 알림을 누르고 오면 혈당 입력 시트부터
-  const fromMeasureAlert = !!(location.state as { openGlucose?: boolean } | null)?.openGlucose
+  // 알림함·측정 알림(앱 밖에서 열면 ?measure=1)을 누르고 오면 혈당 입력 시트부터
+  const [searchParams] = useSearchParams()
+  const fromMeasureAlert =
+    !!(location.state as { openGlucose?: boolean } | null)?.openGlucose ||
+    searchParams.get('measure') === '1'
   const [sheetTarget, setSheetTarget] = useState<MeasureTarget | null>(() =>
     fromMeasureAlert ? getMeasureTarget(meals, records, criteria.postMealHours, new Date()) : null,
   )
+  // 오늘 탭이 열려 있을 때 알림을 눌러도 시트를 엶
+  const [seenAlert, setSeenAlert] = useState(fromMeasureAlert)
+  if (fromMeasureAlert !== seenAlert) {
+    setSeenAlert(fromMeasureAlert)
+    if (fromMeasureAlert) {
+      setSheetTarget(getMeasureTarget(meals, records, criteria.postMealHours, new Date()))
+    }
+  }
   const hasUnread = useInboxStore((state) => state.items.some((item) => !item.readAt))
   const [writingMeal, setWritingMeal] = useState<Meal | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -155,6 +167,8 @@ function TodayPage() {
     }
     const permission = await Notification.requestPermission()
     finishPermission(permission === 'granted')
+    // 앱이 닫혀 있어도 서버가 보낼 수 있게 푸시 구독(서버 키가 있을 때만)
+    if (permission === 'granted') subscribePush().catch(() => {})
   }
 
   // 같은 종류로 마지막에 적은 단위. 새로 적을 때 시작값
