@@ -1,0 +1,125 @@
+import { Link } from 'react-router'
+import EmptyRecordCard from '@/components/glucose/EmptyRecordCard'
+import { ROUTES } from '@/constants/routes'
+import { useFoods } from '@/hooks/useFoods'
+import type { Food, GlucoseRecord, InsulinRecord, Meal } from '@/types/glucose'
+import { formatTime } from '@/utils/date'
+import { getSlotLabel } from '@/utils/glucose'
+import { formatInsulinLabel } from '@/utils/insulin'
+import { formatMealLabel } from '@/utils/meal'
+
+type TodayRecordSectionProps = {
+  meals: Meal[]
+  records: GlucoseRecord[]
+  insulins?: InsulinRecord[]
+  postMealHours: number | null
+  // 저녁 이후 놓친 식후 측정. "나중에 채우기" 줄로
+  missed?: { meal: Meal; dueAt: Date }[]
+  onInputGlucose: () => void
+}
+
+type TimelineItem = {
+  id: string
+  at: Date
+  label: string
+  value?: number
+  // 비어 있는 측정 자리(값 대신 —)
+  blank?: boolean
+}
+
+// 식사·혈당·인슐린을 시간순 한 줄씩
+function toTimeline(
+  meals: Meal[],
+  records: GlucoseRecord[],
+  insulins: InsulinRecord[],
+  hours: number | null,
+  foods: Food[],
+) {
+  const items: TimelineItem[] = [
+    ...meals.map((meal) => ({
+      id: meal.id,
+      at: new Date(meal.startedAt),
+      label: formatMealLabel(meal, foods),
+    })),
+    ...records.map((record) => ({
+      id: record.id,
+      at: new Date(record.measuredAt),
+      label: getSlotLabel(record.slot, record.mealType, hours),
+      value: record.value,
+    })),
+    ...insulins.map((insulin) => ({
+      id: insulin.id,
+      at: new Date(insulin.takenAt),
+      label: formatInsulinLabel(insulin),
+    })),
+  ]
+  return items.sort((a, b) => a.at.getTime() - b.at.getTime())
+}
+
+function TodayRecordSection({
+  meals,
+  records,
+  insulins = [],
+  postMealHours,
+  missed = [],
+  onInputGlucose,
+}: TodayRecordSectionProps) {
+  const foods = useFoods()
+  const blanks: TimelineItem[] = missed.map(({ meal, dueAt }) => ({
+    id: `missed-${meal.id}`,
+    at: dueAt,
+    label: `${getSlotLabel('post-meal', meal.type, postMealHours)} · 나중에 채우기`,
+    blank: true,
+  }))
+  const timeline = [...toTimeline(meals, records, insulins, postMealHours, foods), ...blanks].sort(
+    (a, b) => a.at.getTime() - b.at.getTime(),
+  )
+
+  return (
+    <section>
+      <div className="flex items-center justify-between">
+        <h2 className="text-title-3 text-grey-900">오늘 기록</h2>
+        {timeline.length > 0 ? (
+          <Link to={ROUTES.RECORDS} className="text-body-3 text-grey-500">
+            전체 보기
+          </Link>
+        ) : (
+          <span className="text-body-3 text-grey-500">0개</span>
+        )}
+      </div>
+
+      {timeline.length > 0 ? (
+        // Figma H-02 타임라인
+        <ul className="mt-5 rounded-3xl bg-white py-1.5">
+          {timeline.map(({ id, at, label, value, blank }) => (
+            <li key={id} className="flex items-center gap-3 px-4.5 py-3">
+              <time dateTime={at.toISOString()} className="text-body-3 text-grey-400">
+                {formatTime(at)}
+              </time>
+              <p className="text-t6 text-grey-800 flex-1 truncate font-bold">{label}</p>
+              {value !== undefined && (
+                <p className="flex items-baseline gap-1">
+                  <span className="text-t4 text-blue-500">{value}</span>
+                  <span className="text-caption text-grey-400 leading-normal font-medium">
+                    mg/dL
+                  </span>
+                </p>
+              )}
+              {blank && <span className="text-t4 text-blue-500">—</span>}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="mt-3">
+          <EmptyRecordCard
+            title="아직 기록이 없어요"
+            description="공복 혈당부터 적어도 좋아요"
+            onInputGlucose={onInputGlucose}
+          />
+        </div>
+      )}
+    </section>
+  )
+}
+
+export default TodayRecordSection

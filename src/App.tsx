@@ -1,120 +1,176 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { Routes, Route, useNavigate } from 'react-router'
+import SplashScreen from '@/components/onboarding/SplashScreen'
+import { ROUTES, communityNewsPath } from '@/constants/routes'
+import { SPLASH_TOTAL_MS } from '@/constants/splashMotion'
+import { useMeasureReminder } from '@/hooks/useMeasureReminder'
+import { useTimeout } from '@/hooks/useTimeout'
+import OnboardingGate from '@/layouts/OnboardingGate'
+import { LATEST_NEWS } from '@/mocks/news'
+import { useOnboardingStore } from '@/stores/useOnboardingStore'
+import { useSplashStore } from '@/stores/useSplashStore'
+import TabLayout from '@/layouts/TabLayout'
+import TodayPage from '@/pages/today/TodayPage'
+import RecordsPage from '@/pages/records/RecordsPage'
+import RecordCalendarPage from '@/pages/records/RecordCalendarPage'
+import StatsPage from '@/pages/records/StatsPage'
+import FoodHistoryPage from '@/pages/records/FoodHistoryPage'
+import VisitPage from '@/pages/visit/VisitPage'
+import ReportPage from '@/pages/visit/ReportPage'
+import ReportsPage from '@/pages/visit/ReportsPage'
+import CriteriaPage from '@/pages/visit/CriteriaPage'
+import CriteriaHistoryPage from '@/pages/visit/CriteriaHistoryPage'
+import VisitNotePage from '@/pages/visit/VisitNotePage'
+import VisitNoteResultPage from '@/pages/visit/VisitNoteResultPage'
+import ResourcesPage from '@/pages/visit/ResourcesPage'
+import ResourceSummaryPage from '@/pages/visit/ResourceSummaryPage'
+import SupplySupportPage from '@/pages/visit/SupplySupportPage'
+import InboxPage from '@/pages/today/InboxPage'
+import ChatPage from '@/pages/chat/ChatPage'
+import BoardPage from '@/pages/community/BoardPage'
+import CommunityPage from '@/pages/community/CommunityPage'
+import PostDetailPage from '@/pages/community/PostDetailPage'
+import NewsDetailPage from '@/pages/community/NewsDetailPage'
+import NewsListPage from '@/pages/community/NewsListPage'
+import PolicyPage from '@/pages/community/PolicyPage'
+import WritePage from '@/pages/community/WritePage'
+import LoginPage from '@/pages/auth/LoginPage'
+import PasswordFindPage from '@/pages/auth/PasswordFindPage'
+import PasswordResetPage from '@/pages/auth/PasswordResetPage'
+import SignupPage from '@/pages/auth/SignupPage'
+import AiSettingsPage from '@/pages/my/AiSettingsPage'
+import HospitalSearchPage from '@/pages/my/HospitalSearchPage'
+import HospitalsPage from '@/pages/my/HospitalsPage'
+import CommunityActivityPage from '@/pages/my/CommunityActivityPage'
+import CommunitySettingsPage from '@/pages/my/CommunitySettingsPage'
+import DataPage from '@/pages/my/DataPage'
+import MyCriteriaPage from '@/pages/my/MyCriteriaPage'
+import MealGuidePage from '@/pages/my/MealGuidePage'
+import MyFoodsPage from '@/pages/my/MyFoodsPage'
+import MyPage from '@/pages/my/MyPage'
+import NicknamePage from '@/pages/my/NicknamePage'
+import NotificationsPage from '@/pages/my/NotificationsPage'
+import PasswordChangePage from '@/pages/my/PasswordChangePage'
+import ProfilePage from '@/pages/my/ProfilePage'
+import TermsPage from '@/pages/my/TermsPage'
+import DueDatePage from '@/pages/onboarding/DueDatePage'
+import IntroPage from '@/pages/onboarding/IntroPage'
+import SlotsPage from '@/pages/onboarding/SlotsPage'
+import TermsAgreePage from '@/pages/onboarding/TermsAgreePage'
+import CheckGuidePage from '@/pages/postpartum/CheckGuidePage'
+import CheckResultPage from '@/pages/postpartum/CheckResultPage'
+import CheckSchedulePage from '@/pages/postpartum/CheckSchedulePage'
+import DeliveryPage from '@/pages/postpartum/DeliveryPage'
+import GraduationPage from '@/pages/postpartum/GraduationPage'
+import TimingPage from '@/pages/onboarding/TimingPage'
+import TourPage from '@/pages/onboarding/TourPage'
+import NotFoundPage from '@/pages/NotFoundPage'
+import PrivacyPolicyPage from '@/pages/legal/PrivacyPolicyPage'
+import SensitiveConsentPage from '@/pages/legal/SensitiveConsentPage'
+import ServiceTermsPage from '@/pages/legal/ServiceTermsPage'
+import TransferNoticePage from '@/pages/legal/TransferNoticePage'
+
+// 재실행 스플래시(당당 소식 카드)를 보여 주는 시간
+const SPLASH_MS = 1600
+// 첫 실행은 모션(4.4초) + 언덕 올라오기 + 페이드 아웃이 끝난 뒤 넘김
+const FIRST_SPLASH_MS = SPLASH_TOTAL_MS
 
 function App() {
-  const [count, setCount] = useState(0)
+  const navigate = useNavigate()
+  // 앱이 열려 있는 동안 측정 알림 · 알림 누르면 혈당 입력
+  useMeasureReminder()
+  const completed = useOnboardingStore((state) => state.completed)
+  // 앱을 열 때 한 번. 설정을 마친 뒤엔 당당 소식 한 장과 함께
+  const splash = useSplashStore((state) => state.visible)
+  const hideSplash = useSplashStore((state) => state.hide)
+  useTimeout(hideSplash, splash ? (completed ? SPLASH_MS : FIRST_SPLASH_MS) : null)
+  const latestNews = LATEST_NEWS
 
   return (
     <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
+      {splash && (
+        <SplashScreen
+          news={
+            completed
+              ? {
+                  title: latestNews.title,
+                  onOpen: () => {
+                    hideSplash()
+                    navigate(communityNewsPath(latestNews.id))
+                  },
+                }
+              : undefined
+          }
+          onSkip={() => hideSplash()}
+        />
+      )}
+      <Routes>
+        <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+        <Route path={ROUTES.SIGNUP} element={<SignupPage />} />
+        <Route path={ROUTES.PASSWORD_FIND} element={<PasswordFindPage />} />
+        <Route path={ROUTES.PASSWORD_RESET} element={<PasswordResetPage />} />
+        {/* 첫 진입 설정 */}
+        <Route path={ROUTES.ONBOARDING} element={<IntroPage />} />
+        <Route path={ROUTES.ONBOARDING_TERMS} element={<TermsAgreePage />} />
+        <Route path={ROUTES.ONBOARDING_TIMING} element={<TimingPage />} />
+        <Route path={ROUTES.ONBOARDING_SLOTS} element={<SlotsPage />} />
+        <Route path={ROUTES.ONBOARDING_DUE_DATE} element={<DueDatePage />} />
+        {/* 약관 문서는 가입 전에도 봄 */}
+        <Route path={ROUTES.LEGAL_PRIVACY} element={<PrivacyPolicyPage />} />
+        <Route path={ROUTES.LEGAL_TERMS} element={<ServiceTermsPage />} />
+        <Route path={ROUTES.LEGAL_SENSITIVE} element={<SensitiveConsentPage />} />
+        <Route path={ROUTES.LEGAL_TRANSFER} element={<TransferNoticePage />} />
+        <Route element={<OnboardingGate />}>
+          <Route path={ROUTES.ONBOARDING_TOUR} element={<TourPage />} />
+          <Route element={<TabLayout />}>
+            <Route path={ROUTES.TODAY} element={<TodayPage />} />
+            <Route path={ROUTES.RECORDS} element={<RecordsPage />} />
+            <Route path={ROUTES.VISIT} element={<VisitPage />} />
+            <Route path={ROUTES.COMMUNITY} element={<CommunityPage />} />
+            <Route path={ROUTES.COMMUNITY_BOARD} element={<BoardPage />} />
+            <Route path={ROUTES.MY} element={<MyPage />} />
+          </Route>
+          {/* 탭 바 없는 화면 */}
+          <Route path={ROUTES.RECORDS_CALENDAR} element={<RecordCalendarPage />} />
+          <Route path={ROUTES.RECORDS_STATS} element={<StatsPage />} />
+          <Route path={ROUTES.RECORDS_FOOD_HISTORY} element={<FoodHistoryPage />} />
+          <Route path={ROUTES.VISIT_REPORT} element={<ReportPage />} />
+          <Route path={ROUTES.VISIT_REPORTS} element={<ReportsPage />} />
+          <Route path={ROUTES.VISIT_CRITERIA} element={<CriteriaPage />} />
+          <Route path={ROUTES.VISIT_CRITERIA_HISTORY} element={<CriteriaHistoryPage />} />
+          <Route path={ROUTES.VISIT_NOTE} element={<VisitNotePage />} />
+          <Route path={ROUTES.VISIT_NOTE_RESULT} element={<VisitNoteResultPage />} />
+          <Route path={ROUTES.VISIT_RESOURCES} element={<ResourcesPage />} />
+          <Route path={ROUTES.VISIT_RESOURCE_SUMMARY} element={<ResourceSummaryPage />} />
+          <Route path={ROUTES.VISIT_SUPPLY_SUPPORT} element={<SupplySupportPage />} />
+          <Route path={ROUTES.INBOX} element={<InboxPage />} />
+          <Route path={ROUTES.MY_PROFILE} element={<ProfilePage />} />
+          <Route path={ROUTES.MY_CRITERIA} element={<MyCriteriaPage />} />
+          <Route path={ROUTES.MY_MEAL_GUIDE} element={<MealGuidePage />} />
+          <Route path={ROUTES.MY_NOTIFICATIONS} element={<NotificationsPage />} />
+          <Route path={ROUTES.MY_FOODS} element={<MyFoodsPage />} />
+          <Route path={ROUTES.MY_TERMS} element={<TermsPage />} />
+          <Route path={ROUTES.MY_PASSWORD} element={<PasswordChangePage />} />
+          <Route path={ROUTES.MY_DATA} element={<DataPage />} />
+          <Route path={ROUTES.MY_AI} element={<AiSettingsPage />} />
+          <Route path={ROUTES.MY_HOSPITALS} element={<HospitalsPage />} />
+          <Route path={ROUTES.MY_HOSPITAL_SEARCH} element={<HospitalSearchPage />} />
+          <Route path={ROUTES.POSTPARTUM_DELIVERY} element={<DeliveryPage />} />
+          <Route path={ROUTES.POSTPARTUM_CHECK} element={<CheckSchedulePage />} />
+          <Route path={ROUTES.POSTPARTUM_CHECK_RESULT} element={<CheckResultPage />} />
+          <Route path={ROUTES.POSTPARTUM_GUIDE} element={<CheckGuidePage />} />
+          <Route path={ROUTES.POSTPARTUM_GRADUATION} element={<GraduationPage />} />
+          <Route path={ROUTES.ASK} element={<ChatPage />} />
+          <Route path={ROUTES.MY_COMMUNITY} element={<CommunitySettingsPage />} />
+          <Route path={ROUTES.MY_NICKNAME} element={<NicknamePage />} />
+          <Route path={ROUTES.MY_COMMUNITY_ACTIVITY} element={<CommunityActivityPage />} />
+          <Route path={ROUTES.COMMUNITY_POST} element={<PostDetailPage />} />
+          <Route path={ROUTES.COMMUNITY_WRITE} element={<WritePage />} />
+          <Route path={ROUTES.COMMUNITY_POLICY} element={<PolicyPage />} />
+          <Route path={ROUTES.COMMUNITY_NEWS} element={<NewsListPage />} />
+          <Route path={ROUTES.COMMUNITY_NEWS_DETAIL} element={<NewsDetailPage />} />
+        </Route>
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
     </>
   )
 }
