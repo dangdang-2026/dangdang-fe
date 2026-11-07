@@ -34,6 +34,7 @@ function RecordCalendarPage() {
   const records = useGlucoseStore((state) => state.records)
   const insulins = useGlucoseStore((state) => state.insulins)
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
+  const pastVisits = useVisitStore((state) => state.pastVisits)
   const today = startOfDay(useNow())
 
   const start = useRecordStart(today)
@@ -46,8 +47,12 @@ function RecordCalendarPage() {
   const [month, setMonth] = useState(() => startOfMonth(today))
   const isStartMonth = month <= startOfMonth(start)
   const isCurrentMonth = month >= startOfMonth(today)
-  const visitDay = nextVisitAt ? startOfDay(new Date(nextVisitAt)) : null
-  const hasVisit = !!visitDay && isSameDay(startOfMonth(visitDay), month)
+  // 지난 진료일과 다음 진료일 모두 진료 태그
+  const visitDays = [...pastVisits, ...(nextVisitAt ? [nextVisitAt] : [])].map((at) =>
+    startOfDay(new Date(at)),
+  )
+  const isVisitDay = (date: Date) => visitDays.some((day) => isSameDay(day, date))
+  const hasVisit = visitDays.some((day) => isSameDay(startOfMonth(day), month))
   const hasRecord = (date: Date) => recordDates.some((recordDate) => isSameDay(recordDate, date))
 
   // 이 달에 기록을 시작했으면 시작일 안내
@@ -135,7 +140,7 @@ function RecordCalendarPage() {
                     <span className="flex size-1.5 items-center justify-center">
                       {dot && <img src={dot} alt="" width={5} height={5} />}
                     </span>
-                    {visitDay && isSameDay(date, visitDay) && <VisitTag />}
+                    {isVisitDay(date) && <VisitTag />}
                   </button>
                 </li>
               )

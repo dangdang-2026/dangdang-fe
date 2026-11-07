@@ -48,6 +48,8 @@ function WeekPicker({ selected, today, hasRecord, onSelect }: WeekPickerProps) {
         {days.map((day, index) => {
           const isSelected = isSameDay(day, selected)
           const isFuture = day > today
+          // Figma D-01 점은 오늘만 주황. 고른 날은 동그라미로 표시
+          const isToday = isSameDay(day, today)
           const dayColor = isSelected
             ? 'bg-primary text-white'
             : isFuture
@@ -72,7 +74,7 @@ function WeekPicker({ selected, today, hasRecord, onSelect }: WeekPickerProps) {
               {/* 점 자리는 항상 차지해 높이 유지 */}
               <span className="flex size-1.5 items-center justify-center">
                 {!isFuture && hasRecord(day) && (
-                  <img src={isSelected ? dotPrimary : dotGrey} alt="" width={5} height={5} />
+                  <img src={isToday ? dotPrimary : dotGrey} alt="" width={5} height={5} />
                 )}
               </span>
             </li>
