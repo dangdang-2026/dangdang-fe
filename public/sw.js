@@ -1,7 +1,8 @@
 // 당당 Service Worker: 화면 파일 캐시 · 측정 알림(Web Push) 받기 · 알림 누르면 혈당 입력으로
 // R8 건강정보는 캐시하지 않음 → /api/ 는 항상 네트워크만
 
-const CACHE = 'dangdang-shell-v1'
+// 캐시 내용이 바뀌면 버전을 올려 옛 캐시 삭제
+const CACHE = 'dangdang-shell-v2'
 const SHELL = ['/', '/manifest.webmanifest', '/icons/app-icon.svg', '/icons/icon-192.png']
 // 알림을 누르면 열 주소. 오늘 탭이 혈당 입력 시트를 바로 엶
 const MEASURE_URL = '/?measure=1'
@@ -35,8 +36,24 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
+  // 아이콘은 이름이 그대로라 네트워크 먼저(바뀐 아이콘 반영), 끊기면 캐시
+  if (url.pathname.startsWith('/icons/')) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone()
+            caches.open(CACHE).then((cache) => cache.put(request, copy))
+          }
+          return response
+        })
+        .catch(() => caches.match(request)),
+    )
+    return
+  }
+
   // 빌드 파일(이름에 해시)은 한 번 받으면 캐시에서
-  if (url.pathname.startsWith('/assets/') || url.pathname.startsWith('/icons/')) {
+  if (url.pathname.startsWith('/assets/')) {
     event.respondWith(
       caches.match(request).then(
         (cached) =>
