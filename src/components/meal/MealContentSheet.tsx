@@ -8,6 +8,7 @@ import iconPlusMd from '@/assets/icons/plus-md.svg'
 import iconSearch from '@/assets/icons/search.svg'
 import iconSearchSm from '@/assets/icons/search-sm.svg'
 import BottomSheet from '@/components/common/BottomSheet'
+import AiPhotoRow from '@/components/meal/AiPhotoRow'
 import FoodChip from '@/components/meal/FoodChip'
 import MealGuideSheet from '@/components/meal/MealGuideSheet'
 import MyFoodForm from '@/components/meal/MyFoodForm'
@@ -33,19 +34,36 @@ const PORTIONS: Portion[] = ['half', 'one', 'one-half']
 const RECENT_LIMIT = 3
 const SEARCH_LIMIT = 8
 
+// 사진 분석 상태. found면 후보와 미리 고를 1등 후보
+export type PhotoAnalysis = {
+  photoUrl: string
+  status: 'finding' | 'found'
+  candidates: string[]
+  preselect: string[]
+}
+
 type MealContentSheetProps = {
   meal: Meal
   // 이미 적은 식사를 고칠 때
   editing?: boolean
   // 사진에서 후보를 못 찾고 넘어온 경우(F-05). 검색부터 열림
   photoFailed?: boolean
+  // 찾는 중에 이름으로 넘어온 경우(F-03·F-04). 분석이 끝나면 후보 칩으로
+  photoAnalysis?: PhotoAnalysis
   onClose: () => void
   // 주식을 고르지 않으면 portion 없음. nutritionEdits는 내가 잰 영양값
   onSaved: (foods: string[], portion?: Portion, nutritionEdits?: NutritionEdits) => void
 }
 
 // Figma F-01·F-05·F-07·D-09 식사 내용 적기. 최근 음식·이름 검색으로 고르고 양 선택
-function MealContentSheet({ meal, editing, photoFailed, onClose, onSaved }: MealContentSheetProps) {
+function MealContentSheet({
+  meal,
+  editing,
+  photoFailed,
+  photoAnalysis,
+  onClose,
+  onSaved,
+}: MealContentSheetProps) {
   const navigate = useNavigate()
   const meals = useGlucoseStore((state) => state.meals)
   const foods = useFoods()
@@ -60,15 +78,33 @@ function MealContentSheet({ meal, editing, photoFailed, onClose, onSaved }: Meal
   const [addingName, setAddingName] = useState<string | null>(null)
   const addMyFood = useFoodStore((state) => state.addMyFood)
 
+  // 분석이 끝나면 1등 후보를 고른 음식에 더함(이미 고른 건 유지)
+  const [seenStatus, setSeenStatus] = useState(photoAnalysis?.status)
+  if (photoAnalysis?.status !== seenStatus) {
+    setSeenStatus(photoAnalysis?.status)
+    if (photoAnalysis?.status === 'found') {
+      setSelected((prev) => [...new Set([...prev, ...photoAnalysis.preselect])])
+    }
+  }
+  // AI 후보 칩: 지금 찾은 후보, 아니면 사진으로 적은 끼니를 다시 열 때 저장한 후보
+  const aiChips =
+    photoAnalysis?.status === 'found'
+      ? photoAnalysis.candidates
+      : meal.aiCandidates?.length
+        ? meal.aiCandidates
+        : null
+  const aiRowStatus = photoAnalysis ? photoAnalysis.status : aiChips ? 'saved' : null
+
   const recent = getRecentFoods(
     meals.filter((item) => item.id !== meal.id),
     RECENT_LIMIT,
   )
   const chips = [
     ...new Set([
+      ...(aiChips ?? []),
       ...(meal.foods ?? []),
-      // 최근 음식이 모자라면 기본 음식으로 채움
-      ...[...new Set([...recent, ...DEFAULT_RECENT_FOODS])].slice(0, RECENT_LIMIT),
+      // 최근 음식이 모자라면 기본 음식으로 채움. AI 후보가 있으면 후보만
+      ...(aiChips ? [] : [...new Set([...recent, ...DEFAULT_RECENT_FOODS])].slice(0, RECENT_LIMIT)),
       ...searched,
     ]),
   ]
@@ -163,6 +199,10 @@ function MealContentSheet({ meal, editing, photoFailed, onClose, onSaved }: Meal
           </button>
         )}
 
+        {aiRowStatus && !searching && (
+          <AiPhotoRow photoUrl={photoAnalysis?.photoUrl} status={aiRowStatus} />
+        )}
+
         {photoFailed && (
           <div className="bg-grey-50 rounded-bubble flex items-start gap-2.5 px-4 py-3.5">
             <img src={iconAlert} alt="" width={18} height={18} className="mt-0.5 shrink-0" />
@@ -231,7 +271,7 @@ function MealContentSheet({ meal, editing, photoFailed, onClose, onSaved }: Meal
         ) : (
           <>
             <p className="text-grey-800 text-sm leading-normal font-bold">
-              {editing ? '음식' : '최근 먹은 음식'}
+              {editing || aiChips ? '음식' : '최근 먹은 음식'}
             </p>
             <div className="flex flex-wrap gap-2">
               {chips.map((name) => (
@@ -248,7 +288,7 @@ function MealContentSheet({ meal, editing, photoFailed, onClose, onSaved }: Meal
                 onClick={() => setSearching(true)}
               >
                 <img src={iconSearchSm} alt="" width={14} height={14} />
-                이름 검색
+                {aiChips ? '직접 검색' : '이름 검색'}
               </button>
             </div>
             {historyFood && (

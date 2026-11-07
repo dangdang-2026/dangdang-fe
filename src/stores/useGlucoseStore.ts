@@ -24,6 +24,8 @@ type GlucoseState = {
     portion?: Portion,
     nutritionEdits?: NutritionEdits,
   ) => void
+  // 사진으로 적은 끼니의 AI 후보·음식별 양
+  setMealPhotoInfo: (mealId: string, info: Pick<Meal, 'aiCandidates' | 'portions'>) => void
   addRecord: (target: MeasureTarget, value: number, now?: Date) => GlucoseRecord
   updateRecord: (id: string, changes: { value: number; measuredAt: string }, now?: Date) => void
   deleteRecord: (id: string, now?: Date) => void
@@ -71,6 +73,10 @@ export const useGlucoseStore = create<GlucoseState>()(
                 }
               : meal,
           ),
+        })),
+      setMealPhotoInfo: (mealId, info) =>
+        set((state) => ({
+          meals: state.meals.map((meal) => (meal.id === mealId ? { ...meal, ...info } : meal)),
         })),
       addRecord: (target, value, now = new Date()) => {
         const record: GlucoseRecord = {
