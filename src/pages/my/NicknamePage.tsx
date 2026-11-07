@@ -28,7 +28,7 @@ function NicknamePage() {
         <div className="flex flex-col gap-1.5">
           <h2 className="text-t4 text-grey-900">커뮤니티에서 보이는 이름이에요</h2>
           <p className="text-grey-600 text-sm leading-normal">
-            직접 적거나 새로 만들 수 있어요. 실명이나 연락처는 쓰지 마세요.
+            직접 적거나 ↻을 눌러 새 이름을 만들 수 있어요. 실명이나 연락처는 쓰지 마세요.
           </p>
         </div>
         <NicknameField value={name} check={check} onChange={setName} />
@@ -40,7 +40,7 @@ function NicknamePage() {
       <button
         type="button"
         disabled={check !== 'ok' || unchanged}
-        className="bg-primary text-grey-900 disabled:bg-grey-100 disabled:text-grey-400 rounded-key py-4 text-base leading-snug font-bold"
+        className="bg-primary disabled:bg-grey-100 disabled:text-grey-400 rounded-key py-4 text-base leading-snug font-bold text-white"
         onClick={() => {
           setNickname(name.trim())
           goBack()

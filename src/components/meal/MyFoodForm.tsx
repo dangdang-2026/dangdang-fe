@@ -172,14 +172,14 @@ function MyFoodForm({ initialName, editing, onBack, onAdd, onDelete }: MyFoodFor
         <span className="text-grey-700 text-t7 flex-1 leading-relaxed">
           {editing
             ? '고쳐도 이미 남긴 끼니 기록은 그대로예요. 다음 기록부터 바뀐 내용으로 보여요.'
-            : '내 음식은 나만 볼 수 있어요.'}
+            : '내 음식은 나만 볼 수 있어요. 마이 › 내 음식에서 고치거나 지울 수 있어요.'}
         </span>
       </p>
 
       <button
         type="button"
         disabled={!trimmed}
-        className="disabled:bg-grey-100 disabled:text-grey-400 bg-primary text-grey-900 rounded-key py-4 text-base leading-normal font-bold"
+        className="disabled:bg-grey-100 disabled:text-grey-400 bg-primary rounded-key py-4 text-base leading-normal font-bold text-white"
         onClick={() =>
           onAdd({
             name: trimmed,

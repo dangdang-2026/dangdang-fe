@@ -26,7 +26,7 @@ function ReportShareSheet({
 }: ReportShareSheetProps) {
   return (
     <BottomSheet label="리포트 전하기" onClose={onClose}>
-      <h2 className="text-t4 text-grey-900">리포트를 어떻게 전할까요?</h2>
+      <h2 className="text-t4 text-grey-900">리포트를 어떻게 전달할까요?</h2>
 
       <div className="-my-2 flex flex-col">
         <div className="px-1 py-3.5">

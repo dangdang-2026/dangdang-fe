@@ -107,7 +107,7 @@ function AiSettingsPage() {
       {confirm && (
         <ConfirmDialog
           title="AI 사용 동의를 철회할까요?"
-          description="사진 음식 찾기와 당당이의 기록 보기를 쓸 수 없어요. 기록·알림·리포트는 그대로 쓸 수 있고, 이미 보낸 정보는 남기지 않아요."
+          description="사진 음식 찾기와 당당이 질문을 쓸 수 없어요. 기록·알림·리포트는 그대로 쓸 수 있고, 이미 보낸 정보는 남기지 않아요."
           confirmLabel="철회하기"
           danger
           onConfirm={() => {

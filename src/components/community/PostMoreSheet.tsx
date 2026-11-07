@@ -56,6 +56,11 @@ function PostMoreSheet({
           </li>
         ))}
       </ul>
+      {mine && (
+        <p className="text-grey-500 -mt-2 text-xs leading-normal">
+          투표는 글을 올린 뒤 고칠 수 없어요.
+        </p>
+      )}
       <button
         type="button"
         className="bg-grey-100 text-grey-800 rounded-key py-4 text-base leading-snug font-bold"

@@ -172,7 +172,7 @@ function LoginPage() {
       <div className="mt-3.5 flex items-center justify-between">
         <div className="flex flex-col gap-1.5">
           <h1 className="text-t2 text-grey-900">로그인</h1>
-          <p className="text-grey-500 text-sm leading-normal">
+          <p className="text-grey-600 text-sm leading-normal">
             지난 기록을 그대로 이어서 볼 수 있어요
           </p>
         </div>
@@ -307,7 +307,7 @@ function LoginPage() {
         </button>
       </p>
 
-      <p className="text-t7 text-grey-400 mt-11 flex items-center gap-3">
+      <p className="text-t7 text-grey-600 mt-11 flex items-center gap-3">
         <span className="bg-grey-200 h-px flex-1" />
         또는
         <span className="bg-grey-200 h-px flex-1" />
@@ -323,9 +323,9 @@ function LoginPage() {
         {lastMethod === 'kakao' && <RecentChip />}
       </button>
 
-      <p className="text-grey-500 mt-8 flex items-center justify-center gap-1.5 text-xs leading-normal">
+      <p className="text-grey-600 mt-8 flex items-center justify-center gap-1.5 text-xs leading-normal">
         <img src={iconInfo} alt="" width={14} height={14} />
-        같은 계정으로 가입한 방법을 선택해 주세요
+        가입할 때 쓴 방법으로 로그인해 주세요
       </p>
 
       {kakaoSheet && (
