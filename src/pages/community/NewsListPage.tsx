@@ -20,7 +20,9 @@ function NewsListPage() {
   const savedNewsIds = useCommunityStore((state) => state.savedNewsIds)
   const [tab, setTab] = useState<Tab>('all')
   const cards =
-    tab === 'all' ? MOCK_NEWS : MOCK_NEWS.filter((card) => savedNewsIds.includes(card.id))
+    tab === 'all'
+      ? MOCK_NEWS.filter((card) => !card.withdrawn)
+      : MOCK_NEWS.filter((card) => savedNewsIds.includes(card.id))
   const seriesTitle = [...new Set(cards.map((card) => card.series))].join(' · ')
 
   return (

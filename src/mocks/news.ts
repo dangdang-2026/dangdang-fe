@@ -18,6 +18,10 @@ export type NewsCard = {
   slides: NewsSlide[]
   // 물어볼 것에 적기에서 고를 질문
   questions: string[]
+  // 정정한 카드(U-26b). on: YYYY-MM-DD
+  correction?: { on: string; summary: string; detail: string }
+  // 출처를 다시 확인하느라 내린 카드(U-26c). 목록에선 빼고 링크·저장으로만 열림
+  withdrawn?: boolean
 }
 
 export const MOCK_NEWS: NewsCard[] = [
@@ -27,6 +31,11 @@ export const MOCK_NEWS: NewsCard[] = [
     title: '출산 후 첫 혈당 검사, 언제 받나요?',
     sources: ['대한당뇨병학회', '미국당뇨병학회(ADA)', '영국 NICE'],
     checkedAt: '2026-10-19',
+    correction: {
+      on: '2026-10-25',
+      summary: '5장 문구를 고쳤어요',
+      detail: '5장의 검사 간격을 출처 문구에 맞게 고쳤어요. 내용 판단은 바뀌지 않았어요.',
+    },
     slides: [
       {
         eyebrow: '출산 후에도',
@@ -82,4 +91,23 @@ export const MOCK_NEWS: NewsCard[] = [
     ],
     questions: ['하루에 탄수화물을 얼마나 먹으면 되나요?', '간식은 언제, 얼마나 먹으면 좋을까요?'],
   },
+  {
+    id: 'snack-fruit',
+    series: '지침은 이렇게 말해요',
+    title: '간식으로 과일, 얼마나 먹어도 될까요?',
+    sources: ['대한당뇨병학회'],
+    checkedAt: '2026-10-12',
+    withdrawn: true,
+    slides: [
+      {
+        eyebrow: '지침은 이렇게 말해요',
+        headline: '출처를 다시 확인하고 있어요',
+        body: '확인이 끝나면 다시 올려요.',
+      },
+    ],
+    questions: [],
+  },
 ]
+
+// 메인·재실행 스플래시에 보일 가장 최근 당당 소식. 내린 카드는 빼고
+export const LATEST_NEWS = MOCK_NEWS.filter((card) => !card.withdrawn)[0]
