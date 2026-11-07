@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { findFoodInPhoto } from '@/api/foodPhoto'
 import BottomSheet from '@/components/common/BottomSheet'
-import MealContentSheet from '@/components/meal/MealContentSheet'
+import MealContentSheet, { type PhotoAnalysis } from '@/components/meal/MealContentSheet'
 import MyFoodForm from '@/components/meal/MyFoodForm'
 import CameraScreen from '@/components/meal/photo/CameraScreen'
 import PhotoConsentSheet from '@/components/meal/photo/PhotoConsentSheet'
@@ -13,6 +13,7 @@ import PhotoUnclearScreen from '@/components/meal/photo/PhotoUnclearScreen'
 import { MEAL_LABEL } from '@/constants/glucose'
 import { useAiStore } from '@/stores/useAiStore'
 import { useFoodStore } from '@/stores/useFoodStore'
+import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import type { DetectedFood } from '@/types/foodPhoto'
 import type { Meal, MyFood, NutritionEdits, Portion } from '@/types/glucose'
 
@@ -48,6 +49,7 @@ function getFirstStep(meal: Meal, agreed: boolean | undefined): Step {
 const toTableItem = (food: DetectedFood): TableItem => ({
   id: food.id,
   name: food.candidates[0],
+  portion: 'one',
   checked: !food.needsCheck,
   needsCheck: food.needsCheck,
   point: food.point,
@@ -58,6 +60,10 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
   const photoConsent = useAiStore((state) => state.photo)
   const setConsent = useAiStore((state) => state.setConsent)
   const addMyFood = useFoodStore((state) => state.addMyFood)
+  const setMealPhotoInfo = useGlucoseStore((state) => state.setMealPhotoInfo)
+  // 찾는 중에 이름으로 넘어가면 분석은 이어서 하고 식사 시트에 결과를 보여 줌(F-03·F-04)
+  const [analysis, setAnalysis] = useState<Omit<PhotoAnalysis, 'photoUrl'> | null>(null)
+  const handoffRef = useRef(false)
   const [step, setStep] = useState<Step>(() => getFirstStep(meal, photoConsent?.agreed))
   // 사진은 기기 메모리에만. 흐름이 끝나면 지움
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
@@ -80,18 +86,55 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
   }, [photoUrl])
 
   const writeName = () => {
-    requestRef.current += 1
+    if (step === 'finding') {
+      handoffRef.current = true
+      setAnalysis({ status: 'finding', candidates: [], preselect: [] })
+    } else {
+      requestRef.current += 1
+    }
     setStep('name')
+  }
+
+  // 사진으로 찾은 후보·음식별 양을 끼니에 남기고 저장
+  const saveWithPhotoInfo = (
+    names: string[],
+    savedPortion: Portion | undefined,
+    info: Pick<Meal, 'aiCandidates' | 'portions'>,
+    edits?: NutritionEdits,
+  ) => {
+    setMealPhotoInfo(meal.id, info)
+    onSaved(names, savedPortion, edits)
   }
 
   const handleCapture = async (photo: Blob) => {
     const request = ++requestRef.current
+    handoffRef.current = false
+    setAnalysis(null)
     setPhotoUrl(URL.createObjectURL(photo))
     setStep('finding')
     try {
       const result = await findFoodInPhoto(meal.id, photo)
       if (request !== requestRef.current) return
-      if (result.status === 'unclear' || result.foods.length === 0) return setStep('unclear')
+      const unclear = result.status === 'unclear' || result.foods.length === 0
+      // 이미 식사 시트로 넘어갔으면 시트에 후보만 채움
+      if (handoffRef.current) {
+        if (unclear) {
+          setAnalysis(null)
+          return setStep('failed')
+        }
+        setAnalysis({
+          status: 'found',
+          candidates:
+            result.foods.length > 1
+              ? result.foods.map((food) => food.candidates[0])
+              : result.foods[0].candidates,
+          preselect: result.foods
+            .filter((food) => !food.needsCheck)
+            .map((food) => food.candidates[0]),
+        })
+        return
+      }
+      if (unclear) return setStep('unclear')
       setPortion('one')
       if (result.foods.length > 1) {
         setItems(result.foods.map(toTableItem))
@@ -105,7 +148,9 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
       setSelected(food.needsCheck ? [] : food.candidates.slice(0, 1))
       setStep('single')
     } catch {
-      if (request === requestRef.current) setStep('failed')
+      if (request !== requestRef.current) return
+      setAnalysis(null)
+      setStep('failed')
     }
   }
 
@@ -141,7 +186,7 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
     } else {
       setItems((prev) => [
         ...prev,
-        { id: `added-${prev.length}`, name, checked: true, needsCheck: false },
+        { id: `added-${prev.length}`, name, portion: 'one', checked: true, needsCheck: false },
       ])
     }
     setStep(searchTarget.mode)
@@ -176,7 +221,7 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
     case 'camera':
       return (
         <CameraScreen
-          title={`${mealLabel} 사진`}
+          mealLabel={mealLabel}
           onCapture={handleCapture}
           onWriteName={writeName}
           onClose={onClose}
@@ -207,7 +252,9 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
           onSearch={() => openSearch({ mode: 'single' })}
           nutritionEdits={nutritionEdits}
           onNutritionEditsChange={setNutritionEdits}
-          onSave={(savedPortion) => onSaved(selected, savedPortion, nutritionEdits)}
+          onSave={(savedPortion) =>
+            saveWithPhotoInfo(selected, savedPortion, { aiCandidates: candidates }, nutritionEdits)
+          }
           onClose={onClose}
         />
       )
@@ -216,17 +263,21 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
         <PhotoTableScreen
           photoUrl={photoUrl!}
           items={items}
-          portion={portion}
           onToggle={toggleItem}
-          onPortionChange={setPortion}
-          onFix={(id) => openSearch({ mode: 'table', id })}
-          onAddMissing={() => openSearch({ mode: 'table', id: null })}
-          onSave={(savedPortion) =>
-            onSaved(
-              [...new Set(items.filter((item) => item.checked).map((item) => item.name))],
-              savedPortion,
+          onItemPortionChange={(id, itemPortion) =>
+            setItems((prev) =>
+              prev.map((item) => (item.id === id ? { ...item, portion: itemPortion } : item)),
             )
           }
+          onFix={(id) => openSearch({ mode: 'table', id })}
+          onAddMissing={() => openSearch({ mode: 'table', id: null })}
+          onSave={(savedPortion) => {
+            const checked = items.filter((item) => item.checked)
+            saveWithPhotoInfo([...new Set(checked.map((item) => item.name))], savedPortion, {
+              aiCandidates: items.map((item) => item.name),
+              portions: Object.fromEntries(checked.map((item) => [item.name, item.portion])),
+            })
+          }}
           onClose={onClose}
         />
       )
@@ -259,8 +310,13 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
         <MealContentSheet
           meal={meal}
           photoFailed={step === 'failed'}
+          photoAnalysis={analysis && photoUrl ? { ...analysis, photoUrl } : undefined}
           onClose={onClose}
-          onSaved={onSaved}
+          onSaved={(names, savedPortion, edits) =>
+            analysis?.status === 'found'
+              ? saveWithPhotoInfo(names, savedPortion, { aiCandidates: analysis.candidates }, edits)
+              : onSaved(names, savedPortion, edits)
+          }
         />
       )
   }

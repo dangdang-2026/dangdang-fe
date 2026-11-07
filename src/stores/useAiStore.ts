@@ -12,6 +12,9 @@ type AiState = {
   // 당당이에게 내 기록 보여 주기
   chat: AiConsent
   setConsent: (feature: AiFeature, agreed: boolean, now?: Date) => void
+  // F-10 찍은 사진을 날짜·시각을 찍어 내 사진첩에도 저장
+  saveToAlbum: boolean
+  setSaveToAlbum: (saveToAlbum: boolean) => void
   // M-12 동의 철회: 둘 다 끔
   withdrawAll: (now?: Date) => void
 }
@@ -22,6 +25,8 @@ export const useAiStore = create<AiState>()(
     (set) => ({
       photo: null,
       chat: null,
+      saveToAlbum: true,
+      setSaveToAlbum: (saveToAlbum) => set({ saveToAlbum }),
       setConsent: (feature, agreed, now = new Date()) =>
         set({ [feature]: { agreed, at: now.toISOString() } }),
       withdrawAll: (now = new Date()) =>

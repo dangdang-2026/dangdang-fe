@@ -15,6 +15,10 @@ export type Meal = {
   portion?: Portion
   // 음식 이름별 내가 잰 영양값(F-18). 없으면 식약처 참고값
   nutritionEdits?: NutritionEdits
+  // 사진으로 찾은 AI 후보 이름(D-09 고치기에서 다시 보여 줌). 사진은 보관 안 함
+  aiCandidates?: string[]
+  // 한상에서 음식마다 고른 양(F-13)
+  portions?: Record<string, Portion>
 }
 
 // 양: 반 · 1 · 1.5

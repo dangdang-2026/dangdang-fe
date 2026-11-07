@@ -7,7 +7,7 @@ import BottomSheet from '@/components/common/BottomSheet'
 import PhotoScreen from '@/components/meal/photo/PhotoScreen'
 import { useFoods } from '@/hooks/useFoods'
 import type { Portion } from '@/types/glucose'
-import { findStaple, formatPortion } from '@/utils/meal'
+import { findFood, findStaple, formatPortion } from '@/utils/meal'
 
 const PORTIONS: Portion[] = ['half', 'one', 'one-half']
 
@@ -15,6 +15,8 @@ const PORTIONS: Portion[] = ['half', 'one', 'one-half']
 export type TableItem = {
   id: string
   name: string
+  // 음식마다 고른 양(F-13). 반찬도 받음
+  portion: Portion
   checked: boolean
   needsCheck: boolean
   point?: { x: number; y: number }
@@ -23,37 +25,39 @@ export type TableItem = {
 type PhotoTableScreenProps = {
   photoUrl: string
   items: TableItem[]
-  portion: Portion
   onToggle: (id: string) => void
-  onPortionChange: (portion: Portion) => void
+  onItemPortionChange: (id: string, portion: Portion) => void
   // 이름이 틀렸거나 확인 필요인 음식 고치기
   onFix: (id: string) => void
   onAddMissing: () => void
-  // 주식을 고르지 않으면 portion 없음
+  // 주식의 양. 주식을 고르지 않으면 없음
   onSave: (portion?: Portion) => void
   onClose: () => void
 }
 
-// Figma F-13 사진 찾은 결과 · 한상(MEAL-03b). 음식별 번호·체크, 애매한 건 체크 안 한 채로
+// Figma F-13 사진 찾은 결과 · 한상(MEAL-03b). 음식별 번호·체크·양, 애매한 건 체크 안 한 채로
 function PhotoTableScreen({
   photoUrl,
   items,
-  portion,
   onToggle,
-  onPortionChange,
+  onItemPortionChange,
   onFix,
   onAddMissing,
   onSave,
   onClose,
 }: PhotoTableScreenProps) {
   const foods = useFoods()
-  const [portionSheet, setPortionSheet] = useState(false)
+  // 양을 고르는 음식 줄
+  const [portionItemId, setPortionItemId] = useState<string | null>(null)
   const checked = items.filter((item) => item.checked)
-  // 양은 주식만 받음. 반찬은 이름만 기록
+  // 끼니의 대표 양은 주식 기준
   const staple = findStaple(
     checked.map((item) => item.name),
     foods,
   )
+  const stapleItem = checked.find((item) => item.name === staple?.name)
+  const portionItem = items.find((item) => item.id === portionItemId)
+  const unitOf = (name: string) => findFood(name, foods)?.unit ?? '인분'
   // 사진 위 번호와 목록 번호를 맞춤
   const numbered = items.map((item, index) => ({ ...item, number: index + 1 }))
 
@@ -67,7 +71,7 @@ function PhotoTableScreen({
             type="button"
             disabled={checked.length === 0}
             className="bg-primary disabled:bg-grey-100 disabled:text-grey-400 rounded-key w-full py-4 text-base leading-snug font-bold text-white"
-            onClick={() => onSave(staple ? portion : undefined)}
+            onClick={() => onSave(stapleItem?.portion)}
           >
             {checked.length > 0 ? `고른 ${checked.length}개 저장` : '음식을 골라 주세요'}
           </button>
@@ -99,7 +103,7 @@ function PhotoTableScreen({
 
         <ul className="border-grey-200 rounded-key overflow-hidden border">
           {numbered.map((item) => {
-            const isStaple = item.checked && item.name === staple?.name
+            const showPortion = item.checked && !item.needsCheck
             return (
               <li
                 key={item.id}
@@ -133,13 +137,13 @@ function PhotoTableScreen({
                 >
                   {item.needsCheck ? `${item.name}?` : item.name}
                 </button>
-                {(item.needsCheck || isStaple) && (
+                {(item.needsCheck || showPortion) && (
                   <button
                     type="button"
                     className="bg-grey-50 text-body-3 text-grey-700 flex shrink-0 items-center gap-0.5 rounded-full py-1 pr-2 pl-2.5 leading-snug"
-                    onClick={() => (item.needsCheck ? onFix(item.id) : setPortionSheet(true))}
+                    onClick={() => (item.needsCheck ? onFix(item.id) : setPortionItemId(item.id))}
                   >
-                    {item.needsCheck ? '확인 필요' : formatPortion(portion, staple!.unit)}
+                    {item.needsCheck ? '확인 필요' : formatPortion(item.portion, unitOf(item.name))}
                     <img src={iconChevron} alt="" width={12} height={12} />
                   </button>
                 )}
@@ -158,12 +162,12 @@ function PhotoTableScreen({
         </button>
       </PhotoScreen>
 
-      {portionSheet && staple && (
-        <BottomSheet label={`${staple.name} 양`} onClose={() => setPortionSheet(false)}>
-          <h2 className="text-t4 text-grey-900">{staple.name} 양</h2>
+      {portionItem && (
+        <BottomSheet label={`${portionItem.name} 양`} onClose={() => setPortionItemId(null)}>
+          <h2 className="text-t4 text-grey-900">{portionItem.name} 양</h2>
           <div className="flex gap-2">
             {PORTIONS.map((item) => {
-              const isSelected = item === portion
+              const isSelected = item === portionItem.portion
               return (
                 <button
                   key={item}
@@ -175,11 +179,11 @@ function PhotoTableScreen({
                       : 'border-grey-200 text-grey-600 bg-white'
                   }`}
                   onClick={() => {
-                    onPortionChange(item)
-                    setPortionSheet(false)
+                    onItemPortionChange(portionItem.id, item)
+                    setPortionItemId(null)
                   }}
                 >
-                  {formatPortion(item, staple.unit)}
+                  {formatPortion(item, unitOf(portionItem.name))}
                 </button>
               )
             })}

@@ -67,6 +67,11 @@
   --text-stat: 34px;
   --text-stat--line-height: 1.2;
   --text-stat--font-weight: 700;
+  /* F-10b 사진 날짜·시각 스탬프 */
+  --text-stamp: 44px;
+  --text-stamp--line-height: 1.35;
+  --text-stamp--font-weight: 700;
+  --text-shadow-stamp: 0 1px 4px rgb(0 0 0 / 0.45);
   --text-number: 48px;
   --text-number--line-height: 1.2;
   --text-number--font-weight: 700;
