@@ -1,11 +1,12 @@
 import { useCallback, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
-import { checkEmail, loginWithKakao, signUpWithEmail } from '@/api/auth'
+import { checkEmail, loginWithKakao, sendVerifyCode } from '@/api/auth'
 import iconAlert from '@/assets/icons/auth/alert.svg'
 import iconInfoBlue from '@/assets/icons/auth/caps-lock.svg'
 import iconCheck from '@/assets/icons/auth/check.svg'
 import iconClear from '@/assets/icons/auth/clear.svg'
 import iconLoading from '@/assets/icons/auth/loading.svg'
+import iconToastAlert from '@/assets/icons/auth/toast-alert.svg'
 import iconToastOffline from '@/assets/icons/auth/toast-offline.svg'
 import AuthField, { type FieldHelper } from '@/components/auth/AuthField'
 import AuthHeader from '@/components/auth/AuthHeader'
@@ -18,12 +19,30 @@ import { useGoBack } from '@/hooks/useGoBack'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { EMAIL_PATTERN, isNewPasswordValid, replaceDomain, suggestDomain } from '@/utils/auth'
 
-const NAME_MAX = 20
+// 백엔드 displayName 최대 10자
+const NAME_MAX = 10
 // 가입 → 약관 → 병원 기준
 const STEP_COUNT = 3
 
 type EmailStatus =
   { kind: 'empty' | 'format' | 'available' | 'taken' | 'kakao' } | { kind: 'typo'; domain: string }
+
+type ToastKind = 'offline' | 'limit' | 'failed'
+
+const TOAST: Record<ToastKind, { icon: string; message: string }> = {
+  offline: {
+    icon: iconToastOffline,
+    message: '인터넷 연결이 불안정해요. 입력한 내용은 그대로 있어요',
+  },
+  limit: {
+    icon: iconToastAlert,
+    message: '오늘은 인증번호를 더 받을 수 없어요. 내일 다시 시도해 주세요',
+  },
+  failed: {
+    icon: iconToastAlert,
+    message: '인증번호를 보내지 못했어요. 잠시 후 다시 시도해 주세요',
+  },
+}
 
 const INPUT_CLASS =
   'text-grey-900 placeholder:text-grey-500 caret-primary peer min-w-0 flex-1 bg-transparent outline-none'
@@ -45,8 +64,8 @@ function SignupPage() {
   const [emailCheck, setEmailCheck] = useState<{ email: string; status: EmailStatus } | null>(null)
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [offlineToast, setOfflineToast] = useState(false)
-  const closeToast = useCallback(() => setOfflineToast(false), [])
+  const [toast, setToast] = useState<ToastKind | null>(null)
+  const closeToast = useCallback(() => setToast(null), [])
   // 인증번호를 보낸 시각. 있으면 인증 단계
   const [sentAt, setSentAt] = useState<number | null>(null)
 
@@ -73,7 +92,7 @@ function SignupPage() {
 
   const loginKakao = async () => {
     if (!navigator.onLine) {
-      setOfflineToast(true)
+      setToast('offline')
       return
     }
     await loginWithKakao()
@@ -104,20 +123,21 @@ function SignupPage() {
     if (blocked) return
 
     if (!navigator.onLine) {
-      setOfflineToast(true)
+      setToast('offline')
       return
     }
 
     setLoading(true)
-    const result = await signUpWithEmail(trimmedName, trimmedEmail, password)
-    setLoading(false)
-
-    if (result.status === 'ok') setSentAt(result.sentAt)
-    else {
-      setEmailCheck({
-        email: trimmedEmail,
-        status: { kind: result.status === 'email' ? 'taken' : 'kakao' },
-      })
+    try {
+      const result = await sendVerifyCode(trimmedEmail)
+      if (result.status === 'ok') setSentAt(result.sentAt)
+      else if (result.status === 'limit') setToast('limit')
+      else setEmailCheck({ email: trimmedEmail, status: { kind: 'taken' } })
+    } catch {
+      // 메일 발송 실패(AUTH_50202)·네트워크 오류
+      setToast('failed')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -302,12 +322,8 @@ function SignupPage() {
         </button>
       </form>
 
-      {offlineToast && (
-        <AuthToast
-          icon={iconToastOffline}
-          message="인터넷 연결이 불안정해요. 입력한 내용은 그대로 있어요"
-          onClose={closeToast}
-        />
+      {toast && (
+        <AuthToast icon={TOAST[toast].icon} message={TOAST[toast].message} onClose={closeToast} />
       )}
     </main>
   )

@@ -1,4 +1,4 @@
-import { apiClient, type BaseResponse } from '@/api/axios'
+import { apiClient, getErrorCode, type BaseResponse } from '@/api/axios'
 import {
   MOCK_ACCOUNTS,
   MOCK_RESET_TOKEN,
@@ -74,52 +74,48 @@ export async function checkEmail(email: string): Promise<EmailOwner> {
   return result.authProvider === 'KAKAO' ? 'kakao' : 'email'
 }
 
-// 인증번호는 5분 동안만, 5번 틀리면 무효, 하루 5번까지 발송. 서버 정책 값
+// 인증번호는 10분 동안만, 5번 틀리면 무효, 하루 5번까지 발송. 서버 정책 값
 export const VERIFY_CODE_LENGTH = 6
-export const VERIFY_TTL_MS = 5 * 60 * 1000
+export const VERIFY_TTL_MS = 10 * 60 * 1000
 export const VERIFY_MAX_FAILURES = 5
 export const VERIFY_MAX_SENDS = 5
 
 type PendingSignUp = {
-  name: string
-  password: string
   sentAt: number
-  sends: number
   failures: number
 }
 
-// 인증을 마치기 전 가입 정보. 서버 연동 전이라 메모리에만
+// 인증번호 확인 목업용. 확인 연동하면 지움
 const pendingSignUps = new Map<string, PendingSignUp>()
 
-export type SignUpResult =
-  { status: 'ok'; sentAt: number } | { status: Exclude<EmailOwner, 'none'> }
+export type SendCodeResult =
+  | { status: 'ok'; sentAt: number }
+  // AUTH_40901 이미 가입된 이메일
+  | { status: 'taken' }
+  // AUTH_42901 하루 발송 횟수 초과
+  | { status: 'limit' }
 
-// 가입 정보를 받아 두고 인증번호 메일 발송
-export async function signUpWithEmail(
-  name: string,
-  email: string,
-  password: string,
-): Promise<SignUpResult> {
-  await wait(MOCK_DELAY_MS)
-  const owner = MOCK_ACCOUNTS.find((item) => item.email === email)?.method
-  if (owner) return { status: owner }
-
+// 인증번호 메일 발송. 서버가 보낸 시각을 안 줘서 프론트 시각으로 타이머
+export async function sendVerifyCode(email: string): Promise<SendCodeResult> {
+  try {
+    await apiClient.post('/auth/email/code', { email })
+  } catch (error) {
+    const code = getErrorCode(error)
+    if (code === 'AUTH_40901') return { status: 'taken' }
+    if (code === 'AUTH_42901') return { status: 'limit' }
+    throw error
+  }
   const sentAt = Date.now()
-  const sends = (pendingSignUps.get(email)?.sends ?? 0) + 1
-  pendingSignUps.set(email, { name, password, sentAt, sends, failures: 0 })
+  pendingSignUps.set(email, { sentAt, failures: 0 })
   return { status: 'ok', sentAt }
 }
 
 export type ResendResult = { status: 'ok'; sentAt: number } | { status: 'limit' }
 
+// 인증 화면에선 이미 가입된 경우가 거의 없어 발송 불가로 같이 처리
 export async function resendVerifyCode(email: string): Promise<ResendResult> {
-  await wait(MOCK_DELAY_MS / 2)
-  const pending = pendingSignUps.get(email)
-  if (!pending || pending.sends >= VERIFY_MAX_SENDS) return { status: 'limit' }
-
-  const sentAt = Date.now()
-  pendingSignUps.set(email, { ...pending, sentAt, sends: pending.sends + 1, failures: 0 })
-  return { status: 'ok', sentAt }
+  const result = await sendVerifyCode(email)
+  return result.status === 'ok' ? result : { status: 'limit' }
 }
 
 export type VerifyResult =
@@ -136,7 +132,6 @@ export async function verifyEmailCode(email: string, code: string): Promise<Veri
 
   if (code === MOCK_VERIFY_CODE) {
     pendingSignUps.delete(email)
-    MOCK_ACCOUNTS.push({ email, method: 'email', password: pending.password })
     return { status: 'ok' }
   }
 

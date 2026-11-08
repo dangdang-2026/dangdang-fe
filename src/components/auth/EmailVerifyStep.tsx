@@ -39,7 +39,7 @@ function formatRemaining(ms: number) {
   return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 }
 
-// Figma V-01~V-10 이메일 인증: 6자리 번호, 5분 제한, 5번 틀리면 다시 받기
+// Figma V-01~V-10 이메일 인증: 6자리 번호, 10분 제한, 5번 틀리면 다시 받기
 function EmailVerifyStep({
   email,
   sentAt: firstSentAt,
