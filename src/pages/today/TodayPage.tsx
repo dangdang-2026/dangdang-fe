@@ -54,6 +54,7 @@ import { formatMealSavedMessage } from '@/utils/meal'
 // Figma H-03~H-07 상태별 헤더 제목. 없으면 인사
 const HEADER_TITLE: Partial<Record<HeroState['kind'], string>> = {
   eating: '식사 시작했어요',
+  'eating-open': '식사 시작했어요',
   'measure-time': '지금 재 주세요',
   overdue: '측정이 조금 늦었어요',
   'day-end': '오늘 하루 수고했어요',
