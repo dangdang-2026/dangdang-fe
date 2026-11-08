@@ -1,48 +1,48 @@
-import { apiClient, getErrorCode, type BaseResponse } from '@/api/axios'
+import { apiClient, getErrorCode, getErrorMessage, type BaseResponse } from '@/api/axios'
 import { MOCK_ACCOUNTS, MOCK_RESET_TOKEN, type AccountProfile } from '@/mocks/auth'
 
 // 연속으로 틀리면 잠깐 잠금. 횟수·시간은 서버 정책 값
 export const LOGIN_MAX_FAILURES = 5
-const LOCK_MS = 10 * 60 * 1000
+const LOCK_MINUTES = 5
 const MOCK_DELAY_MS = 800
 
 export type EmailLoginResult =
   // 데모 계정이면 계정 정보도 함께
   | { status: 'ok'; profile?: AccountProfile }
-  | { status: 'wrong'; failures: number }
+  // 틀린 횟수를 못 읽으면 null
+  | { status: 'wrong'; failures: number | null }
   | { status: 'locked'; minutes: number }
   // 카카오로 가입한 이메일이라 비밀번호 없음
   | { status: 'kakao' }
 
-// 서버 연동 전 목업. 틀린 횟수·잠금은 이메일별로 메모리에만
-const failureCount = new Map<string, number>()
-const lockedUntil = new Map<string, number>()
-
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms))
 
+// 남은 횟수가 data가 아니라 문구에만 옴: "... (남은 횟수 3번)". 형식 바뀌면 null
+function parseLoginFailures(message: string | undefined) {
+  const left = Number(message?.match(/남은 횟수 (\d+)번/)?.[1])
+  return Number.isNaN(left) ? null : LOGIN_MAX_FAILURES - left
+}
+
+// 성공하면 서버가 ACCESS_TOKEN·REFRESH_TOKEN 쿠키를 심음
 export async function loginWithEmail(email: string, password: string): Promise<EmailLoginResult> {
-  await wait(MOCK_DELAY_MS)
-
-  const until = lockedUntil.get(email) ?? 0
-  if (until > Date.now()) {
-    return { status: 'locked', minutes: Math.ceil((until - Date.now()) / 60000) }
+  try {
+    await apiClient.post('/auth/login', { email, password })
+  } catch (error) {
+    const code = getErrorCode(error)
+    if (code === 'AUTH_40004') {
+      return { status: 'wrong', failures: parseLoginFailures(getErrorMessage(error)) }
+    }
+    // 잠금 응답엔 남은 시간이 없어 고정 5분
+    if (code === 'AUTH_42902') return { status: 'locked', minutes: LOCK_MINUTES }
+    if (code === 'AUTH_40005') return { status: 'kakao' }
+    throw error
   }
+  return { status: 'ok' }
+}
 
-  const account = MOCK_ACCOUNTS.find((item) => item.email === email)
-  if (account?.method === 'kakao') return { status: 'kakao' }
-  if (account?.password === password) {
-    failureCount.delete(email)
-    return { status: 'ok', profile: account.profile }
-  }
-
-  const failures = (failureCount.get(email) ?? 0) + 1
-  if (failures >= LOGIN_MAX_FAILURES) {
-    failureCount.delete(email)
-    lockedUntil.set(email, Date.now() + LOCK_MS)
-    return { status: 'locked', minutes: LOCK_MS / 60000 }
-  }
-  failureCount.set(email, failures)
-  return { status: 'wrong', failures }
+// 서버 Refresh 토큰을 무효로 하고 쿠키 두 개를 지움. 토큰이 없어도 200
+export async function logoutFromServer() {
+  await apiClient.post('/auth/logout')
 }
 
 // 카카오 SDK·서버 연동 전이라 바로 성공

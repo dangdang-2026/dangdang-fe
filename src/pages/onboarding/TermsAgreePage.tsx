@@ -1,12 +1,18 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { saveConsents } from '@/api/consent'
+import iconLoading from '@/assets/icons/auth/loading.svg'
+import iconToastAlert from '@/assets/icons/auth/toast-alert.svg'
+import iconToastOffline from '@/assets/icons/auth/toast-offline.svg'
 import iconAgreeChev from '@/assets/icons/onboarding/agree-chev.svg'
 import iconAgreeInfo from '@/assets/icons/onboarding/agree-info.svg'
+import AuthToast from '@/components/auth/AuthToast'
 import BottomSheet from '@/components/common/BottomSheet'
 import CheckCircle from '@/components/onboarding/CheckCircle'
 import OnboardingHeader from '@/components/onboarding/OnboardingHeader'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
+import { useAuthStore } from '@/stores/useAuthStore'
 import {
   REQUIRED_AGREEMENTS,
   useOnboardingStore,
@@ -50,6 +56,16 @@ const DOCUMENT_ROUTES: Partial<Record<AgreementKey, string>> = {
 
 const ALL_KEYS = [...BASIC, SENSITIVE, MARKETING].map((item) => item.key)
 
+type ToastKind = 'offline' | 'failed'
+
+const TOAST: Record<ToastKind, { icon: string; message: string }> = {
+  offline: {
+    icon: iconToastOffline,
+    message: '인터넷 연결이 불안정해요. 연결을 확인하고 다시 시도해 주세요',
+  },
+  failed: { icon: iconToastAlert, message: '동의를 저장하지 못했어요. 잠시 후 다시 시도해 주세요' },
+}
+
 // Figma A-01 약관·민감정보 동의
 function TermsAgreePage() {
   const navigate = useNavigate()
@@ -58,6 +74,29 @@ function TermsAgreePage() {
   const setAnswers = useOnboardingStore((state) => state.setAnswers)
   const [agreed, setAgreed] = useState<AgreementKey[]>(saved)
   const [document, setDocument] = useState<Agreement | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState<ToastKind | null>(null)
+  const closeToast = useCallback(() => setToast(null), [])
+  const kakao = useAuthStore((state) => state.account?.method === 'kakao')
+
+  const submit = async () => {
+    if (saving) return
+    setAnswers({ agreements: agreed })
+    if (!navigator.onLine) {
+      setToast('offline')
+      return
+    }
+    setSaving(true)
+    try {
+      // 카카오 로그인은 아직 목업이라 서버 세션이 없어 저장 생략
+      if (!kakao) await saveConsents(agreed)
+      navigate(ROUTES.ONBOARDING_TIMING)
+    } catch {
+      setToast('failed')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const allAgreed = ALL_KEYS.every((key) => agreed.includes(key))
   const requiredAgreed = REQUIRED_AGREEMENTS.every((key) => agreed.includes(key))
@@ -147,14 +186,25 @@ function TermsAgreePage() {
       <button
         type="button"
         disabled={!requiredAgreed}
-        className="text-subtitle-1 disabled:bg-grey-100 disabled:text-grey-400 bg-primary mt-auto h-14 rounded-xl leading-none text-white"
-        onClick={() => {
-          setAnswers({ agreements: agreed })
-          navigate(ROUTES.ONBOARDING_TIMING)
-        }}
+        aria-busy={saving}
+        className="text-subtitle-1 disabled:bg-grey-100 disabled:text-grey-400 bg-primary relative mt-auto h-14 rounded-xl leading-none text-white"
+        onClick={submit}
       >
-        동의하고 다음
+        <span className={saving ? 'opacity-0' : undefined}>동의하고 다음</span>
+        {saving && (
+          <img
+            src={iconLoading}
+            alt=""
+            width={31}
+            height={7}
+            className="absolute top-1/2 left-1/2 -translate-1/2"
+          />
+        )}
       </button>
+
+      {toast && (
+        <AuthToast icon={TOAST[toast].icon} message={TOAST[toast].message} onClose={closeToast} />
+      )}
 
       {document && (
         <BottomSheet label={document.label} onClose={() => setDocument(null)}>

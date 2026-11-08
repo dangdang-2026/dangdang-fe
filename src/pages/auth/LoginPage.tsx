@@ -26,8 +26,10 @@ import { EMAIL_PATTERN } from '@/utils/auth'
 
 type EmailError = 'empty' | 'format'
 type PasswordError =
-  { kind: 'empty' } | { kind: 'wrong'; failures: number } | { kind: 'locked'; minutes: number }
-type ToastKind = 'kakaoCancel' | 'kakaoFail' | 'offline' | 'signedUp'
+  | { kind: 'empty' }
+  | { kind: 'wrong'; failures: number | null }
+  | { kind: 'locked'; minutes: number }
+type ToastKind = 'kakaoCancel' | 'kakaoFail' | 'offline' | 'signedUp' | 'loginFailed'
 
 // 가입은 됐는데 자동 로그인이 실패해 넘어올 때 받는 값
 type LoginLocationState = { signedUp?: boolean; email?: string } | null
@@ -42,6 +44,10 @@ const TOAST: Record<ToastKind, { icon: string; message: string }> = {
   offline: {
     icon: iconToastOffline,
     message: '인터넷 연결이 불안정해요. 연결을 확인하고 다시 시도해 주세요',
+  },
+  loginFailed: {
+    icon: iconToastAlert,
+    message: '로그인하지 못했어요. 잠시 후 다시 시도해 주세요',
   },
 }
 
@@ -102,7 +108,7 @@ function LoginPage() {
       return
     }
     await loginWithKakao()
-    finish('kakao')
+    void finish('kakao')
   }
 
   const submit = async (event: FormEvent) => {
@@ -126,14 +132,19 @@ function LoginPage() {
     }
 
     setLoading(true)
-    const result = await loginWithEmail(trimmed, password)
-    setLoading(false)
-
-    if (result.status === 'ok') finish('email', trimmed, result.profile)
-    else if (result.status === 'kakao') setKakaoSheet(true)
-    else if (result.status === 'wrong')
-      setPasswordError({ kind: 'wrong', failures: result.failures })
-    else setPasswordError({ kind: 'locked', minutes: result.minutes })
+    try {
+      const result = await loginWithEmail(trimmed, password)
+      if (result.status === 'ok') await finish('email', trimmed, result.profile)
+      else if (result.status === 'kakao') setKakaoSheet(true)
+      else if (result.status === 'wrong')
+        setPasswordError({ kind: 'wrong', failures: result.failures })
+      else setPasswordError({ kind: 'locked', minutes: result.minutes })
+    } catch {
+      // 서버 오류·네트워크 오류
+      setToast('loginFailed')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const trackCapsLock = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -159,7 +170,10 @@ function LoginPage() {
       : passwordError?.kind === 'wrong'
         ? {
             icon: iconAlert,
-            text: `이메일 또는 비밀번호가 맞지 않아요 (${passwordError.failures}/${LOGIN_MAX_FAILURES})`,
+            text:
+              passwordError.failures === null
+                ? '이메일 또는 비밀번호가 맞지 않아요'
+                : `이메일 또는 비밀번호가 맞지 않아요 (${passwordError.failures}/${LOGIN_MAX_FAILURES})`,
             tone: 'error',
             action: findAction,
           }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
+import { logoutFromServer } from '@/api/auth'
 import iconBell from '@/assets/icons/my/bell.svg'
 import iconChevronDark from '@/assets/icons/my/chevron-dark.svg'
 import iconHospital from '@/assets/icons/my/hospital.svg'
@@ -55,6 +56,7 @@ function MyPage() {
   const hideOnLockScreen = useNotificationStore((state) => state.hideOnLockScreen)
   const logout = useAuthStore((state) => state.logout)
   const [logoutSheet, setLogoutSheet] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   const age = getPregnancyAge(dueDate, now)
   const visit = getVisitStatus(nextVisitAt, now)
@@ -233,7 +235,14 @@ function MyPage() {
 
       {logoutSheet && (
         <LogoutSheet
-          onLogout={() => {
+          onLogout={async () => {
+            if (loggingOut) return
+            setLoggingOut(true)
+            try {
+              await logoutFromServer()
+            } catch {
+              // 서버 로그아웃이 실패해도 기기에선 로그인 풂
+            }
             // 기록은 기기에 남기고 로그인만 풂
             logout()
             navigate(ROUTES.ONBOARDING, { replace: true })
