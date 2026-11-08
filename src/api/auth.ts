@@ -40,6 +40,11 @@ export async function loginWithEmail(email: string, password: string): Promise<E
   return { status: 'ok' }
 }
 
+// 서버 Refresh 토큰을 무효로 하고 쿠키 두 개를 지움. 토큰이 없어도 200
+export async function logoutFromServer() {
+  await apiClient.post('/auth/logout')
+}
+
 // 카카오 SDK·서버 연동 전이라 바로 성공
 export async function loginWithKakao(): Promise<void> {
   await wait(MOCK_DELAY_MS)
