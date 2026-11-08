@@ -96,7 +96,7 @@ function SignupPage() {
       return
     }
     await loginWithKakao()
-    finish('kakao')
+    void finish('kakao')
   }
 
   const submit = async (event: FormEvent) => {
@@ -167,7 +167,7 @@ function SignupPage() {
             return
           }
           updateProfile({ name })
-          finish('email', email)
+          await finish('email', email)
         }}
       />
     )

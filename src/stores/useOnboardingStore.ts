@@ -23,20 +23,27 @@ type OnboardingState = OnboardingAnswers & {
   completedAt: string | null
   setAnswers: (changes: Partial<OnboardingAnswers>) => void
   complete: () => void
+  // 다른 계정의 설정이 남지 않게 처음 상태로
+  reset: () => void
 }
 
-// 서버 가입 연동 전까지 기기에 저장
+const INITIAL: OnboardingAnswers & Pick<OnboardingState, 'completed' | 'completedAt'> = {
+  completed: false,
+  completedAt: null,
+  agreements: [],
+  postMealHours: undefined,
+  measureSlots: [],
+  dueDate: null,
+}
+
+// 약관 외 첫 진입 설정은 서버 연동 전까지 기기에 저장
 export const useOnboardingStore = create<OnboardingState>()(
   persist(
     (set) => ({
-      completed: false,
-      completedAt: null,
-      agreements: [],
-      postMealHours: undefined,
-      measureSlots: [],
-      dueDate: null,
+      ...INITIAL,
       setAnswers: (changes) => set(changes),
       complete: () => set({ completed: true, completedAt: new Date().toISOString() }),
+      reset: () => set(INITIAL),
     }),
     {
       name: 'dangdang-onboarding',

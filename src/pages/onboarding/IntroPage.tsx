@@ -19,7 +19,7 @@ function IntroPage() {
 
   const loginKakao = async () => {
     await loginWithKakao()
-    finish('kakao')
+    void finish('kakao')
   }
 
   return (

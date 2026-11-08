@@ -108,7 +108,7 @@ function LoginPage() {
       return
     }
     await loginWithKakao()
-    finish('kakao')
+    void finish('kakao')
   }
 
   const submit = async (event: FormEvent) => {
@@ -134,7 +134,7 @@ function LoginPage() {
     setLoading(true)
     try {
       const result = await loginWithEmail(trimmed, password)
-      if (result.status === 'ok') finish('email', trimmed, result.profile)
+      if (result.status === 'ok') await finish('email', trimmed, result.profile)
       else if (result.status === 'kakao') setKakaoSheet(true)
       else if (result.status === 'wrong')
         setPasswordError({ kind: 'wrong', failures: result.failures })
