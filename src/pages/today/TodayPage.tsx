@@ -282,7 +282,7 @@ function TodayPage() {
           />
         )}
       </div>
-      {waitingMeasure && 'meal' in heroState ? (
+      {waitingMeasure && 'dueAt' in heroState ? (
         <div className="mt-5">
           <WaitingMeasureCard
             label={getSlotLabel('post-meal', heroState.meal.type, criteria.postMealHours)}
