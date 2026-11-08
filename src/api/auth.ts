@@ -1,10 +1,5 @@
 import { apiClient, getErrorCode, type BaseResponse } from '@/api/axios'
-import {
-  MOCK_ACCOUNTS,
-  MOCK_RESET_TOKEN,
-  MOCK_VERIFY_CODE,
-  type AccountProfile,
-} from '@/mocks/auth'
+import { MOCK_ACCOUNTS, MOCK_RESET_TOKEN, type AccountProfile } from '@/mocks/auth'
 
 // 연속으로 틀리면 잠깐 잠금. 횟수·시간은 서버 정책 값
 export const LOGIN_MAX_FAILURES = 5
@@ -80,13 +75,8 @@ export const VERIFY_TTL_MS = 10 * 60 * 1000
 export const VERIFY_MAX_FAILURES = 5
 export const VERIFY_MAX_SENDS = 5
 
-type PendingSignUp = {
-  sentAt: number
-  failures: number
-}
-
-// 인증번호 확인 목업용. 확인 연동하면 지움
-const pendingSignUps = new Map<string, PendingSignUp>()
+// 이메일별 틀린 횟수. 서버가 횟수를 안 알려 줘서 프론트에서 셈
+const verifyFailures = new Map<string, number>()
 
 export type SendCodeResult =
   | { status: 'ok'; sentAt: number }
@@ -105,9 +95,9 @@ export async function sendVerifyCode(email: string): Promise<SendCodeResult> {
     if (code === 'AUTH_42901') return { status: 'limit' }
     throw error
   }
-  const sentAt = Date.now()
-  pendingSignUps.set(email, { sentAt, failures: 0 })
-  return { status: 'ok', sentAt }
+  // 새 번호를 받으면 틀린 횟수 초기화
+  verifyFailures.delete(email)
+  return { status: 'ok', sentAt: Date.now() }
 }
 
 export type ResendResult = { status: 'ok'; sentAt: number } | { status: 'limit' }
@@ -124,20 +114,22 @@ export type VerifyResult =
   | { status: 'tooMany' }
   | { status: 'expired' }
 
+// 서버는 5번 틀리면 번호를 무효로 함(AUTH_40001). 화면은 5번째에 바로 다시 받기 안내
 export async function verifyEmailCode(email: string, code: string): Promise<VerifyResult> {
-  await wait(MOCK_DELAY_MS / 2)
-  const pending = pendingSignUps.get(email)
-  if (!pending || Date.now() - pending.sentAt > VERIFY_TTL_MS) return { status: 'expired' }
-  if (pending.failures >= VERIFY_MAX_FAILURES) return { status: 'tooMany' }
-
-  if (code === MOCK_VERIFY_CODE) {
-    pendingSignUps.delete(email)
-    return { status: 'ok' }
+  try {
+    await apiClient.post('/auth/email/verify', { email, code })
+  } catch (error) {
+    const errorCode = getErrorCode(error)
+    if (errorCode === 'AUTH_40002') {
+      const failures = (verifyFailures.get(email) ?? 0) + 1
+      verifyFailures.set(email, failures)
+      return failures >= VERIFY_MAX_FAILURES ? { status: 'tooMany' } : { status: 'wrong', failures }
+    }
+    if (errorCode === 'AUTH_40001') return { status: 'expired' }
+    throw error
   }
-
-  const failures = pending.failures + 1
-  pendingSignUps.set(email, { ...pending, failures })
-  return failures >= VERIFY_MAX_FAILURES ? { status: 'tooMany' } : { status: 'wrong', failures }
+  verifyFailures.delete(email)
+  return { status: 'ok' }
 }
 
 // 재설정 링크는 30분, 한 번만 씀

@@ -13,6 +13,7 @@ import iconLoading from '@/assets/icons/auth/loading.svg'
 import iconLock from '@/assets/icons/auth/lock.svg'
 import iconMail from '@/assets/icons/auth/mail.svg'
 import iconNoticeInfo from '@/assets/icons/auth/notice-info.svg'
+import iconToastAlert from '@/assets/icons/auth/toast-alert.svg'
 import iconToastOffline from '@/assets/icons/auth/toast-offline.svg'
 import iconVerified from '@/assets/icons/auth/verified.svg'
 import AuthField, { type FieldHelper } from '@/components/auth/AuthField'
@@ -25,6 +26,23 @@ import { useNow } from '@/hooks/useNow'
 const RESEND_WAIT_MS = 30 * 1000
 
 type VerifyStatus = 'idle' | 'wrong' | 'digits' | 'tooMany' | 'resent' | 'limit' | 'verified'
+
+type ToastKind = 'offline' | 'verifyFailed' | 'sendFailed'
+
+const TOAST: Record<ToastKind, { icon: string; message: string }> = {
+  offline: {
+    icon: iconToastOffline,
+    message: '인터넷 연결이 불안정해요. 연결되면 다시 확인할게요',
+  },
+  verifyFailed: {
+    icon: iconToastAlert,
+    message: '인증번호를 확인하지 못했어요. 잠시 후 다시 시도해 주세요',
+  },
+  sendFailed: {
+    icon: iconToastAlert,
+    message: '인증번호를 보내지 못했어요. 잠시 후 다시 시도해 주세요',
+  },
+}
 
 type EmailVerifyStepProps = {
   email: string
@@ -56,8 +74,8 @@ function EmailVerifyStep({
   // 오프라인이라 못 보낸 확인. 연결되면 다시 시도
   const [pending, setPending] = useState(false)
   const [sheet, setSheet] = useState(false)
-  const [offlineToast, setOfflineToast] = useState(false)
-  const closeToast = useCallback(() => setOfflineToast(false), [])
+  const [toast, setToast] = useState<ToastKind | null>(null)
+  const closeToast = useCallback(() => setToast(null), [])
 
   const remaining = Math.max(0, VERIFY_TTL_MS - (now - sentAt))
   const verified = status === 'verified'
@@ -71,20 +89,24 @@ function EmailVerifyStep({
     async (value: string) => {
       if (!navigator.onLine) {
         setPending(true)
-        setOfflineToast(true)
+        setToast('offline')
         return
       }
       setChecking(true)
-      const result = await verifyEmailCode(email, value)
-      setChecking(false)
-
-      if (result.status === 'ok') setStatus('verified')
-      else if (result.status === 'wrong') {
-        setFailures(result.failures)
-        setStatus('wrong')
-      } else if (result.status === 'tooMany') setStatus('tooMany')
-      // 서버에서 시간이 지났다고 하면 화면도 시간 초과로
-      else setSentAt(0)
+      try {
+        const result = await verifyEmailCode(email, value)
+        if (result.status === 'ok') setStatus('verified')
+        else if (result.status === 'wrong') {
+          setFailures(result.failures)
+          setStatus('wrong')
+        } else if (result.status === 'tooMany') setStatus('tooMany')
+        // 서버에서 시간이 지났다고 하면 화면도 시간 초과로
+        else setSentAt(0)
+      } catch {
+        setToast('verifyFailed')
+      } finally {
+        setChecking(false)
+      }
     },
     [email],
   )
@@ -93,7 +115,7 @@ function EmailVerifyStep({
     if (!pending) return
     const retry = () => {
       setPending(false)
-      setOfflineToast(false)
+      setToast(null)
       void verify(code)
     }
     window.addEventListener('online', retry)
@@ -103,10 +125,17 @@ function EmailVerifyStep({
   const resend = async () => {
     setSheet(false)
     if (!navigator.onLine) {
-      setOfflineToast(true)
+      setToast('offline')
       return
     }
-    const result = await resendVerifyCode(email)
+    let result
+    try {
+      result = await resendVerifyCode(email)
+    } catch {
+      // 메일 발송 실패(AUTH_50202)·네트워크 오류
+      setToast('sendFailed')
+      return
+    }
     if (result.status === 'limit') {
       setStatus('limit')
       return
@@ -271,12 +300,8 @@ function EmailVerifyStep({
           onClose={() => setSheet(false)}
         />
       )}
-      {offlineToast && (
-        <AuthToast
-          icon={iconToastOffline}
-          message="인터넷 연결이 불안정해요. 연결되면 다시 확인할게요"
-          onClose={closeToast}
-        />
+      {toast && (
+        <AuthToast icon={TOAST[toast].icon} message={TOAST[toast].message} onClose={closeToast} />
       )}
     </main>
   )
