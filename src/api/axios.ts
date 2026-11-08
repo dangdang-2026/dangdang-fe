@@ -24,3 +24,9 @@ export function getErrorCode(error: unknown) {
   if (!axios.isAxiosError<BaseResponse<unknown>>(error)) return null
   return error.response?.data?.errorCode ?? null
 }
+
+// 서버가 보낸 에러 문구. 응답이 없으면 undefined
+export function getErrorMessage(error: unknown) {
+  if (!axios.isAxiosError<BaseResponse<unknown>>(error)) return undefined
+  return error.response?.data?.message
+}
