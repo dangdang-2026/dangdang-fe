@@ -63,8 +63,12 @@ function SignupPage() {
     const domain = suggestDomain(trimmed)
     if (domain) return mark({ kind: 'typo', domain })
 
-    const owner = await checkEmail(trimmed)
-    mark({ kind: owner === 'none' ? 'available' : owner === 'email' ? 'taken' : 'kakao' })
+    try {
+      const owner = await checkEmail(trimmed)
+      mark({ kind: owner === 'none' ? 'available' : owner === 'email' ? 'taken' : 'kakao' })
+    } catch {
+      // 중복 확인 실패는 넘어감. 가입할 때 서버가 다시 막음
+    }
   }
 
   const loginKakao = async () => {

@@ -1,3 +1,4 @@
+import { apiClient, type BaseResponse } from '@/api/axios'
 import {
   MOCK_ACCOUNTS,
   MOCK_RESET_TOKEN,
@@ -56,10 +57,21 @@ export async function loginWithKakao(): Promise<void> {
 
 export type EmailOwner = 'none' | 'email' | 'kakao'
 
+// 백엔드 EmailAvailabilityResponse
+type EmailAvailability = {
+  available: boolean
+  authProvider: 'EMAIL' | 'KAKAO' | null
+}
+
 // 가입 화면 중복 확인. 이미 쓰는 이메일이면 가입 방법까지 알려 줌
 export async function checkEmail(email: string): Promise<EmailOwner> {
-  await wait(MOCK_DELAY_MS / 2)
-  return MOCK_ACCOUNTS.find((item) => item.email === email)?.method ?? 'none'
+  const { data } = await apiClient.post<BaseResponse<EmailAvailability>>(
+    '/auth/email/availability',
+    { email },
+  )
+  const result = data.data
+  if (!result || result.available) return 'none'
+  return result.authProvider === 'KAKAO' ? 'kakao' : 'email'
 }
 
 // 인증번호는 5분 동안만, 5번 틀리면 무효, 하루 5번까지 발송. 서버 정책 값
