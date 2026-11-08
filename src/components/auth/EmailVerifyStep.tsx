@@ -27,7 +27,7 @@ const RESEND_WAIT_MS = 30 * 1000
 
 type VerifyStatus = 'idle' | 'wrong' | 'digits' | 'tooMany' | 'resent' | 'limit' | 'verified'
 
-type ToastKind = 'offline' | 'verifyFailed' | 'sendFailed'
+type ToastKind = 'offline' | 'verifyFailed' | 'sendFailed' | 'signUpFailed'
 
 const TOAST: Record<ToastKind, { icon: string; message: string }> = {
   offline: {
@@ -42,6 +42,10 @@ const TOAST: Record<ToastKind, { icon: string; message: string }> = {
     icon: iconToastAlert,
     message: '인증번호를 보내지 못했어요. 잠시 후 다시 시도해 주세요',
   },
+  signUpFailed: {
+    icon: iconToastAlert,
+    message: '가입하지 못했어요. 잠시 후 다시 시도해 주세요',
+  },
 }
 
 type EmailVerifyStepProps = {
@@ -49,7 +53,8 @@ type EmailVerifyStepProps = {
   sentAt: number
   onBack: () => void
   onChangeEmail: () => void
-  onVerified: () => void
+  // 가입까지 마침. 인증 유효 시간(30분)이 지났으면 'expired'
+  onVerified: () => Promise<'expired' | void>
 }
 
 function formatRemaining(ms: number) {
@@ -146,10 +151,29 @@ function EmailVerifyStep({
     setStatus('resent')
   }
 
+  const complete = async () => {
+    if (!navigator.onLine) {
+      setToast('offline')
+      return
+    }
+    setChecking(true)
+    try {
+      // 인증이 풀렸으면 시간 초과로 보여 다시 받게
+      if ((await onVerified()) === 'expired') {
+        setStatus('idle')
+        setSentAt(0)
+      }
+    } catch {
+      setToast('signUpFailed')
+    } finally {
+      setChecking(false)
+    }
+  }
+
   const submit = (event: FormEvent) => {
     event.preventDefault()
     if (checking) return
-    if (verified) onVerified()
+    if (verified) void complete()
     else if (code.length < VERIFY_CODE_LENGTH) setStatus('digits')
     else void verify(code)
   }

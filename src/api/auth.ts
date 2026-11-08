@@ -132,6 +132,37 @@ export async function verifyEmailCode(email: string, code: string): Promise<Veri
   return { status: 'ok' }
 }
 
+export type CompleteSignUpResult =
+  | { status: 'ok' }
+  // AUTH_40003 인증 후 30분 지남
+  | { status: 'notVerified' }
+  // AUTH_40901 그 사이 같은 이메일로 가입됨
+  | { status: 'taken' }
+  // 가입은 됐는데 로그인만 실패
+  | { status: 'loginFailed' }
+
+// 인증을 마친 뒤 가입. 가입 응답엔 토큰이 없어 바로 로그인해 쿠키 받음
+export async function completeSignUp(
+  name: string,
+  email: string,
+  password: string,
+): Promise<CompleteSignUpResult> {
+  try {
+    await apiClient.post('/auth/signup', { email, displayName: name, password })
+  } catch (error) {
+    const code = getErrorCode(error)
+    if (code === 'AUTH_40003') return { status: 'notVerified' }
+    if (code === 'AUTH_40901') return { status: 'taken' }
+    throw error
+  }
+  try {
+    await apiClient.post('/auth/login', { email, password })
+  } catch {
+    return { status: 'loginFailed' }
+  }
+  return { status: 'ok' }
+}
+
 // 재설정 링크는 30분, 한 번만 씀
 const RESET_TTL_MS = 30 * 60 * 1000
 

@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
-import { checkEmail, loginWithKakao, sendVerifyCode } from '@/api/auth'
+import { checkEmail, completeSignUp, loginWithKakao, sendVerifyCode } from '@/api/auth'
 import iconAlert from '@/assets/icons/auth/alert.svg'
 import iconInfoBlue from '@/assets/icons/auth/caps-lock.svg'
 import iconCheck from '@/assets/icons/auth/check.svg'
@@ -153,7 +153,19 @@ function SignupPage() {
           backToForm()
           window.setTimeout(() => emailRef.current?.focus())
         }}
-        onVerified={() => {
+        onVerified={async () => {
+          const result = await completeSignUp(name, email, password)
+          if (result.status === 'notVerified') return 'expired'
+          if (result.status === 'taken') {
+            backToForm()
+            setEmailCheck({ email, status: { kind: 'taken' } })
+            return
+          }
+          // 계정은 생겼으니 다시 가입하지 않게 로그인 화면으로
+          if (result.status === 'loginFailed') {
+            navigate(ROUTES.LOGIN, { replace: true, state: { signedUp: true, email } })
+            return
+          }
           updateProfile({ name })
           finish('email', email)
         }}
