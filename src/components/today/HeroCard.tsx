@@ -1,6 +1,7 @@
 import BeforeMealHero from '@/components/today/hero/BeforeMealHero'
 import DayEndHero from '@/components/today/hero/DayEndHero'
 import EatingHero from '@/components/today/hero/EatingHero'
+import EatingOpenHero from '@/components/today/hero/EatingOpenHero'
 import FirstDayHero from '@/components/today/hero/FirstDayHero'
 import MeasureTimeHero from '@/components/today/hero/MeasureTimeHero'
 import OverdueHero from '@/components/today/hero/OverdueHero'
@@ -50,6 +51,14 @@ function HeroCard({
           meal={state.meal}
           dueAt={state.dueAt}
           now={now}
+          onInputGlucose={onInputGlucose}
+          onWriteMeal={() => onWriteMeal(state.meal)}
+        />
+      )
+    case 'eating-open':
+      return (
+        <EatingOpenHero
+          meal={state.meal}
           onInputGlucose={onInputGlucose}
           onWriteMeal={() => onWriteMeal(state.meal)}
         />

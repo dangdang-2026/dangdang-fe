@@ -77,6 +77,15 @@ export function getPendingMeal(
   return { meal, dueAt }
 }
 
+// 측정 시점을 모를 때 식사 중인 끼니. 혈당을 적거나 3시간 지나면 끝
+export function getOpenMeal(meals: Meal[], records: GlucoseRecord[], now: Date) {
+  const meal = meals.at(-1)
+  if (!meal || meal.skipped) return null
+  if (records.some((record) => record.mealId === meal.id)) return null
+  if (now.getTime() - new Date(meal.startedAt).getTime() > PENDING_EXPIRE_MS) return null
+  return meal
+}
+
 // 입력 시트를 열 때 측정 시점 결정
 export function getMeasureTarget(
   meals: Meal[],
@@ -85,6 +94,8 @@ export function getMeasureTarget(
   now: Date,
 ): MeasureTarget {
   const pending = getPendingMeal(meals, records, hours, now)
+  const openMeal = hours ? null : getOpenMeal(meals, records, now)
+  if (openMeal) return { slot: 'post-meal', mealId: openMeal.id, mealType: openMeal.type }
   if (pending) {
     return {
       slot: 'post-meal',
@@ -141,6 +152,8 @@ export type HeroState =
   | { kind: 'day-end'; meal: Meal; dueAt: Date }
   | { kind: 'before-meal'; nextMeal: MealType; lastRecord?: GlucoseRecord }
   | { kind: 'eating' | 'measure-time' | 'overdue'; meal: Meal; dueAt: Date }
+  // 측정 시점을 몰라 남은 시간 없이 식사 중만
+  | { kind: 'eating-open'; meal: Meal }
   | { kind: 'saved'; record: GlucoseRecord; nextMeal: MealType }
 
 // 오늘 식후 측정을 놓친 끼니(건너뜀·기록함 제외, 측정할 시간이 지남)
@@ -178,6 +191,8 @@ export function getHeroState(
     // 저녁 이후엔 시간 지남 대신 하루 정리
     if (!(kind === 'overdue' && missed.length > 0)) return { kind, ...pending }
   }
+  const openMeal = hours ? null : getOpenMeal(meals, records, now)
+  if (openMeal) return { kind: 'eating-open', meal: openMeal }
 
   const nextMeal = getNextMealType(meals, now)
   const lastRecord = records.at(-1)
