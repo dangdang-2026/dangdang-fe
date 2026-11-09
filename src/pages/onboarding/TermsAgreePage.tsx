@@ -12,7 +12,6 @@ import CheckCircle from '@/components/onboarding/CheckCircle'
 import OnboardingHeader from '@/components/onboarding/OnboardingHeader'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { useAuthStore } from '@/stores/useAuthStore'
 import {
   REQUIRED_AGREEMENTS,
   useOnboardingStore,
@@ -77,7 +76,6 @@ function TermsAgreePage() {
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<ToastKind | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
-  const kakao = useAuthStore((state) => state.account?.method === 'kakao')
 
   const submit = async () => {
     if (saving) return
@@ -88,8 +86,7 @@ function TermsAgreePage() {
     }
     setSaving(true)
     try {
-      // 카카오 로그인은 아직 목업이라 서버 세션이 없어 저장 생략
-      if (!kakao) await saveConsents(agreed)
+      await saveConsents(agreed)
       navigate(ROUTES.ONBOARDING_TIMING)
     } catch {
       setToast('failed')
