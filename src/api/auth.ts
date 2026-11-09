@@ -45,9 +45,34 @@ export async function logoutFromServer() {
   await apiClient.post('/auth/logout')
 }
 
-// 카카오 SDK·서버 연동 전이라 바로 성공
-export async function loginWithKakao(): Promise<void> {
-  await wait(MOCK_DELAY_MS)
+// 카카오 콘솔에 등록한 주소와 글자까지 같아야 함. 서버 토큰 교환에도 같은 값 보냄
+const KAKAO_REDIRECT_URI =
+  import.meta.env.VITE_KAKAO_REDIRECT_URI || `${window.location.origin}/auth/kakao/callback`
+const KAKAO_STATE_KEY = 'kakao-oauth-state'
+
+// 카카오 인가 페이지로 이동. state로 남이 만든 콜백 요청을 걸러냄
+export function startKakaoLogin() {
+  const state = crypto.randomUUID()
+  sessionStorage.setItem(KAKAO_STATE_KEY, state)
+  const params = new URLSearchParams({
+    client_id: import.meta.env.VITE_KAKAO_REST_API_KEY,
+    redirect_uri: KAKAO_REDIRECT_URI,
+    response_type: 'code',
+    state,
+  })
+  window.location.assign(`https://kauth.kakao.com/oauth/authorize?${params}`)
+}
+
+// 보낸 state와 같은지 확인. 한 번 쓰면 지움
+export function consumeKakaoState(state: string | null) {
+  const saved = sessionStorage.getItem(KAKAO_STATE_KEY)
+  sessionStorage.removeItem(KAKAO_STATE_KEY)
+  return !!saved && saved === state
+}
+
+// 인가 코드를 서버가 카카오 토큰으로 바꾸고 ACCESS_TOKEN·REFRESH_TOKEN 쿠키를 심음
+export async function loginWithKakao(code: string) {
+  await apiClient.post('/auth/kakao', { code, redirectUri: KAKAO_REDIRECT_URI })
 }
 
 export type EmailOwner = 'none' | 'email' | 'kakao'

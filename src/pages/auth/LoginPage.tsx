@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
-import { LOGIN_MAX_FAILURES, loginWithEmail, loginWithKakao } from '@/api/auth'
+import { LOGIN_MAX_FAILURES, loginWithEmail, startKakaoLogin } from '@/api/auth'
 import iconAlert from '@/assets/icons/auth/alert.svg'
 import iconCapsLock from '@/assets/icons/auth/caps-lock.svg'
 import iconClear from '@/assets/icons/auth/clear.svg'
@@ -101,14 +101,13 @@ function LoginPage() {
   const findPassword = () => navigate(ROUTES.PASSWORD_FIND)
   const signUp = () => navigate(ROUTES.SIGNUP)
 
-  const loginKakao = async () => {
+  const loginKakao = () => {
     setKakaoSheet(false)
     if (!navigator.onLine) {
       setToast('offline')
       return
     }
-    await loginWithKakao()
-    void finish('kakao')
+    startKakaoLogin()
   }
 
   const submit = async (event: FormEvent) => {

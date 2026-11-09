@@ -36,6 +36,7 @@ import PolicyPage from '@/pages/community/PolicyPage'
 import WritePage from '@/pages/community/WritePage'
 import LoginPage from '@/pages/auth/LoginPage'
 import PasswordFindPage from '@/pages/auth/PasswordFindPage'
+import KakaoCallbackPage from '@/pages/auth/KakaoCallbackPage'
 import PasswordResetPage from '@/pages/auth/PasswordResetPage'
 import SignupPage from '@/pages/auth/SignupPage'
 import AiSettingsPage from '@/pages/my/AiSettingsPage'
@@ -110,6 +111,7 @@ function App() {
         <Route path={ROUTES.SIGNUP} element={<SignupPage />} />
         <Route path={ROUTES.PASSWORD_FIND} element={<PasswordFindPage />} />
         <Route path={ROUTES.PASSWORD_RESET} element={<PasswordResetPage />} />
+        <Route path={ROUTES.KAKAO_CALLBACK} element={<KakaoCallbackPage />} />
         {/* 첫 진입 설정 */}
         <Route path={ROUTES.ONBOARDING} element={<IntroPage />} />
         <Route path={ROUTES.ONBOARDING_TERMS} element={<TermsAgreePage />} />

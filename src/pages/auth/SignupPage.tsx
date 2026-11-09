@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
-import { checkEmail, completeSignUp, loginWithKakao, sendVerifyCode } from '@/api/auth'
+import { checkEmail, completeSignUp, sendVerifyCode, startKakaoLogin } from '@/api/auth'
 import iconAlert from '@/assets/icons/auth/alert.svg'
 import iconInfoBlue from '@/assets/icons/auth/caps-lock.svg'
 import iconCheck from '@/assets/icons/auth/check.svg'
@@ -90,13 +90,12 @@ function SignupPage() {
     }
   }
 
-  const loginKakao = async () => {
+  const loginKakao = () => {
     if (!navigator.onLine) {
       setToast('offline')
       return
     }
-    await loginWithKakao()
-    void finish('kakao')
+    startKakaoLogin()
   }
 
   const submit = async (event: FormEvent) => {
@@ -206,7 +205,7 @@ function SignupPage() {
                     icon: iconAlert,
                     text: '카카오로 가입된 이메일이에요.',
                     tone: 'error',
-                    action: { label: '카카오로 로그인', onClick: () => void loginKakao() },
+                    action: { label: '카카오로 로그인', onClick: loginKakao },
                   }
                 : null
   const emailInvalid = ['empty', 'format', 'taken', 'kakao'].includes(emailStatus?.kind ?? '')

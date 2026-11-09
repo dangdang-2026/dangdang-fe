@@ -9,8 +9,7 @@ export function useSessionCheck() {
   const updateProfile = useProfileStore((state) => state.updateProfile)
 
   useEffect(() => {
-    // 카카오는 아직 목업이라 서버 세션 없음
-    if (method !== 'email') return
+    if (!method) return
     getMe()
       .then((me) => updateProfile({ name: me.displayName }))
       .catch(() => {

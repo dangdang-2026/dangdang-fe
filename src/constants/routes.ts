@@ -9,6 +9,7 @@ export const ROUTES = {
   SIGNUP: '/signup',
   PASSWORD_FIND: '/password/find',
   PASSWORD_RESET: '/password/reset',
+  KAKAO_CALLBACK: '/auth/kakao/callback',
   TODAY: '/',
   INBOX: '/inbox',
   RECORDS: '/records',

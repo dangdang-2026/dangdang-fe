@@ -33,12 +33,6 @@ export function useFinishLogin() {
       navigate(ROUTES.TODAY, { replace: true })
       return
     }
-    // 카카오는 아직 목업이라 서버 세션 없음
-    if (method === 'kakao') {
-      goByDevice()
-      return
-    }
-
     try {
       const me = await getMe()
       updateProfile({ name: me.displayName })
