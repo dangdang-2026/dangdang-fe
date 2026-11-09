@@ -3,6 +3,7 @@ import { getMe } from '@/api/me'
 import { ROUTES } from '@/constants/routes'
 import type { AccountProfile } from '@/mocks/auth'
 import { useAuthStore, type LoginMethod } from '@/stores/useAuthStore'
+import { syncCriteria } from '@/stores/useCriteriaStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
 import { useProfileStore } from '@/stores/useProfileStore'
 
@@ -44,6 +45,8 @@ export function useFinishLogin() {
         navigate(ROUTES.ONBOARDING_TERMS, { replace: true })
         return
       }
+      // 병원 기준은 서버 값으로. 못 받아도 기기 값으로 계속 씀
+      syncCriteria().catch(() => {})
       // 약관은 서버에 있음. 나머지 설정은 아직 기기에만 있어 기기 값으로
       navigate(completed ? ROUTES.TODAY : ROUTES.ONBOARDING_TIMING, { replace: true })
     } catch {
