@@ -74,6 +74,8 @@ export type GlucoseRecord = {
   editedAt?: string
   // 처음 입력한 값(수정 전후 기록용)
   original?: { value: number; measuredAt: string }
+  // 서버가 붙인 잰 날짜의 병원 기준 id
+  criteriaId?: number
 }
 
 // 입력 시트에 넘기는 측정 시점 정보

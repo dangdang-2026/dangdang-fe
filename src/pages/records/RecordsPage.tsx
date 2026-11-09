@@ -16,7 +16,7 @@ import { MEAL_LABEL } from '@/constants/glucose'
 import { ROUTES } from '@/constants/routes'
 import { useNow } from '@/hooks/useNow'
 import { useCriteria } from '@/hooks/useCriteria'
-import { useGlucoseStore } from '@/stores/useGlucoseStore'
+import { removeRecord, useGlucoseStore } from '@/stores/useGlucoseStore'
 import type {
   GlucoseRecord,
   InsulinRecord,
@@ -40,7 +40,7 @@ function RecordsPage() {
   const [inputSheet, setInputSheet] = useState<InputSheet | null>(null)
   const [editing, setEditing] = useState<GlucoseRecord | null>(null)
   const [deleting, setDeleting] = useState<GlucoseRecord | null>(null)
-  const deleteRecord = useGlucoseStore((state) => state.deleteRecord)
+  const [removing, setRemoving] = useState(false)
   const setMealContent = useGlucoseStore((state) => state.setMealContent)
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -115,10 +115,18 @@ function RecordsPage() {
     setEditing(null)
   }
 
-  const handleDeleted = () => {
-    if (deleting) deleteRecord(deleting.id)
-    setDeleting(null)
-    setToast('기록을 지웠어요')
+  const handleDeleted = async () => {
+    if (!deleting || removing) return
+    setRemoving(true)
+    try {
+      await removeRecord(deleting.id)
+      setToast('기록을 지웠어요')
+    } catch {
+      setToast('기록을 지우지 못했어요. 잠시 후 다시 시도해 주세요')
+    } finally {
+      setRemoving(false)
+      setDeleting(null)
+    }
   }
 
   return (
@@ -192,7 +200,9 @@ function RecordsPage() {
           onDelete={askDelete}
         />
       )}
-      {deleting && <RecordDeleteSheet onConfirm={handleDeleted} onClose={closeDeleteSheet} />}
+      {deleting && (
+        <RecordDeleteSheet onConfirm={() => void handleDeleted()} onClose={closeDeleteSheet} />
+      )}
       {editingMeal && (
         <MealContentSheet
           meal={editingMeal}
