@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { getMe } from '@/api/me'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
+import { syncRecords } from '@/stores/useGlucoseStore'
 import { useProfileStore } from '@/stores/useProfileStore'
 
 // 앱을 열 때 한 번 서버 로그인 확인. 스플래시 동안 뒤에서 돌아 기다리지 않음
@@ -17,8 +18,8 @@ export function useSessionCheck() {
         updateProfile({ name: me.displayName })
         // 이메일 채우기 전에 로그인한 카카오 계정도 열 때 채움
         login({ method, email: me.email })
-        // 다른 기기에서 바꾼 병원 기준도 반영
-        return syncCriteria()
+        // 다른 기기에서 바꾼 병원 기준·혈당 기록도 반영
+        return Promise.all([syncCriteria(), syncRecords()])
       })
       .catch(() => {
         // Refresh까지 만료면 인터셉터가 로그인 풂. 오프라인이면 기기 기록으로 계속 씀

@@ -1,5 +1,6 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
 import type { GlucoseRecord, MealType, MeasureTarget } from '@/types/glucose'
+import { toDateKey } from '@/utils/date'
 
 // 백엔드 ReadingType · MeasureSlot
 type ReadingType = 'FASTING' | 'POST_MEAL' | 'OTHER'
@@ -75,4 +76,43 @@ export async function createReading(target: MeasureTarget, value: number, measur
   })
   if (!data.data) throw new Error('혈당 등록 응답이 비어 있음')
   return toGlucoseRecord(data.data)
+}
+
+// 백엔드 ReadingPageResponse
+type ReadingPageResponse = {
+  items: ReadingResponse[]
+  hasNext: boolean
+  nextCursorAt: string | null
+  nextCursorId: number | null
+}
+
+// 한 번에 받을 수 있는 최대 개수(서버 상한 100)
+const PAGE_SIZE = 100
+// 관리 기간이 몇 달이라 처음부터 오늘까지 전부 받음
+const ALL_FROM = '2000-01-01'
+
+type Cursor = { cursorAt: string; cursorId: number }
+
+// 한 페이지. 다음 페이지는 받은 커서를 그대로 보냄
+async function getReadingPage(cursor: Cursor | null) {
+  const { data } = await apiClient.get<BaseResponse<ReadingPageResponse>>('/readings', {
+    params: { from: ALL_FROM, to: toDateKey(new Date()), size: PAGE_SIZE, ...cursor },
+  })
+  return data.data
+}
+
+// 내 혈당 기록 전부. 서버는 최신순 → 화면은 오래된 순(마지막이 최근 기록)
+export async function getAllReadings() {
+  const records: GlucoseRecord[] = []
+  let cursor: Cursor | null = null
+  do {
+    const page = await getReadingPage(cursor)
+    if (!page) break
+    records.push(...page.items.map(toGlucoseRecord))
+    cursor =
+      page.hasNext && page.nextCursorAt && page.nextCursorId !== null
+        ? { cursorAt: page.nextCursorAt, cursorId: page.nextCursorId }
+        : null
+  } while (cursor)
+  return records.reverse()
 }

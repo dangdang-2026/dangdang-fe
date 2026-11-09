@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { createReading } from '@/api/readings'
+import { createReading, getAllReadings } from '@/api/readings'
 import type {
   GlucoseRecord,
   InsulinRecord,
@@ -127,4 +127,24 @@ export async function saveRecord(target: MeasureTarget, value: number, measuredA
   const record = { ...saved, mealId: target.mealId, mealType: target.mealType ?? saved.mealType }
   useGlucoseStore.getState().addRecord(record)
   return record
+}
+
+// 서버 기록으로 바꿈. 끼니 연결·처음 값처럼 기기에만 있는 정보는 같은 기록에 다시 붙임
+export async function syncRecords() {
+  const server = await getAllReadings()
+  useGlucoseStore.setState((state) => {
+    const local = new Map(state.records.map((record) => [record.id, record]))
+    return {
+      records: server.map((record) => {
+        const prev = local.get(record.id)
+        if (!prev) return record
+        return {
+          ...record,
+          mealId: prev.mealId,
+          mealType: record.mealType ?? prev.mealType,
+          original: prev.original,
+        }
+      }),
+    }
+  })
 }
