@@ -3,6 +3,7 @@ import SplashScreen from '@/components/onboarding/SplashScreen'
 import { ROUTES, communityNewsPath } from '@/constants/routes'
 import { SPLASH_TOTAL_MS } from '@/constants/splashMotion'
 import { useMeasureReminder } from '@/hooks/useMeasureReminder'
+import { useSessionCheck } from '@/hooks/useSessionCheck'
 import { useTimeout } from '@/hooks/useTimeout'
 import OnboardingGate from '@/layouts/OnboardingGate'
 import { LATEST_NEWS } from '@/mocks/news'
@@ -35,6 +36,7 @@ import PolicyPage from '@/pages/community/PolicyPage'
 import WritePage from '@/pages/community/WritePage'
 import LoginPage from '@/pages/auth/LoginPage'
 import PasswordFindPage from '@/pages/auth/PasswordFindPage'
+import KakaoCallbackPage from '@/pages/auth/KakaoCallbackPage'
 import PasswordResetPage from '@/pages/auth/PasswordResetPage'
 import SignupPage from '@/pages/auth/SignupPage'
 import AiSettingsPage from '@/pages/my/AiSettingsPage'
@@ -78,6 +80,7 @@ function App() {
   const navigate = useNavigate()
   // 앱이 열려 있는 동안 측정 알림 · 알림 누르면 혈당 입력
   useMeasureReminder()
+  useSessionCheck()
   const completed = useOnboardingStore((state) => state.completed)
   // 앱을 열 때 한 번. 설정을 마친 뒤엔 당당 소식 한 장과 함께
   const splash = useSplashStore((state) => state.visible)
@@ -108,6 +111,7 @@ function App() {
         <Route path={ROUTES.SIGNUP} element={<SignupPage />} />
         <Route path={ROUTES.PASSWORD_FIND} element={<PasswordFindPage />} />
         <Route path={ROUTES.PASSWORD_RESET} element={<PasswordResetPage />} />
+        <Route path={ROUTES.KAKAO_CALLBACK} element={<KakaoCallbackPage />} />
         {/* 첫 진입 설정 */}
         <Route path={ROUTES.ONBOARDING} element={<IntroPage />} />
         <Route path={ROUTES.ONBOARDING_TERMS} element={<TermsAgreePage />} />

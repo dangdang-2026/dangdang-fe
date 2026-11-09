@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://dang-dang.site/api/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

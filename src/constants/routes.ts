@@ -8,7 +8,9 @@ export const ROUTES = {
   LOGIN: '/login',
   SIGNUP: '/signup',
   PASSWORD_FIND: '/password/find',
-  PASSWORD_RESET: '/password/reset',
+  // 백엔드 재설정 메일 링크 주소와 같아야 함
+  PASSWORD_RESET: '/reset-password',
+  KAKAO_CALLBACK: '/auth/kakao/callback',
   TODAY: '/',
   INBOX: '/inbox',
   RECORDS: '/records',

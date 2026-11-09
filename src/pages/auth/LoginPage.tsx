@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { useNavigate, useSearchParams } from 'react-router'
-import { LOGIN_MAX_FAILURES, loginWithEmail, loginWithKakao } from '@/api/auth'
+import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import { LOGIN_MAX_FAILURES, loginWithEmail, startKakaoLogin } from '@/api/auth'
 import iconAlert from '@/assets/icons/auth/alert.svg'
 import iconCapsLock from '@/assets/icons/auth/caps-lock.svg'
 import iconClear from '@/assets/icons/auth/clear.svg'
@@ -26,10 +26,16 @@ import { EMAIL_PATTERN } from '@/utils/auth'
 
 type EmailError = 'empty' | 'format'
 type PasswordError =
-  { kind: 'empty' } | { kind: 'wrong'; failures: number } | { kind: 'locked'; minutes: number }
-type ToastKind = 'kakaoCancel' | 'kakaoFail' | 'offline'
+  | { kind: 'empty' }
+  | { kind: 'wrong'; failures: number | null }
+  | { kind: 'locked'; minutes: number }
+type ToastKind = 'kakaoCancel' | 'kakaoFail' | 'offline' | 'signedUp' | 'loginFailed'
+
+// 가입은 됐는데 자동 로그인이 실패해 넘어올 때 받는 값
+type LoginLocationState = { signedUp?: boolean; email?: string } | null
 
 const TOAST: Record<ToastKind, { icon: string; message: string }> = {
+  signedUp: { icon: iconToastInfo, message: '가입됐어요. 로그인해 주세요' },
   kakaoCancel: { icon: iconToastInfo, message: '카카오 로그인을 취소했어요' },
   kakaoFail: {
     icon: iconToastAlert,
@@ -38,6 +44,10 @@ const TOAST: Record<ToastKind, { icon: string; message: string }> = {
   offline: {
     icon: iconToastOffline,
     message: '인터넷 연결이 불안정해요. 연결을 확인하고 다시 시도해 주세요',
+  },
+  loginFailed: {
+    icon: iconToastAlert,
+    message: '로그인하지 못했어요. 잠시 후 다시 시도해 주세요',
   },
 }
 
@@ -58,13 +68,16 @@ function RecentChip() {
 // Figma L-01~L-10 이메일 로그인 · K-05·K-06 카카오 취소·실패 후 돌아옴
 function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const signedUp = location.state as LoginLocationState
   const goBack = useGoBack(ROUTES.ONBOARDING)
   const [searchParams, setSearchParams] = useSearchParams()
   const lastMethod = useAuthStore((state) => state.lastMethod)
   const finish = useFinishLogin()
 
   const emailRef = useRef<HTMLInputElement>(null)
-  const [email, setEmail] = useState('')
+  // 방금 가입한 이메일은 채워 둠
+  const [email, setEmail] = useState(signedUp?.email ?? '')
   const [password, setPassword] = useState('')
   const [emailError, setEmailError] = useState<EmailError | null>(null)
   const [passwordError, setPasswordError] = useState<PasswordError | null>(null)
@@ -73,7 +86,9 @@ function LoginPage() {
   const [capsLock, setCapsLock] = useState(false)
   const [loading, setLoading] = useState(false)
   const [kakaoSheet, setKakaoSheet] = useState(false)
-  const [toast, setToast] = useState<ToastKind | null>(() => kakaoToast(searchParams.get('error')))
+  const [toast, setToast] = useState<ToastKind | null>(
+    () => kakaoToast(searchParams.get('error')) ?? (signedUp?.signedUp ? 'signedUp' : null),
+  )
   const closeToast = useCallback(() => setToast(null), [])
 
   // 토스트로 한 번 알렸으면 주소의 error는 지움
@@ -86,14 +101,13 @@ function LoginPage() {
   const findPassword = () => navigate(ROUTES.PASSWORD_FIND)
   const signUp = () => navigate(ROUTES.SIGNUP)
 
-  const loginKakao = async () => {
+  const loginKakao = () => {
     setKakaoSheet(false)
     if (!navigator.onLine) {
       setToast('offline')
       return
     }
-    await loginWithKakao()
-    finish('kakao')
+    startKakaoLogin()
   }
 
   const submit = async (event: FormEvent) => {
@@ -117,14 +131,19 @@ function LoginPage() {
     }
 
     setLoading(true)
-    const result = await loginWithEmail(trimmed, password)
-    setLoading(false)
-
-    if (result.status === 'ok') finish('email', trimmed, result.profile)
-    else if (result.status === 'kakao') setKakaoSheet(true)
-    else if (result.status === 'wrong')
-      setPasswordError({ kind: 'wrong', failures: result.failures })
-    else setPasswordError({ kind: 'locked', minutes: result.minutes })
+    try {
+      const result = await loginWithEmail(trimmed, password)
+      if (result.status === 'ok') await finish('email', trimmed, result.profile)
+      else if (result.status === 'kakao') setKakaoSheet(true)
+      else if (result.status === 'wrong')
+        setPasswordError({ kind: 'wrong', failures: result.failures })
+      else setPasswordError({ kind: 'locked', minutes: result.minutes })
+    } catch {
+      // 서버 오류·네트워크 오류
+      setToast('loginFailed')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const trackCapsLock = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -150,7 +169,10 @@ function LoginPage() {
       : passwordError?.kind === 'wrong'
         ? {
             icon: iconAlert,
-            text: `이메일 또는 비밀번호가 맞지 않아요 (${passwordError.failures}/${LOGIN_MAX_FAILURES})`,
+            text:
+              passwordError.failures === null
+                ? '이메일 또는 비밀번호가 맞지 않아요'
+                : `이메일 또는 비밀번호가 맞지 않아요 (${passwordError.failures}/${LOGIN_MAX_FAILURES})`,
             tone: 'error',
             action: findAction,
           }
