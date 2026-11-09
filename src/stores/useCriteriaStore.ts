@@ -1,6 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { FIRST_APPLIED_FROM, getCriteriaHistory } from '@/api/criteria'
+import {
+  createCriteria,
+  FIRST_APPLIED_FROM,
+  getCriteriaHistory,
+  type CriteriaInput,
+} from '@/api/criteria'
 import { INITIAL_CRITERIA } from '@/mocks/user'
 import type { Criteria } from '@/types/criteria'
 import { startOfDay } from '@/utils/date'
@@ -15,7 +20,7 @@ type CriteriaState = {
   setVersions: (versions: Criteria[]) => void
 }
 
-// API 연동 전까지 기기(localStorage)에 저장
+// 서버 기준을 기기에도 남겨 오프라인·앱 첫 화면에서 바로 씀
 export const useCriteriaStore = create<CriteriaState>()(
   persist(
     (set) => ({
@@ -41,4 +46,18 @@ export const useCriteriaStore = create<CriteriaState>()(
 export async function syncCriteria() {
   const versions = await getCriteriaHistory()
   if (versions.length > 0) useCriteriaStore.getState().setVersions(versions)
+}
+
+// 서버에 저장한 뒤 화면에 바로 반영. 서버 id는 이력을 다시 받아 채움
+export async function saveCriteria(criteria: CriteriaInput) {
+  await createCriteria(criteria)
+  useCriteriaStore.getState().addCriteria(criteria)
+  syncCriteria().catch(() => {})
+}
+
+// 첫 진입 설정. 1번 기준부터 다시 시작
+export async function saveFirstCriteria(criteria: CriteriaInput) {
+  await createCriteria(criteria)
+  useCriteriaStore.getState().startCriteria(criteria)
+  syncCriteria().catch(() => {})
 }

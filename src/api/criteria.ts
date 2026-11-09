@@ -26,6 +26,17 @@ const SLOT_FROM_SERVER: Record<ServerMeasureSlot, MeasureSlotKey> = {
   BEDTIME: 'bedtime',
 }
 
+const SLOT_TO_SERVER: Record<MeasureSlotKey, ServerMeasureSlot> = {
+  fasting: 'FASTING',
+  breakfast: 'BREAKFAST_AFTER',
+  lunch: 'LUNCH_AFTER',
+  dinner: 'DINNER_AFTER',
+  bedtime: 'BEDTIME',
+}
+
+// 저장할 때 넘기는 값. 순번·적용일은 서버·스토어가 정함
+export type CriteriaInput = Omit<Criteria, 'id' | 'version' | 'appliedFrom'>
+
 // 첫 버전은 아주 옛날부터 적용해 이전 기록도 비교되게 (useCriteriaStore와 같은 값)
 export const FIRST_APPLIED_FROM = new Date(2000, 0, 1).toISOString()
 
@@ -61,4 +72,16 @@ export async function getCriteriaHistory() {
   const { data } =
     await apiClient.get<BaseResponse<CriteriaVersionResponse[]>>('/criteria-versions')
   return toCriteriaVersions(data.data ?? [])
+}
+
+// 새 기준 등록. 서버는 덮어쓰지 않고 새 줄로 쌓고, 적용일은 오늘
+export async function createCriteria(criteria: CriteriaInput) {
+  await apiClient.post('/criteria-versions', {
+    postMealMinutes:
+      criteria.postMealHours === null ? null : Math.round(criteria.postMealHours * 60),
+    measureSlots: criteria.measureSlots.map((key) => SLOT_TO_SERVER[key]),
+    fastingTarget: criteria.targets.fasting,
+    postMealTarget: criteria.targets.postMeal,
+    sourceNote: criteria.source,
+  })
 }

@@ -16,7 +16,7 @@ import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
 import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
-import { useCriteriaStore } from '@/stores/useCriteriaStore'
+import { saveCriteria } from '@/stores/useCriteriaStore'
 import { useMealGuideStore } from '@/stores/useMealGuideStore'
 import { useProfileStore, type CareMode } from '@/stores/useProfileStore'
 import type { Criteria, MeasureSlotKey } from '@/types/criteria'
@@ -52,8 +52,8 @@ function MyCriteriaPage() {
   const mealGuide = useMealGuideStore((state) => state.guide)
   const goBack = useGoBack(ROUTES.MY)
   const criteria = useCriteria()
-  const addCriteria = useCriteriaStore((state) => state.addCriteria)
   const { careMode, contactMemo, updateProfile } = useProfileStore()
+  const [saving, setSaving] = useState(false)
   const [fasting, setFasting] = useState(String(criteria.targets.fasting ?? ''))
   const [postMeal, setPostMeal] = useState(String(criteria.targets.postMeal ?? ''))
   const [editingMemo, setEditingMemo] = useState(false)
@@ -67,16 +67,24 @@ function MyCriteriaPage() {
     : '식후'
   const targetsValid = isValidTarget(fasting) && isValidTarget(postMeal)
 
-  // 같은 날 다시 바꾸면 그날 버전을 덮어씀(useCriteriaStore)
-  const save = (changes: CriteriaChanges) => {
-    addCriteria({
-      source: '마이에서 직접 입력',
-      postMealHours: criteria.postMealHours,
-      measureSlots: criteria.measureSlots,
-      targets: criteria.targets,
-      ...changes,
-    })
-    setToast('병원 기준을 바꿨어요 · 진료 탭 이력에 남아요')
+  // 같은 날 다시 바꾸면 그날 버전을 덮어씀. 저장 중엔 이전 기준 위에 겹쳐 저장하지 않게 막음
+  const save = async (changes: CriteriaChanges) => {
+    if (saving) return
+    setSaving(true)
+    try {
+      await saveCriteria({
+        source: '마이에서 직접 입력',
+        postMealHours: criteria.postMealHours,
+        measureSlots: criteria.measureSlots,
+        targets: criteria.targets,
+        ...changes,
+      })
+      setToast('병원 기준을 바꿨어요 · 진료 탭 이력에 남아요')
+    } catch {
+      setToast('기준을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const toggleSlot = (key: MeasureSlotKey) => {
@@ -87,7 +95,7 @@ function MyCriteriaPage() {
       setToast('재는 때를 하나 이상 골라 주세요')
       return
     }
-    save({ measureSlots: MEASURE_SLOT_ORDER.filter((item) => next.includes(item)) })
+    void save({ measureSlots: MEASURE_SLOT_ORDER.filter((item) => next.includes(item)) })
   }
 
   // 칸을 벗어날 때 바뀐 목표만 저장
@@ -100,7 +108,7 @@ function MyCriteriaPage() {
     ) {
       return
     }
-    save({ targets })
+    void save({ targets })
   }
 
   return (
@@ -113,7 +121,7 @@ function MyCriteriaPage() {
           <PostMealTimeSegment
             value={criteria.postMealHours}
             onChange={(hours) => {
-              if (hours !== criteria.postMealHours) save({ postMealHours: hours })
+              if (hours !== criteria.postMealHours) void save({ postMealHours: hours })
             }}
           />
         </section>
