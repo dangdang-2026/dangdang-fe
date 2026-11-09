@@ -33,15 +33,11 @@ export function useFinishLogin() {
       navigate(ROUTES.TODAY, { replace: true })
       return
     }
-    // 카카오는 아직 목업이라 서버 세션 없음
-    if (method === 'kakao') {
-      goByDevice()
-      return
-    }
-
     try {
       const me = await getMe()
       updateProfile({ name: me.displayName })
+      // 카카오는 로그인 응답에 이메일이 없어 /me 값으로 채움
+      if (!email && me.email) login({ method, email: me.email })
       // 약관 전이면 새 계정이거나 설정을 안 마친 계정. 기기에 남은 다른 계정 설정은 비움
       if (!me.consentCompleted) {
         resetOnboarding()
