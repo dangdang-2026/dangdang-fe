@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { createReading, getAllReadings } from '@/api/readings'
+import { createReading, deleteReading, getAllReadings, updateReading } from '@/api/readings'
 import type {
   GlucoseRecord,
   InsulinRecord,
@@ -147,4 +147,16 @@ export async function syncRecords() {
       }),
     }
   })
+}
+
+// 서버에서 고친 뒤 기기에 반영. 처음 값(original)은 기기에서 남김
+export async function editRecord(id: string, changes: { value: number; measuredAt: string }) {
+  await updateReading(id, changes)
+  useGlucoseStore.getState().updateRecord(id, changes)
+}
+
+// 서버에서 지운 뒤 기기에서도 뺌
+export async function removeRecord(id: string) {
+  await deleteReading(id)
+  useGlucoseStore.getState().deleteRecord(id)
 }

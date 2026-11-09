@@ -116,3 +116,13 @@ export async function getAllReadings() {
   } while (cursor)
   return records.reverse()
 }
+
+// 수치·잰 시각 수정. 잰 시각을 바꾸면 서버가 그 날짜 기준을 다시 붙임
+export async function updateReading(id: string, changes: { value: number; measuredAt: string }) {
+  await apiClient.patch(`/readings/${id}`, changes)
+}
+
+// 삭제. 서버는 soft delete라 이후 목록에서 빠짐
+export async function deleteReading(id: string) {
+  await apiClient.delete(`/readings/${id}`)
+}
