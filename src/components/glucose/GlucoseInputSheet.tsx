@@ -8,7 +8,7 @@ import GlucoseKeypad from '@/components/glucose/GlucoseKeypad'
 import TargetChip from '@/components/glucose/TargetChip'
 import { GLUCOSE_MAX_DIGITS, ON_TIME_MS } from '@/constants/glucose'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
-import { useGlucoseStore } from '@/stores/useGlucoseStore'
+import { saveRecord } from '@/stores/useGlucoseStore'
 import type { GlucoseRecord, MeasureTarget } from '@/types/glucose'
 import { getCriteriaAt } from '@/utils/criteria'
 import { formatMonthDay, formatTime } from '@/utils/date'
@@ -35,10 +35,11 @@ function getMeasuredLabel(measuredAt: Date, dueAt?: string) {
 
 // Figma G-01~G-08 혈당 입력 바텀시트
 function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInputSheetProps) {
-  const addRecord = useGlucoseStore((state) => state.addRecord)
   const [measuredAt] = useState(() => backfillAt ?? new Date())
   const [digits, setDigits] = useState('')
   const [triedSave, setTriedSave] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveFailed, setSaveFailed] = useState(false)
   // 측정 시각에 적용되는 기준(지난 날 채우기면 그날 기준)
   const criteria = getCriteriaAt(
     useCriteriaStore((state) => state.versions),
@@ -60,12 +61,21 @@ function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInpu
     })
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (saving) return
     if (!isValidGlucose(value)) {
       setTriedSave(true)
       return
     }
-    onSaved(addRecord(target, value, measuredAt))
+    setSaving(true)
+    setSaveFailed(false)
+    try {
+      onSaved(await saveRecord(target, value, measuredAt))
+    } catch {
+      setSaveFailed(true)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const numberColor = digits === '' ? 'text-grey-400' : isInvalid ? 'text-red-500' : 'text-grey-900'
@@ -126,11 +136,18 @@ function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInpu
         </p>
       )}
 
+      {saveFailed && (
+        <p className="text-t7 text-center text-red-500" role="alert">
+          저장하지 못했어요. 잠시 후 다시 시도해 주세요
+        </p>
+      )}
+
       <button
         type="button"
         disabled={digits === ''}
+        aria-busy={saving}
         className="text-subtitle-1 disabled:bg-grey-100 disabled:text-grey-400 bg-primary h-14 rounded-xl leading-none text-white"
-        onClick={handleSave}
+        onClick={() => void handleSave()}
       >
         저장
       </button>

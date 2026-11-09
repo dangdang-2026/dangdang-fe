@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { createReading } from '@/api/readings'
 import type {
   GlucoseRecord,
   InsulinRecord,
@@ -26,7 +27,8 @@ type GlucoseState = {
   ) => void
   // 사진으로 적은 끼니의 AI 후보·음식별 양
   setMealPhotoInfo: (mealId: string, info: Pick<Meal, 'aiCandidates' | 'portions'>) => void
-  addRecord: (target: MeasureTarget, value: number, now?: Date) => GlucoseRecord
+  // 서버에 저장된 기록을 기기에 추가
+  addRecord: (record: GlucoseRecord) => void
   updateRecord: (id: string, changes: { value: number; measuredAt: string }, now?: Date) => void
   deleteRecord: (id: string, now?: Date) => void
   // 지운 기록. 화면·리포트에선 빼고 기록용으로만 보관
@@ -78,20 +80,7 @@ export const useGlucoseStore = create<GlucoseState>()(
         set((state) => ({
           meals: state.meals.map((meal) => (meal.id === mealId ? { ...meal, ...info } : meal)),
         })),
-      addRecord: (target, value, now = new Date()) => {
-        const record: GlucoseRecord = {
-          id: crypto.randomUUID(),
-          slot: target.slot,
-          value,
-          measuredAt: now.toISOString(),
-          // 지난 날 채우기면 measuredAt과 달라짐
-          enteredAt: new Date().toISOString(),
-          mealId: target.mealId,
-          mealType: target.mealType,
-        }
-        set((state) => ({ records: [...state.records, record] }))
-        return record
-      },
+      addRecord: (record) => set((state) => ({ records: [...state.records, record] })),
       updateRecord: (id, changes, now = new Date()) =>
         set((state) => ({
           records: state.records.map((record) =>
@@ -131,3 +120,11 @@ export const useGlucoseStore = create<GlucoseState>()(
     { name: 'dangdang-glucose' },
   ),
 )
+
+// 서버에 등록한 뒤 기기에 반영. 끼니 연결은 끼니 API 전까지 기기에서만 붙임
+export async function saveRecord(target: MeasureTarget, value: number, measuredAt: Date) {
+  const saved = await createReading(target, value, measuredAt)
+  const record = { ...saved, mealId: target.mealId, mealType: target.mealType ?? saved.mealType }
+  useGlucoseStore.getState().addRecord(record)
+  return record
+}
