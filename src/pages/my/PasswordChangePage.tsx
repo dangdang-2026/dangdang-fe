@@ -5,6 +5,7 @@ import iconAlert from '@/assets/icons/auth/alert.svg'
 import iconEyeOff from '@/assets/icons/auth/eye-off.svg'
 import iconEye from '@/assets/icons/auth/eye.svg'
 import iconLoading from '@/assets/icons/auth/loading.svg'
+import iconToastAlert from '@/assets/icons/auth/toast-alert.svg'
 import iconToastOffline from '@/assets/icons/auth/toast-offline.svg'
 import AuthField, { type FieldHelper } from '@/components/auth/AuthField'
 import AuthToast from '@/components/auth/AuthToast'
@@ -16,6 +17,18 @@ import { useAuthStore } from '@/stores/useAuthStore'
 import { isNewPasswordValid } from '@/utils/auth'
 
 type CurrentError = 'empty' | 'wrong'
+type ToastKind = 'offline' | 'failed'
+
+const TOAST: Record<ToastKind, { icon: string; message: string }> = {
+  offline: {
+    icon: iconToastOffline,
+    message: '인터넷 연결이 불안정해요. 입력한 내용은 그대로 있어요',
+  },
+  failed: {
+    icon: iconToastAlert,
+    message: '비밀번호를 바꾸지 못했어요. 잠시 후 다시 시도해 주세요',
+  },
+}
 
 // Figma M-09 비밀번호 바꾸기. 이메일로 가입한 계정만
 function PasswordChangePage() {
@@ -31,8 +44,8 @@ function PasswordChangePage() {
   const [sameAsBefore, setSameAsBefore] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [offlineToast, setOfflineToast] = useState(false)
-  const closeToast = useCallback(() => setOfflineToast(false), [])
+  const [toast, setToast] = useState<ToastKind | null>(null)
+  const closeToast = useCallback(() => setToast(null), [])
 
   // 카카오 계정은 비밀번호가 없음
   if (account?.method !== 'email' || !account.email) {
@@ -47,13 +60,20 @@ function PasswordChangePage() {
     setCurrentError(current ? null : 'empty')
     if (!current || !isNewPasswordValid(password, confirm)) return
     if (!navigator.onLine) {
-      setOfflineToast(true)
+      setToast('offline')
       return
     }
 
     setLoading(true)
-    const result = await changePassword(email, current, password)
-    setLoading(false)
+    let result
+    try {
+      result = await changePassword(current, password)
+    } catch {
+      setToast('failed')
+      return
+    } finally {
+      setLoading(false)
+    }
 
     if (result.status === 'wrong') setCurrentError('wrong')
     else if (result.status === 'same') setSameAsBefore(true)
@@ -148,13 +168,7 @@ function PasswordChangePage() {
         </button>
       </form>
 
-      {offlineToast && (
-        <AuthToast
-          icon={iconToastOffline}
-          message="인터넷 연결이 불안정해요. 입력한 내용은 그대로 있어요"
-          onClose={closeToast}
-        />
-      )}
+      {toast && <AuthToast {...TOAST[toast]} onClose={closeToast} />}
     </main>
   )
 }

@@ -230,17 +230,16 @@ export async function resetPassword(token: string, password: string): Promise<Re
 
 export type ChangePasswordResult = { status: 'ok' } | { status: 'wrong' } | { status: 'same' }
 
-// 마이 > 비밀번호 바꾸기. 이메일로 가입한 계정만
-export async function changePassword(
-  email: string,
-  current: string,
-  next: string,
-): Promise<ChangePasswordResult> {
-  await wait(MOCK_DELAY_MS)
-  const account = MOCK_ACCOUNTS.find((item) => item.email === email)
-  if (!account || account.password !== current) return { status: 'wrong' }
-  if (current === next) return { status: 'same' }
-  account.password = next
+// 마이 > 비밀번호 바꾸기. 성공하면 서버가 새 토큰 쿠키를 심고 다른 기기는 로그아웃
+export async function changePassword(current: string, next: string): Promise<ChangePasswordResult> {
+  try {
+    await apiClient.patch('/me/password', { currentPassword: current, newPassword: next })
+  } catch (error) {
+    const code = getErrorCode(error)
+    if (code === 'USER_40003') return { status: 'wrong' }
+    if (code === 'AUTH_40009') return { status: 'same' }
+    throw error
+  }
   return { status: 'ok' }
 }
 
