@@ -5,6 +5,8 @@ export type MeasureSlotKey = 'fasting' | 'breakfast' | 'lunch' | 'dinner' | 'bed
 
 // 병원 기준 한 버전. 바꿀 때마다 새 버전을 쌓고 지난 기록은 그때 버전으로 봄
 export type Criteria = {
+  // 서버 criteriaVersionId. 서버에서 받기 전(기기에만 있는 기준)엔 없음
+  id?: number
   version: number
   // 이 날짜(0시)부터 적용
   appliedFrom: string
