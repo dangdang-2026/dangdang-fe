@@ -1,5 +1,5 @@
 import { apiClient, getErrorCode, getErrorMessage, type BaseResponse } from '@/api/axios'
-import { MOCK_ACCOUNTS, MOCK_RESET_TOKEN, type AccountProfile } from '@/mocks/auth'
+import { MOCK_ACCOUNTS, type AccountProfile } from '@/mocks/auth'
 
 // 연속으로 틀리면 잠깐 잠금. 횟수·시간은 서버 정책 값
 export const LOGIN_MAX_FAILURES = 5
@@ -194,13 +194,18 @@ const RESET_TTL_MS = 30 * 60 * 1000
 // 메일 발송 연동 전이라 링크 토큰 고정. 마지막으로 요청한 이메일에 묶임
 const resetTokens = new Map<string, { email: string; issuedAt: number }>()
 
+export type ResetRequestResult = { status: 'ok' } | { status: 'limit' }
+
 // 가입 여부와 상관없이 같은 응답(계정 노출 방지). 이메일로 가입한 계정에만 링크 발급
-export async function requestPasswordReset(email: string): Promise<void> {
-  await wait(MOCK_DELAY_MS)
-  const account = MOCK_ACCOUNTS.find((item) => item.email === email)
-  if (account?.method === 'email') {
-    resetTokens.set(MOCK_RESET_TOKEN, { email, issuedAt: Date.now() })
+export async function requestPasswordReset(email: string): Promise<ResetRequestResult> {
+  try {
+    await apiClient.post('/auth/password/reset/request', { email })
+  } catch (error) {
+    // 같은 이메일로 하루 5번 넘게 보냄
+    if (getErrorCode(error) === 'AUTH_42903') return { status: 'limit' }
+    throw error
   }
+  return { status: 'ok' }
 }
 
 export type ResetTokenResult = { status: 'ok'; email: string } | { status: 'expired' }
