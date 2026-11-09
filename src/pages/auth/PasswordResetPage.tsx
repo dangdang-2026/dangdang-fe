@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { checkResetToken, resetPassword } from '@/api/auth'
+import { resetPassword } from '@/api/auth'
 import iconLoading from '@/assets/icons/auth/loading.svg'
 import iconResultDone from '@/assets/icons/auth/result-done.svg'
 import iconResultExpired from '@/assets/icons/auth/result-expired.svg'
+import iconToastAlert from '@/assets/icons/auth/toast-alert.svg'
 import iconToastOffline from '@/assets/icons/auth/toast-offline.svg'
 import AuthHeader from '@/components/auth/AuthHeader'
 import AuthResultScreen from '@/components/auth/AuthResultScreen'
@@ -13,11 +14,19 @@ import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { isNewPasswordValid } from '@/utils/auth'
 
-type ResetStep =
-  | { kind: 'checking' }
-  | { kind: 'form'; email: string }
-  | { kind: 'expired' }
-  | { kind: 'done' }
+type ResetStep = 'form' | 'expired' | 'done'
+type ToastKind = 'offline' | 'failed'
+
+const TOAST: Record<ToastKind, { icon: string; message: string }> = {
+  offline: {
+    icon: iconToastOffline,
+    message: '인터넷 연결이 불안정해요. 입력한 내용은 그대로 있어요',
+  },
+  failed: {
+    icon: iconToastAlert,
+    message: '비밀번호를 바꾸지 못했어요. 잠시 후 다시 시도해 주세요',
+  },
+}
 
 // Figma R-05~R-10 메일 링크로 들어와 새 비밀번호 정하기
 function PasswordResetPage() {
@@ -26,26 +35,15 @@ function PasswordResetPage() {
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token') ?? ''
 
-  const [step, setStep] = useState<ResetStep>({ kind: 'checking' })
+  // 토큰만 확인하는 API가 없어 만료는 제출할 때 알 수 있음. 토큰이 아예 없으면 바로 만료
+  const [step, setStep] = useState<ResetStep>(token ? 'form' : 'expired')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [sameAsBefore, setSameAsBefore] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [offlineToast, setOfflineToast] = useState(false)
-  const closeToast = useCallback(() => setOfflineToast(false), [])
-
-  // 링크를 열면 먼저 만료·사용 여부부터 확인
-  useEffect(() => {
-    let active = true
-    checkResetToken(token).then((result) => {
-      if (!active) return
-      setStep(result.status === 'ok' ? { kind: 'form', email: result.email } : { kind: 'expired' })
-    })
-    return () => {
-      active = false
-    }
-  }, [token])
+  const [toast, setToast] = useState<ToastKind | null>(null)
+  const closeToast = useCallback(() => setToast(null), [])
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -53,21 +51,26 @@ function PasswordResetPage() {
     setSubmitted(true)
     if (!isNewPasswordValid(password, confirm)) return
     if (!navigator.onLine) {
-      setOfflineToast(true)
+      setToast('offline')
       return
     }
 
     setLoading(true)
-    const result = await resetPassword(token, password)
-    setLoading(false)
+    let result
+    try {
+      result = await resetPassword(token, password)
+    } catch {
+      setToast('failed')
+      return
+    } finally {
+      setLoading(false)
+    }
 
     if (result.status === 'same') setSameAsBefore(true)
-    else setStep({ kind: result.status === 'ok' ? 'done' : 'expired' })
+    else setStep(result.status === 'ok' ? 'done' : 'expired')
   }
 
-  if (step.kind === 'checking') return <main className="min-h-dvh bg-white" aria-busy />
-
-  if (step.kind === 'expired') {
+  if (step === 'expired') {
     return (
       <AuthResultScreen
         headerTitle="비밀번호 재설정"
@@ -90,7 +93,7 @@ function PasswordResetPage() {
     )
   }
 
-  if (step.kind === 'done') {
+  if (step === 'done') {
     return (
       <AuthResultScreen
         headerTitle="비밀번호 재설정"
@@ -116,13 +119,13 @@ function PasswordResetPage() {
         <p className="text-subtitle-1 text-grey-900">비밀번호 재설정</p>
       </AuthHeader>
 
+      {/* 서버가 토큰으로 이메일을 알려 주지 않아 계정 안내 줄은 뺌 */}
       <div className="mt-7 flex flex-col gap-1.5">
         <h1 className="text-title-2 text-grey-900">
           새 비밀번호를
           <br />
           정해 주세요
         </h1>
-        <p className="text-grey-500 text-sm leading-normal">{step.email} 계정</p>
       </div>
 
       <form noValidate className="mt-8 flex flex-1 flex-col" onSubmit={submit}>
@@ -159,13 +162,7 @@ function PasswordResetPage() {
         </button>
       </form>
 
-      {offlineToast && (
-        <AuthToast
-          icon={iconToastOffline}
-          message="인터넷 연결이 불안정해요. 입력한 내용은 그대로 있어요"
-          onClose={closeToast}
-        />
-      )}
+      {toast && <AuthToast {...TOAST[toast]} onClose={closeToast} />}
     </main>
   )
 }

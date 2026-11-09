@@ -188,12 +188,6 @@ export async function completeSignUp(
   return { status: 'ok' }
 }
 
-// 재설정 링크는 30분, 한 번만 씀
-const RESET_TTL_MS = 30 * 60 * 1000
-
-// 메일 발송 연동 전이라 링크 토큰 고정. 마지막으로 요청한 이메일에 묶임
-const resetTokens = new Map<string, { email: string; issuedAt: number }>()
-
 export type ResetRequestResult = { status: 'ok' } | { status: 'limit' }
 
 // 가입 여부와 상관없이 같은 응답(계정 노출 방지). 이메일로 가입한 계정에만 링크 발급
@@ -208,28 +202,20 @@ export async function requestPasswordReset(email: string): Promise<ResetRequestR
   return { status: 'ok' }
 }
 
-export type ResetTokenResult = { status: 'ok'; email: string } | { status: 'expired' }
-
-export async function checkResetToken(token: string): Promise<ResetTokenResult> {
-  await wait(MOCK_DELAY_MS / 2)
-  const issued = resetTokens.get(token)
-  if (!issued || Date.now() - issued.issuedAt > RESET_TTL_MS) return { status: 'expired' }
-  return { status: 'ok', email: issued.email }
-}
-
 export type ResetPasswordResult = { status: 'ok' } | { status: 'same' } | { status: 'expired' }
 
+// 링크 토큰으로 새 비밀번호 저장. 성공하면 모든 기기 로그아웃
 export async function resetPassword(token: string, password: string): Promise<ResetPasswordResult> {
-  await wait(MOCK_DELAY_MS)
-  const issued = resetTokens.get(token)
-  if (!issued || Date.now() - issued.issuedAt > RESET_TTL_MS) return { status: 'expired' }
-
-  const account = MOCK_ACCOUNTS.find((item) => item.email === issued.email)
-  if (!account) return { status: 'expired' }
-  if (account.password === password) return { status: 'same' }
-
-  account.password = password
-  resetTokens.delete(token)
+  try {
+    await apiClient.post('/auth/password/reset/confirm', { token, newPassword: password })
+  } catch (error) {
+    const code = getErrorCode(error)
+    // 30분 지났거나 이미 쓴 링크
+    if (code === 'AUTH_40008') return { status: 'expired' }
+    // 링크는 그대로라 다시 입력 가능
+    if (code === 'AUTH_40009') return { status: 'same' }
+    throw error
+  }
   return { status: 'ok' }
 }
 
