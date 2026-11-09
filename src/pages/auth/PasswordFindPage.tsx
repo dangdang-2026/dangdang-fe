@@ -6,6 +6,7 @@ import iconClear from '@/assets/icons/auth/clear.svg'
 import iconLoading from '@/assets/icons/auth/loading.svg'
 import iconNoticeInfo from '@/assets/icons/auth/notice-info.svg'
 import iconResultMail from '@/assets/icons/auth/result-mail.svg'
+import iconToastAlert from '@/assets/icons/auth/toast-alert.svg'
 import iconToastInfo from '@/assets/icons/auth/toast-info.svg'
 import iconToastOffline from '@/assets/icons/auth/toast-offline.svg'
 import AuthField, { type FieldHelper } from '@/components/auth/AuthField'
@@ -17,7 +18,7 @@ import { useGoBack } from '@/hooks/useGoBack'
 import { EMAIL_PATTERN } from '@/utils/auth'
 
 type EmailError = 'empty' | 'format'
-type ToastKind = 'offline' | 'resent'
+type ToastKind = 'offline' | 'resent' | 'limit' | 'failed'
 
 const TOAST: Record<ToastKind, { icon: string; message: string }> = {
   offline: {
@@ -25,6 +26,11 @@ const TOAST: Record<ToastKind, { icon: string; message: string }> = {
     message: '인터넷 연결이 불안정해요. 연결을 확인하고 다시 시도해 주세요',
   },
   resent: { icon: iconToastInfo, message: '메일을 다시 보냈어요' },
+  limit: {
+    icon: iconToastAlert,
+    message: '오늘은 메일을 더 보낼 수 없어요. 내일 다시 시도해 주세요',
+  },
+  failed: { icon: iconToastAlert, message: '메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요' },
 }
 
 // Figma R-01~R-04 비밀번호 찾기: 이메일 → 재설정 링크 메일 보냄
@@ -46,9 +52,19 @@ function PasswordFindPage() {
       return false
     }
     setLoading(true)
-    await requestPasswordReset(email.trim())
-    setLoading(false)
-    return true
+    try {
+      const result = await requestPasswordReset(email.trim())
+      if (result.status === 'limit') {
+        setToast('limit')
+        return false
+      }
+      return true
+    } catch {
+      setToast('failed')
+      return false
+    } finally {
+      setLoading(false)
+    }
   }
 
   const submit = async (event: FormEvent) => {
