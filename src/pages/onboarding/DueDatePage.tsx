@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { saveDueDate } from '@/api/me'
 import iconCalendar from '@/assets/icons/calendar.svg'
 import iconCheckGreen from '@/assets/icons/community/check-green.svg'
 import Toast from '@/components/common/Toast'
@@ -28,8 +29,8 @@ function DueDatePage() {
   const [dueDate, setDueDate] = useState(answers.dueDate)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState(false)
-  const closeToast = useCallback(() => setToast(false), [])
+  const [toast, setToast] = useState<string | null>(null)
+  const closeToast = useCallback(() => setToast(null), [])
   const today = startOfDay(new Date())
   const date = parseDateKey(dueDate)
   const pregnancyLabel = formatPregnancyAge(dueDate, today)
@@ -39,6 +40,14 @@ function DueDatePage() {
     if (saving) return
     setSaving(true)
     try {
+      // 예정일 먼저. 기준까지 저장한 뒤 실패하면 다시 눌렀을 때 기준이 두 번 생김
+      if (finalDueDate) await saveDueDate(finalDueDate)
+    } catch {
+      setToast('출산 예정일을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+      setSaving(false)
+      return
+    }
+    try {
       await saveFirstCriteria({
         source: '첫 진입 때 입력',
         postMealHours: answers.postMealHours ?? null,
@@ -46,7 +55,7 @@ function DueDatePage() {
         targets: { fasting: null, postMeal: null },
       })
     } catch {
-      setToast(true)
+      setToast('기준을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
       return
     } finally {
       setSaving(false)
@@ -124,12 +133,7 @@ function DueDatePage() {
           onClose={() => setSheetOpen(false)}
         />
       )}
-      {toast && (
-        <Toast
-          message="기준을 저장하지 못했어요. 잠시 후 다시 시도해 주세요"
-          onClose={closeToast}
-        />
-      )}
+      {toast && <Toast message={toast} onClose={closeToast} />}
     </main>
   )
 }
