@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
+import { hasServerPush } from '@/api/push'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
@@ -58,6 +59,8 @@ export function useMeasureReminder() {
     const pending = getPendingMeal(meals, records, postMealHours, new Date())
     if (!pending || !measure || paused) return
     const { meal, dueAt } = pending
+    // 서버에 있는 식사이고 이 기기가 푸시를 받으면 서버가 알림·재알림을 보내 기기 알림은 안 띄움
+    if (!meal.pending && hasServerPush()) return
     const timers: number[] = []
 
     const schedule = (key: string, at: number) => {
@@ -94,11 +97,14 @@ export function useMeasureReminder() {
     }
   }, [meals, records, postMealHours, measure, remind, hideOnLockScreen, paused])
 
-  // 알림을 누르면 오늘 탭 혈당 입력 시트로
+  // 알림을 누르면 오늘 탭 혈당 입력 시트로. 서버 알림은 주소(reminderId 포함) 그대로 열어 열람 처리
   useEffect(() => {
     const open = () => navigate(ROUTES.TODAY, { state: { openGlucose: true } })
     const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'measure-open') open()
+      if (event.data?.type !== 'measure-open') return
+      const url: unknown = event.data.url
+      if (typeof url === 'string' && url.includes('reminderId=')) navigate(url)
+      else open()
     }
     navigator.serviceWorker?.addEventListener('message', handleMessage)
     window.addEventListener('measure-open', open)

@@ -5,7 +5,8 @@ import { ROUTES } from '@/constants/routes'
 import type { AccountProfile } from '@/mocks/auth'
 import { useAuthStore, type LoginMethod } from '@/stores/useAuthStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
-import { syncRecords } from '@/stores/useGlucoseStore'
+import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
+import { syncInbox } from '@/stores/useInboxStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
 import { useProfileStore } from '@/stores/useProfileStore'
 
@@ -41,8 +42,11 @@ export function useFinishLogin() {
       updateProfile({ name: me.displayName })
       // 카카오는 로그인 응답에 이메일이 없어 /me 값으로 채움
       if (!email && me.email) login({ method, email: me.email })
-      // 혈당 기록은 서버 값으로. 새 계정이면 기기에 남은 다른 계정 기록도 비워짐
+      // 식사·혈당 기록은 서버 값으로. 새 계정이면 기기에 남은 다른 계정 기록도 비워짐
+      syncMeals().catch(() => {})
       syncRecords().catch(() => {})
+      // 알림함도 이 계정 알림으로. 다른 계정 알림이 남지 않게
+      syncInbox().catch(() => {})
       // 약관 전이면 새 계정이거나 설정을 안 마친 계정. 기기에 남은 다른 계정 설정은 비움
       if (!me.consentCompleted) {
         resetOnboarding()
