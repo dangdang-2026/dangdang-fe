@@ -1,8 +1,6 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
 import { useNotificationStore } from '@/stores/useNotificationStore'
 
-// 구독 해제 API 연동 전까지 서버로 보내지 않음
-const USE_MOCK = true
 // 서버(VAPID) 공개키. 없으면 푸시 구독 없이 앱이 열려 있을 때 알림만
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined
 // 구독 해제 때 쓸 서버 구독 번호
@@ -49,14 +47,16 @@ export function syncPushSubscription() {
   subscribePush().catch(() => {})
 }
 
-// 알림을 끄면 구독도 지움
+// 측정 알림을 끄거나 로그아웃하면 서버 구독을 끊고 브라우저 구독도 지움
 export async function unsubscribePush() {
+  const id = localStorage.getItem(SUBSCRIPTION_ID_KEY)
+  if (id) {
+    // 이미 끊겼거나 다른 계정 구독이면 404라 그냥 넘어감
+    await apiClient.delete(`/push-subscriptions/${id}`).catch(() => {})
+    localStorage.removeItem(SUBSCRIPTION_ID_KEY)
+  }
   if (!('serviceWorker' in navigator)) return
   const registration = await navigator.serviceWorker.getRegistration()
   const subscription = await registration?.pushManager.getSubscription()
-  if (!subscription) return
-  if (!USE_MOCK) {
-    await apiClient.delete('/push/subscriptions', { data: { endpoint: subscription.endpoint } })
-  }
-  await subscription.unsubscribe()
+  await subscription?.unsubscribe()
 }
