@@ -1,5 +1,5 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
-import type { HospitalInfo } from '@/types/hospital'
+import type { Department, Hospital, HospitalInfo } from '@/types/hospital'
 
 // 백엔드 HospitalSearchResponse. 심평원에 등록된 병원
 type HospitalSearchResponse = {
@@ -36,4 +36,53 @@ export async function searchHospitals(keyword: string) {
     address: item.address ?? undefined,
     phone: item.phone ?? undefined,
   }))
+}
+
+// 백엔드 Department
+type ServerDepartment = 'OBGYN' | 'ENDO' | 'NUTRITION' | 'ETC'
+
+export const DEPARTMENT: Record<Department, ServerDepartment> = {
+  산부인과: 'OBGYN',
+  내분비내과: 'ENDO',
+  '영양 상담': 'NUTRITION',
+  기타: 'ETC',
+}
+
+const DEPARTMENT_FROM: Record<ServerDepartment, Department> = {
+  OBGYN: '산부인과',
+  ENDO: '내분비내과',
+  NUTRITION: '영양 상담',
+  ETC: '기타',
+}
+
+// 백엔드 CareSiteResponse
+export type CareSiteResponse = {
+  careSiteId: number
+  name: string
+  department: ServerDepartment
+  hiraCode: string | null
+  address: string | null
+  phone: string | null
+  roleNote: string | null
+  primary: boolean
+  sortOrder: number
+}
+
+// 서버 병원 → 앱 병원. 병원 종류·다음 진료일은 서버에 없어 비워 둠
+export function toHospital(item: CareSiteResponse): Hospital {
+  return {
+    id: String(item.careSiteId),
+    hiraCode: item.hiraCode ?? undefined,
+    name: item.name,
+    address: item.address ?? undefined,
+    phone: item.phone ?? undefined,
+    department: DEPARTMENT_FROM[item.department],
+    nextVisitAt: null,
+  }
+}
+
+// 내 병원 전부. 서버가 대표 병원 먼저, 정한 순서대로 줌
+export async function getCareSites() {
+  const { data } = await apiClient.get<BaseResponse<CareSiteResponse[]>>('/care-sites')
+  return (data.data ?? []).map(toHospital)
 }

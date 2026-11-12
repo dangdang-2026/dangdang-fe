@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { DEFAULT_HOSPITAL } from '@/mocks/hospital'
+import { getCareSites } from '@/api/careSites'
 import type { Hospital, HospitalInfo } from '@/types/hospital'
 
 type HospitalInput = Omit<Hospital, 'id'>
@@ -16,11 +16,11 @@ type HospitalState = {
   setDraft: (draft: { info: HospitalInfo; manual: boolean } | null) => void
 }
 
-// API 연동 전까지 기기(localStorage)에 저장
+// 서버 병원 목록을 받아 기기에도 저장. 오프라인에서도 마지막 목록을 보여 줌
 export const useHospitalStore = create<HospitalState>()(
   persist(
     (set) => ({
-      hospitals: [DEFAULT_HOSPITAL],
+      hospitals: [],
       addHospital: (input) => {
         const hospital = { ...input, id: crypto.randomUUID() }
         set((state) => ({ hospitals: [...state.hospitals, hospital] }))
@@ -38,3 +38,15 @@ export const useHospitalStore = create<HospitalState>()(
     { name: 'dangdang-hospital', partialize: (state) => ({ hospitals: state.hospitals }) },
   ),
 )
+
+// 서버 병원 목록으로 바꿈. 서버에 없는 병원 종류·다음 진료일은 기기 값을 이어 씀
+export async function syncHospitals() {
+  const hospitals = await getCareSites()
+  const local = useHospitalStore.getState().hospitals
+  useHospitalStore.setState({
+    hospitals: hospitals.map((hospital) => {
+      const prev = local.find((item) => item.id === hospital.id)
+      return prev ? { ...hospital, kind: prev.kind, nextVisitAt: prev.nextVisitAt } : hospital
+    }),
+  })
+}

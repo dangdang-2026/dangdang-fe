@@ -6,6 +6,7 @@ import type { AccountProfile } from '@/mocks/auth'
 import { useAuthStore, type LoginMethod } from '@/stores/useAuthStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
 import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
+import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
@@ -48,6 +49,8 @@ export function useFinishLogin() {
       syncRecords().catch(() => {})
       // 알림함도 이 계정 알림으로. 다른 계정 알림이 남지 않게
       syncInbox().catch(() => {})
+      // 다니는 병원도 이 계정 병원으로
+      syncHospitals().catch(() => {})
       // 알림 설정도 이 계정 값으로. 다른 계정 설정이 남지 않게
       const settingsSynced = syncNotificationSettings().catch(() => {})
       // 약관 전이면 새 계정이거나 설정을 안 마친 계정. 기기에 남은 다른 계정 설정은 비움

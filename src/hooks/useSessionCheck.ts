@@ -4,6 +4,7 @@ import { syncPushSubscription } from '@/api/push'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
 import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
+import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
 import { useProfileStore } from '@/stores/useProfileStore'
@@ -26,7 +27,13 @@ export function useSessionCheck() {
           .catch(() => {})
           .finally(syncPushSubscription)
         // 다른 기기에서 바꾼 병원 기준·식사·혈당 기록도 반영
-        return Promise.all([syncCriteria(), syncMeals(), syncRecords(), syncInbox()])
+        return Promise.all([
+          syncCriteria(),
+          syncMeals(),
+          syncRecords(),
+          syncInbox(),
+          syncHospitals(),
+        ])
       })
       .catch(() => {
         // Refresh까지 만료면 인터셉터가 로그인 풂. 오프라인이면 기기 기록으로 계속 씀
