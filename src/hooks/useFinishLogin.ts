@@ -4,6 +4,7 @@ import { syncPushSubscription } from '@/api/push'
 import { ROUTES } from '@/constants/routes'
 import type { AccountProfile } from '@/mocks/auth'
 import { useAuthStore, type LoginMethod } from '@/stores/useAuthStore'
+import { syncCommunityProfile } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
 import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
@@ -51,6 +52,8 @@ export function useFinishLogin() {
       syncInbox().catch(() => {})
       // 다니는 병원도 이 계정 병원으로
       syncHospitals().catch(() => {})
+      // 커뮤니티 닉네임도 이 계정 닉네임으로
+      syncCommunityProfile().catch(() => {})
       // 알림 설정도 이 계정 값으로. 다른 계정 설정이 남지 않게
       const settingsSynced = syncNotificationSettings().catch(() => {})
       // 약관 전이면 새 계정이거나 설정을 안 마친 계정. 기기에 남은 다른 계정 설정은 비움

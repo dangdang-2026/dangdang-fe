@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { getNicknameSuggestion } from '@/api/communityProfile'
 import iconPromiseCheck from '@/assets/icons/community/promise-check.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import Switch from '@/components/common/Switch'
 import NicknameField from '@/components/community/NicknameField'
-import { checkNickname, createNickname } from '@/utils/nickname'
+import { useNicknameCheck } from '@/hooks/useNicknameCheck'
+import { useCommunityStore } from '@/stores/useCommunityStore'
+import { createNickname } from '@/utils/nickname'
 
 const PROMISES = [
   '진단·처방·약 이야기는 병원에 물어봐요',
@@ -12,16 +15,36 @@ const PROMISES = [
 ]
 
 type NicknameSheetProps = {
-  onSubmit: (nickname: string, showWeek: boolean) => void
+  // 서버에 저장하는 동안 버튼을 막음. 실패하면 시트에 보여 줄 안내를 돌려줌
+  onSubmit: (nickname: string, showWeek: boolean) => Promise<string | null>
   onPolicy: () => void
   onClose: () => void
 }
 
 // Figma U-04 닉네임 정하기 · U-04b 이미 쓰는 이름
 function NicknameSheet({ onSubmit, onPolicy, onClose }: NicknameSheetProps) {
-  const [name, setName] = useState(() => createNickname())
-  const [showWeek, setShowWeek] = useState(false)
-  const check = checkNickname(name)
+  // 기기에서 만든 이름으로 먼저 보여 주고 서버 추천이 오면 바꿈
+  const [initialName] = useState(() => createNickname())
+  const [name, setName] = useState(initialName)
+  // 커뮤니티 설정에서 먼저 정한 배지 설정으로 시작
+  const [showWeek, setShowWeek] = useState(() => useCommunityStore.getState().showWeek)
+  const [submitting, setSubmitting] = useState(false)
+  // 시트가 토스트를 가려서 저장 실패는 시트 안에 보여 줌
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const check = useNicknameCheck(name)
+
+  // 아직 안 고쳤으면 서버가 고른 안 쓰는 이름으로. 못 받으면 기기 이름 그대로
+  useEffect(() => {
+    let active = true
+    getNicknameSuggestion()
+      .then((suggested) => {
+        if (active) setName((current) => (current === initialName ? suggested : current))
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [initialName])
 
   return (
     <BottomSheet label="닉네임" onClose={onClose}>
@@ -32,7 +55,14 @@ function NicknameSheet({ onSubmit, onPolicy, onClose }: NicknameSheetProps) {
         </p>
       </div>
 
-      <NicknameField value={name} check={check} onChange={setName} />
+      <NicknameField
+        value={name}
+        check={check}
+        onChange={(next) => {
+          setName(next)
+          setSubmitError(null)
+        }}
+      />
 
       <div className="flex items-center justify-between py-1">
         <div className="flex flex-col gap-0.5 leading-snug">
@@ -58,11 +88,20 @@ function NicknameSheet({ onSubmit, onPolicy, onClose }: NicknameSheetProps) {
         </button>
       </div>
 
+      {submitError && (
+        <p className="text-xs leading-snug font-medium text-red-500">{submitError}</p>
+      )}
       <button
         type="button"
-        disabled={check !== 'ok'}
+        disabled={check !== 'ok' || submitting}
         className="bg-primary text-grey-900 disabled:bg-grey-100 disabled:text-grey-400 rounded-key py-4 text-base leading-snug font-bold"
-        onClick={() => onSubmit(name.trim(), showWeek)}
+        onClick={() => {
+          setSubmitting(true)
+          setSubmitError(null)
+          void onSubmit(name.trim(), showWeek)
+            .then(setSubmitError)
+            .finally(() => setSubmitting(false))
+        }}
       >
         이 이름으로 시작하기
       </button>

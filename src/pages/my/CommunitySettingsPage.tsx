@@ -1,5 +1,6 @@
 import { useCallback, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
+import { updateCommunityProfile } from '@/api/communityProfile'
 import iconChevronMd from '@/assets/icons/chevron-md.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import SubPageHeader from '@/components/common/SubPageHeader'
@@ -59,6 +60,18 @@ function CommunitySettingsPage() {
   const closeToast = useCallback(() => setToast(null), [])
   const closeBlocked = useCallback(() => setBlockedOpen(false), [])
 
+  // 화면엔 바로 바꾸고 서버에 저장. 프로필을 만들기 전이면 기기에만
+  const changeShowWeek = async (checked: boolean) => {
+    setShowWeek(checked)
+    if (!nickname) return
+    try {
+      await updateCommunityProfile({ showWeek: checked })
+    } catch {
+      setShowWeek(!checked)
+      setToast('설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+    }
+  }
+
   return (
     <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-30">
       <SubPageHeader title="커뮤니티 설정" onBack={goBack} />
@@ -74,7 +87,11 @@ function CommunitySettingsPage() {
             title="임신 주수 배지 보이기"
             description="글 옆에 ‘임신 27주’로 보여요"
             right={
-              <Switch checked={showWeek} label="임신 주수 배지 보이기" onChange={setShowWeek} />
+              <Switch
+                checked={showWeek}
+                label="임신 주수 배지 보이기"
+                onChange={(checked) => void changeShowWeek(checked)}
+              />
             }
           />
         </section>
