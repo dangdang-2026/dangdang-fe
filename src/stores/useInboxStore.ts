@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { getNotifications } from '@/api/notifications'
+import { getNotifications, readNotification } from '@/api/notifications'
 import type { InboxItem } from '@/types/notification'
 
 type InboxState = {
@@ -31,7 +31,8 @@ export async function syncInbox() {
   useInboxStore.setState({ items })
 }
 
-// 알림함에서 누르면 읽음 표시
+// 알림함에서 누르면 읽음 표시하고 서버에도 저장. 실패해도 화면은 읽음으로
 export function readInboxItem(id: string) {
   useInboxStore.getState().markRead(id)
+  readNotification(id).catch(() => {})
 }

@@ -68,3 +68,8 @@ export async function getNotifications(now = new Date()) {
   }
   return items
 }
+
+// 알림함 알림 읽음 처리. 이미 읽은 알림도 처음 읽은 시각 그대로 200
+export async function readNotification(id: string) {
+  await apiClient.patch(`/notifications/${id}/read`)
+}
