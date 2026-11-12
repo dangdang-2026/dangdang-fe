@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { syncPushSubscription, unsubscribePush } from '@/api/push'
+import { hasServerPush, sendTestPush, syncPushSubscription, unsubscribePush } from '@/api/push'
 import iconAlertMd from '@/assets/icons/alert-md.svg'
 import iconCheckBlue from '@/assets/icons/check-blue.svg'
 import notificationFace from '@/assets/images/dangdang/notification.svg'
@@ -119,6 +119,16 @@ function NotificationsPage() {
 
   const sendTest = async () => {
     if (!(await askPermission())) return
+    // 서버 푸시를 받는 기기는 실제 측정 알림과 같은 길(서버 → 푸시)로 보내 봄
+    if (hasServerPush()) {
+      try {
+        await sendTestPush()
+        setToast('테스트 알림을 보냈어요')
+      } catch {
+        setToast('테스트 알림을 보내지 못했어요. 잠시 후 다시 시도해 주세요')
+      }
+      return
+    }
     // 안드로이드 크롬은 서비스 워커 없이 new Notification이 막혀 있음
     try {
       new Notification('당당', { body: previewText })
