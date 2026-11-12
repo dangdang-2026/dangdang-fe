@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Navigate } from 'react-router'
+import { getErrorCode } from '@/api/axios'
+import { updateCommunityProfile } from '@/api/communityProfile'
 import SubPageHeader from '@/components/common/SubPageHeader'
+import Toast from '@/components/common/Toast'
 import NicknameField from '@/components/community/NicknameField'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
@@ -14,11 +17,32 @@ function NicknamePage() {
   const setNickname = useCommunityStore((state) => state.setNickname)
   const [name, setName] = useState(nickname ?? '')
   const check = useNicknameCheck(name, nickname)
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const closeToast = useCallback(() => setToast(null), [])
 
   // 닉네임은 커뮤니티 첫 화면에서 처음 정함
   if (!nickname) return <Navigate to={ROUTES.COMMUNITY} replace />
 
   const unchanged = name.trim() === nickname
+
+  // 서버에 저장한 뒤 돌아감. 못 저장하면 머무르며 안내
+  const save = async () => {
+    setSaving(true)
+    try {
+      const profile = await updateCommunityProfile({ nickname: name.trim() })
+      setNickname(profile.nickname)
+      goBack()
+    } catch (error) {
+      setToast(
+        getErrorCode(error) === 'COMMUNITY_40901'
+          ? '그 사이 누가 이 이름을 쓰기 시작했어요. 다른 이름을 골라 주세요'
+          : '닉네임을 저장하지 못했어요. 잠시 후 다시 시도해 주세요',
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-13 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
@@ -39,15 +63,13 @@ function NicknamePage() {
 
       <button
         type="button"
-        disabled={check !== 'ok' || unchanged}
+        disabled={check !== 'ok' || unchanged || saving}
         className="bg-primary disabled:bg-grey-100 disabled:text-grey-400 rounded-key py-4 text-base leading-snug font-bold text-white"
-        onClick={() => {
-          setNickname(name.trim())
-          goBack()
-        }}
+        onClick={() => void save()}
       >
         저장
       </button>
+      {toast && <Toast message={toast} onClose={closeToast} />}
     </main>
   )
 }

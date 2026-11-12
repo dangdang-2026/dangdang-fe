@@ -56,3 +56,13 @@ export async function getMyCommunityProfile() {
     throw error
   }
 }
+
+// 커뮤니티 프로필 수정. 바꾼 칸만 보냄. 이름 중복 COMMUNITY_40901
+export async function updateCommunityProfile(changes: Partial<CommunityProfile>) {
+  const { data } = await apiClient.patch<BaseResponse<CommunityProfileResponse>>(
+    '/community/profiles/me',
+    { nickname: changes.nickname, showWeekBadge: changes.showWeek },
+  )
+  if (!data.data) throw new Error('커뮤니티 프로필 응답이 비어 있음')
+  return toProfile(data.data)
+}
