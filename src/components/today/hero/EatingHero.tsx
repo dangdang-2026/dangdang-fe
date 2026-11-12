@@ -28,7 +28,9 @@ function EatingHero({
   const startedAt = new Date(meal.startedAt)
   const total = dueAt.getTime() - startedAt.getTime()
   const progress = Math.min(Math.max((now.getTime() - startedAt.getTime()) / total, 0), 1)
-  const remainingMinutes = Math.ceil((dueAt.getTime() - now.getTime()) / 60000)
+  // now는 15초마다 갱신돼 식사 시작보다 이를 수 있음. 그땐 시작 시각 기준으로 1분 더 붙지 않게
+  const current = Math.max(now.getTime(), startedAt.getTime())
+  const remainingMinutes = Math.ceil((dueAt.getTime() - current) / 60000)
   const percent = `${progress * 100}%`
 
   return (
