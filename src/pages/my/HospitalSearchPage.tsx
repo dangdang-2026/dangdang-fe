@@ -1,25 +1,65 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { SEARCH_KEYWORD_MAX, SEARCH_KEYWORD_MIN, searchHospitals } from '@/api/careSites'
 import iconSearch from '@/assets/icons/search.svg'
 import iconChevron from '@/assets/icons/postpartum/chevron-md.svg'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { MOCK_HOSPITAL_DIRECTORY } from '@/mocks/hospital'
 import { useHospitalStore } from '@/stores/useHospitalStore'
 import type { HospitalInfo } from '@/types/hospital'
 import { objectParticle } from '@/utils/josa'
 
-// Figma C-21 병원 찾기 · C-22 찾는 병원 없음. 심평원 연동 전까지 목업 목록에서 찾음
+// 입력을 멈추고 기다렸다 찾음. 글자마다 서버를 부르지 않게
+const SEARCH_DELAY_MS = 300
+
+type SearchResult = {
+  keyword: string
+  status: 'loading' | 'done' | 'error'
+  items: HospitalInfo[]
+}
+
+// Figma C-21 병원 찾기 · C-22 찾는 병원 없음. 심평원에 등록된 병원에서 찾음
 function HospitalSearchPage() {
   const goBack = useGoBack(ROUTES.MY_HOSPITALS)
   const setDraft = useHospitalStore((state) => state.setDraft)
   const [query, setQuery] = useState('')
+  const [search, setSearch] = useState<SearchResult | null>(null)
   const keyword = query.trim()
-  const results = keyword
-    ? MOCK_HOSPITAL_DIRECTORY.filter((item) =>
-        item.name.replace(/\s/g, '').includes(keyword.replace(/\s/g, '')),
-      )
-    : []
+  const searchable = keyword.length >= SEARCH_KEYWORD_MIN
+
+  useEffect(() => {
+    if (!searchable) return
+    // 늦게 온 이전 검색어 결과는 버림
+    let stale = false
+    const timer = window.setTimeout(() => {
+      setSearch({ keyword, status: 'loading', items: [] })
+      searchHospitals(keyword)
+        .then((items) => {
+          if (!stale) setSearch({ keyword, status: 'done', items })
+        })
+        .catch(() => {
+          // 심평원 연결이 안 되면(CARE_SITE_50201) 직접 적기로 안내
+          if (!stale) setSearch({ keyword, status: 'error', items: [] })
+        })
+    }, SEARCH_DELAY_MS)
+    return () => {
+      stale = true
+      window.clearTimeout(timer)
+    }
+  }, [keyword, searchable])
+
+  // 지금 검색어의 결과만 보여 줌
+  const current = searchable && search?.keyword === keyword ? search : null
+  const results = current?.items ?? []
+  const notFound = current?.status === 'done' && results.length === 0
+  const failed = current?.status === 'error'
+
+  const guide =
+    keyword && !searchable
+      ? '병원 이름을 두 글자 이상 적어 주세요'
+      : current?.status === 'loading'
+        ? '병원을 찾고 있어요'
+        : '건강보험심사평가원에 등록된 병원에서 찾아요'
 
   // 고르면 목록으로 돌아가 추가 시트를 엶
   const choose = (info: HospitalInfo, manual: boolean) => {
@@ -47,6 +87,7 @@ function HospitalSearchPage() {
           <img src={iconSearch} alt="" width={18} height={18} />
           <input
             value={query}
+            maxLength={SEARCH_KEYWORD_MAX}
             autoFocus
             enterKeyHint="search"
             aria-label="병원 이름"
@@ -56,14 +97,18 @@ function HospitalSearchPage() {
           />
         </label>
 
-        {keyword && results.length === 0 ? (
+        {notFound || failed ? (
           <div className="flex flex-col gap-6 pt-16">
             <div className="flex flex-col items-center gap-1.5 text-center">
               <p className="text-grey-900 text-lg leading-snug font-bold">
-                ‘{keyword}’{objectParticle(keyword)} 찾지 못했어요
+                {failed
+                  ? '지금은 병원을 찾을 수 없어요'
+                  : `‘${keyword}’${objectParticle(keyword)} 찾지 못했어요`}
               </p>
               <p className="text-t7 text-grey-600">
-                이름 일부만 넣어 다시 찾거나, 직접 적어 주세요.
+                {failed
+                  ? '잠시 후 다시 찾거나, 직접 적어 주세요.'
+                  : '이름 일부만 넣어 다시 찾거나, 직접 적어 주세요.'}
               </p>
             </div>
             <button
@@ -76,11 +121,11 @@ function HospitalSearchPage() {
           </div>
         ) : (
           <>
-            <p className="text-t7 text-grey-600">건강보험심사평가원에 등록된 병원에서 찾아요</p>
+            <p className="text-t7 text-grey-600">{guide}</p>
             {results.length > 0 && (
               <ul className="border-grey-200 divide-grey-100 divide-y overflow-hidden rounded-2xl border">
                 {results.map((item) => (
-                  <li key={item.name}>
+                  <li key={item.hiraCode ?? item.name}>
                     <button
                       type="button"
                       className="flex w-full items-center gap-3 py-3.5 pr-4 pl-4.5 text-left"
