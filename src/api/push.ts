@@ -40,6 +40,11 @@ export async function subscribePush() {
   return subscription
 }
 
+// 서버에 구독이 등록된 기기인지. 서버 푸시와 기기 알림이 겹치지 않게 씀
+export function hasServerPush() {
+  return localStorage.getItem(SUBSCRIPTION_ID_KEY) !== null
+}
+
 // 로그인·앱 열 때 측정 알림이 켜져 있고 권한이 있으면 구독을 서버에 다시 등록
 export function syncPushSubscription() {
   const granted = 'Notification' in window && Notification.permission === 'granted'

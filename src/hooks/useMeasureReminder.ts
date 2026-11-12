@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
+import { hasServerPush } from '@/api/push'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
@@ -58,6 +59,8 @@ export function useMeasureReminder() {
     const pending = getPendingMeal(meals, records, postMealHours, new Date())
     if (!pending || !measure || paused) return
     const { meal, dueAt } = pending
+    // 서버에 있는 식사이고 이 기기가 푸시를 받으면 서버가 알림·재알림을 보내 기기 알림은 안 띄움
+    if (!meal.pending && hasServerPush()) return
     const timers: number[] = []
 
     const schedule = (key: string, at: number) => {
