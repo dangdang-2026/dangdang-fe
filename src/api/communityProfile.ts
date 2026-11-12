@@ -23,3 +23,24 @@ export async function checkNicknameAvailable(nickname: string) {
   )
   return data.data?.available ?? true
 }
+
+// 백엔드 CommunityProfileResponse
+type CommunityProfileResponse = { id: string; nickname: string; showWeekBadge: boolean }
+
+// 앱 커뮤니티 프로필. showWeek: 글 옆 임신 주수 배지
+export type CommunityProfile = { nickname: string; showWeek: boolean }
+
+const toProfile = (data: CommunityProfileResponse): CommunityProfile => ({
+  nickname: data.nickname,
+  showWeek: data.showWeekBadge,
+})
+
+// 커뮤니티 프로필 만들기. 이름 중복 COMMUNITY_40901, 이미 있으면 COMMUNITY_40902
+export async function createCommunityProfile(nickname: string, showWeek: boolean) {
+  const { data } = await apiClient.post<BaseResponse<CommunityProfileResponse>>(
+    '/community/profiles',
+    { nickname, showWeekBadge: showWeek },
+  )
+  if (!data.data) throw new Error('커뮤니티 프로필 응답이 비어 있음')
+  return toProfile(data.data)
+}

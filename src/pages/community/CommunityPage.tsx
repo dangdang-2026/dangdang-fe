@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import { getErrorCode } from '@/api/axios'
+import { createCommunityProfile } from '@/api/communityProfile'
 import iconCardClose from '@/assets/icons/community/card-close.svg'
 import iconCatAll from '@/assets/icons/community/cat-all.svg'
 import iconCatNews from '@/assets/icons/community/cat-news.svg'
@@ -257,10 +259,19 @@ function CommunityPage() {
 
       {nicknameOpen && (
         <NicknameSheet
-          onSubmit={(name, showWeek) => {
-            setNickname(name, showWeek)
-            setNicknameOpen(false)
-            setToast(`‘${name}’ 님, 반가워요`)
+          onSubmit={async (name, showWeek) => {
+            try {
+              const profile = await createCommunityProfile(name, showWeek)
+              setNickname(profile.nickname, profile.showWeek)
+              setNicknameOpen(false)
+              setToast(`‘${profile.nickname}’ 님, 반가워요`)
+              return null
+            } catch (error) {
+              // 시트는 열어 둬 다른 이름으로 다시 시도
+              return getErrorCode(error) === 'COMMUNITY_40901'
+                ? '그 사이 누가 이 이름을 쓰기 시작했어요. 다른 이름을 골라 주세요'
+                : '닉네임을 저장하지 못했어요. 잠시 후 다시 시도해 주세요'
+            }
           }}
           onPolicy={() => navigate(ROUTES.COMMUNITY_POLICY)}
           onClose={closeNickname}

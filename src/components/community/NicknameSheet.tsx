@@ -14,7 +14,8 @@ const PROMISES = [
 ]
 
 type NicknameSheetProps = {
-  onSubmit: (nickname: string, showWeek: boolean) => void
+  // 서버에 저장하는 동안 버튼을 막음. 실패하면 시트에 보여 줄 안내를 돌려줌
+  onSubmit: (nickname: string, showWeek: boolean) => Promise<string | null>
   onPolicy: () => void
   onClose: () => void
 }
@@ -25,6 +26,9 @@ function NicknameSheet({ onSubmit, onPolicy, onClose }: NicknameSheetProps) {
   const [initialName] = useState(() => createNickname())
   const [name, setName] = useState(initialName)
   const [showWeek, setShowWeek] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  // 시트가 토스트를 가려서 저장 실패는 시트 안에 보여 줌
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const check = useNicknameCheck(name)
 
   // 아직 안 고쳤으면 서버가 고른 안 쓰는 이름으로. 못 받으면 기기 이름 그대로
@@ -49,7 +53,14 @@ function NicknameSheet({ onSubmit, onPolicy, onClose }: NicknameSheetProps) {
         </p>
       </div>
 
-      <NicknameField value={name} check={check} onChange={setName} />
+      <NicknameField
+        value={name}
+        check={check}
+        onChange={(next) => {
+          setName(next)
+          setSubmitError(null)
+        }}
+      />
 
       <div className="flex items-center justify-between py-1">
         <div className="flex flex-col gap-0.5 leading-snug">
@@ -75,11 +86,20 @@ function NicknameSheet({ onSubmit, onPolicy, onClose }: NicknameSheetProps) {
         </button>
       </div>
 
+      {submitError && (
+        <p className="text-xs leading-snug font-medium text-red-500">{submitError}</p>
+      )}
       <button
         type="button"
-        disabled={check !== 'ok'}
+        disabled={check !== 'ok' || submitting}
         className="bg-primary text-grey-900 disabled:bg-grey-100 disabled:text-grey-400 rounded-key py-4 text-base leading-snug font-bold"
-        onClick={() => onSubmit(name.trim(), showWeek)}
+        onClick={() => {
+          setSubmitting(true)
+          setSubmitError(null)
+          void onSubmit(name.trim(), showWeek)
+            .then(setSubmitError)
+            .finally(() => setSubmitting(false))
+        }}
       >
         이 이름으로 시작하기
       </button>
