@@ -7,6 +7,8 @@ export type Meal = {
   id: string
   type: MealType
   startedAt: string
+  // 서버에 아직 못 보낸 식사. 알림 예약 안 됨
+  pending?: boolean
   // 이번 끼니 식후 측정 건너뜀
   skipped: boolean
   // 먹은 음식 이름. 적기 전엔 없음

@@ -25,7 +25,7 @@ import { useNow } from '@/hooks/useNow'
 import { useOnline } from '@/hooks/useOnline'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useProfileStore } from '@/stores/useProfileStore'
-import { useGlucoseStore } from '@/stores/useGlucoseStore'
+import { saveMealStart, useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useInboxStore } from '@/stores/useInboxStore'
 import { useNotificationStore } from '@/stores/useNotificationStore'
 import { useVisitStore } from '@/stores/useVisitStore'
@@ -67,7 +67,6 @@ function TodayPage() {
   const meals = useGlucoseStore((state) => state.meals)
   const records = useGlucoseStore((state) => state.records)
   const insulins = useGlucoseStore((state) => state.insulins)
-  const startMeal = useGlucoseStore((state) => state.startMeal)
   const skipMeal = useGlucoseStore((state) => state.skipMeal)
   const setMealContent = useGlucoseStore((state) => state.setMealContent)
   const addInsulin = useGlucoseStore((state) => state.addInsulin)
@@ -137,19 +136,23 @@ function TodayPage() {
     navigate(visitCard?.kind === 'yesterday' ? ROUTES.VISIT_NOTE : ROUTES.VISIT_REPORT)
   }
 
-  const handleStartMeal = () => {
+  const handleStartMeal = async () => {
     const current = new Date()
-    startMeal(getNextMealType(meals, current), current)
+    // 기기엔 바로 적혀 화면은 기다리지 않음
+    const saving = saveMealStart(getNextMealType(meals, current), current)
     // 첫 식사 시작 때 한 번만 알림 허용 안내
     if (!permissionAsked) {
       setPermissionSheet(true)
       return
     }
+    const saved = await saving
     const hours = criteria.postMealHours
     setToast(
-      hours && !notificationsOff
-        ? `식사 시작을 적었어요 · ${formatTime(new Date(current.getTime() + hours * 3600000))}에 알려 드릴게요`
-        : '식사 시작을 적었어요',
+      !saved
+        ? '식사 시작을 적었어요 · 연결이 안 돼 알림 예약은 못 했어요'
+        : hours && !notificationsOff
+          ? `식사 시작을 적었어요 · ${formatTime(new Date(current.getTime() + hours * 3600000))}에 알려 드릴게요`
+          : '식사 시작을 적었어요',
     )
   }
 
@@ -275,7 +278,7 @@ function TodayPage() {
             state={heroState}
             now={now}
             postMealHours={criteria.postMealHours}
-            onStartMeal={handleStartMeal}
+            onStartMeal={() => void handleStartMeal()}
             onInputGlucose={openGlucoseSheet}
             onSkipMeal={skipMeal}
             onWriteMeal={setWritingMeal}

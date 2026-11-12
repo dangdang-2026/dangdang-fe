@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { createMeal } from '@/api/meals'
 import { createReading, deleteReading, getAllReadings, updateReading } from '@/api/readings'
 import type {
   GlucoseRecord,
@@ -16,7 +17,8 @@ type InsulinInput = Pick<InsulinRecord, 'kind' | 'name' | 'units' | 'takenAt'>
 type GlucoseState = {
   meals: Meal[]
   records: GlucoseRecord[]
-  startMeal: (type: MealType, now?: Date) => void
+  // 기기에 먼저 적고 임시 id를 돌려줌
+  startMeal: (type: MealType, now?: Date) => string
   skipMeal: (mealId: string) => void
   // nutritionEdits를 안 넘기면 원래 고친 값 유지
   setMealContent: (
@@ -50,13 +52,16 @@ export const useGlucoseStore = create<GlucoseState>()(
     (set) => ({
       meals: [],
       records: [],
-      startMeal: (type, now = new Date()) =>
+      startMeal: (type, now = new Date()) => {
+        const id = crypto.randomUUID()
         set((state) => ({
           meals: [
             ...state.meals,
-            { id: crypto.randomUUID(), type, startedAt: now.toISOString(), skipped: false },
+            { id, type, startedAt: now.toISOString(), skipped: false, pending: true },
           ],
-        })),
+        }))
+        return id
+      },
       skipMeal: (mealId) =>
         set((state) => ({
           meals: state.meals.map((meal) =>
@@ -120,6 +125,26 @@ export const useGlucoseStore = create<GlucoseState>()(
     { name: 'dangdang-glucose' },
   ),
 )
+
+// 식사 시작은 원탭이라 기기에 먼저 적고 서버에 보냄. 성공하면 서버 id로 바꾸고 실패하면 pending으로 남김
+export async function saveMealStart(type: MealType, now = new Date()) {
+  const tempId = useGlucoseStore.getState().startMeal(type, now)
+  try {
+    const saved = await createMeal(type, now)
+    useGlucoseStore.setState((state) => ({
+      meals: state.meals.map((meal) =>
+        meal.id === tempId ? { ...meal, id: saved.id, pending: undefined } : meal,
+      ),
+      // 그사이 이 끼니에 붙인 혈당 기록도 서버 id로
+      records: state.records.map((record) =>
+        record.mealId === tempId ? { ...record, mealId: saved.id } : record,
+      ),
+    }))
+    return true
+  } catch {
+    return false
+  }
+}
 
 // 서버에 등록한 뒤 기기에 반영. 끼니 연결은 끼니 API 전까지 기기에서만 붙임
 export async function saveRecord(target: MeasureTarget, value: number, measuredAt: Date) {
