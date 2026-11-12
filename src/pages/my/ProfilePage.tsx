@@ -1,5 +1,6 @@
 import { useCallback, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
+import { updateName } from '@/api/me'
 import iconInfoSm from '@/assets/icons/info-sm.svg'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import Toast from '@/components/common/Toast'
@@ -60,17 +61,29 @@ function ProfilePage() {
   const closeSheet = useCallback(() => setEditing(null), [])
   const today = startOfDay(new Date())
 
-  // 비우면 원래 이름으로 되돌림
-  const saveName = () => {
+  // 비우면 원래 이름으로 되돌림. 화면엔 바로 바꾸고 서버에 저장
+  const saveName = async () => {
     const trimmed = nameDraft.trim()
     if (!trimmed) {
       setNameDraft(name)
       return
     }
     setNameDraft(trimmed)
-    if (trimmed !== name) {
-      updateProfile({ name: trimmed })
-      setToast('이름을 바꿨어요')
+    if (trimmed === name) return
+    updateProfile({ name: trimmed })
+    try {
+      const result = await updateName(trimmed)
+      updateProfile({ name: result.name })
+      setNameDraft(result.name)
+      setToast(
+        result.status === 'saved'
+          ? '이름을 바꿨어요'
+          : '다른 기기에서 이름을 먼저 바꿨어요. 다시 적어 주세요',
+      )
+    } catch {
+      updateProfile({ name })
+      setNameDraft(name)
+      setToast('이름을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
     }
   }
 
@@ -91,7 +104,7 @@ function ProfilePage() {
             aria-label="이름"
             className="bg-grey-50 text-grey-900 h-13 rounded-2xl px-4 text-base font-medium tracking-tight outline-none"
             onChange={(event) => setNameDraft(event.target.value)}
-            onBlur={saveName}
+            onBlur={() => void saveName()}
             onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
           />
         </Field>
