@@ -1,6 +1,6 @@
 import { useCallback, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
-import { updateName } from '@/api/me'
+import { saveDueDate, updateName } from '@/api/me'
 import iconInfoSm from '@/assets/icons/info-sm.svg'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import Toast from '@/components/common/Toast'
@@ -87,6 +87,24 @@ function ProfilePage() {
     }
   }
 
+  // 출산예정일은 서버에도 저장. 진단일은 서버 API가 없어 기기에만
+  const saveDate = async (field: DateField, date: Date) => {
+    const key = toDateKey(date)
+    const previous = field === 'dueDate' ? dueDate : diagnosisDate
+    updateProfile({ [field]: key })
+    setEditing(null)
+    if (field === 'dueDate') {
+      try {
+        await saveDueDate(key)
+      } catch {
+        updateProfile({ dueDate: previous })
+        setToast('출산예정일을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+        return
+      }
+    }
+    setToast(`${DATE_SHEET[field].title}을 저장했어요`)
+  }
+
   const dates: Record<DateField, Date | null> = {
     dueDate: parseDateKey(dueDate),
     diagnosisDate: parseDateKey(diagnosisDate),
@@ -168,11 +186,7 @@ function ProfilePage() {
           {...DATE_SHEET[editing]}
           initialDate={dates[editing]}
           today={today}
-          onSave={(date) => {
-            updateProfile({ [editing]: toDateKey(date) })
-            setEditing(null)
-            setToast(`${DATE_SHEET[editing].title}을 저장했어요`)
-          }}
+          onSave={(date) => void saveDate(editing, date)}
           onClose={closeSheet}
         />
       )}

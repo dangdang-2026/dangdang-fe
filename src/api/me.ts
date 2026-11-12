@@ -49,3 +49,15 @@ export async function updateName(name: string): Promise<NameUpdateResult> {
     return { status: 'conflict', name: me.displayName }
   }
 }
+
+// 백엔드 DueDateResponse
+type DueDateResponse = { dueDate: string }
+
+// 출산 예정일 저장·변경(YYYY-MM-DD). 진행 중인 임신이 없으면 서버가 새로 만듦
+export async function saveDueDate(dueDate: string) {
+  const { data } = await apiClient.patch<BaseResponse<DueDateResponse>>('/me/due-date', {
+    dueDate,
+  })
+  if (!data.data) throw new Error('출산 예정일 응답이 비어 있음')
+  return data.data.dueDate
+}
