@@ -4,8 +4,8 @@ import SubPageHeader from '@/components/common/SubPageHeader'
 import NicknameField from '@/components/community/NicknameField'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
+import { useNicknameCheck } from '@/hooks/useNicknameCheck'
 import { useCommunityStore } from '@/stores/useCommunityStore'
-import { checkNickname } from '@/utils/nickname'
 
 // Figma M-16 커뮤니티 설정 · 닉네임 바꾸기
 function NicknamePage() {
@@ -13,11 +13,11 @@ function NicknamePage() {
   const nickname = useCommunityStore((state) => state.nickname)
   const setNickname = useCommunityStore((state) => state.setNickname)
   const [name, setName] = useState(nickname ?? '')
+  const check = useNicknameCheck(name, nickname)
 
   // 닉네임은 커뮤니티 첫 화면에서 처음 정함
   if (!nickname) return <Navigate to={ROUTES.COMMUNITY} replace />
 
-  const check = checkNickname(name, nickname)
   const unchanged = name.trim() === nickname
 
   return (

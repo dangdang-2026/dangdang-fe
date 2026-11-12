@@ -4,7 +4,8 @@ import iconPromiseCheck from '@/assets/icons/community/promise-check.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import Switch from '@/components/common/Switch'
 import NicknameField from '@/components/community/NicknameField'
-import { checkNickname, createNickname } from '@/utils/nickname'
+import { useNicknameCheck } from '@/hooks/useNicknameCheck'
+import { createNickname } from '@/utils/nickname'
 
 const PROMISES = [
   '진단·처방·약 이야기는 병원에 물어봐요',
@@ -24,7 +25,7 @@ function NicknameSheet({ onSubmit, onPolicy, onClose }: NicknameSheetProps) {
   const [initialName] = useState(() => createNickname())
   const [name, setName] = useState(initialName)
   const [showWeek, setShowWeek] = useState(false)
-  const check = checkNickname(name)
+  const check = useNicknameCheck(name)
 
   // 아직 안 고쳤으면 서버가 고른 안 쓰는 이름으로. 못 받으면 기기 이름 그대로
   useEffect(() => {

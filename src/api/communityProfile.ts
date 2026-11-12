@@ -11,3 +11,15 @@ export async function getNicknameSuggestion() {
   if (!data.data) throw new Error('닉네임 추천 응답이 비어 있음')
   return data.data.nickname
 }
+
+// 백엔드 NicknameAvailabilityResponse
+type NicknameAvailabilityResponse = { available: boolean }
+
+// 아무도 안 쓰는 닉네임인지. 형식이 틀리면 COMMUNITY_40001
+export async function checkNicknameAvailable(nickname: string) {
+  const { data } = await apiClient.get<BaseResponse<NicknameAvailabilityResponse>>(
+    '/community/profiles/nickname-availability',
+    { params: { nickname } },
+  )
+  return data.data?.available ?? true
+}
