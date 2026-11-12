@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { syncPushSubscription, unsubscribePush } from '@/api/push'
 import iconAlertMd from '@/assets/icons/alert-md.svg'
 import iconCheckBlue from '@/assets/icons/check-blue.svg'
@@ -30,6 +30,13 @@ const PERMISSION_LABEL: Record<Permission, string> = {
   granted: '알림 권한 허용됨',
   denied: '알림 권한이 꺼져 있어요 · 설정에서 켜 주세요',
   default: '알림 권한을 아직 안 정했어요',
+  unsupported: '이 브라우저는 알림을 지원하지 않아요',
+}
+
+// 권한을 못 받았을 때 안내
+const PERMISSION_TOAST: Record<Exclude<Permission, 'granted'>, string> = {
+  denied: '알림 권한이 꺼져 있어요. 설정에서 켜 주세요',
+  default: '알림 권한을 켜야 받을 수 있어요',
   unsupported: '이 브라우저는 알림을 지원하지 않아요',
 }
 
@@ -66,9 +73,37 @@ function NotificationsPage() {
       description: '혈당·식사 내용을 알림에 쓰지 않아요',
     },
   ]
-  const values: NotificationSettings = { measure, remind, hideOnLockScreen }
+  // 권한이 없으면 측정 알림이 실제로 안 와서 꺼진 걸로 보여 줌. 홈 알림 꺼짐 배너와 같은 기준
+  const values: NotificationSettings = {
+    measure: measure && permission === 'granted',
+    remind,
+    hideOnLockScreen,
+  }
+
+  // 설정 앱에서 권한을 바꾸고 돌아오면 다시 읽음
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') setPermission(readPermission())
+    }
+    document.addEventListener('visibilitychange', refresh)
+    window.addEventListener('focus', refresh)
+    return () => {
+      document.removeEventListener('visibilitychange', refresh)
+      window.removeEventListener('focus', refresh)
+    }
+  }, [])
+
+  // 아직 안 정했으면 권한을 물어봄. 거절·미지원이면 안내 토스트
+  const askPermission = async () => {
+    const next = permission === 'default' ? await Notification.requestPermission() : permission
+    setPermission(next)
+    if (next !== 'granted') setToast(PERMISSION_TOAST[next])
+    return next === 'granted'
+  }
 
   const changeSetting = async (key: keyof NotificationSettings, checked: boolean) => {
+    // 권한 없이 측정 알림을 켜면 알림이 안 와서 권한부터 받음
+    if (key === 'measure' && checked && !(await askPermission())) return
     try {
       await saveNotificationSettings({ [key]: checked })
     } catch {
@@ -83,16 +118,7 @@ function NotificationsPage() {
   }
 
   const sendTest = async () => {
-    if (permission === 'unsupported') {
-      setToast('이 브라우저는 알림을 지원하지 않아요')
-      return
-    }
-    const next = permission === 'default' ? await Notification.requestPermission() : permission
-    setPermission(next)
-    if (next !== 'granted') {
-      setToast('알림 권한을 켜야 받을 수 있어요')
-      return
-    }
+    if (!(await askPermission())) return
     // 안드로이드 크롬은 서비스 워커 없이 new Notification이 막혀 있음
     try {
       new Notification('당당', { body: previewText })
