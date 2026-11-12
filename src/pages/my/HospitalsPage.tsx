@@ -12,7 +12,12 @@ import HospitalSheet from '@/components/hospital/HospitalSheet'
 import { DEPARTMENTS, DEPARTMENT_CHIP, DEPARTMENT_NOTE } from '@/constants/hospital'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { saveHospitalEdit, saveNewHospital, useHospitalStore } from '@/stores/useHospitalStore'
+import {
+  deleteHospital,
+  saveHospitalEdit,
+  saveNewHospital,
+  useHospitalStore,
+} from '@/stores/useHospitalStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import type { Hospital, HospitalInfo } from '@/types/hospital'
 import { objectParticle } from '@/utils/josa'
@@ -34,7 +39,6 @@ function HospitalsPage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.MY)
   const hospitals = useHospitalStore((state) => state.hospitals)
-  const removeHospital = useHospitalStore((state) => state.removeHospital)
   const setDraft = useHospitalStore((state) => state.setDraft)
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
   const setNextVisit = useVisitStore((state) => state.setNextVisit)
@@ -91,12 +95,19 @@ function HospitalsPage() {
     }
   }
 
-  const confirmDelete = () => {
+  // 화면에서 바로 지우고 서버에 못 지우면 되돌림
+  const confirmDelete = async () => {
     if (!deleting) return
-    // 대표 병원을 지우면 다음 병원이 대표가 되고 그 진료일을 이어받음
-    if (deleting.index === 0) setNextVisit(hospitals[1]?.nextVisitAt ?? null)
-    removeHospital(deleting.hospital.id)
+    const { hospital, index } = deleting
     setDeleting(null)
+    try {
+      await deleteHospital(hospital.id)
+    } catch {
+      setToast('병원을 지우지 못했어요. 잠시 후 다시 시도해 주세요')
+      return
+    }
+    // 대표 병원을 지우면 다음 병원이 대표가 되고 그 진료일을 이어받음
+    if (index === 0) setNextVisit(hospitals[1]?.nextVisitAt ?? null)
     setToast('병원을 지웠어요')
   }
 
@@ -209,7 +220,7 @@ function HospitalsPage() {
       {deleting && (
         <HospitalDeleteSheet
           name={deleting.hospital.name}
-          onConfirm={confirmDelete}
+          onConfirm={() => void confirmDelete()}
           onClose={() => setDeleting(null)}
         />
       )}

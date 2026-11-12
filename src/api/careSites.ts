@@ -116,3 +116,13 @@ export async function updateCareSite(id: string, input: Omit<Hospital, 'id'>) {
     phone: input.phone ?? '',
   })
 }
+
+// 병원 삭제. 대표 병원이었으면 서버는 대표를 비워 둠
+export async function deleteCareSite(id: string) {
+  await apiClient.delete(`/care-sites/${id}`)
+}
+
+// 대표 병원으로 지정. 서버가 원래 대표 병원을 풀어 줌
+export async function setPrimaryCareSite(id: string) {
+  await apiClient.patch(`/care-sites/${id}`, { primary: true })
+}

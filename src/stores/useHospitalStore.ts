@@ -1,6 +1,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { createCareSite, getCareSites, updateCareSite } from '@/api/careSites'
+import {
+  createCareSite,
+  deleteCareSite,
+  getCareSites,
+  setPrimaryCareSite,
+  updateCareSite,
+} from '@/api/careSites'
 import type { Hospital, HospitalInfo } from '@/types/hospital'
 
 export type HospitalInput = Omit<Hospital, 'id'>
@@ -9,7 +15,6 @@ type HospitalState = {
   // 첫 번째가 대표 병원
   hospitals: Hospital[]
   updateHospital: (id: string, input: HospitalInput) => void
-  removeHospital: (id: string) => void
   // 병원 찾기에서 고른 병원. 목록 화면이 받아서 추가 시트를 엶
   draft: { info: HospitalInfo; manual: boolean } | null
   setDraft: (draft: { info: HospitalInfo; manual: boolean } | null) => void
@@ -24,8 +29,6 @@ export const useHospitalStore = create<HospitalState>()(
         set((state) => ({
           hospitals: state.hospitals.map((item) => (item.id === id ? { ...input, id } : item)),
         })),
-      removeHospital: (id) =>
-        set((state) => ({ hospitals: state.hospitals.filter((item) => item.id !== id) })),
       draft: null,
       setDraft: (draft) => set({ draft }),
     }),
@@ -66,4 +69,21 @@ export async function saveHospitalEdit(id: string, input: HospitalInput) {
     updateHospital(id, previous)
     throw error
   }
+}
+
+// 화면에서 바로 지우고 서버에서도 삭제. 실패하면 목록을 되돌림
+export async function deleteHospital(id: string) {
+  const { hospitals } = useHospitalStore.getState()
+  const index = hospitals.findIndex((item) => item.id === id)
+  if (index < 0) return
+  useHospitalStore.setState({ hospitals: hospitals.filter((item) => item.id !== id) })
+  try {
+    await deleteCareSite(id)
+  } catch (error) {
+    useHospitalStore.setState({ hospitals })
+    throw error
+  }
+  // 대표 병원을 지우면 다음 병원을 서버에서도 대표로. 실패해도 앱은 첫 병원을 대표로 씀
+  const next = hospitals[index + 1]
+  if (index === 0 && next) await setPrimaryCareSite(next.id).catch(() => {})
 }
