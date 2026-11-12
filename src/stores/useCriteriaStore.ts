@@ -1,5 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import {
+  createCriteria,
+  FIRST_APPLIED_FROM,
+  getCriteriaHistory,
+  type CriteriaInput,
+} from '@/api/criteria'
 import { INITIAL_CRITERIA } from '@/mocks/user'
 import type { Criteria } from '@/types/criteria'
 import { startOfDay } from '@/utils/date'
@@ -10,12 +16,11 @@ type CriteriaState = {
   addCriteria: (criteria: Omit<Criteria, 'version' | 'appliedFrom'>, now?: Date) => void
   // 첫 진입 설정에서 받은 값으로 1번 기준부터 다시 시작
   startCriteria: (criteria: Omit<Criteria, 'version' | 'appliedFrom'>) => void
+  // 서버 이력으로 통째로 바꿈
+  setVersions: (versions: Criteria[]) => void
 }
 
-// 첫 버전은 아주 옛날부터 적용해 이전 기록도 비교되게
-const FIRST_APPLIED_FROM = new Date(2000, 0, 1).toISOString()
-
-// API 연동 전까지 기기(localStorage)에 저장
+// 서버 기준을 기기에도 남겨 오프라인·앱 첫 화면에서 바로 씀
 export const useCriteriaStore = create<CriteriaState>()(
   persist(
     (set) => ({
@@ -31,7 +36,28 @@ export const useCriteriaStore = create<CriteriaState>()(
         }),
       startCriteria: (criteria) =>
         set({ versions: [{ ...criteria, version: 1, appliedFrom: FIRST_APPLIED_FROM }] }),
+      setVersions: (versions) => set({ versions }),
     }),
     { name: 'dangdang-criteria' },
   ),
 )
+
+// 서버에 기준이 있으면 그걸로. 아직 없으면(첫 진입 설정 전) 기기 값 유지
+export async function syncCriteria() {
+  const versions = await getCriteriaHistory()
+  if (versions.length > 0) useCriteriaStore.getState().setVersions(versions)
+}
+
+// 서버에 저장한 뒤 화면에 바로 반영. 서버 id는 이력을 다시 받아 채움
+export async function saveCriteria(criteria: CriteriaInput) {
+  await createCriteria(criteria)
+  useCriteriaStore.getState().addCriteria(criteria)
+  syncCriteria().catch(() => {})
+}
+
+// 첫 진입 설정. 1번 기준부터 다시 시작
+export async function saveFirstCriteria(criteria: CriteriaInput) {
+  await createCriteria(criteria)
+  useCriteriaStore.getState().startCriteria(criteria)
+  syncCriteria().catch(() => {})
+}

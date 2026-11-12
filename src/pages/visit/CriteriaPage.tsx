@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import iconChevronSm from '@/assets/icons/chevron-sm.svg'
 import SubPageHeader from '@/components/common/SubPageHeader'
+import Toast from '@/components/common/Toast'
 import PostMealTimeSegment from '@/components/criteria/PostMealTimeSegment'
 import TargetField from '@/components/criteria/TargetField'
 import FoodChip from '@/components/meal/FoodChip'
@@ -9,7 +10,7 @@ import { GLUCOSE_MAX, GLUCOSE_MIN } from '@/constants/glucose'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
-import { useCriteriaStore } from '@/stores/useCriteriaStore'
+import { saveCriteria } from '@/stores/useCriteriaStore'
 import type { CriteriaPrefill, MeasureSlotKey } from '@/types/criteria'
 import {
   MEASURE_SLOT_LABEL,
@@ -26,7 +27,9 @@ function CriteriaPage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.VISIT)
   const current = useCriteria()
-  const addCriteria = useCriteriaStore((state) => state.addCriteria)
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState(false)
+  const closeToast = useCallback(() => setToast(false), [])
   // 진료 후 메모 정리에서 왔으면 체크한 값으로 채움
   const prefill = (useLocation().state as { prefill?: CriteriaPrefill } | null)?.prefill ?? {}
   const [hours, setHours] = useState(prefill.postMealHours ?? current.postMealHours ?? 1)
@@ -48,8 +51,17 @@ function CriteriaPage() {
     setSlots((prev) => (prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]))
   }
 
-  const handleSave = () => {
-    addCriteria({ ...draft, source: '진료 후 직접 입력' })
+  const handleSave = async () => {
+    if (saving) return
+    setSaving(true)
+    try {
+      await saveCriteria({ ...draft, source: '진료 후 직접 입력' })
+    } catch {
+      setToast(true)
+      return
+    } finally {
+      setSaving(false)
+    }
     // 저장 뒤 이력에서 새 기준 확인
     navigate(ROUTES.VISIT_CRITERIA_HISTORY, { replace: true, state: { saved: true } })
   }
@@ -138,11 +150,17 @@ function CriteriaPage() {
           type="button"
           disabled={!isValid || changes.length === 0}
           className="text-subtitle-1 disabled:bg-grey-100 disabled:text-grey-400 bg-primary h-14 w-full rounded-xl leading-none text-white"
-          onClick={handleSave}
+          onClick={() => void handleSave()}
         >
           이 기준으로 바꾸기
         </button>
       </div>
+      {toast && (
+        <Toast
+          message="기준을 저장하지 못했어요. 잠시 후 다시 시도해 주세요"
+          onClose={closeToast}
+        />
+      )}
     </main>
   )
 }

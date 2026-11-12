@@ -1,4 +1,4 @@
-import { Routes, Route, useNavigate } from 'react-router'
+import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router'
 import SplashScreen from '@/components/onboarding/SplashScreen'
 import { ROUTES, communityNewsPath } from '@/constants/routes'
 import { SPLASH_TOTAL_MS } from '@/constants/splashMotion'
@@ -76,6 +76,12 @@ const SPLASH_MS = 1600
 // 첫 실행은 모션(4.4초) + 언덕 올라오기 + 페이드 아웃이 끝난 뒤 넘김
 const FIRST_SPLASH_MS = SPLASH_TOTAL_MS
 
+// 서버 알림 주소(/today?sheet=glucose&reminderId=)는 쿼리 그대로 오늘 탭으로
+function TodayLinkRedirect() {
+  const { search } = useLocation()
+  return <Navigate to={{ pathname: ROUTES.TODAY, search }} replace />
+}
+
 function App() {
   const navigate = useNavigate()
   // 앱이 열려 있는 동안 측정 알림 · 알림 누르면 혈당 입력
@@ -112,6 +118,7 @@ function App() {
         <Route path={ROUTES.PASSWORD_FIND} element={<PasswordFindPage />} />
         <Route path={ROUTES.PASSWORD_RESET} element={<PasswordResetPage />} />
         <Route path={ROUTES.KAKAO_CALLBACK} element={<KakaoCallbackPage />} />
+        <Route path={ROUTES.TODAY_LINK} element={<TodayLinkRedirect />} />
         {/* 첫 진입 설정 */}
         <Route path={ROUTES.ONBOARDING} element={<IntroPage />} />
         <Route path={ROUTES.ONBOARDING_TERMS} element={<TermsAgreePage />} />

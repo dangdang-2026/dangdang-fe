@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { logoutFromServer } from '@/api/auth'
+import { unsubscribePush } from '@/api/push'
 import iconBell from '@/assets/icons/my/bell.svg'
 import iconChevronDark from '@/assets/icons/my/chevron-dark.svg'
 import iconHospital from '@/assets/icons/my/hospital.svg'
@@ -238,6 +239,8 @@ function MyPage() {
           onLogout={async () => {
             if (loggingOut) return
             setLoggingOut(true)
+            // 로그아웃한 계정 알림이 이 기기로 안 오게. 쿠키가 있을 때 먼저 끊음
+            await unsubscribePush().catch(() => {})
             try {
               await logoutFromServer()
             } catch {

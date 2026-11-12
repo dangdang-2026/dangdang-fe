@@ -1,6 +1,10 @@
 import { useEffect } from 'react'
 import { getMe } from '@/api/me'
+import { syncPushSubscription } from '@/api/push'
 import { useAuthStore } from '@/stores/useAuthStore'
+import { syncCriteria } from '@/stores/useCriteriaStore'
+import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
+import { syncInbox } from '@/stores/useInboxStore'
 import { useProfileStore } from '@/stores/useProfileStore'
 
 // 앱을 열 때 한 번 서버 로그인 확인. 스플래시 동안 뒤에서 돌아 기다리지 않음
@@ -16,6 +20,10 @@ export function useSessionCheck() {
         updateProfile({ name: me.displayName })
         // 이메일 채우기 전에 로그인한 카카오 계정도 열 때 채움
         login({ method, email: me.email })
+        // 목업 기간에 허용한 기기도 서버에 구독 등록
+        syncPushSubscription()
+        // 다른 기기에서 바꾼 병원 기준·식사·혈당 기록도 반영
+        return Promise.all([syncCriteria(), syncMeals(), syncRecords(), syncInbox()])
       })
       .catch(() => {
         // Refresh까지 만료면 인터셉터가 로그인 풂. 오프라인이면 기기 기록으로 계속 씀

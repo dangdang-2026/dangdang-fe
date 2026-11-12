@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { subscribePush } from '@/api/push'
+import { openReminder } from '@/api/reminders'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
@@ -25,7 +26,7 @@ import { useNow } from '@/hooks/useNow'
 import { useOnline } from '@/hooks/useOnline'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useProfileStore } from '@/stores/useProfileStore'
-import { useGlucoseStore } from '@/stores/useGlucoseStore'
+import { saveMealStart, useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useInboxStore } from '@/stores/useInboxStore'
 import { useNotificationStore } from '@/stores/useNotificationStore'
 import { useVisitStore } from '@/stores/useVisitStore'
@@ -67,7 +68,6 @@ function TodayPage() {
   const meals = useGlucoseStore((state) => state.meals)
   const records = useGlucoseStore((state) => state.records)
   const insulins = useGlucoseStore((state) => state.insulins)
-  const startMeal = useGlucoseStore((state) => state.startMeal)
   const skipMeal = useGlucoseStore((state) => state.skipMeal)
   const setMealContent = useGlucoseStore((state) => state.setMealContent)
   const addInsulin = useGlucoseStore((state) => state.addInsulin)
@@ -75,11 +75,11 @@ function TodayPage() {
   const criteria = useCriteria()
   const navigate = useNavigate()
   const location = useLocation()
-  // 알림함·측정 알림(앱 밖에서 열면 ?measure=1)을 누르고 오면 혈당 입력 시트부터
+  // 알림함·측정 알림(앱 밖에서 열면 서버 주소대로 ?sheet=glucose)을 누르고 오면 혈당 입력 시트부터
   const [searchParams] = useSearchParams()
   const fromMeasureAlert =
     !!(location.state as { openGlucose?: boolean } | null)?.openGlucose ||
-    searchParams.get('measure') === '1'
+    searchParams.get('sheet') === 'glucose'
   const [sheetTarget, setSheetTarget] = useState<MeasureTarget | null>(() =>
     fromMeasureAlert ? getMeasureTarget(meals, records, criteria.postMealHours, new Date()) : null,
   )
@@ -91,6 +91,11 @@ function TodayPage() {
       setSheetTarget(getMeasureTarget(meals, records, criteria.postMealHours, new Date()))
     }
   }
+  // 서버 알림을 눌러 들어오면 열람 처리. 실패해도 입력은 그대로
+  const reminderId = searchParams.get('reminderId')
+  useEffect(() => {
+    if (reminderId) openReminder(reminderId).catch(() => {})
+  }, [reminderId])
   const hasUnread = useInboxStore((state) => state.items.some((item) => !item.readAt))
   const [writingMeal, setWritingMeal] = useState<Meal | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -137,19 +142,23 @@ function TodayPage() {
     navigate(visitCard?.kind === 'yesterday' ? ROUTES.VISIT_NOTE : ROUTES.VISIT_REPORT)
   }
 
-  const handleStartMeal = () => {
+  const handleStartMeal = async () => {
     const current = new Date()
-    startMeal(getNextMealType(meals, current), current)
+    // 기기엔 바로 적혀 화면은 기다리지 않음
+    const saving = saveMealStart(getNextMealType(meals, current), current)
     // 첫 식사 시작 때 한 번만 알림 허용 안내
     if (!permissionAsked) {
       setPermissionSheet(true)
       return
     }
+    const saved = await saving
     const hours = criteria.postMealHours
     setToast(
-      hours && !notificationsOff
-        ? `식사 시작을 적었어요 · ${formatTime(new Date(current.getTime() + hours * 3600000))}에 알려 드릴게요`
-        : '식사 시작을 적었어요',
+      !saved
+        ? '식사 시작을 적었어요 · 연결이 안 돼 알림 예약은 못 했어요'
+        : hours && !notificationsOff
+          ? `식사 시작을 적었어요 · ${formatTime(new Date(current.getTime() + hours * 3600000))}에 알려 드릴게요`
+          : '식사 시작을 적었어요',
     )
   }
 
@@ -275,7 +284,7 @@ function TodayPage() {
             state={heroState}
             now={now}
             postMealHours={criteria.postMealHours}
-            onStartMeal={handleStartMeal}
+            onStartMeal={() => void handleStartMeal()}
             onInputGlucose={openGlucoseSheet}
             onSkipMeal={skipMeal}
             onWriteMeal={setWritingMeal}

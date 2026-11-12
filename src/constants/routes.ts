@@ -12,6 +12,8 @@ export const ROUTES = {
   PASSWORD_RESET: '/reset-password',
   KAKAO_CALLBACK: '/auth/kakao/callback',
   TODAY: '/',
+  // 서버 푸시 알림이 여는 주소. 오늘 탭으로 넘김
+  TODAY_LINK: '/today',
   INBOX: '/inbox',
   RECORDS: '/records',
   RECORDS_CALENDAR: '/records/calendar',

@@ -4,8 +4,9 @@ import iconTrash from '@/assets/icons/trash.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import TimeWheelSheet from '@/components/common/TimeWheelSheet'
 import { GLUCOSE_MAX, GLUCOSE_MAX_DIGITS, GLUCOSE_MIN } from '@/constants/glucose'
+import { useNow } from '@/hooks/useNow'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
-import { useGlucoseStore } from '@/stores/useGlucoseStore'
+import { editRecord } from '@/stores/useGlucoseStore'
 import type { GlucoseRecord } from '@/types/glucose'
 import { getCriteriaAt } from '@/utils/criteria'
 import { formatMonthDay, formatTime } from '@/utils/date'
@@ -22,8 +23,10 @@ const FIELD_CLASS = 'flex h-14 items-center gap-2 rounded-2xl px-4 border-2'
 
 // Figma D-05·D-06 혈당 기록 수정 시트. 수치·측정 시각만 고침
 function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheetProps) {
-  const updateRecord = useGlucoseStore((state) => state.updateRecord)
   const measuredAt = new Date(record.measuredAt)
+  const now = useNow()
+  const [saving, setSaving] = useState(false)
+  const [saveFailed, setSaveFailed] = useState(false)
   const [digits, setDigits] = useState(String(record.value))
   const [time, setTime] = useState(formatTime(measuredAt))
   const criteria = getCriteriaAt(
@@ -35,13 +38,29 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
   const value = Number(digits)
   const isInvalid = !isValidGlucose(value)
 
-  const handleSave = () => {
-    if (isInvalid) return
-    const [hours, minutes] = time.split(':').map(Number)
-    const next = new Date(measuredAt)
-    next.setHours(hours, minutes)
-    updateRecord(record.id, { value, measuredAt: next.toISOString() })
-    onSaved()
+  const [hours, minutes] = time.split(':').map(Number)
+  const nextMeasuredAt = new Date(measuredAt)
+  nextMeasuredAt.setHours(hours, minutes)
+  // 서버가 지금보다 뒤 시각은 받지 않음
+  const isFuture = nextMeasuredAt > now
+
+  const handleSave = async () => {
+    if (isInvalid || isFuture || saving) return
+    // 바뀐 게 없으면 서버가 거절해서 그냥 닫음
+    if (value === record.value && nextMeasuredAt.getTime() === measuredAt.getTime()) {
+      onClose()
+      return
+    }
+    setSaving(true)
+    setSaveFailed(false)
+    try {
+      await editRecord(record.id, { value, measuredAt: nextMeasuredAt.toISOString() })
+      onSaved()
+    } catch {
+      setSaveFailed(true)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -92,17 +111,25 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
 
       <p className="bg-grey-50 rounded-key flex items-center gap-2 px-3.5 py-3">
         <img src={iconInfo} alt="" width={16} height={16} />
-        <span className={`text-body-3 ${isInvalid ? 'text-red-500' : 'text-grey-700'}`}>
+        <span
+          className={`text-body-3 ${isInvalid || isFuture || saveFailed ? 'text-red-500' : 'text-grey-700'}`}
+          role={saveFailed ? 'alert' : undefined}
+        >
           {isInvalid
             ? `${GLUCOSE_MIN}~${GLUCOSE_MAX} 사이 숫자인지 확인해 주세요`
-            : '고치면 진료 리포트에 ‘수정됨’으로 표시돼요'}
+            : isFuture
+              ? '잰 시각은 지금보다 뒤일 수 없어요'
+              : saveFailed
+                ? '고치지 못했어요. 잠시 후 다시 시도해 주세요'
+                : '고치면 진료 리포트에 ‘수정됨’으로 표시돼요'}
         </span>
       </p>
 
       <button
         type="button"
+        aria-busy={saving}
         className="text-subtitle-1 bg-primary h-14 rounded-xl leading-none text-white"
-        onClick={handleSave}
+        onClick={() => void handleSave()}
       >
         수정 저장
       </button>

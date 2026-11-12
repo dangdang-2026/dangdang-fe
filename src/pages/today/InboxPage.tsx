@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import iconEditGrey from '@/assets/icons/edit-grey.svg'
 import iconCalendarOff from '@/assets/icons/notification/calendar-off.svg'
@@ -13,7 +14,7 @@ import WarmBackground from '@/components/common/WarmBackground'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
-import { useInboxStore } from '@/stores/useInboxStore'
+import { readInboxItem, syncInbox, useInboxStore } from '@/stores/useInboxStore'
 import type { InboxItem, InboxType } from '@/types/notification'
 import { diffInDays, formatTime } from '@/utils/date'
 
@@ -88,7 +89,10 @@ function InboxPage() {
   const goBack = useGoBack(ROUTES.TODAY)
   const now = useNow()
   const items = useInboxStore((state) => state.items)
-  const markRead = useInboxStore((state) => state.markRead)
+  // 열 때마다 서버 목록으로. 못 받으면 마지막 목록 그대로
+  useEffect(() => {
+    syncInbox().catch(() => {})
+  }, [])
 
   const groups: { label: string; items: InboxItem[] }[] = []
   for (const item of items) {
@@ -99,7 +103,7 @@ function InboxPage() {
   }
 
   const handleOpen = (item: InboxItem) => {
-    markRead(item.id)
+    readInboxItem(item.id)
     const { to, state } = TARGET[item.type]
     navigate(to, { state })
   }

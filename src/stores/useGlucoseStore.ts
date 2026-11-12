@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { createMeal, getAllMeals } from '@/api/meals'
+import { createReading, deleteReading, getAllReadings, updateReading } from '@/api/readings'
 import type {
   GlucoseRecord,
   InsulinRecord,
@@ -15,7 +17,8 @@ type InsulinInput = Pick<InsulinRecord, 'kind' | 'name' | 'units' | 'takenAt'>
 type GlucoseState = {
   meals: Meal[]
   records: GlucoseRecord[]
-  startMeal: (type: MealType, now?: Date) => void
+  // 기기에 먼저 적고 임시 id를 돌려줌
+  startMeal: (type: MealType, now?: Date) => string
   skipMeal: (mealId: string) => void
   // nutritionEdits를 안 넘기면 원래 고친 값 유지
   setMealContent: (
@@ -26,7 +29,8 @@ type GlucoseState = {
   ) => void
   // 사진으로 적은 끼니의 AI 후보·음식별 양
   setMealPhotoInfo: (mealId: string, info: Pick<Meal, 'aiCandidates' | 'portions'>) => void
-  addRecord: (target: MeasureTarget, value: number, now?: Date) => GlucoseRecord
+  // 서버에 저장된 기록을 기기에 추가
+  addRecord: (record: GlucoseRecord) => void
   updateRecord: (id: string, changes: { value: number; measuredAt: string }, now?: Date) => void
   deleteRecord: (id: string, now?: Date) => void
   // 지운 기록. 화면·리포트에선 빼고 기록용으로만 보관
@@ -48,13 +52,16 @@ export const useGlucoseStore = create<GlucoseState>()(
     (set) => ({
       meals: [],
       records: [],
-      startMeal: (type, now = new Date()) =>
+      startMeal: (type, now = new Date()) => {
+        const id = crypto.randomUUID()
         set((state) => ({
           meals: [
             ...state.meals,
-            { id: crypto.randomUUID(), type, startedAt: now.toISOString(), skipped: false },
+            { id, type, startedAt: now.toISOString(), skipped: false, pending: true },
           ],
-        })),
+        }))
+        return id
+      },
       skipMeal: (mealId) =>
         set((state) => ({
           meals: state.meals.map((meal) =>
@@ -78,20 +85,7 @@ export const useGlucoseStore = create<GlucoseState>()(
         set((state) => ({
           meals: state.meals.map((meal) => (meal.id === mealId ? { ...meal, ...info } : meal)),
         })),
-      addRecord: (target, value, now = new Date()) => {
-        const record: GlucoseRecord = {
-          id: crypto.randomUUID(),
-          slot: target.slot,
-          value,
-          measuredAt: now.toISOString(),
-          // 지난 날 채우기면 measuredAt과 달라짐
-          enteredAt: new Date().toISOString(),
-          mealId: target.mealId,
-          mealType: target.mealType,
-        }
-        set((state) => ({ records: [...state.records, record] }))
-        return record
-      },
+      addRecord: (record) => set((state) => ({ records: [...state.records, record] })),
       updateRecord: (id, changes, now = new Date()) =>
         set((state) => ({
           records: state.records.map((record) =>
@@ -131,3 +125,96 @@ export const useGlucoseStore = create<GlucoseState>()(
     { name: 'dangdang-glucose' },
   ),
 )
+
+// 기기에만 있던 식사를 서버에 보내고 서버 id로 바꿈. 실패하면 pending 그대로
+async function sendPendingMeal(meal: Meal, offline: boolean) {
+  try {
+    const saved = await createMeal(meal.type, new Date(meal.startedAt), offline)
+    useGlucoseStore.setState((state) => ({
+      meals: state.meals.map((item) =>
+        item.id === meal.id ? { ...item, id: saved.id, pending: undefined } : item,
+      ),
+      // 그사이 이 끼니에 붙인 혈당 기록도 서버 id로
+      records: state.records.map((record) =>
+        record.mealId === meal.id ? { ...record, mealId: saved.id } : record,
+      ),
+    }))
+    return true
+  } catch {
+    return false
+  }
+}
+
+// 식사 시작은 원탭이라 기기에 먼저 적고 서버에 보냄. 실패하면 pending으로 남겨 동기화 때 다시 보냄
+export async function saveMealStart(type: MealType, now = new Date()) {
+  const id = useGlucoseStore.getState().startMeal(type, now)
+  const meal = useGlucoseStore.getState().meals.find((item) => item.id === id)
+  return meal ? sendPendingMeal(meal, false) : false
+}
+
+// 못 보낸 식사를 먼저 보내고 서버 식사로 바꿈. 음식·양·건너뜀처럼 기기에만 있는 정보는 같은 식사에 다시 붙임
+export async function syncMeals() {
+  const pending = useGlucoseStore.getState().meals.filter((meal) => meal.pending)
+  for (const meal of pending) await sendPendingMeal(meal, true)
+  const server = await getAllMeals()
+  useGlucoseStore.setState((state) => {
+    const local = new Map(state.meals.map((meal) => [meal.id, meal]))
+    const synced = server.map((meal) => {
+      const prev = local.get(meal.id)
+      return prev ? { ...prev, ...meal } : { ...meal, skipped: false }
+    })
+    // 또 못 보낸 식사는 기기에 남겨 다음에 다시 보냄
+    const stillPending = state.meals.filter((meal) => meal.pending)
+    return {
+      meals: [...synced, ...stillPending].sort(
+        (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime(),
+      ),
+    }
+  })
+}
+
+// 서버에 등록한 뒤 기기에 반영. 서버에 있는 식사면 끼니도 서버에 연결, 못 보낸 식사면 기기에서만
+export async function saveRecord(target: MeasureTarget, value: number, measuredAt: Date) {
+  const meal = useGlucoseStore.getState().meals.find((item) => item.id === target.mealId)
+  const serverMealId = meal && !meal.pending ? meal.id : undefined
+  const saved = await createReading(target, value, measuredAt, serverMealId)
+  const record = {
+    ...saved,
+    mealId: saved.mealId ?? target.mealId,
+    mealType: target.mealType ?? saved.mealType,
+  }
+  useGlucoseStore.getState().addRecord(record)
+  return record
+}
+
+// 서버 기록으로 바꿈. 처음 값은 기기에서, 끼니 연결은 서버에 없을 때만 기기 값으로
+export async function syncRecords() {
+  const server = await getAllReadings()
+  useGlucoseStore.setState((state) => {
+    const local = new Map(state.records.map((record) => [record.id, record]))
+    return {
+      records: server.map((record) => {
+        const prev = local.get(record.id)
+        if (!prev) return record
+        return {
+          ...record,
+          mealId: record.mealId ?? prev.mealId,
+          mealType: record.mealType ?? prev.mealType,
+          original: prev.original,
+        }
+      }),
+    }
+  })
+}
+
+// 서버에서 고친 뒤 기기에 반영. 처음 값(original)은 기기에서 남김
+export async function editRecord(id: string, changes: { value: number; measuredAt: string }) {
+  await updateReading(id, changes)
+  useGlucoseStore.getState().updateRecord(id, changes)
+}
+
+// 서버에서 지운 뒤 기기에서도 뺌
+export async function removeRecord(id: string) {
+  await deleteReading(id)
+  useGlucoseStore.getState().deleteRecord(id)
+}

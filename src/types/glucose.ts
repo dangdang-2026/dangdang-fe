@@ -7,6 +7,8 @@ export type Meal = {
   id: string
   type: MealType
   startedAt: string
+  // 서버에 아직 못 보낸 식사. 알림 예약 안 됨
+  pending?: boolean
   // 이번 끼니 식후 측정 건너뜀
   skipped: boolean
   // 먹은 음식 이름. 적기 전엔 없음
@@ -74,6 +76,8 @@ export type GlucoseRecord = {
   editedAt?: string
   // 처음 입력한 값(수정 전후 기록용)
   original?: { value: number; measuredAt: string }
+  // 서버가 붙인 잰 날짜의 병원 기준 id
+  criteriaId?: number
 }
 
 // 입력 시트에 넘기는 측정 시점 정보

@@ -4,8 +4,8 @@
 // 캐시 내용이 바뀌면 버전을 올려 옛 캐시 삭제
 const CACHE = 'dangdang-shell-v2'
 const SHELL = ['/', '/manifest.webmanifest', '/icons/app-icon.svg', '/icons/icon-192.png']
-// 알림을 누르면 열 주소. 오늘 탭이 혈당 입력 시트를 바로 엶
-const MEASURE_URL = '/?measure=1'
+// 알림을 누르면 열 주소. 서버 알림 주소와 같은 모양. 오늘 탭이 혈당 입력 시트를 바로 엶
+const MEASURE_URL = '/today?sheet=glucose'
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)))
@@ -71,7 +71,7 @@ self.addEventListener('fetch', (event) => {
 })
 
 // 서버 푸시. 잠금화면 가리기는 서버가 사용자 설정을 보고 문구를 정해 보냄
-// payload 예: { title, body, tag, url }
+// payload 예: { title, body, tag, url, reminderId }. reminderId는 서버 측정 알림 번호
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {}
   event.waitUntil(
@@ -80,7 +80,7 @@ self.addEventListener('push', (event) => {
       tag: data.tag || 'measure',
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
-      data: { url: data.url || MEASURE_URL, tag: data.tag },
+      data: { url: data.url || MEASURE_URL, tag: data.tag, reminderId: data.reminderId },
       actions: [
         { action: 'input', title: '지금 입력' },
         { action: 'snooze', title: '10분 뒤 다시' },
@@ -89,13 +89,29 @@ self.addEventListener('push', (event) => {
   )
 })
 
+// 서버 측정 알림 10분 뒤 다시. 로그인 쿠키가 만료됐으면 한 번 갱신하고 다시 보냄
+async function snoozeReminder(reminderId) {
+  const send = () =>
+    fetch('/api/reminders/' + reminderId + '/snooze', { method: 'POST', credentials: 'include' })
+  const response = await send()
+  if (response.status !== 401) return
+  const refreshed = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' })
+  if (refreshed.ok) await send()
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const { url = MEASURE_URL, tag } = event.notification.data || {}
+  const { url = MEASURE_URL, tag, reminderId } = event.notification.data || {}
+
+  // 서버 알림은 앱이 닫혀 있어도 서버에 바로 미룸. 10분 뒤 서버가 다시 보냄
+  if (event.action === 'snooze' && reminderId) {
+    event.waitUntil(snoozeReminder(reminderId).catch(() => {}))
+    return
+  }
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-      // 10분 뒤 다시: 열린 화면에 알려 다시 예약(앱이 닫혀 있으면 서버가 다시 보냄)
+      // 기기 알림의 10분 뒤 다시: 열린 화면에 알려 기기에서 다시 예약
       if (event.action === 'snooze') {
         clients.forEach((client) => client.postMessage({ type: 'measure-snooze', tag }))
         return undefined

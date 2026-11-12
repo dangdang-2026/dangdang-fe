@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
 import iconCalendar from '@/assets/icons/calendar.svg'
 import iconCheckGreen from '@/assets/icons/community/check-green.svg'
+import Toast from '@/components/common/Toast'
 import ProfileDateSheet from '@/components/my/ProfileDateSheet'
 import OnboardingHeader from '@/components/onboarding/OnboardingHeader'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { useCriteriaStore } from '@/stores/useCriteriaStore'
+import { saveFirstCriteria } from '@/stores/useCriteriaStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { parseDateKey, startOfDay, toDateKey } from '@/utils/date'
@@ -23,23 +24,34 @@ function DueDatePage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.ONBOARDING_SLOTS)
   const answers = useOnboardingStore()
-  const startCriteria = useCriteriaStore((state) => state.startCriteria)
   const updateProfile = useProfileStore((state) => state.updateProfile)
   const [dueDate, setDueDate] = useState(answers.dueDate)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState(false)
+  const closeToast = useCallback(() => setToast(false), [])
   const today = startOfDay(new Date())
   const date = parseDateKey(dueDate)
   const pregnancyLabel = formatPregnancyAge(dueDate, today)
 
   // 목표는 병원에서 들은 값만 쓰므로 비워 두고, 진료 후 기준 바꾸기에서 적음
-  const finish = (finalDueDate: string | null) => {
+  const finish = async (finalDueDate: string | null) => {
+    if (saving) return
+    setSaving(true)
+    try {
+      await saveFirstCriteria({
+        source: '첫 진입 때 입력',
+        postMealHours: answers.postMealHours ?? null,
+        measureSlots: answers.measureSlots,
+        targets: { fasting: null, postMeal: null },
+      })
+    } catch {
+      setToast(true)
+      return
+    } finally {
+      setSaving(false)
+    }
     updateProfile({ dueDate: finalDueDate })
-    startCriteria({
-      source: '첫 진입 때 입력',
-      postMealHours: answers.postMealHours ?? null,
-      measureSlots: answers.measureSlots,
-      targets: { fasting: null, postMeal: null },
-    })
     answers.setAnswers({ dueDate: finalDueDate })
     answers.complete()
     navigate(ROUTES.ONBOARDING_TOUR, { replace: true })
@@ -84,7 +96,7 @@ function DueDatePage() {
         <button
           type="button"
           className="text-grey-500 self-center text-sm leading-snug font-medium underline"
-          onClick={() => finish(null)}
+          onClick={() => void finish(null)}
         >
           나중에 적을게요
         </button>
@@ -92,7 +104,7 @@ function DueDatePage() {
           type="button"
           disabled={!date}
           className="text-subtitle-1 disabled:bg-grey-100 disabled:text-grey-400 bg-primary h-14 rounded-xl leading-none text-white"
-          onClick={() => finish(dueDate)}
+          onClick={() => void finish(dueDate)}
         >
           이 기준으로 시작하기
         </button>
@@ -110,6 +122,12 @@ function DueDatePage() {
             setSheetOpen(false)
           }}
           onClose={() => setSheetOpen(false)}
+        />
+      )}
+      {toast && (
+        <Toast
+          message="기준을 저장하지 못했어요. 잠시 후 다시 시도해 주세요"
+          onClose={closeToast}
         />
       )}
     </main>
