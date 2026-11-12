@@ -97,11 +97,14 @@ export function useMeasureReminder() {
     }
   }, [meals, records, postMealHours, measure, remind, hideOnLockScreen, paused])
 
-  // 알림을 누르면 오늘 탭 혈당 입력 시트로
+  // 알림을 누르면 오늘 탭 혈당 입력 시트로. 서버 알림은 주소(reminderId 포함) 그대로 열어 열람 처리
   useEffect(() => {
     const open = () => navigate(ROUTES.TODAY, { state: { openGlucose: true } })
     const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'measure-open') open()
+      if (event.data?.type !== 'measure-open') return
+      const url: unknown = event.data.url
+      if (typeof url === 'string' && url.includes('reminderId=')) navigate(url)
+      else open()
     }
     navigator.serviceWorker?.addEventListener('message', handleMessage)
     window.addEventListener('measure-open', open)

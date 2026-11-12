@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { subscribePush } from '@/api/push'
+import { openReminder } from '@/api/reminders'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
@@ -90,6 +91,11 @@ function TodayPage() {
       setSheetTarget(getMeasureTarget(meals, records, criteria.postMealHours, new Date()))
     }
   }
+  // 서버 알림을 눌러 들어오면 열람 처리. 실패해도 입력은 그대로
+  const reminderId = searchParams.get('reminderId')
+  useEffect(() => {
+    if (reminderId) openReminder(reminderId).catch(() => {})
+  }, [reminderId])
   const hasUnread = useInboxStore((state) => state.items.some((item) => !item.readAt))
   const [writingMeal, setWritingMeal] = useState<Meal | null>(null)
   const [toast, setToast] = useState<string | null>(null)
