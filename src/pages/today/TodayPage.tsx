@@ -61,6 +61,9 @@ const HEADER_TITLE: Partial<Record<HeroState['kind'], string>> = {
   'day-end': '오늘 하루 수고했어요',
 }
 
+// 이미 거절한 알림 권한은 브라우저가 다시 안 물어봐서 설정 안내
+const PERMISSION_DENIED_TOAST = '알림 권한이 꺼져 있어요. 설정에서 켜 주세요'
+
 // 측정을 기다리는 동안엔 히어로와 기다리는 측정만
 const WAITING_KINDS: HeroState['kind'][] = ['eating', 'measure-time', 'overdue']
 
@@ -175,10 +178,30 @@ function TodayPage() {
       finishPermission(false)
       return
     }
+    // 이미 거절한 권한은 다시 안 물어봐서 설정 안내만. 측정 알림 설정은 그대로
+    if (Notification.permission === 'denied') {
+      markPermissionAsked()
+      setPermissionSheet(false)
+      setToast(PERMISSION_DENIED_TOAST)
+      return
+    }
     const permission = await Notification.requestPermission()
     finishPermission(permission === 'granted')
     // 앱이 닫혀 있어도 서버가 보낼 수 있게 푸시 구독(서버 키가 있을 때만)
     if (permission === 'granted') subscribePush().catch(() => {})
+  }
+
+  // 알림 꺼짐 배너 켜기. 못 쓰는 브라우저·이미 거절한 권한은 물어봐도 소용없어 안내만
+  const turnOnNotification = () => {
+    if (!('Notification' in window)) {
+      setToast('이 브라우저는 알림을 지원하지 않아요')
+      return
+    }
+    if (Notification.permission === 'denied') {
+      setToast(PERMISSION_DENIED_TOAST)
+      return
+    }
+    setPermissionSheet(true)
   }
 
   // 같은 종류로 마지막에 적은 단위. 새로 적을 때 시작값
@@ -320,7 +343,7 @@ function TodayPage() {
           )}
           {notificationsOff && (
             <div className="mt-4.5">
-              <NotificationBanner onTurnOn={() => setPermissionSheet(true)} />
+              <NotificationBanner onTurnOn={turnOnNotification} />
             </div>
           )}
           <div className="mt-5.5">
