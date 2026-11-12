@@ -14,6 +14,7 @@ import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import {
   deleteHospital,
+  HospitalGoneError,
   saveHospitalEdit,
   saveNewHospital,
   useHospitalStore,
@@ -90,8 +91,12 @@ function HospitalsPage() {
         sheet.index === 0 ? { ...input, nextVisitAt: null } : input,
       )
       setToast('병원 정보를 고쳤어요')
-    } catch {
-      setToast('병원 정보를 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+    } catch (error) {
+      setToast(
+        error instanceof HospitalGoneError
+          ? '이미 지워진 병원이에요'
+          : '병원 정보를 저장하지 못했어요. 잠시 후 다시 시도해 주세요',
+      )
     }
   }
 

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { getErrorCode } from '@/api/axios'
 import {
   createCareSite,
   deleteCareSite,
@@ -10,6 +11,12 @@ import {
 import type { Hospital, HospitalInfo } from '@/types/hospital'
 
 export type HospitalInput = Omit<Hospital, 'id'>
+
+// 다른 기기에서 이미 지웠거나 없는 병원
+const NOT_FOUND = 'CARE_SITE_40401'
+
+// 고치려던 병원이 서버에 없음
+export class HospitalGoneError extends Error {}
 
 type HospitalState = {
   // 첫 번째가 대표 병원
@@ -66,6 +73,14 @@ export async function saveHospitalEdit(id: string, input: HospitalInput) {
   try {
     await updateCareSite(id, input)
   } catch (error) {
+    // 이미 지운 병원이면 목록에서 빼고 서버 목록으로 다시 맞춤
+    if (getErrorCode(error) === NOT_FOUND) {
+      useHospitalStore.setState((state) => ({
+        hospitals: state.hospitals.filter((item) => item.id !== id),
+      }))
+      await syncHospitals().catch(() => {})
+      throw new HospitalGoneError()
+    }
     updateHospital(id, previous)
     throw error
   }
@@ -80,8 +95,11 @@ export async function deleteHospital(id: string) {
   try {
     await deleteCareSite(id)
   } catch (error) {
-    useHospitalStore.setState({ hospitals })
-    throw error
+    // 이미 지운 병원이면 지운 걸로 봄
+    if (getErrorCode(error) !== NOT_FOUND) {
+      useHospitalStore.setState({ hospitals })
+      throw error
+    }
   }
   // 대표 병원을 지우면 다음 병원을 서버에서도 대표로. 실패해도 앱은 첫 병원을 대표로 씀
   const next = hospitals[index + 1]

@@ -4,7 +4,8 @@ import type { Department, Hospital, HospitalInfo } from '@/types/hospital'
 // 백엔드 HospitalSearchResponse. 심평원에 등록된 병원
 type HospitalSearchResponse = {
   items: {
-    hiraCode: string
+    // 심평원 응답에 없으면 null
+    hiraCode: string | null
     name: string
     // 상급종합·종합병원·병원·의원 등
     category: string | null
@@ -30,7 +31,7 @@ export async function searchHospitals(keyword: string) {
   })
   if (!data.data) throw new Error('병원 검색 응답이 비어 있음')
   return data.data.items.map((item): HospitalInfo => ({
-    hiraCode: item.hiraCode,
+    hiraCode: item.hiraCode ?? undefined,
     name: item.name,
     kind: item.category ?? undefined,
     address: item.address ?? undefined,
