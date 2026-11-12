@@ -2,6 +2,8 @@ export type Department = '산부인과' | '내분비내과' | '영양 상담' | 
 
 // 심평원 병원정보에서 찾은 병원. 직접 적으면 주소·종류 없음
 export type HospitalInfo = {
+  // 심평원 요양기호. 검색으로 고른 병원만
+  hiraCode?: string
   name: string
   // 예: 상급종합병원 · 의원
   kind?: string

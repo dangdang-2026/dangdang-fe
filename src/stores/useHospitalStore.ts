@@ -1,40 +1,107 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { DEFAULT_HOSPITAL } from '@/mocks/hospital'
+import { getErrorCode } from '@/api/axios'
+import {
+  createCareSite,
+  deleteCareSite,
+  getCareSites,
+  setPrimaryCareSite,
+  updateCareSite,
+} from '@/api/careSites'
 import type { Hospital, HospitalInfo } from '@/types/hospital'
 
-type HospitalInput = Omit<Hospital, 'id'>
+export type HospitalInput = Omit<Hospital, 'id'>
+
+// 다른 기기에서 이미 지웠거나 없는 병원
+const NOT_FOUND = 'CARE_SITE_40401'
+
+// 고치려던 병원이 서버에 없음
+export class HospitalGoneError extends Error {}
 
 type HospitalState = {
   // 첫 번째가 대표 병원
   hospitals: Hospital[]
-  addHospital: (input: HospitalInput) => Hospital
   updateHospital: (id: string, input: HospitalInput) => void
-  removeHospital: (id: string) => void
   // 병원 찾기에서 고른 병원. 목록 화면이 받아서 추가 시트를 엶
   draft: { info: HospitalInfo; manual: boolean } | null
   setDraft: (draft: { info: HospitalInfo; manual: boolean } | null) => void
 }
 
-// API 연동 전까지 기기(localStorage)에 저장
+// 서버 병원 목록을 받아 기기에도 저장. 오프라인에서도 마지막 목록을 보여 줌
 export const useHospitalStore = create<HospitalState>()(
   persist(
     (set) => ({
-      hospitals: [DEFAULT_HOSPITAL],
-      addHospital: (input) => {
-        const hospital = { ...input, id: crypto.randomUUID() }
-        set((state) => ({ hospitals: [...state.hospitals, hospital] }))
-        return hospital
-      },
+      hospitals: [],
       updateHospital: (id, input) =>
         set((state) => ({
           hospitals: state.hospitals.map((item) => (item.id === id ? { ...input, id } : item)),
         })),
-      removeHospital: (id) =>
-        set((state) => ({ hospitals: state.hospitals.filter((item) => item.id !== id) })),
       draft: null,
       setDraft: (draft) => set({ draft }),
     }),
     { name: 'dangdang-hospital', partialize: (state) => ({ hospitals: state.hospitals }) },
   ),
 )
+
+// 서버 병원 목록으로 바꿈. 서버에 없는 병원 종류·다음 진료일은 기기 값을 이어 씀
+export async function syncHospitals() {
+  const hospitals = await getCareSites()
+  const local = useHospitalStore.getState().hospitals
+  useHospitalStore.setState({
+    hospitals: hospitals.map((hospital) => {
+      const prev = local.find((item) => item.id === hospital.id)
+      return prev ? { ...hospital, kind: prev.kind, nextVisitAt: prev.nextVisitAt } : hospital
+    }),
+  })
+}
+
+// 서버에 등록한 뒤 목록 끝에 추가. 첫 병원은 대표 병원. 서버에 없는 종류·다음 진료일은 기기에
+export async function saveNewHospital(input: HospitalInput) {
+  const primary = useHospitalStore.getState().hospitals.length === 0
+  const saved = await createCareSite(input, primary)
+  const hospital = { ...saved, kind: input.kind, nextVisitAt: input.nextVisitAt }
+  useHospitalStore.setState((state) => ({ hospitals: [...state.hospitals, hospital] }))
+  return hospital
+}
+
+// 화면엔 바로 고치고 서버에 저장. 실패하면 원래 정보로 되돌림
+export async function saveHospitalEdit(id: string, input: HospitalInput) {
+  const { hospitals, updateHospital } = useHospitalStore.getState()
+  const previous = hospitals.find((item) => item.id === id)
+  if (!previous) return
+  updateHospital(id, input)
+  try {
+    await updateCareSite(id, input)
+  } catch (error) {
+    // 이미 지운 병원이면 목록에서 빼고 서버 목록으로 다시 맞춤
+    if (getErrorCode(error) === NOT_FOUND) {
+      useHospitalStore.setState((state) => ({
+        hospitals: state.hospitals.filter((item) => item.id !== id),
+      }))
+      await syncHospitals().catch(() => {})
+      throw new HospitalGoneError()
+    }
+    updateHospital(id, previous)
+    throw error
+  }
+}
+
+// 화면에서 바로 지우고 서버에서도 삭제. 실패하면 목록을 되돌림
+export async function deleteHospital(id: string) {
+  const { hospitals } = useHospitalStore.getState()
+  const index = hospitals.findIndex((item) => item.id === id)
+  if (index < 0) return
+  useHospitalStore.setState({ hospitals: hospitals.filter((item) => item.id !== id) })
+  try {
+    await deleteCareSite(id)
+  } catch (error) {
+    // 이미 지운 병원이면 지운 걸로 봄
+    if (getErrorCode(error) !== NOT_FOUND) {
+      useHospitalStore.setState({ hospitals })
+      throw error
+    }
+  }
+  // 대표 병원을 지우면 다음 병원을 서버에서도 대표로. 실패해도 앱은 첫 병원을 대표로 씀
+  const next = hospitals[index + 1]
+  if (index === 0 && next) await setPrimaryCareSite(next.id).catch(() => {})
+}

@@ -7,6 +7,8 @@ export type InboxItem = {
   type: InboxType
   title: string
   body?: string
+  // 누르면 갈 앱 안 주소. 예: /today?sheet=glucose&reminderId=1
+  link?: string
   sentAt: string
   // 안 읽었으면 null
   readAt: string | null

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import TimeWheelSheet from '@/components/common/TimeWheelSheet'
-import { useNotificationStore } from '@/stores/useNotificationStore'
+import { saveNotificationSettings, useNotificationStore } from '@/stores/useNotificationStore'
 import { formatAlarmTime } from '@/utils/criteria'
 
 // 공복 알림은 5분 단위
@@ -9,13 +9,24 @@ const MINUTE_STEP = 5
 type FastingTimeRowProps = {
   // 시각을 바꾸면. 예: 토스트
   onChanged?: (time: string) => void
+  // 서버에 못 저장해 원래 시각으로 돌아가면
+  onFailed?: () => void
 }
 
 // Figma A-02d·M-19 공복 알림 시각. 누르면 시간 휠 시트
-function FastingTimeRow({ onChanged }: FastingTimeRowProps) {
+function FastingTimeRow({ onChanged, onFailed }: FastingTimeRowProps) {
   const fastingTime = useNotificationStore((state) => state.fastingTime)
-  const setFastingTime = useNotificationStore((state) => state.setFastingTime)
   const [sheetOpen, setSheetOpen] = useState(false)
+
+  const changeTime = async (time: string) => {
+    setSheetOpen(false)
+    try {
+      await saveNotificationSettings({ fastingTime: time })
+      onChanged?.(time)
+    } catch {
+      onFailed?.()
+    }
+  }
 
   return (
     <>
@@ -33,11 +44,7 @@ function FastingTimeRow({ onChanged }: FastingTimeRowProps) {
           title="공복 알림 시각"
           value={fastingTime}
           minuteStep={MINUTE_STEP}
-          onDone={(time) => {
-            setFastingTime(time)
-            setSheetOpen(false)
-            onChanged?.(time)
-          }}
+          onDone={(time) => void changeTime(time)}
           onClose={() => setSheetOpen(false)}
         />
       )}

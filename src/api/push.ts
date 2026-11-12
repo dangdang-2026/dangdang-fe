@@ -45,6 +45,11 @@ export function hasServerPush() {
   return localStorage.getItem(SUBSCRIPTION_ID_KEY) !== null
 }
 
+// 서버가 내 기기 전부에 테스트 푸시를 보냄. 등록된 기기가 없으면 404(PUSH_40402)
+export async function sendTestPush() {
+  await apiClient.post('/push-subscriptions/test')
+}
+
 // 로그인·앱 열 때 측정 알림이 켜져 있고 권한이 있으면 구독을 서버에 다시 등록
 export function syncPushSubscription() {
   const granted = 'Notification' in window && Notification.permission === 'granted'

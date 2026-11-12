@@ -4,9 +4,12 @@ import { syncPushSubscription } from '@/api/push'
 import { ROUTES } from '@/constants/routes'
 import type { AccountProfile } from '@/mocks/auth'
 import { useAuthStore, type LoginMethod } from '@/stores/useAuthStore'
+import { syncCommunityProfile } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
 import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
+import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncInbox } from '@/stores/useInboxStore'
+import { syncNotificationSettings } from '@/stores/useNotificationStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
 import { useProfileStore } from '@/stores/useProfileStore'
 
@@ -47,6 +50,12 @@ export function useFinishLogin() {
       syncRecords().catch(() => {})
       // 알림함도 이 계정 알림으로. 다른 계정 알림이 남지 않게
       syncInbox().catch(() => {})
+      // 다니는 병원도 이 계정 병원으로
+      syncHospitals().catch(() => {})
+      // 커뮤니티 닉네임도 이 계정 닉네임으로
+      syncCommunityProfile().catch(() => {})
+      // 알림 설정도 이 계정 값으로. 다른 계정 설정이 남지 않게
+      const settingsSynced = syncNotificationSettings().catch(() => {})
       // 약관 전이면 새 계정이거나 설정을 안 마친 계정. 기기에 남은 다른 계정 설정은 비움
       if (!me.consentCompleted) {
         resetOnboarding()
@@ -55,8 +64,8 @@ export function useFinishLogin() {
       }
       // 병원 기준은 서버 값으로. 못 받아도 기기 값으로 계속 씀
       syncCriteria().catch(() => {})
-      // 이 기기 알림을 지금 계정으로 받게 구독 등록
-      syncPushSubscription()
+      // 알림 설정을 받은 뒤 측정 알림이 켜져 있으면 이 기기를 구독 등록
+      void settingsSynced.then(syncPushSubscription)
       // 약관은 서버에 있음. 나머지 설정은 아직 기기에만 있어 기기 값으로
       navigate(completed ? ROUTES.TODAY : ROUTES.ONBOARDING_TIMING, { replace: true })
     } catch {

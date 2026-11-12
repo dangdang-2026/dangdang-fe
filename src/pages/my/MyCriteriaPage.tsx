@@ -144,6 +144,9 @@ function MyCriteriaPage() {
           {criteria.measureSlots.includes('fasting') && (
             <FastingTimeRow
               onChanged={(time) => setToast(`공복 알림을 ${formatAlarmTime(time)}로 바꿨어요`)}
+              onFailed={() =>
+                setToast('공복 알림 시각을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+              }
             />
           )}
         </section>

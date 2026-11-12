@@ -1,5 +1,10 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import {
+  getNotificationPreferences,
+  updateNotificationPreferences,
+  type NotificationPreferences,
+} from '@/api/notificationPreferences'
 
 export type NotificationSettings = {
   // 식사 시작 후 병원 기준 시간에 측정 알림
@@ -36,3 +41,24 @@ export const useNotificationStore = create<NotificationState>()(
     { name: 'dangdang-notification' },
   ),
 )
+
+// 서버 알림 설정으로 바꿈. 다른 기기에서 바꾼 설정도 반영. 권한 안내 여부는 기기 값 유지
+export async function syncNotificationSettings() {
+  const settings = await getNotificationPreferences()
+  useNotificationStore.setState(settings)
+}
+
+// 화면엔 바로 바꾸고 서버에 저장. 실패하면 바꾼 칸만 원래 값으로 되돌림
+export async function saveNotificationSettings(changes: Partial<NotificationPreferences>) {
+  const state = useNotificationStore.getState()
+  const previous = Object.fromEntries(
+    Object.keys(changes).map((key) => [key, state[key as keyof NotificationPreferences]]),
+  )
+  useNotificationStore.setState(changes)
+  try {
+    await updateNotificationPreferences(changes)
+  } catch (error) {
+    useNotificationStore.setState(previous)
+    throw error
+  }
+}
