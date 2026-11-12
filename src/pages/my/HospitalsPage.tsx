@@ -12,7 +12,13 @@ import HospitalSheet from '@/components/hospital/HospitalSheet'
 import { DEPARTMENTS, DEPARTMENT_CHIP, DEPARTMENT_NOTE } from '@/constants/hospital'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { useHospitalStore } from '@/stores/useHospitalStore'
+import {
+  deleteHospital,
+  HospitalGoneError,
+  saveHospitalEdit,
+  saveNewHospital,
+  useHospitalStore,
+} from '@/stores/useHospitalStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import type { Hospital, HospitalInfo } from '@/types/hospital'
 import { objectParticle } from '@/utils/josa'
@@ -34,9 +40,6 @@ function HospitalsPage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.MY)
   const hospitals = useHospitalStore((state) => state.hospitals)
-  const addHospital = useHospitalStore((state) => state.addHospital)
-  const updateHospital = useHospitalStore((state) => state.updateHospital)
-  const removeHospital = useHospitalStore((state) => state.removeHospital)
   const setDraft = useHospitalStore((state) => state.setDraft)
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
   const setNextVisit = useVisitStore((state) => state.setNextVisit)
@@ -48,6 +51,8 @@ function HospitalsPage() {
   })
   const [deleting, setDeleting] = useState<{ hospital: Hospital; index: number } | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  // 서버 저장 중엔 다시 눌러도 한 번만
+  const [saving, setSaving] = useState(false)
   const closeToast = useCallback(() => setToast(null), [])
 
   const closeSheet = () => {
@@ -59,25 +64,55 @@ function HospitalsPage() {
   const visitOf = (hospital: Hospital, index: number) =>
     index === 0 ? nextVisitAt : hospital.nextVisitAt
 
-  const save = (input: Omit<Hospital, 'id'>) => {
-    if (!sheet) return
+  const save = async (input: Omit<Hospital, 'id'>) => {
+    if (!sheet || saving) return
     if (sheet.mode === 'add') {
-      if (hospitals.length === 0) setNextVisit(input.nextVisitAt)
-      addHospital(hospitals.length === 0 ? { ...input, nextVisitAt: null } : input)
+      const first = hospitals.length === 0
+      setSaving(true)
+      try {
+        await saveNewHospital(first ? { ...input, nextVisitAt: null } : input)
+      } catch {
+        // 시트는 열어 둬 다시 누를 수 있게
+        setToast('병원을 추가하지 못했어요. 잠시 후 다시 시도해 주세요')
+        return
+      } finally {
+        setSaving(false)
+      }
+      if (first) setNextVisit(input.nextVisitAt)
       setToast(`${input.name}${objectParticle(input.name)} 추가했어요`)
-    } else {
-      updateHospital(sheet.hospital.id, sheet.index === 0 ? { ...input, nextVisitAt: null } : input)
-      setToast('병원 정보를 고쳤어요')
+      closeSheet()
+      return
     }
+    // 화면은 바로 고치고 시트를 닫음. 서버에 못 저장하면 원래대로
     closeSheet()
+    try {
+      await saveHospitalEdit(
+        sheet.hospital.id,
+        sheet.index === 0 ? { ...input, nextVisitAt: null } : input,
+      )
+      setToast('병원 정보를 고쳤어요')
+    } catch (error) {
+      setToast(
+        error instanceof HospitalGoneError
+          ? '이미 지워진 병원이에요'
+          : '병원 정보를 저장하지 못했어요. 잠시 후 다시 시도해 주세요',
+      )
+    }
   }
 
-  const confirmDelete = () => {
+  // 화면에서 바로 지우고 서버에 못 지우면 되돌림
+  const confirmDelete = async () => {
     if (!deleting) return
-    // 대표 병원을 지우면 다음 병원이 대표가 되고 그 진료일을 이어받음
-    if (deleting.index === 0) setNextVisit(hospitals[1]?.nextVisitAt ?? null)
-    removeHospital(deleting.hospital.id)
+    const { hospital, index } = deleting
     setDeleting(null)
+    try {
+      await deleteHospital(hospital.id)
+    } catch {
+      setToast('병원을 지우지 못했어요. 잠시 후 다시 시도해 주세요')
+      return
+    }
+    // 대표 병원을 지우면 다음 병원이 대표가 되고 그 진료일을 이어받음
+    if (index === 0) setNextVisit(hospitals[1]?.nextVisitAt ?? null)
     setToast('병원을 지웠어요')
   }
 
@@ -167,7 +202,7 @@ function HospitalsPage() {
           info={sheet.info}
           nextVisitAt={null}
           manual={sheet.manual}
-          onSave={save}
+          onSave={(input) => void save(input)}
           onClose={closeSheet}
         />
       )}
@@ -179,7 +214,7 @@ function HospitalsPage() {
           department={sheet.hospital.department}
           nextVisitAt={visitOf(sheet.hospital, sheet.index)}
           manual={!sheet.hospital.address}
-          onSave={save}
+          onSave={(input) => void save(input)}
           onDelete={() => {
             setDeleting({ hospital: sheet.hospital, index: sheet.index })
             setSheet(null)
@@ -190,7 +225,7 @@ function HospitalsPage() {
       {deleting && (
         <HospitalDeleteSheet
           name={deleting.hospital.name}
-          onConfirm={confirmDelete}
+          onConfirm={() => void confirmDelete()}
           onClose={() => setDeleting(null)}
         />
       )}
