@@ -9,7 +9,11 @@ import Toast from '@/components/common/Toast'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
-import { useNotificationStore, type NotificationSettings } from '@/stores/useNotificationStore'
+import {
+  saveNotificationSettings,
+  useNotificationStore,
+  type NotificationSettings,
+} from '@/stores/useNotificationStore'
 import { formatDuration } from '@/utils/criteria'
 
 type Permission = NotificationPermission | 'unsupported'
@@ -43,7 +47,7 @@ function StatusRow({ ok, warn, text }: { ok: boolean; warn?: boolean; text: stri
 // Figma M-04 알림 · M-05 권한 꺼짐
 function NotificationsPage() {
   const goBack = useGoBack(ROUTES.MY)
-  const { measure, remind, hideOnLockScreen, updateSettings } = useNotificationStore()
+  const { measure, remind, hideOnLockScreen } = useNotificationStore()
   const { postMealHours } = useCriteria()
   const [permission, setPermission] = useState(readPermission)
   const [toast, setToast] = useState<string | null>(null)
@@ -63,6 +67,20 @@ function NotificationsPage() {
     },
   ]
   const values: NotificationSettings = { measure, remind, hideOnLockScreen }
+
+  const changeSetting = async (key: keyof NotificationSettings, checked: boolean) => {
+    try {
+      await saveNotificationSettings({ [key]: checked })
+    } catch {
+      setToast('알림 설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+      return
+    }
+    // 측정 알림을 끄면 서버도 이 기기로 안 보내게 구독 끊음
+    if (key === 'measure') {
+      if (checked) syncPushSubscription()
+      else unsubscribePush().catch(() => {})
+    }
+  }
 
   const sendTest = async () => {
     if (permission === 'unsupported') {
@@ -99,14 +117,7 @@ function NotificationsPage() {
               <Switch
                 checked={values[key]}
                 label={title}
-                onChange={(checked) => {
-                  updateSettings({ [key]: checked })
-                  // 측정 알림을 끄면 서버도 이 기기로 안 보내게 구독 끊음
-                  if (key === 'measure') {
-                    if (checked) syncPushSubscription()
-                    else unsubscribePush().catch(() => {})
-                  }
-                }}
+                onChange={(checked) => void changeSetting(key, checked)}
               />
             </li>
           ))}

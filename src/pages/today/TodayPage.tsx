@@ -28,7 +28,7 @@ import { useCriteria } from '@/hooks/useCriteria'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { saveMealStart, useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useInboxStore } from '@/stores/useInboxStore'
-import { useNotificationStore } from '@/stores/useNotificationStore'
+import { saveNotificationSettings, useNotificationStore } from '@/stores/useNotificationStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import type {
   GlucoseRecord,
@@ -105,7 +105,6 @@ function TodayPage() {
   const permissionAsked = useNotificationStore((state) => state.permissionAsked)
   const measureNotification = useNotificationStore((state) => state.measure)
   const markPermissionAsked = useNotificationStore((state) => state.markPermissionAsked)
-  const updateNotification = useNotificationStore((state) => state.updateSettings)
   const name = useProfileStore((state) => state.name)
   const dueDate = useProfileStore((state) => state.dueDate)
   const hospitalized = useProfileStore((state) => state.hospitalized)
@@ -164,7 +163,8 @@ function TodayPage() {
 
   const finishPermission = (granted: boolean) => {
     markPermissionAsked()
-    updateNotification({ measure: granted })
+    // 서버에 못 저장하면 원래 설정 그대로 둠
+    saveNotificationSettings({ measure: granted }).catch(() => {})
     setPermissionSheet(false)
     setToast(granted ? '측정 시간에 알려 드릴게요' : '알림 없이 기록만 할게요')
   }
