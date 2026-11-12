@@ -12,7 +12,7 @@ import HospitalSheet from '@/components/hospital/HospitalSheet'
 import { DEPARTMENTS, DEPARTMENT_CHIP, DEPARTMENT_NOTE } from '@/constants/hospital'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { saveNewHospital, useHospitalStore } from '@/stores/useHospitalStore'
+import { saveHospitalEdit, saveNewHospital, useHospitalStore } from '@/stores/useHospitalStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import type { Hospital, HospitalInfo } from '@/types/hospital'
 import { objectParticle } from '@/utils/josa'
@@ -34,7 +34,6 @@ function HospitalsPage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.MY)
   const hospitals = useHospitalStore((state) => state.hospitals)
-  const updateHospital = useHospitalStore((state) => state.updateHospital)
   const removeHospital = useHospitalStore((state) => state.removeHospital)
   const setDraft = useHospitalStore((state) => state.setDraft)
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
@@ -76,11 +75,20 @@ function HospitalsPage() {
       }
       if (first) setNextVisit(input.nextVisitAt)
       setToast(`${input.name}${objectParticle(input.name)} 추가했어요`)
-    } else {
-      updateHospital(sheet.hospital.id, sheet.index === 0 ? { ...input, nextVisitAt: null } : input)
-      setToast('병원 정보를 고쳤어요')
+      closeSheet()
+      return
     }
+    // 화면은 바로 고치고 시트를 닫음. 서버에 못 저장하면 원래대로
     closeSheet()
+    try {
+      await saveHospitalEdit(
+        sheet.hospital.id,
+        sheet.index === 0 ? { ...input, nextVisitAt: null } : input,
+      )
+      setToast('병원 정보를 고쳤어요')
+    } catch {
+      setToast('병원 정보를 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+    }
   }
 
   const confirmDelete = () => {

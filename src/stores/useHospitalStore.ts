@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { createCareSite, getCareSites } from '@/api/careSites'
+import { createCareSite, getCareSites, updateCareSite } from '@/api/careSites'
 import type { Hospital, HospitalInfo } from '@/types/hospital'
 
 export type HospitalInput = Omit<Hospital, 'id'>
@@ -52,4 +52,18 @@ export async function saveNewHospital(input: HospitalInput) {
   const hospital = { ...saved, kind: input.kind, nextVisitAt: input.nextVisitAt }
   useHospitalStore.setState((state) => ({ hospitals: [...state.hospitals, hospital] }))
   return hospital
+}
+
+// 화면엔 바로 고치고 서버에 저장. 실패하면 원래 정보로 되돌림
+export async function saveHospitalEdit(id: string, input: HospitalInput) {
+  const { hospitals, updateHospital } = useHospitalStore.getState()
+  const previous = hospitals.find((item) => item.id === id)
+  if (!previous) return
+  updateHospital(id, input)
+  try {
+    await updateCareSite(id, input)
+  } catch (error) {
+    updateHospital(id, previous)
+    throw error
+  }
 }

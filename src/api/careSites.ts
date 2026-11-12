@@ -107,3 +107,12 @@ export async function createCareSite(input: Omit<Hospital, 'id'>, primary: boole
   if (!data.data) throw new Error('병원 등록 응답이 비어 있음')
   return toHospital(data.data)
 }
+
+// 병원 수정. 고칠 수 있는 이름·진료과·전화번호만 보냄. 전화번호를 지우면 ""로 비움
+export async function updateCareSite(id: string, input: Omit<Hospital, 'id'>) {
+  await apiClient.patch(`/care-sites/${id}`, {
+    name: input.name,
+    department: DEPARTMENT[input.department],
+    phone: input.phone ?? '',
+  })
+}
