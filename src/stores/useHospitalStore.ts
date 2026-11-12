@@ -1,14 +1,13 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { getCareSites } from '@/api/careSites'
+import { createCareSite, getCareSites } from '@/api/careSites'
 import type { Hospital, HospitalInfo } from '@/types/hospital'
 
-type HospitalInput = Omit<Hospital, 'id'>
+export type HospitalInput = Omit<Hospital, 'id'>
 
 type HospitalState = {
   // 첫 번째가 대표 병원
   hospitals: Hospital[]
-  addHospital: (input: HospitalInput) => Hospital
   updateHospital: (id: string, input: HospitalInput) => void
   removeHospital: (id: string) => void
   // 병원 찾기에서 고른 병원. 목록 화면이 받아서 추가 시트를 엶
@@ -21,11 +20,6 @@ export const useHospitalStore = create<HospitalState>()(
   persist(
     (set) => ({
       hospitals: [],
-      addHospital: (input) => {
-        const hospital = { ...input, id: crypto.randomUUID() }
-        set((state) => ({ hospitals: [...state.hospitals, hospital] }))
-        return hospital
-      },
       updateHospital: (id, input) =>
         set((state) => ({
           hospitals: state.hospitals.map((item) => (item.id === id ? { ...input, id } : item)),
@@ -49,4 +43,13 @@ export async function syncHospitals() {
       return prev ? { ...hospital, kind: prev.kind, nextVisitAt: prev.nextVisitAt } : hospital
     }),
   })
+}
+
+// 서버에 등록한 뒤 목록 끝에 추가. 첫 병원은 대표 병원. 서버에 없는 종류·다음 진료일은 기기에
+export async function saveNewHospital(input: HospitalInput) {
+  const primary = useHospitalStore.getState().hospitals.length === 0
+  const saved = await createCareSite(input, primary)
+  const hospital = { ...saved, kind: input.kind, nextVisitAt: input.nextVisitAt }
+  useHospitalStore.setState((state) => ({ hospitals: [...state.hospitals, hospital] }))
+  return hospital
 }

@@ -86,3 +86,24 @@ export async function getCareSites() {
   const { data } = await apiClient.get<BaseResponse<CareSiteResponse[]>>('/care-sites')
   return (data.data ?? []).map(toHospital)
 }
+
+// 앱 병원 → 서버 등록·수정 칸. 다음 진료일은 서버에 없어 안 보냄
+function toRequest(input: Omit<Hospital, 'id'>) {
+  return {
+    name: input.name,
+    department: DEPARTMENT[input.department],
+    hiraCode: input.hiraCode,
+    address: input.address,
+    phone: input.phone,
+  }
+}
+
+// 병원 등록. primary면 서버가 원래 대표 병원을 풀어 줌
+export async function createCareSite(input: Omit<Hospital, 'id'>, primary: boolean) {
+  const { data } = await apiClient.post<BaseResponse<CareSiteResponse>>('/care-sites', {
+    ...toRequest(input),
+    primary,
+  })
+  if (!data.data) throw new Error('병원 등록 응답이 비어 있음')
+  return toHospital(data.data)
+}
