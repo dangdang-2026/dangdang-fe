@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { createMeal } from '@/api/meals'
+import { createMeal, getAllMeals } from '@/api/meals'
 import { createReading, deleteReading, getAllReadings, updateReading } from '@/api/readings'
 import type {
   GlucoseRecord,
@@ -126,24 +126,51 @@ export const useGlucoseStore = create<GlucoseState>()(
   ),
 )
 
-// 식사 시작은 원탭이라 기기에 먼저 적고 서버에 보냄. 성공하면 서버 id로 바꾸고 실패하면 pending으로 남김
-export async function saveMealStart(type: MealType, now = new Date()) {
-  const tempId = useGlucoseStore.getState().startMeal(type, now)
+// 기기에만 있던 식사를 서버에 보내고 서버 id로 바꿈. 실패하면 pending 그대로
+async function sendPendingMeal(meal: Meal, offline: boolean) {
   try {
-    const saved = await createMeal(type, now)
+    const saved = await createMeal(meal.type, new Date(meal.startedAt), offline)
     useGlucoseStore.setState((state) => ({
-      meals: state.meals.map((meal) =>
-        meal.id === tempId ? { ...meal, id: saved.id, pending: undefined } : meal,
+      meals: state.meals.map((item) =>
+        item.id === meal.id ? { ...item, id: saved.id, pending: undefined } : item,
       ),
       // 그사이 이 끼니에 붙인 혈당 기록도 서버 id로
       records: state.records.map((record) =>
-        record.mealId === tempId ? { ...record, mealId: saved.id } : record,
+        record.mealId === meal.id ? { ...record, mealId: saved.id } : record,
       ),
     }))
     return true
   } catch {
     return false
   }
+}
+
+// 식사 시작은 원탭이라 기기에 먼저 적고 서버에 보냄. 실패하면 pending으로 남겨 동기화 때 다시 보냄
+export async function saveMealStart(type: MealType, now = new Date()) {
+  const id = useGlucoseStore.getState().startMeal(type, now)
+  const meal = useGlucoseStore.getState().meals.find((item) => item.id === id)
+  return meal ? sendPendingMeal(meal, false) : false
+}
+
+// 못 보낸 식사를 먼저 보내고 서버 식사로 바꿈. 음식·양·건너뜀처럼 기기에만 있는 정보는 같은 식사에 다시 붙임
+export async function syncMeals() {
+  const pending = useGlucoseStore.getState().meals.filter((meal) => meal.pending)
+  for (const meal of pending) await sendPendingMeal(meal, true)
+  const server = await getAllMeals()
+  useGlucoseStore.setState((state) => {
+    const local = new Map(state.meals.map((meal) => [meal.id, meal]))
+    const synced = server.map((meal) => {
+      const prev = local.get(meal.id)
+      return prev ? { ...prev, ...meal } : { ...meal, skipped: false }
+    })
+    // 또 못 보낸 식사는 기기에 남겨 다음에 다시 보냄
+    const stillPending = state.meals.filter((meal) => meal.pending)
+    return {
+      meals: [...synced, ...stillPending].sort(
+        (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime(),
+      ),
+    }
+  })
 }
 
 // 서버에 등록한 뒤 기기에 반영. 끼니 연결은 끼니 API 전까지 기기에서만 붙임
