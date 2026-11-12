@@ -5,6 +5,7 @@ import BottomSheet from '@/components/common/BottomSheet'
 import Switch from '@/components/common/Switch'
 import NicknameField from '@/components/community/NicknameField'
 import { useNicknameCheck } from '@/hooks/useNicknameCheck'
+import { useCommunityStore } from '@/stores/useCommunityStore'
 import { createNickname } from '@/utils/nickname'
 
 const PROMISES = [
@@ -25,7 +26,8 @@ function NicknameSheet({ onSubmit, onPolicy, onClose }: NicknameSheetProps) {
   // 기기에서 만든 이름으로 먼저 보여 주고 서버 추천이 오면 바꿈
   const [initialName] = useState(() => createNickname())
   const [name, setName] = useState(initialName)
-  const [showWeek, setShowWeek] = useState(false)
+  // 커뮤니티 설정에서 먼저 정한 배지 설정으로 시작
+  const [showWeek, setShowWeek] = useState(() => useCommunityStore.getState().showWeek)
   const [submitting, setSubmitting] = useState(false)
   // 시트가 토스트를 가려서 저장 실패는 시트 안에 보여 줌
   const [submitError, setSubmitError] = useState<string | null>(null)
