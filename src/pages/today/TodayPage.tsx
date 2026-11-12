@@ -75,11 +75,11 @@ function TodayPage() {
   const criteria = useCriteria()
   const navigate = useNavigate()
   const location = useLocation()
-  // 알림함·측정 알림(앱 밖에서 열면 ?measure=1)을 누르고 오면 혈당 입력 시트부터
+  // 알림함·측정 알림(앱 밖에서 열면 서버 주소대로 ?sheet=glucose)을 누르고 오면 혈당 입력 시트부터
   const [searchParams] = useSearchParams()
   const fromMeasureAlert =
     !!(location.state as { openGlucose?: boolean } | null)?.openGlucose ||
-    searchParams.get('measure') === '1'
+    searchParams.get('sheet') === 'glucose'
   const [sheetTarget, setSheetTarget] = useState<MeasureTarget | null>(() =>
     fromMeasureAlert ? getMeasureTarget(meals, records, criteria.postMealHours, new Date()) : null,
   )

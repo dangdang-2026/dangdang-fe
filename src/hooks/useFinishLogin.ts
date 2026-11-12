@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router'
 import { getMe } from '@/api/me'
+import { syncPushSubscription } from '@/api/push'
 import { ROUTES } from '@/constants/routes'
 import type { AccountProfile } from '@/mocks/auth'
 import { useAuthStore, type LoginMethod } from '@/stores/useAuthStore'
@@ -50,6 +51,8 @@ export function useFinishLogin() {
       }
       // 병원 기준은 서버 값으로. 못 받아도 기기 값으로 계속 씀
       syncCriteria().catch(() => {})
+      // 이 기기 알림을 지금 계정으로 받게 구독 등록
+      syncPushSubscription()
       // 약관은 서버에 있음. 나머지 설정은 아직 기기에만 있어 기기 값으로
       navigate(completed ? ROUTES.TODAY : ROUTES.ONBOARDING_TIMING, { replace: true })
     } catch {

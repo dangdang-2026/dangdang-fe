@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { syncPushSubscription, unsubscribePush } from '@/api/push'
 import iconAlertMd from '@/assets/icons/alert-md.svg'
 import iconCheckBlue from '@/assets/icons/check-blue.svg'
 import notificationFace from '@/assets/images/dangdang/notification.svg'
@@ -98,7 +99,14 @@ function NotificationsPage() {
               <Switch
                 checked={values[key]}
                 label={title}
-                onChange={(checked) => updateSettings({ [key]: checked })}
+                onChange={(checked) => {
+                  updateSettings({ [key]: checked })
+                  // 측정 알림을 끄면 서버도 이 기기로 안 보내게 구독 끊음
+                  if (key === 'measure') {
+                    if (checked) syncPushSubscription()
+                    else unsubscribePush().catch(() => {})
+                  }
+                }}
               />
             </li>
           ))}

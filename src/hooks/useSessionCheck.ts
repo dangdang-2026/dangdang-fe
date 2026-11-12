@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { getMe } from '@/api/me'
+import { syncPushSubscription } from '@/api/push'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
 import { syncRecords } from '@/stores/useGlucoseStore'
@@ -18,6 +19,8 @@ export function useSessionCheck() {
         updateProfile({ name: me.displayName })
         // 이메일 채우기 전에 로그인한 카카오 계정도 열 때 채움
         login({ method, email: me.email })
+        // 목업 기간에 허용한 기기도 서버에 구독 등록
+        syncPushSubscription()
         // 다른 기기에서 바꾼 병원 기준·혈당 기록도 반영
         return Promise.all([syncCriteria(), syncRecords()])
       })
