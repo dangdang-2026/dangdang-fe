@@ -29,7 +29,7 @@ async function showMeasureNotification(meal: Meal, hours: number | null, hide: b
     tag: `measure-${meal.id}`,
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
-    data: { url: `${ROUTES.TODAY}?measure=1`, tag: `measure-${meal.id}` },
+    data: { url: `${ROUTES.TODAY_LINK}?sheet=glucose`, tag: `measure-${meal.id}` },
     actions: [
       { action: 'input', title: '지금 입력' },
       { action: 'snooze', title: '10분 뒤 다시' },

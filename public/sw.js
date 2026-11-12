@@ -4,8 +4,8 @@
 // 캐시 내용이 바뀌면 버전을 올려 옛 캐시 삭제
 const CACHE = 'dangdang-shell-v2'
 const SHELL = ['/', '/manifest.webmanifest', '/icons/app-icon.svg', '/icons/icon-192.png']
-// 알림을 누르면 열 주소. 오늘 탭이 혈당 입력 시트를 바로 엶
-const MEASURE_URL = '/?measure=1'
+// 알림을 누르면 열 주소. 서버 알림 주소와 같은 모양. 오늘 탭이 혈당 입력 시트를 바로 엶
+const MEASURE_URL = '/today?sheet=glucose'
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)))
