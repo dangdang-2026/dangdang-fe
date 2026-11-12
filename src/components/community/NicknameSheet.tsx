@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { getNicknameSuggestion } from '@/api/communityProfile'
 import iconPromiseCheck from '@/assets/icons/community/promise-check.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import Switch from '@/components/common/Switch'
@@ -19,9 +20,24 @@ type NicknameSheetProps = {
 
 // Figma U-04 닉네임 정하기 · U-04b 이미 쓰는 이름
 function NicknameSheet({ onSubmit, onPolicy, onClose }: NicknameSheetProps) {
-  const [name, setName] = useState(() => createNickname())
+  // 기기에서 만든 이름으로 먼저 보여 주고 서버 추천이 오면 바꿈
+  const [initialName] = useState(() => createNickname())
+  const [name, setName] = useState(initialName)
   const [showWeek, setShowWeek] = useState(false)
   const check = checkNickname(name)
+
+  // 아직 안 고쳤으면 서버가 고른 안 쓰는 이름으로. 못 받으면 기기 이름 그대로
+  useEffect(() => {
+    let active = true
+    getNicknameSuggestion()
+      .then((suggested) => {
+        if (active) setName((current) => (current === initialName ? suggested : current))
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [initialName])
 
   return (
     <BottomSheet label="닉네임" onClose={onClose}>

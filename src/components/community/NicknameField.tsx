@@ -1,7 +1,9 @@
+import { useState } from 'react'
+import { getNicknameSuggestion } from '@/api/communityProfile'
 import iconAlert from '@/assets/icons/alert.svg'
 import iconCheckGreen from '@/assets/icons/community/check-green.svg'
 import iconShuffle from '@/assets/icons/community/shuffle.svg'
-import { NICKNAME_MAX, NICKNAME_MIN, createNickname, type NicknameCheck } from '@/utils/nickname'
+import { NICKNAME_MAX, NICKNAME_MIN, type NicknameCheck } from '@/utils/nickname'
 
 const RULE = `${NICKNAME_MIN}~${NICKNAME_MAX}자, 한글·영문·숫자`
 
@@ -19,6 +21,29 @@ type NicknameFieldProps = {
 
 // Figma U-04·M-16 닉네임 입력칸 + 새 이름 만들기 + 확인 문구
 function NicknameField({ value, check, onChange }: NicknameFieldProps) {
+  const [suggesting, setSuggesting] = useState(false)
+  // 서버가 추천할 이름을 못 찾으면 직접 적도록 안내. 다시 적으면 지움
+  const [suggestFailed, setSuggestFailed] = useState(false)
+  const failed = suggestFailed && check === 'ok'
+
+  const change = (next: string) => {
+    setSuggestFailed(false)
+    onChange(next)
+  }
+
+  // 서버가 지금 아무도 안 쓰는 이름을 골라 줌
+  const suggest = async () => {
+    if (suggesting) return
+    setSuggesting(true)
+    try {
+      change(await getNicknameSuggestion())
+    } catch {
+      setSuggestFailed(true)
+    } finally {
+      setSuggesting(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-2">
@@ -33,7 +58,7 @@ function NicknameField({ value, check, onChange }: NicknameFieldProps) {
             aria-label="닉네임"
             aria-invalid={check !== 'ok'}
             className="text-grey-900 min-w-0 flex-1 text-base leading-snug font-medium outline-none"
-            onChange={(event) => onChange(event.target.value)}
+            onChange={(event) => change(event.target.value)}
           />
           <span className="text-grey-500 text-xs">
             {value.length}/{NICKNAME_MAX}
@@ -42,25 +67,30 @@ function NicknameField({ value, check, onChange }: NicknameFieldProps) {
         <button
           type="button"
           aria-label="다른 이름 만들기"
+          disabled={suggesting}
           className="border-grey-200 bg-grey-100 flex size-13 shrink-0 items-center justify-center rounded-xl border"
-          onClick={() => onChange(createNickname(value))}
+          onClick={() => void suggest()}
         >
           <img src={iconShuffle} alt="" width={20} height={20} />
         </button>
       </div>
       <p
         className={`flex items-start gap-1 text-xs leading-snug font-medium ${
-          check === 'ok' ? 'text-grey-500' : 'text-red-500'
+          check === 'ok' && !failed ? 'text-grey-500' : 'text-red-500'
         }`}
       >
         <img
-          src={check === 'ok' ? iconCheckGreen : iconAlert}
+          src={check === 'ok' && !failed ? iconCheckGreen : iconAlert}
           alt=""
           width={14}
           height={14}
           className="mt-px"
         />
-        {check === 'ok' ? `쓸 수 있는 이름이에요 · ${RULE}` : ERROR_MESSAGE[check]}
+        {failed
+          ? '추천할 이름을 찾지 못했어요. 직접 적어 주세요'
+          : check === 'ok'
+            ? `쓸 수 있는 이름이에요 · ${RULE}`
+            : ERROR_MESSAGE[check]}
       </p>
     </div>
   )
