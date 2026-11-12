@@ -30,7 +30,7 @@ import {
 import { useNow } from '@/hooks/useNow'
 import { useOnline } from '@/hooks/useOnline'
 import { useVisiblePosts } from '@/hooks/useVisiblePosts'
-import { useCommunityStore } from '@/stores/useCommunityStore'
+import { syncCommunityProfile, useCommunityStore } from '@/stores/useCommunityStore'
 import { LATEST_NEWS } from '@/mocks/news'
 import type { PostSort } from '@/types/community'
 import { sortPosts } from '@/utils/community'
@@ -257,7 +257,8 @@ function CommunityPage() {
         </>
       )}
 
-      {nicknameOpen && (
+      {/* 서버에서 닉네임을 받아 오면 시트를 닫음 */}
+      {nicknameOpen && !nickname && (
         <NicknameSheet
           onSubmit={async (name, showWeek) => {
             try {
@@ -267,6 +268,11 @@ function CommunityPage() {
               setToast(`‘${profile.nickname}’ 님, 반가워요`)
               return null
             } catch (error) {
+              // 다른 기기에서 이미 만든 프로필이면 서버 닉네임으로 맞춤
+              if (getErrorCode(error) === 'COMMUNITY_40902') {
+                await syncCommunityProfile().catch(() => {})
+                if (useCommunityStore.getState().nickname) return null
+              }
               // 시트는 열어 둬 다른 이름으로 다시 시도
               return getErrorCode(error) === 'COMMUNITY_40901'
                 ? '그 사이 누가 이 이름을 쓰기 시작했어요. 다른 이름을 골라 주세요'

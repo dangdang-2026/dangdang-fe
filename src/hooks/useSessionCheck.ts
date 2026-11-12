@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { getMe } from '@/api/me'
 import { syncPushSubscription } from '@/api/push'
 import { useAuthStore } from '@/stores/useAuthStore'
+import { syncCommunityProfile } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
 import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
@@ -33,6 +34,7 @@ export function useSessionCheck() {
           syncRecords(),
           syncInbox(),
           syncHospitals(),
+          syncCommunityProfile(),
         ])
       })
       .catch(() => {

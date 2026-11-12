@@ -1,4 +1,4 @@
-import { apiClient, type BaseResponse } from '@/api/axios'
+import { apiClient, getErrorCode, type BaseResponse } from '@/api/axios'
 
 // 백엔드 NicknameSuggestionResponse
 type NicknameSuggestionResponse = { nickname: string }
@@ -43,4 +43,16 @@ export async function createCommunityProfile(nickname: string, showWeek: boolean
   )
   if (!data.data) throw new Error('커뮤니티 프로필 응답이 비어 있음')
   return toProfile(data.data)
+}
+
+// 내 커뮤니티 프로필. 아직 안 만들었으면(COMMUNITY_40401) null
+export async function getMyCommunityProfile() {
+  try {
+    const { data } =
+      await apiClient.get<BaseResponse<CommunityProfileResponse>>('/community/profiles/me')
+    return data.data ? toProfile(data.data) : null
+  } catch (error) {
+    if (getErrorCode(error) === 'COMMUNITY_40401') return null
+    throw error
+  }
 }

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { getMyCommunityProfile } from '@/api/communityProfile'
 import { MY_AUTHOR_ID } from '@/constants/community'
 import { MOCK_POSTS } from '@/mocks/community'
 import type { Author, BoardKey, Post, PostDraft, ReportReason } from '@/types/community'
@@ -223,3 +224,10 @@ export const useCommunityStore = create<CommunityState>()(
     { name: 'dangdang-community' },
   ),
 )
+
+// 서버 커뮤니티 프로필로 맞춤. 프로필이 없는 계정이면 닉네임을 비워 처음 들어올 때 정하게
+export async function syncCommunityProfile() {
+  const profile = await getMyCommunityProfile()
+  if (profile) useCommunityStore.getState().setNickname(profile.nickname, profile.showWeek)
+  else useCommunityStore.setState({ nickname: null, showWeek: false })
+}
