@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react'
-import { syncPushSubscription, unsubscribePush } from '@/api/push'
+import { useCallback, useEffect, useState } from 'react'
+import { hasServerPush, sendTestPush, syncPushSubscription, unsubscribePush } from '@/api/push'
 import iconAlertMd from '@/assets/icons/alert-md.svg'
 import iconCheckBlue from '@/assets/icons/check-blue.svg'
 import notificationFace from '@/assets/images/dangdang/notification.svg'
@@ -9,7 +9,11 @@ import Toast from '@/components/common/Toast'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
-import { useNotificationStore, type NotificationSettings } from '@/stores/useNotificationStore'
+import {
+  saveNotificationSettings,
+  useNotificationStore,
+  type NotificationSettings,
+} from '@/stores/useNotificationStore'
 import { formatDuration } from '@/utils/criteria'
 
 type Permission = NotificationPermission | 'unsupported'
@@ -29,6 +33,13 @@ const PERMISSION_LABEL: Record<Permission, string> = {
   unsupported: '이 브라우저는 알림을 지원하지 않아요',
 }
 
+// 권한을 못 받았을 때 안내
+const PERMISSION_TOAST: Record<Exclude<Permission, 'granted'>, string> = {
+  denied: '알림 권한이 꺼져 있어요. 설정에서 켜 주세요',
+  default: '알림 권한을 켜야 받을 수 있어요',
+  unsupported: '이 브라우저는 알림을 지원하지 않아요',
+}
+
 function StatusRow({ ok, warn, text }: { ok: boolean; warn?: boolean; text: string }) {
   return (
     <li className="flex items-center gap-2">
@@ -43,7 +54,7 @@ function StatusRow({ ok, warn, text }: { ok: boolean; warn?: boolean; text: stri
 // Figma M-04 알림 · M-05 권한 꺼짐
 function NotificationsPage() {
   const goBack = useGoBack(ROUTES.MY)
-  const { measure, remind, hideOnLockScreen, updateSettings } = useNotificationStore()
+  const { measure, remind, hideOnLockScreen } = useNotificationStore()
   const { postMealHours } = useCriteria()
   const [permission, setPermission] = useState(readPermission)
   const [toast, setToast] = useState<string | null>(null)
@@ -62,17 +73,60 @@ function NotificationsPage() {
       description: '혈당·식사 내용을 알림에 쓰지 않아요',
     },
   ]
-  const values: NotificationSettings = { measure, remind, hideOnLockScreen }
+  // 권한이 없으면 측정 알림이 실제로 안 와서 꺼진 걸로 보여 줌. 홈 알림 꺼짐 배너와 같은 기준
+  const values: NotificationSettings = {
+    measure: measure && permission === 'granted',
+    remind,
+    hideOnLockScreen,
+  }
 
-  const sendTest = async () => {
-    if (permission === 'unsupported') {
-      setToast('이 브라우저는 알림을 지원하지 않아요')
-      return
+  // 설정 앱에서 권한을 바꾸고 돌아오면 다시 읽음
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') setPermission(readPermission())
     }
+    document.addEventListener('visibilitychange', refresh)
+    window.addEventListener('focus', refresh)
+    return () => {
+      document.removeEventListener('visibilitychange', refresh)
+      window.removeEventListener('focus', refresh)
+    }
+  }, [])
+
+  // 아직 안 정했으면 권한을 물어봄. 거절·미지원이면 안내 토스트
+  const askPermission = async () => {
     const next = permission === 'default' ? await Notification.requestPermission() : permission
     setPermission(next)
-    if (next !== 'granted') {
-      setToast('알림 권한을 켜야 받을 수 있어요')
+    if (next !== 'granted') setToast(PERMISSION_TOAST[next])
+    return next === 'granted'
+  }
+
+  const changeSetting = async (key: keyof NotificationSettings, checked: boolean) => {
+    // 권한 없이 측정 알림을 켜면 알림이 안 와서 권한부터 받음
+    if (key === 'measure' && checked && !(await askPermission())) return
+    try {
+      await saveNotificationSettings({ [key]: checked })
+    } catch {
+      setToast('알림 설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+      return
+    }
+    // 측정 알림을 끄면 서버도 이 기기로 안 보내게 구독 끊음
+    if (key === 'measure') {
+      if (checked) syncPushSubscription()
+      else unsubscribePush().catch(() => {})
+    }
+  }
+
+  const sendTest = async () => {
+    if (!(await askPermission())) return
+    // 서버 푸시를 받는 기기는 실제 측정 알림과 같은 길(서버 → 푸시)로 보내 봄
+    if (hasServerPush()) {
+      try {
+        await sendTestPush()
+        setToast('테스트 알림을 보냈어요')
+      } catch {
+        setToast('테스트 알림을 보내지 못했어요. 잠시 후 다시 시도해 주세요')
+      }
       return
     }
     // 안드로이드 크롬은 서비스 워커 없이 new Notification이 막혀 있음
@@ -99,14 +153,7 @@ function NotificationsPage() {
               <Switch
                 checked={values[key]}
                 label={title}
-                onChange={(checked) => {
-                  updateSettings({ [key]: checked })
-                  // 측정 알림을 끄면 서버도 이 기기로 안 보내게 구독 끊음
-                  if (key === 'measure') {
-                    if (checked) syncPushSubscription()
-                    else unsubscribePush().catch(() => {})
-                  }
-                }}
+                onChange={(checked) => void changeSetting(key, checked)}
               />
             </li>
           ))}

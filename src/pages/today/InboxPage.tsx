@@ -27,7 +27,7 @@ const ICON: Record<InboxType, { on: string; off: string }> = {
   postpartum: { on: iconCalendarOn, off: iconCalendarOff },
 }
 
-// 누르면 가는 곳. 측정 알림은 홈에서 혈당 입력 시트를 바로 엶
+// 서버 주소가 없을 때 가는 곳. 측정 알림은 홈에서 혈당 입력 시트를 바로 엶
 const TARGET: Record<InboxType, { to: string; state?: object }> = {
   measure: { to: ROUTES.TODAY, state: { openGlucose: true } },
   visitBefore: { to: ROUTES.VISIT_REPORT },
@@ -104,6 +104,11 @@ function InboxPage() {
 
   const handleOpen = (item: InboxItem) => {
     readInboxItem(item.id)
+    // 서버가 준 주소가 있으면 그리로. 측정 알림은 혈당 입력 시트를 열고 열람 처리까지 됨
+    if (item.link) {
+      navigate(item.link)
+      return
+    }
     const { to, state } = TARGET[item.type]
     navigate(to, { state })
   }
