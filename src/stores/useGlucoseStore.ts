@@ -173,15 +173,21 @@ export async function syncMeals() {
   })
 }
 
-// 서버에 등록한 뒤 기기에 반영. 끼니 연결은 끼니 API 전까지 기기에서만 붙임
+// 서버에 등록한 뒤 기기에 반영. 서버에 있는 식사면 끼니도 서버에 연결, 못 보낸 식사면 기기에서만
 export async function saveRecord(target: MeasureTarget, value: number, measuredAt: Date) {
-  const saved = await createReading(target, value, measuredAt)
-  const record = { ...saved, mealId: target.mealId, mealType: target.mealType ?? saved.mealType }
+  const meal = useGlucoseStore.getState().meals.find((item) => item.id === target.mealId)
+  const serverMealId = meal && !meal.pending ? meal.id : undefined
+  const saved = await createReading(target, value, measuredAt, serverMealId)
+  const record = {
+    ...saved,
+    mealId: saved.mealId ?? target.mealId,
+    mealType: target.mealType ?? saved.mealType,
+  }
   useGlucoseStore.getState().addRecord(record)
   return record
 }
 
-// 서버 기록으로 바꿈. 끼니 연결·처음 값처럼 기기에만 있는 정보는 같은 기록에 다시 붙임
+// 서버 기록으로 바꿈. 처음 값은 기기에서, 끼니 연결은 서버에 없을 때만 기기 값으로
 export async function syncRecords() {
   const server = await getAllReadings()
   useGlucoseStore.setState((state) => {
@@ -192,7 +198,7 @@ export async function syncRecords() {
         if (!prev) return record
         return {
           ...record,
-          mealId: prev.mealId,
+          mealId: record.mealId ?? prev.mealId,
           mealType: record.mealType ?? prev.mealType,
           original: prev.original,
         }

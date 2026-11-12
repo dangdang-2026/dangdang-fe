@@ -45,7 +45,7 @@ function toServerType(target: Pick<MeasureTarget, 'slot' | 'mealType'>) {
 // 등록 직후 updatedAt이 createdAt과 조금 달라도 고친 걸로 보지 않음
 const EDITED_GAP_MS = 1000
 
-// 서버 기록 → 화면 기록. 끼니 연결(mealId)은 끼니 API 전까지 기기에서만 붙임
+// 서버 기록 → 화면 기록. 끼니 연결(mealId)은 서버 식사 id
 export function toGlucoseRecord(item: ReadingResponse): GlucoseRecord {
   const edited =
     new Date(item.updatedAt).getTime() - new Date(item.createdAt).getTime() > EDITED_GAP_MS
@@ -62,17 +62,24 @@ export function toGlucoseRecord(item: ReadingResponse): GlucoseRecord {
     // 리포트 '나중 입력'은 기존처럼 측정·입력 시각 차이로 판단
     enteredAt: item.createdAt,
     mealType: item.slot ? MEAL_FROM_SLOT[item.slot] : undefined,
+    mealId: item.mealId !== null ? String(item.mealId) : undefined,
     editedAt: edited ? item.updatedAt : undefined,
     criteriaId: item.criteriaVersionId,
   }
 }
 
-// 혈당 등록. 잰 날짜의 병원 기준은 서버가 붙임
-export async function createReading(target: MeasureTarget, value: number, measuredAt: Date) {
+// 혈당 등록. 잰 날짜의 병원 기준은 서버가 붙임. 식사를 붙이면 서버가 그 식사 측정 알림을 끝냄
+export async function createReading(
+  target: MeasureTarget,
+  value: number,
+  measuredAt: Date,
+  mealId?: string,
+) {
   const { data } = await apiClient.post<BaseResponse<ReadingResponse>>('/readings', {
     value,
     measuredAt: measuredAt.toISOString(),
     ...toServerType(target),
+    mealId: mealId ? Number(mealId) : undefined,
   })
   if (!data.data) throw new Error('혈당 등록 응답이 비어 있음')
   return toGlucoseRecord(data.data)
