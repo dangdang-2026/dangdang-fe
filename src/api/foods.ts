@@ -59,6 +59,15 @@ function toFood(item: FoodResponse): Food {
   }
 }
 
+// 음식 상세. sourceVersion은 식약처 데이터기준일(2026-09-29). 없는 코드면 FOOD_40401
+export async function getFood(code: string) {
+  const { data } = await apiClient.get<BaseResponse<FoodResponse>>(
+    `/foods/${encodeURIComponent(code)}`,
+  )
+  if (!data.data) throw new Error('음식 상세 응답이 비어 있음')
+  return { food: toFood(data.data), sourceVersion: data.data.sourceVersion }
+}
+
 // 음식 이름 검색. 서버가 가정식·외식부터 정렬해 주므로 같은 이름은 앞의 것만 남김
 export async function searchFoods(q: string, size: number) {
   const { data } = await apiClient.get<BaseResponse<FoodPageResponse>>('/foods', {
