@@ -1,4 +1,5 @@
 import { apiClient, getErrorCode, type BaseResponse } from '@/api/axios'
+import type { PregnancyState } from '@/api/pregnancy'
 
 // 백엔드 MeResponse
 export type Me = {
@@ -11,6 +12,8 @@ export type Me = {
   consentCompleted: boolean
   // 이름 바꿀 때 그대로 보낼 수정 버전(BIGINT 문자열)
   version: string
+  // 임신 정보가 없으면 null
+  pregnancyState: PregnancyState | null
 }
 
 // 백엔드 NameUpdateResponse

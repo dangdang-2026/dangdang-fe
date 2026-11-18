@@ -1,0 +1,21 @@
+import { apiClient, type BaseResponse } from '@/api/axios'
+
+// 백엔드 PregnancyState. ENDED는 끝난 임신이라 /me에 안 옴
+export type PregnancyState = 'PREGNANT' | 'HOSPITALIZED' | 'POSTPARTUM' | 'ENDED'
+
+// 백엔드 PregnancyStateResponse. pausedReminders는 이번에 멈춘 예정 측정 알림 수
+type PregnancyStateResponse = {
+  state: PregnancyState
+  deliveryDate: string | null
+  pausedReminders: number
+}
+
+// 입원(true) · 다시 켜기(false). 입원하면 서버가 예정 측정 알림을 멈춤
+export async function updateHospitalization(hospitalized: boolean) {
+  const { data } = await apiClient.patch<BaseResponse<PregnancyStateResponse>>(
+    '/me/hospitalization',
+    { hospitalized },
+  )
+  if (!data.data) throw new Error('입원 상태 응답이 비어 있음')
+  return data.data
+}

@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { getErrorCode } from '@/api/axios'
+import { updateHospitalization } from '@/api/pregnancy'
 import { MOCK_USER } from '@/mocks/user'
 
 // 관리 모드: 식사·운동 / 인슐린 함께 / 먹는 약 함께
@@ -60,3 +62,13 @@ export const useProfileStore = create<ProfileState>()(
     { name: 'dangdang-profile' },
   ),
 )
+
+// 서버에 입원 상태를 저장한 뒤 기기에 반영. 다시 켜기인데 서버가 이미 입원 중이 아니면(409) 그대로 끔
+export async function saveHospitalized(hospitalized: boolean) {
+  try {
+    await updateHospitalization(hospitalized)
+  } catch (error) {
+    if (hospitalized || getErrorCode(error) !== 'PREGNANCY_40901') throw error
+  }
+  useProfileStore.getState().updateProfile({ hospitalized })
+}

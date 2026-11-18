@@ -42,7 +42,8 @@ export function useFinishLogin() {
     }
     try {
       const me = await getMe()
-      updateProfile({ name: me.displayName })
+      // 입원 상태도 이 계정 값으로
+      updateProfile({ name: me.displayName, hospitalized: me.pregnancyState === 'HOSPITALIZED' })
       // 카카오는 로그인 응답에 이메일이 없어 /me 값으로 채움
       if (!email && me.email) login({ method, email: me.email })
       // 식사·혈당 기록은 서버 값으로. 새 계정이면 기기에 남은 다른 계정 기록도 비워짐
