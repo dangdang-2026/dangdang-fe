@@ -1,7 +1,14 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getErrorCode } from '@/api/axios'
-import { getPostpartumHome, remindLater } from '@/api/postpartum'
+import {
+  createPostpartumTest,
+  getPostpartumHome,
+  getPostpartumTests,
+  remindLater,
+  updatePostpartumTest,
+  updatePostpartumTestResult,
+} from '@/api/postpartum'
 import { updateDeliveryDate, updateHospitalization, type PregnancyState } from '@/api/pregnancy'
 import { MOCK_USER } from '@/mocks/user'
 
@@ -74,18 +81,45 @@ export async function saveHospitalized(hospitalized: boolean) {
   useProfileStore.getState().updateProfile({ hospitalized })
 }
 
-// 산후 홈의 출산일 · 다시 물어볼 날을 기기에 반영. 산후가 아니면 409
+// 산후 홈(출산일 · 다시 물어볼 날)과 검사 목록(지난 검사 포함)을 기기에 반영. 산후가 아니면 409
 export async function syncPostpartumHome() {
-  const home = await getPostpartumHome()
-  useProfileStore
-    .getState()
-    .updateProfile({ deliveryDate: home.deliveryDate, checkRemindAt: home.askOn })
+  const [home, checks] = await Promise.all([getPostpartumHome(), getPostpartumTests()])
+  useProfileStore.getState().updateProfile({
+    deliveryDate: home.deliveryDate,
+    checkRemindAt: home.askOn,
+    postpartumChecks: checks,
+  })
 }
 
 // 서버 임신 상태로 산후 모드를 맞춤. 산후면 산후 홈을 받고, 아니면 비움
 export async function syncPostpartum(pregnancyState: PregnancyState | null) {
   if (pregnancyState === 'POSTPARTUM') return syncPostpartumHome()
-  useProfileStore.getState().updateProfile({ deliveryDate: null, checkRemindAt: null })
+  useProfileStore
+    .getState()
+    .updateProfile({ deliveryDate: null, checkRemindAt: null, postpartumChecks: [] })
+}
+
+type CheckInput = Pick<PostpartumCheck, 'name' | 'date' | 'remind'>
+
+// 서버에 검사 일정을 등록(id 없음) · 수정한 뒤 기기에 반영. 날짜를 적었으니 다시 물어보지 않음
+export async function savePostpartumCheck(input: CheckInput, id?: string) {
+  const saved = id ? await updatePostpartumTest(id, input) : await createPostpartumTest(input)
+  const { postpartumChecks, updateProfile } = useProfileStore.getState()
+  updateProfile({
+    postpartumChecks: id
+      ? postpartumChecks.map((item) => (item.id === id ? saved : item))
+      : [...postpartumChecks, saved],
+    checkRemindAt: null,
+  })
+}
+
+// 서버에 결과 메모를 저장한 뒤 기기에 반영
+export async function savePostpartumCheckResult(id: string, memo: string) {
+  const saved = await updatePostpartumTestResult(id, memo)
+  const { postpartumChecks, updateProfile } = useProfileStore.getState()
+  updateProfile({
+    postpartumChecks: postpartumChecks.map((item) => (item.id === id ? saved : item)),
+  })
 }
 
 // 서버에 다시 물어볼 날을 저장한 뒤 기기에 반영
