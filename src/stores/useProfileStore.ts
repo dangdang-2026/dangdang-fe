@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getErrorCode } from '@/api/axios'
-import { updateDeliveryDate, updateHospitalization } from '@/api/pregnancy'
+import { getPostpartumHome, remindLater } from '@/api/postpartum'
+import { updateDeliveryDate, updateHospitalization, type PregnancyState } from '@/api/pregnancy'
 import { MOCK_USER } from '@/mocks/user'
 
 // 관리 모드: 식사·운동 / 인슐린 함께 / 먹는 약 함께
@@ -71,6 +72,26 @@ export async function saveHospitalized(hospitalized: boolean) {
     if (hospitalized || getErrorCode(error) !== 'PREGNANCY_40901') throw error
   }
   useProfileStore.getState().updateProfile({ hospitalized })
+}
+
+// 산후 홈의 출산일 · 다시 물어볼 날을 기기에 반영. 산후가 아니면 409
+export async function syncPostpartumHome() {
+  const home = await getPostpartumHome()
+  useProfileStore
+    .getState()
+    .updateProfile({ deliveryDate: home.deliveryDate, checkRemindAt: home.askOn })
+}
+
+// 서버 임신 상태로 산후 모드를 맞춤. 산후면 산후 홈을 받고, 아니면 비움
+export async function syncPostpartum(pregnancyState: PregnancyState | null) {
+  if (pregnancyState === 'POSTPARTUM') return syncPostpartumHome()
+  useProfileStore.getState().updateProfile({ deliveryDate: null, checkRemindAt: null })
+}
+
+// 서버에 다시 물어볼 날을 저장한 뒤 기기에 반영
+export async function saveRemindLater(remindOn: string) {
+  const saved = await remindLater(remindOn)
+  useProfileStore.getState().updateProfile({ checkRemindAt: saved })
 }
 
 // 서버에 출산일을 저장한 뒤 산후 모드로. 입원 · 다시 물어볼 날은 초기화

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import iconChevron from '@/assets/icons/nav-next.svg'
 import iconArchive from '@/assets/icons/postpartum/archive-lg.svg'
@@ -12,7 +12,7 @@ import TodayHeader from '@/components/today/TodayHeader'
 import PostpartumHero from '@/components/today/hero/PostpartumHero'
 import { ROUTES } from '@/constants/routes'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
-import { useProfileStore } from '@/stores/useProfileStore'
+import { saveRemindLater, syncPostpartumHome, useProfileStore } from '@/stores/useProfileStore'
 import { useReportStore } from '@/stores/useReportStore'
 import { diffInDays, formatMonthDay, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 import { getPendingCheck } from '@/utils/postpartum'
@@ -36,12 +36,16 @@ function PostpartumToday({ name, deliveryDate, now }: PostpartumTodayProps) {
   const navigate = useNavigate()
   const checkRemindAt = useProfileStore((state) => state.checkRemindAt)
   const pendingCheck = getPendingCheck(useProfileStore((state) => state.postpartumChecks))
-  const updateProfile = useProfileStore((state) => state.updateProfile)
   const reportCount = useReportStore((state) => state.reports.length)
   const recordCount = useGlucoseStore((state) => state.records.length)
   const [remindSheet, setRemindSheet] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
+
+  // 산후 홈에 들어올 때 다른 기기에서 바꾼 출산일 · 다시 물어볼 날을 반영. 실패하면 기기 값 그대로
+  useEffect(() => {
+    syncPostpartumHome().catch(() => {})
+  }, [])
 
   const delivered = parseDateKey(deliveryDate) ?? now
   const remindAt = parseDateKey(checkRemindAt)
@@ -148,9 +152,12 @@ function PostpartumToday({ name, deliveryDate, now }: PostpartumTodayProps) {
       {remindSheet && (
         <RemindLaterSheet
           onConfirm={(date) => {
-            updateProfile({ checkRemindAt: toDateKey(date) })
             setRemindSheet(false)
-            setToast(`${formatMonthDay(date)}에 다시 물어볼게요`)
+            saveRemindLater(toDateKey(date))
+              .then(() => setToast(`${formatMonthDay(date)}에 다시 물어볼게요`))
+              .catch(() =>
+                setToast('다시 물어볼 날을 저장하지 못했어요. 잠시 후 다시 시도해 주세요'),
+              )
           }}
           onClose={() => setRemindSheet(false)}
         />

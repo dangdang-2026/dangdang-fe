@@ -8,7 +8,7 @@ import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
-import { useProfileStore } from '@/stores/useProfileStore'
+import { syncPostpartum, useProfileStore } from '@/stores/useProfileStore'
 
 // 앱을 열 때 한 번 서버 로그인 확인. 스플래시 동안 뒤에서 돌아 기다리지 않음
 export function useSessionCheck() {
@@ -36,6 +36,7 @@ export function useSessionCheck() {
           syncInbox(),
           syncHospitals(),
           syncCommunityProfile(),
+          syncPostpartum(me.pregnancyState),
         ])
       })
       .catch(() => {

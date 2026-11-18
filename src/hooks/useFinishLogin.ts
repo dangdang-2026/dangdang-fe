@@ -11,7 +11,7 @@ import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
-import { useProfileStore } from '@/stores/useProfileStore'
+import { syncPostpartum, useProfileStore } from '@/stores/useProfileStore'
 
 // 로그인·가입을 마치면 계정을 남기고, 서버 약관 동의 여부로 약관 화면 또는 홈으로
 export function useFinishLogin() {
@@ -55,6 +55,8 @@ export function useFinishLogin() {
       syncHospitals().catch(() => {})
       // 커뮤니티 닉네임도 이 계정 닉네임으로
       syncCommunityProfile().catch(() => {})
+      // 산후 모드(출산일 · 다시 물어볼 날)도 이 계정 값으로
+      syncPostpartum(me.pregnancyState).catch(() => {})
       // 알림 설정도 이 계정 값으로. 다른 계정 설정이 남지 않게
       const settingsSynced = syncNotificationSettings().catch(() => {})
       // 약관 전이면 새 계정이거나 설정을 안 마친 계정. 기기에 남은 다른 계정 설정은 비움
