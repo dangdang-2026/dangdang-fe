@@ -207,6 +207,75 @@ export async function syncRecords() {
   })
 }
 
+// 기간 하나의 서버 기록. to는 포함 안 함
+type ServerRangeData = {
+  range: { from: Date; to: Date }
+  meals: Pick<Meal, 'id' | 'type' | 'startedAt'>[]
+  records: GlucoseRecord[]
+}
+
+const toTime = (iso: string) => new Date(iso).getTime()
+
+// 기간 하나만 서버 기록으로 맞춤. 음식 · 건너뜀 · 처음 값처럼 기기에만 있는 정보는 유지
+// 요청 전에 있던 기록 중 응답에 없는 것만 지움(서버에서 지운 것). 요청하는 사이 새로 적은 건 남김
+export async function syncServerRange<T extends ServerRangeData>(load: () => Promise<T>) {
+  const before = useGlucoseStore.getState()
+  const knownMeals = new Set(before.meals.map((meal) => meal.id))
+  const knownRecords = new Set(before.records.map((record) => record.id))
+  const data = await load()
+  const { from, to } = data.range
+  const inRange = (iso: string) => {
+    const time = new Date(iso)
+    return time >= from && time < to
+  }
+
+  useGlucoseStore.setState((state) => {
+    const serverMeals = new Map(data.meals.map((meal) => [meal.id, meal]))
+    const keptMeals = state.meals.filter(
+      (meal) =>
+        meal.pending ||
+        !inRange(meal.startedAt) ||
+        !knownMeals.has(meal.id) ||
+        serverMeals.has(meal.id),
+    )
+    const localMealIds = new Set(keptMeals.map((meal) => meal.id))
+    const meals = [
+      ...keptMeals.map((meal) => {
+        const server = serverMeals.get(meal.id)
+        return server ? { ...meal, ...server } : meal
+      }),
+      ...data.meals
+        .filter((meal) => !localMealIds.has(meal.id))
+        .map((meal) => ({ ...meal, skipped: false })),
+    ].sort((a, b) => toTime(a.startedAt) - toTime(b.startedAt))
+
+    const serverRecords = new Map(data.records.map((record) => [record.id, record]))
+    const keptRecords = state.records.filter(
+      (record) =>
+        !inRange(record.measuredAt) || !knownRecords.has(record.id) || serverRecords.has(record.id),
+    )
+    const localRecordIds = new Set(keptRecords.map((record) => record.id))
+    const records = [
+      ...keptRecords.map((record) => {
+        const server = serverRecords.get(record.id)
+        // 끼니 연결은 서버에 없을 때만 기기 값으로
+        return server
+          ? {
+              ...record,
+              ...server,
+              mealId: server.mealId ?? record.mealId,
+              mealType: server.mealType ?? record.mealType,
+            }
+          : record
+      }),
+      ...data.records.filter((record) => !localRecordIds.has(record.id)),
+    ].sort((a, b) => toTime(a.measuredAt) - toTime(b.measuredAt))
+
+    return { meals, records }
+  })
+  return data
+}
+
 // 서버에서 고친 뒤 기기에 반영. 처음 값(original)은 기기에서 남김
 export async function editRecord(id: string, changes: { value: number; measuredAt: string }) {
   await updateReading(id, changes)

@@ -3,10 +3,10 @@ import type { Meal, MealType } from '@/types/glucose'
 import { toDateKey } from '@/utils/date'
 
 // 백엔드 MealSlot. 간식(SNACK)은 프론트 끼니에 없음
-type ServerMealSlot = 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK'
+export type ServerMealSlot = 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK'
 
 // 백엔드 MealResponse
-type MealResponse = {
+export type MealResponse = {
   mealId: number
   mealSlot: ServerMealSlot
   startedAt: string
@@ -26,6 +26,16 @@ const MEAL_FROM_SLOT: Partial<Record<ServerMealSlot, MealType>> = {
   BREAKFAST: 'breakfast',
   LUNCH: 'lunch',
   DINNER: 'dinner',
+}
+
+// 서버 식사 → 화면 식사의 서버 칸. 간식은 null
+export function fromServerMeal(item: {
+  mealId: number
+  mealSlot: ServerMealSlot
+  startedAt: string
+}): Pick<Meal, 'id' | 'type' | 'startedAt'> | null {
+  const type = MEAL_FROM_SLOT[item.mealSlot]
+  return type ? { id: String(item.mealId), type, startedAt: item.startedAt } : null
 }
 
 // 식사 시작 등록. 서버가 병원 기준 시간 뒤 측정 알림을 예약함. 늦게 보내는 건 offline
@@ -70,8 +80,8 @@ export async function getAllMeals() {
     const page = await getMealPage(cursor)
     if (!page) break
     page.items.forEach((item) => {
-      const type = MEAL_FROM_SLOT[item.mealSlot]
-      if (type) meals.push({ id: String(item.mealId), type, startedAt: item.startedAt })
+      const meal = fromServerMeal(item)
+      if (meal) meals.push(meal)
     })
     cursor =
       page.hasNext && page.nextCursorAt && page.nextCursorId !== null

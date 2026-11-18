@@ -4,8 +4,8 @@ import { parseDateKey, toDateKey } from '@/utils/date'
 import type { DateRange, PeriodStats, StatsSlot } from '@/utils/stats'
 
 // 백엔드 ReadingType · MeasureSlot
-type ReadingType = 'FASTING' | 'POST_MEAL' | 'OTHER'
-type ServerSlot = 'FASTING' | 'BREAKFAST_AFTER' | 'LUNCH_AFTER' | 'DINNER_AFTER' | 'BEDTIME'
+export type ReadingType = 'FASTING' | 'POST_MEAL' | 'OTHER'
+export type ServerSlot = 'FASTING' | 'BREAKFAST_AFTER' | 'LUNCH_AFTER' | 'DINNER_AFTER' | 'BEDTIME'
 
 // 백엔드 ReadingResponse
 type ReadingResponse = {
@@ -46,10 +46,15 @@ function toServerType(target: Pick<MeasureTarget, 'slot' | 'mealType'>) {
 // 등록 직후 updatedAt이 createdAt과 조금 달라도 고친 걸로 보지 않음
 const EDITED_GAP_MS = 1000
 
-// 서버 기록 → 화면 기록. 끼니 연결(mealId)은 서버 식사 id
-export function toGlucoseRecord(item: ReadingResponse): GlucoseRecord {
-  const edited =
-    new Date(item.updatedAt).getTime() - new Date(item.createdAt).getTime() > EDITED_GAP_MS
+// 서버 혈당 공통 칸 → 화면 기록. 오늘 · 기록 통합 조회도 같이 씀
+export function fromServerReading(item: {
+  readingId: number
+  value: number
+  measuredAt: string
+  readingType: ReadingType
+  slot: ServerSlot | null
+  mealId: number | null
+}): GlucoseRecord {
   return {
     id: String(item.readingId),
     slot:
@@ -60,10 +65,19 @@ export function toGlucoseRecord(item: ReadingResponse): GlucoseRecord {
           : 'bedtime',
     value: item.value,
     measuredAt: item.measuredAt,
-    // 리포트 '나중 입력'은 기존처럼 측정·입력 시각 차이로 판단
-    enteredAt: item.createdAt,
     mealType: item.slot ? MEAL_FROM_SLOT[item.slot] : undefined,
     mealId: item.mealId !== null ? String(item.mealId) : undefined,
+  }
+}
+
+// 서버 기록 → 화면 기록. 끼니 연결(mealId)은 서버 식사 id
+export function toGlucoseRecord(item: ReadingResponse): GlucoseRecord {
+  const edited =
+    new Date(item.updatedAt).getTime() - new Date(item.createdAt).getTime() > EDITED_GAP_MS
+  return {
+    ...fromServerReading(item),
+    // 리포트 '나중 입력'은 기존처럼 측정·입력 시각 차이로 판단
+    enteredAt: item.createdAt,
     editedAt: edited ? item.updatedAt : undefined,
     criteriaId: item.criteriaVersionId,
   }
