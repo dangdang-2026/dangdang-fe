@@ -8,6 +8,7 @@ import WarmBackground from '@/components/common/WarmBackground'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
+import { useRecordCalendar } from '@/hooks/useRecordCalendar'
 import { useRecordStart } from '@/hooks/useRecordStart'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useVisitStore } from '@/stores/useVisitStore'
@@ -37,7 +38,7 @@ function RecordCalendarPage() {
   const pastVisits = useVisitStore((state) => state.pastVisits)
   const today = startOfDay(useNow())
 
-  const start = useRecordStart(today)
+  const localStart = useRecordStart(today)
   const recordDates = [
     ...records.map((record) => record.measuredAt),
     ...meals.map((meal) => meal.startedAt),
@@ -45,15 +46,28 @@ function RecordCalendarPage() {
   ].map((iso) => new Date(iso))
 
   const [month, setMonth] = useState(() => startOfMonth(today))
-  const isStartMonth = month <= startOfMonth(start)
+  // 서버 달력을 받으면 서버 기준, 받기 전 · 실패면 기기 기록 기준
+  const calendar = useRecordCalendar(month)
+  const start = calendar?.firstRecordDate ?? localStart
   const isCurrentMonth = month >= startOfMonth(today)
+  const prevDisabled = calendar ? !calendar.hasPrevMonth : month <= startOfMonth(localStart)
+  const nextDisabled = calendar ? !calendar.hasNextMonth : isCurrentMonth
   // 지난 진료일과 다음 진료일 모두 진료 태그
   const visitDays = [...pastVisits, ...(nextVisitAt ? [nextVisitAt] : [])].map((at) =>
     startOfDay(new Date(at)),
   )
   const isVisitDay = (date: Date) => visitDays.some((day) => isSameDay(day, date))
   const hasVisit = visitDays.some((day) => isSameDay(startOfMonth(day), month))
-  const hasRecord = (date: Date) => recordDates.some((recordDate) => isSameDay(recordDate, date))
+  // 인슐린 · 못 보낸 식사는 기기에만 있어서 기기 기록도 같이 봄
+  const hasRecord = (date: Date) =>
+    calendar?.statuses.get(toDateKey(date)) === 'RECORDED' ||
+    recordDates.some((recordDate) => isSameDay(recordDate, date))
+  // 앞으로 올 날 · 기록 시작(서버는 가입) 전 날
+  const isInactive = (date: Date) => {
+    const status = calendar?.statuses.get(toDateKey(date))
+    if (status) return status === 'FUTURE' || status === 'BEFORE_SIGNUP'
+    return date > today || date < localStart
+  }
 
   // 이 달에 기록을 시작했으면 시작일 안내
   const startsThisMonth = isSameDay(startOfMonth(start), month)
@@ -77,7 +91,7 @@ function RecordCalendarPage() {
             <button
               type="button"
               aria-label="이전 달"
-              disabled={isStartMonth}
+              disabled={prevDisabled}
               className="disabled:invisible"
               onClick={() => setMonth(addMonths(month, -1))}
             >
@@ -89,7 +103,7 @@ function RecordCalendarPage() {
             <button
               type="button"
               aria-label="다음 달"
-              disabled={isCurrentMonth}
+              disabled={nextDisabled}
               className="disabled:opacity-30"
               onClick={() => setMonth(addMonths(month, 1))}
             >
@@ -113,7 +127,7 @@ function RecordCalendarPage() {
               if (!date) return <li key={`blank-${index}`} className="h-15.5" />
               const isToday = isSameDay(date, today)
               // 앞으로 올 날 · 기록 시작 전 날은 흐리게, 누를 수 없음
-              const inactive = date > today || date < start
+              const inactive = isInactive(date)
               const dot = isToday ? dotPrimary : !inactive && hasRecord(date) ? dotGrey : null
 
               return (

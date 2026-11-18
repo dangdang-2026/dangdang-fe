@@ -2,7 +2,7 @@ import { apiClient, type BaseResponse } from '@/api/axios'
 import { fromServerMeal, type ServerMealSlot } from '@/api/meals'
 import { fromServerReading, type ReadingType, type ServerSlot } from '@/api/readings'
 import type { GlucoseRecord, Meal } from '@/types/glucose'
-import { addDays, toDateKey } from '@/utils/date'
+import { addDays, parseDateKey, toDateKey } from '@/utils/date'
 
 // 백엔드 RecordEventResponse. type에 맞는 칸(reading 또는 meal) 하나만 옴
 type RecordEventResponse = {
@@ -63,4 +63,31 @@ export async function getRecords(from: Date, to: Date) {
     }
   })
   return { range: { from, to: addDays(to, 1) }, meals, records }
+}
+
+// 백엔드 CalendarDayStatus
+export type CalendarDayStatus = 'RECORDED' | 'EMPTY' | 'TODAY' | 'FUTURE' | 'BEFORE_SIGNUP'
+
+// 백엔드 CalendarResponse. visit은 진료 일정 기능 전이라 항상 false여서 안 씀
+type CalendarResponse = {
+  month: string
+  firstRecordDate: string | null
+  hasPrevMonth: boolean
+  hasNextMonth: boolean
+  days: { date: string; status: CalendarDayStatus; visit: boolean }[]
+}
+
+// 기록 달력 한 달. statuses는 날짜 키(2026-10-14)별 상태
+export async function getRecordCalendar(month: Date) {
+  const { data } = await apiClient.get<BaseResponse<CalendarResponse>>('/records/calendar', {
+    params: { month: toDateKey(month).slice(0, 7) },
+  })
+  const calendar = data.data
+  if (!calendar) throw new Error('기록 달력 응답이 비어 있음')
+  return {
+    statuses: new Map(calendar.days.map((day) => [day.date, day.status])),
+    firstRecordDate: parseDateKey(calendar.firstRecordDate),
+    hasPrevMonth: calendar.hasPrevMonth,
+    hasNextMonth: calendar.hasNextMonth,
+  }
 }
