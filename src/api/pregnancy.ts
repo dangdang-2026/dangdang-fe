@@ -19,3 +19,13 @@ export async function updateHospitalization(hospitalized: boolean) {
   if (!data.data) throw new Error('입원 상태 응답이 비어 있음')
   return data.data
 }
+
+// 출산일(YYYY-MM-DD, 오늘까지) 저장 → 산후 모드. 서버가 예정 측정 알림을 멈춤
+export async function updateDeliveryDate(deliveryDate: string) {
+  const { data } = await apiClient.patch<BaseResponse<PregnancyStateResponse>>(
+    '/me/delivery-date',
+    { deliveryDate },
+  )
+  if (!data.data) throw new Error('출산일 응답이 비어 있음')
+  return data.data
+}

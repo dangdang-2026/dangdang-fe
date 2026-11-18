@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getErrorCode } from '@/api/axios'
-import { updateHospitalization } from '@/api/pregnancy'
+import { updateDeliveryDate, updateHospitalization } from '@/api/pregnancy'
 import { MOCK_USER } from '@/mocks/user'
 
 // 관리 모드: 식사·운동 / 인슐린 함께 / 먹는 약 함께
@@ -71,4 +71,14 @@ export async function saveHospitalized(hospitalized: boolean) {
     if (hospitalized || getErrorCode(error) !== 'PREGNANCY_40901') throw error
   }
   useProfileStore.getState().updateProfile({ hospitalized })
+}
+
+// 서버에 출산일을 저장한 뒤 산후 모드로. 입원 · 다시 물어볼 날은 초기화
+export async function saveDeliveryDate(deliveryDate: string) {
+  const saved = await updateDeliveryDate(deliveryDate)
+  useProfileStore.getState().updateProfile({
+    deliveryDate: saved.deliveryDate ?? deliveryDate,
+    hospitalized: false,
+    checkRemindAt: null,
+  })
 }
