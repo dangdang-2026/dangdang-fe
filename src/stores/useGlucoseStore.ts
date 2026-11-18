@@ -85,7 +85,11 @@ export const useGlucoseStore = create<GlucoseState>()(
         set((state) => ({
           meals: state.meals.map((meal) => (meal.id === mealId ? { ...meal, ...info } : meal)),
         })),
-      addRecord: (record) => set((state) => ({ records: [...state.records, record] })),
+      // 서버 동기화로 같은 기록이 먼저 들어왔으면 바꿔 끼움
+      addRecord: (record) =>
+        set((state) => ({
+          records: [...state.records.filter((item) => item.id !== record.id), record],
+        })),
       updateRecord: (id, changes, now = new Date()) =>
         set((state) => ({
           records: state.records.map((record) =>
@@ -131,9 +135,12 @@ async function sendPendingMeal(meal: Meal, offline: boolean) {
   try {
     const saved = await createMeal(meal.type, new Date(meal.startedAt), offline)
     useGlucoseStore.setState((state) => ({
-      meals: state.meals.map((item) =>
-        item.id === meal.id ? { ...item, id: saved.id, pending: undefined } : item,
-      ),
+      // 서버 동기화로 같은 식사가 먼저 들어왔으면 음식 정보가 있는 기기 쪽만 남김
+      meals: state.meals
+        .filter((item) => item.id !== saved.id)
+        .map((item) =>
+          item.id === meal.id ? { ...item, id: saved.id, pending: undefined } : item,
+        ),
       // 그사이 이 끼니에 붙인 혈당 기록도 서버 id로
       records: state.records.map((record) =>
         record.mealId === meal.id ? { ...record, mealId: saved.id } : record,
