@@ -1,23 +1,54 @@
+import { useEffect, useState } from 'react'
+import { getFood } from '@/api/foods'
 import iconInfoLg from '@/assets/icons/info-lg.svg'
 import BottomSheet from '@/components/common/BottomSheet'
+import { useFoods } from '@/hooks/useFoods'
 import { NUTRITION_SOURCE } from '@/mocks/foods'
-import { formatNutritionBasis, type NutritionItem } from '@/utils/meal'
+import { findFood, formatNutritionBasis, type NutritionItem } from '@/utils/meal'
 
 type NutritionSourceSheetProps = {
   item: NutritionItem
   onClose: () => void
 }
 
+// 식약처 데이터기준일을 서버에서 받아 2026.09.29 형식으로. 코드가 없거나 실패하면 안내 문구
+function useSourceVersion(code?: string) {
+  const [result, setResult] = useState<{ code: string; version: string | null } | null>(null)
+
+  useEffect(() => {
+    if (!code) return
+    let stale = false
+    getFood(code)
+      .then(({ sourceVersion }) => {
+        if (!stale) setResult({ code, version: sourceVersion.replaceAll('-', '.') })
+      })
+      .catch(() => {
+        if (!stale) setResult({ code, version: null })
+      })
+    return () => {
+      stale = true
+    }
+  }, [code])
+
+  if (!code) return '확인할 수 없어요'
+  if (result?.code !== code) return '불러오는 중'
+  return result.version ?? '확인하지 못했어요'
+}
+
 // Figma F-17 영양 참고값 데이터 출처
 function NutritionSourceSheet({ item, onClose }: NutritionSourceSheetProps) {
   const { food } = item
   const similarTo = 'similarTo' in food ? food.similarTo : undefined
+  const foods = useFoods()
+  // 내 음식은 비슷한 음식의 식품코드로 기준일을 찾음
+  const code = similarTo ? findFood(similarTo, foods)?.code : food.code
+  const sourceVersion = useSourceVersion(code)
   const rows = [
     ['데이터', NUTRITION_SOURCE.data],
     ['받는 곳', NUTRITION_SOURCE.provider],
     ['음식', similarTo ? `${similarTo} (비슷한 음식 기준)` : `${food.name} (대표값)`],
     ['기준', `1인분 ${food.nutrition?.grams} g × ${formatNutritionBasis(item)}`],
-    ['갱신', NUTRITION_SOURCE.updatedAt],
+    ['갱신', sourceVersion],
   ]
 
   return (

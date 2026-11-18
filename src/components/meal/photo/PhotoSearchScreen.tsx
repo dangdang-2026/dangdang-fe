@@ -4,7 +4,9 @@ import iconArrow from '@/assets/icons/postpartum/chevron-md.svg'
 import iconPlus from '@/assets/icons/postpartum/plus.svg'
 import iconSearch from '@/assets/icons/search.svg'
 import PhotoScreen from '@/components/meal/photo/PhotoScreen'
-import { useFoods } from '@/hooks/useFoods'
+import { useFoodSearch } from '@/hooks/useFoods'
+import { useFoodStore } from '@/stores/useFoodStore'
+import type { Food } from '@/types/glucose'
 
 const SEARCH_LIMIT = 8
 
@@ -20,6 +22,8 @@ type PhotoSearchScreenProps = {
 // 검색어와 겹치는 부분만 노란 글자
 function HighlightedName({ name, keyword }: { name: string; keyword: string }) {
   const start = name.indexOf(keyword)
+  // 서버는 띄어쓰기를 무시하고 찾아서 글자 그대로 안 겹칠 수 있음
+  if (start < 0) return <>{name}</>
   return (
     <>
       {name.slice(0, start)}
@@ -37,12 +41,15 @@ function PhotoSearchScreen({
   onAddMyFood,
   onBack,
 }: PhotoSearchScreenProps) {
-  const foods = useFoods()
   const [query, setQuery] = useState('')
   const keyword = query.trim()
-  const results = keyword
-    ? foods.filter((food) => food.name.includes(keyword)).slice(0, SEARCH_LIMIT)
-    : []
+  const { foods: results, status } = useFoodSearch(keyword, SEARCH_LIMIT)
+  const rememberFood = useFoodStore((state) => state.rememberFood)
+
+  const pick = (food: Food) => {
+    if (food.code) rememberFood(food)
+    onPick(food.name)
+  }
 
   return (
     <PhotoScreen title="음식 검색" back onBack={onBack}>
@@ -89,7 +96,7 @@ function PhotoSearchScreen({
                 <button
                   type="button"
                   className="flex w-full items-center justify-between py-3.5 text-left"
-                  onClick={() => onPick(food.name)}
+                  onClick={() => pick(food)}
                 >
                   <span className="text-t6 text-grey-900 leading-snug font-medium">
                     <HighlightedName name={food.name} keyword={keyword} />
@@ -100,6 +107,12 @@ function PhotoSearchScreen({
             ))}
           </ul>
         </section>
+      )}
+
+      {status === 'error' && results.length === 0 && (
+        <p className="text-grey-600 text-center text-sm">
+          검색하지 못했어요. 잠시 후 다시 해 주세요.
+        </p>
       )}
 
       {keyword && (
