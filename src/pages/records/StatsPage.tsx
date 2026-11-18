@@ -7,9 +7,9 @@ import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
+import { useReadingStats } from '@/hooks/useReadingStats'
 import { useRecordStart } from '@/hooks/useRecordStart'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
-import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import { countCriteriaChanges, formatDuration } from '@/utils/criteria'
 import { addDays, startOfDay } from '@/utils/date'
 import {
@@ -19,15 +19,28 @@ import {
   formatDelta,
   formatRangeLabel,
   formatShortRange,
-  getPeriodStats,
   getPreviousRange,
   type DateRange,
+  type PeriodStats,
   type StatsPeriod,
   type StatsSlot,
 } from '@/utils/stats'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 const PERIODS: StatsPeriod[] = ['1w', '2w', '1m', '3m', 'custom']
+
+// 서버 통계를 받기 전·실패했을 때 쓰는 빈 값
+const EMPTY_STATS: PeriodStats = {
+  days: [],
+  average: null,
+  count: 0,
+  inRangeRate: null,
+  inRangeDays: 0,
+  measuredDays: 0,
+  missed: 0,
+  overDays: 0,
+  byMeal: { breakfast: null, lunch: null, dinner: null },
+}
 
 // 받침 있으면 과, 없으면 와. 숫자로 끝나면 과
 function withAnd(word: string) {
@@ -89,8 +102,6 @@ function StatsPage() {
   const goBack = useGoBack(ROUTES.RECORDS)
   const today = startOfDay(useNow())
   const start = useRecordStart(today)
-  const records = useGlucoseStore((state) => state.records)
-  const meals = useGlucoseStore((state) => state.meals)
   const versions = useCriteriaStore((state) => state.versions)
   const criteria = useCriteria()
 
@@ -113,10 +124,17 @@ function StatsPage() {
   const clipped = fullRange.from < start
   const range = { from: clipped ? start : fullRange.from, to: fullRange.to }
   const previousRange = getPreviousRange(fullRange)
-  const now = new Date()
-  const stats = getPeriodStats(slot, range, records, meals, versions, now)
-  const previous = getPeriodStats(slot, previousRange, records, meals, versions, now)
-  const hasPrevious = !clipped && previous.count > 0
+  // 기록 시작 전 날은 빼고 보내서, 잘린 기간이면 서버 비교 기간은 쓰지 않음
+  const { status, data } = useReadingStats(slot, range)
+  const stats = data?.current ?? EMPTY_STATS
+  const previous = data?.previous ?? EMPTY_STATS
+  const hasPrevious = !clipped && !!data?.previous
+  const loadMessage =
+    status === 'loading'
+      ? '통계를 불러오고 있어요'
+      : status === 'error'
+        ? '통계를 불러오지 못했어요'
+        : null
   const names = PERIOD_NAMES[period]
 
   const target =
@@ -207,19 +225,21 @@ function StatsPage() {
           <span className="text-body-2 text-grey-600">mg/dL</span>
         </p>
         <p className="text-grey-700 text-sm leading-snug font-bold whitespace-pre">
-          {stats.count === 0
-            ? `이 기간엔 ${slotLabel} 기록이 없어요`
-            : selectedDay
-              ? `그날 ${selectedDay.count}번 잼${
-                  hasPrevious && previousDay?.value != null
-                    ? ` · ${names.previous} 같은 때 ${previousDay.value}`
-                    : ''
-                }`
-              : hasPrevious
-                ? formatDelta(stats.average, previous.average)
-                  ? `${formatDelta(stats.average, previous.average)}  ${names.previous} ${previous.average}`
-                  : `${withAnd(names.previous)} 같아요  ${previous.average}`
-                : `지난 기록이 쌓이면 ${withAnd(names.previous)} 비교해 드려요`}
+          {loadMessage
+            ? loadMessage
+            : stats.count === 0
+              ? `이 기간엔 ${slotLabel} 기록이 없어요`
+              : selectedDay
+                ? `그날 ${selectedDay.count}번 잼${
+                    hasPrevious && previousDay?.value != null
+                      ? ` · ${names.previous} 같은 때 ${previousDay.value}`
+                      : ''
+                  }`
+                : hasPrevious
+                  ? formatDelta(stats.average, previous.average)
+                    ? `${formatDelta(stats.average, previous.average)}  ${names.previous} ${previous.average}`
+                    : `${withAnd(names.previous)} 같아요  ${previous.average}`
+                  : `지난 기록이 쌓이면 ${withAnd(names.previous)} 비교해 드려요`}
         </p>
       </div>
 
@@ -234,7 +254,7 @@ function StatsPage() {
           />
         ) : (
           <div className="bg-grey-50 text-t7 text-grey-600 flex h-53 items-center justify-center rounded-2xl">
-            기록이 쌓이면 그래프로 보여 드려요
+            {loadMessage ?? '기록이 쌓이면 그래프로 보여 드려요'}
           </div>
         )}
       </div>
@@ -268,70 +288,74 @@ function StatsPage() {
         ))}
       </div>
 
-      <div className="bg-grey-100 -mx-5 h-2.5" />
-      <Section
-        title={hasPrevious ? `${withAnd(names.previous)} 비교` : '이번 기간'}
-        description={
-          hasPrevious
-            ? `${withAnd(formatShortRange(previousRange))} ${period === '1w' ? '' : '같은 길이로 '}비교했어요`
-            : `${monthDay(range.from)}부터 쌓인 기록이에요`
-        }
-      >
-        {target !== null &&
-          (slot === 'post-meal' ? (
-            <StatRow
-              title="내 기준 안"
-              description={`${target} 미만으로 잰 비율`}
-              value={stats.inRangeRate === null ? '—' : `${stats.inRangeRate}%`}
-              note={compareNote(stats.inRangeRate, previous.inRangeRate, '%p', '%')}
-              highlight
-            />
-          ) : (
-            <StatRow
-              title="내 기준 안"
-              description={`${target} 미만으로 잰 날`}
-              value={`${stats.inRangeDays}일 / ${stats.measuredDays}일`}
-              note={compareNote(stats.inRangeDays, previous.inRangeDays, '일')}
-              highlight
-            />
-          ))}
-        <StatRow
-          title="잰 횟수"
-          value={`${stats.count}번`}
-          note={compareNote(stats.count, previous.count, '번')}
-        />
-        <StatRow
-          title="놓친 측정"
-          description="알림 뒤 기록 없음"
-          value={`${stats.missed}번`}
-          note={compareNote(stats.missed, previous.missed, '번')}
-        />
-        {target !== null && (
-          <StatRow
-            title="기준 넘은 날"
-            description={slot === 'post-meal' ? `한 번이라도 ${target} 이상` : `${target} 이상`}
-            value={`${stats.overDays}일`}
-            note={compareNote(stats.overDays, previous.overDays, '일')}
-          />
-        )}
-      </Section>
-
-      {slot === 'post-meal' && highestMeal && (
+      {status === 'done' && (
         <>
           <div className="bg-grey-100 -mx-5 h-2.5" />
           <Section
-            title="때별 평균"
-            description={`${MEAL_LABEL[highestMeal]} 식후가 가장 높았어요`}
+            title={hasPrevious ? `${withAnd(names.previous)} 비교` : '이번 기간'}
+            description={
+              hasPrevious
+                ? `${withAnd(formatShortRange(previousRange))} ${period === '1w' ? '' : '같은 길이로 '}비교했어요`
+                : `${monthDay(range.from)}부터 쌓인 기록이에요`
+            }
           >
-            {mealAverages.map((type) => (
+            {target !== null &&
+              (slot === 'post-meal' ? (
+                <StatRow
+                  title="내 기준 안"
+                  description={`${target} 미만으로 잰 비율`}
+                  value={stats.inRangeRate === null ? '—' : `${stats.inRangeRate}%`}
+                  note={compareNote(stats.inRangeRate, previous.inRangeRate, '%p', '%')}
+                  highlight
+                />
+              ) : (
+                <StatRow
+                  title="내 기준 안"
+                  description={`${target} 미만으로 잰 날`}
+                  value={`${stats.inRangeDays}일 / ${stats.measuredDays}일`}
+                  note={compareNote(stats.inRangeDays, previous.inRangeDays, '일')}
+                  highlight
+                />
+              ))}
+            <StatRow
+              title="잰 횟수"
+              value={`${stats.count}번`}
+              note={compareNote(stats.count, previous.count, '번')}
+            />
+            <StatRow
+              title="놓친 측정"
+              description="알림 뒤 기록 없음"
+              value={`${stats.missed}번`}
+              note={compareNote(stats.missed, previous.missed, '번')}
+            />
+            {target !== null && (
               <StatRow
-                key={type}
-                title={`${MEAL_LABEL[type]} 식후`}
-                value={String(stats.byMeal[type])}
-                note={compareNote(stats.byMeal[type], previous.byMeal[type], '')}
+                title="기준 넘은 날"
+                description={slot === 'post-meal' ? `한 번이라도 ${target} 이상` : `${target} 이상`}
+                value={`${stats.overDays}일`}
+                note={compareNote(stats.overDays, previous.overDays, '일')}
               />
-            ))}
+            )}
           </Section>
+
+          {slot === 'post-meal' && highestMeal && (
+            <>
+              <div className="bg-grey-100 -mx-5 h-2.5" />
+              <Section
+                title="때별 평균"
+                description={`${MEAL_LABEL[highestMeal]} 식후가 가장 높았어요`}
+              >
+                {mealAverages.map((type) => (
+                  <StatRow
+                    key={type}
+                    title={`${MEAL_LABEL[type]} 식후`}
+                    value={String(stats.byMeal[type])}
+                    note={compareNote(stats.byMeal[type], previous.byMeal[type], '')}
+                  />
+                ))}
+              </Section>
+            </>
+          )}
         </>
       )}
 

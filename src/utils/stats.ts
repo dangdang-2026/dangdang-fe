@@ -1,9 +1,5 @@
-import { MEAL_ORDER } from '@/constants/glucose'
-import type { Criteria } from '@/types/criteria'
-import type { GlucoseRecord, Meal, MealType } from '@/types/glucose'
-import { getCriteriaAt } from '@/utils/criteria'
-import { addDays, diffInDays, isSameDay, startOfDay } from '@/utils/date'
-import { compareToTarget, getDueAt } from '@/utils/glucose'
+import type { MealType } from '@/types/glucose'
+import { addDays, diffInDays } from '@/utils/date'
 
 export type StatsSlot = 'fasting' | 'post-meal'
 export type StatsPeriod = '1w' | '2w' | '1m' | '3m' | 'custom'
@@ -54,23 +50,10 @@ export function getPreviousRange({ from, to }: DateRange): DateRange {
   return { from: addDays(from, -length), to: addDays(from, -1) }
 }
 
-const inRange = (date: Date, { from, to }: DateRange) =>
-  date >= startOfDay(from) && date < addDays(to, 1)
-
-const average = (values: number[]) =>
-  values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null
-
-// 그 기록 날짜에 적용되던 목표. 기준이 바뀐 날부터 새 기준으로 셈
-function targetAt(record: GlucoseRecord, versions: Criteria[]) {
-  const { targets, postMealHours } = getCriteriaAt(versions, new Date(record.measuredAt))
-  if (record.slot === 'fasting') return targets.fasting
-  return postMealHours ? targets.postMeal : null
-}
-
 export type DayPoint = { date: Date; value: number | null; count: number }
 
+// 서버 통계를 화면용으로 바꾼 값
 export type PeriodStats = {
-  range: DateRange
   days: DayPoint[]
   average: number | null
   count: number
@@ -82,81 +65,6 @@ export type PeriodStats = {
   overDays: number
   // 식후만: 끼니별 평균
   byMeal: Record<MealType, number | null>
-}
-
-export function getPeriodStats(
-  slot: StatsSlot,
-  range: DateRange,
-  records: GlucoseRecord[],
-  meals: Meal[],
-  versions: Criteria[],
-  now: Date,
-): PeriodStats {
-  const slotRecords = records.filter(
-    (record) => record.slot === slot && inRange(new Date(record.measuredAt), range),
-  )
-  const length = diffInDays(range.from, range.to) + 1
-  const days = Array.from({ length }, (_, index) => {
-    const date = addDays(range.from, index)
-    const values = slotRecords
-      .filter((record) => isSameDay(new Date(record.measuredAt), date))
-      .map((record) => record.value)
-    return { date, value: average(values), count: values.length }
-  })
-
-  const compared = slotRecords
-    .map((record) => ({ record, target: targetAt(record, versions) }))
-    .filter((item) => item.target !== null)
-  const inRangeCount = compared.filter(
-    ({ record, target }) => compareToTarget(record.value, target) === 'in-range',
-  ).length
-  const overDates = new Set(
-    compared
-      .filter(({ record, target }) => compareToTarget(record.value, target) === 'high')
-      .map(({ record }) => startOfDay(new Date(record.measuredAt)).getTime()),
-  )
-  const measuredDays = days.filter((day) => day.count > 0)
-  const inRangeDays = measuredDays.filter((day) =>
-    slotRecords
-      .filter((record) => isSameDay(new Date(record.measuredAt), day.date))
-      .every((record) => compareToTarget(record.value, targetAt(record, versions)) !== 'high'),
-  ).length
-
-  // 식후: 식사 시작 뒤 측정 시간이 지났는데 기록이 없는 끼니
-  // 공복: 다른 기록은 있는데 공복만 빠진 날
-  const missed =
-    slot === 'post-meal'
-      ? meals.filter((meal) => {
-          if (meal.skipped || !inRange(new Date(meal.startedAt), range)) return false
-          const { postMealHours } = getCriteriaAt(versions, new Date(meal.startedAt))
-          if (!postMealHours || getDueAt(meal, postMealHours) > now) return false
-          return !records.some((record) => record.mealId === meal.id)
-        }).length
-      : days.filter(
-          (day) =>
-            day.count === 0 &&
-            records.some((record) => isSameDay(new Date(record.measuredAt), day.date)),
-        ).length
-
-  const byMeal = Object.fromEntries(
-    MEAL_ORDER.map((type) => [
-      type,
-      average(slotRecords.filter((record) => record.mealType === type).map((r) => r.value)),
-    ]),
-  ) as Record<MealType, number | null>
-
-  return {
-    range,
-    days,
-    average: average(slotRecords.map((record) => record.value)),
-    count: slotRecords.length,
-    inRangeRate: compared.length ? Math.round((inRangeCount / compared.length) * 100) : null,
-    inRangeDays,
-    measuredDays: measuredDays.length,
-    missed,
-    overDays: overDates.size,
-    byMeal,
-  }
 }
 
 // 예: ▼ 6 · ▲ 8%p. 같으면 null
