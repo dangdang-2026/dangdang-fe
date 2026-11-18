@@ -16,11 +16,11 @@ import NutritionCard from '@/components/meal/NutritionCard'
 import NutritionSourceSheet from '@/components/meal/NutritionSourceSheet'
 import { MEAL_LABEL } from '@/constants/glucose'
 import { foodHistoryPath } from '@/constants/routes'
-import { useFoods } from '@/hooks/useFoods'
+import { useFoodSearch, useFoods } from '@/hooks/useFoods'
 import { DEFAULT_RECENT_FOODS } from '@/mocks/foods'
 import { useFoodStore } from '@/stores/useFoodStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
-import type { Meal, MyFood, NutritionEdits, Portion } from '@/types/glucose'
+import type { Food, Meal, MyFood, NutritionEdits, Portion } from '@/types/glucose'
 import { formatTime } from '@/utils/date'
 import {
   findFood,
@@ -127,9 +127,8 @@ function MealContentSheet({
   const closeSource = useCallback(() => setSourceItem(null), [])
 
   const keyword = query.trim()
-  const results = keyword
-    ? foods.filter((food) => food.name.includes(keyword)).slice(0, SEARCH_LIMIT)
-    : []
+  const { foods: results, status: searchStatus } = useFoodSearch(keyword, SEARCH_LIMIT)
+  const rememberFood = useFoodStore((state) => state.rememberFood)
 
   const toggle = (name: string) => {
     setSelected((prev) =>
@@ -137,7 +136,9 @@ function MealContentSheet({
     )
   }
 
-  const pickSearched = (name: string) => {
+  const pickSearched = (food: Food) => {
+    const { name } = food
+    if (food.code) rememberFood(food)
     if (!selected.includes(name)) setSelected((prev) => [...prev, name])
     setSearched((prev) => (prev.includes(name) ? prev : [...prev, name]))
     setQuery('')
@@ -245,12 +246,17 @@ function MealContentSheet({
                     key={food.name}
                     name={food.name}
                     selected={selected.includes(food.name)}
-                    onClick={() => pickSearched(food.name)}
+                    onClick={() => pickSearched(food)}
                   />
                 ))}
               </div>
             )}
-            {keyword && results.length === 0 && (
+            {searchStatus === 'error' && results.length === 0 && (
+              <p className="text-grey-600 py-5 text-center text-sm">
+                검색하지 못했어요. 잠시 후 다시 해 주세요.
+              </p>
+            )}
+            {searchStatus === 'done' && results.length === 0 && (
               <div className="flex flex-col items-center gap-3 py-5 text-center">
                 <p className="text-t6 text-grey-900 font-bold">식품 DB에서 찾지 못했어요</p>
                 <p className="text-grey-600 text-sm leading-relaxed">
