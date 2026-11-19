@@ -103,24 +103,26 @@ function getPrimaryCareSiteId() {
 // 다음 진료일 정하기 · 바꾸기 · 모름. 화면엔 바로 바꾸고 서버에 못 남기면 되돌림
 export async function saveNextVisit(at: string | null) {
   const before = useVisitStore.getState()
-  const { visitId, nextVisitAt } = before
   before.setNextVisit(at)
-  const moving = !!visitId && isNewVisit(nextVisitAt, at)
+  const moving = isNewVisit(before.nextVisitAt, at)
   try {
-    const saved =
-      visitId && !moving
-        ? await updateVisitAt(visitId, at)
-        : await createVisit(getPrimaryCareSiteId(), at)
-    useVisitStore.setState({ visitId: String(saved.visitId) })
-    // 남은 질문은 새 진료로 옮김. 실패해도 일정은 저장된 것
-    if (moving && visitId) {
+    // 질문 · 메모가 붙일 일정을 만드는 중일 수 있어 차례를 기다림
+    await enqueue(async () => {
+      const visitId = useVisitStore.getState().visitId
+      const saved =
+        visitId && !moving
+          ? await updateVisitAt(visitId, at)
+          : await createVisit(getPrimaryCareSiteId(), at)
+      useVisitStore.setState({ visitId: String(saved.visitId) })
+      if (!moving || !visitId) return
       // 메모는 다녀온 진료 것이라 새 진료에선 빈 메모로
       useVisitStore.setState({ note: '', noteVisitId: null, noteId: null, noteDirty: false })
-      void enqueue(() => moveQuestions(visitId, String(saved.visitId))).catch(() => {})
-    }
+      // 남은 질문은 새 진료로 옮김. 실패해도 일정은 저장된 것
+      // 같은 차례 안에서 옮겨야 그사이 적은 질문이 두 번 옮겨지지 않음
+      await moveQuestions(visitId, String(saved.visitId)).catch(() => {})
+    })
   } catch (error) {
     useVisitStore.setState({
-      visitId: before.visitId,
       nextVisitAt: before.nextVisitAt,
       pastVisits: before.pastVisits,
       asked: before.asked,
@@ -148,7 +150,12 @@ async function moveLocalVisits() {
 
 // 서버 일정으로 다음 진료일 · 지난 진료일을 맞춤
 // 새로 로그인하면 기기에 남은 건 다른 계정 것일 수 있어 버림
-export async function syncVisits(keepLocal = true) {
+export function syncVisits(keepLocal = true) {
+  // 질문 · 메모 저장 중에 만든 일정을 놓치지 않게 차례로
+  return enqueue(() => loadVisits(keepLocal))
+}
+
+async function loadVisits(keepLocal: boolean) {
   let visits = await getAllVisits()
   if (visits.length === 0 && keepLocal) {
     const { pastVisits, nextVisitAt } = useVisitStore.getState()
@@ -178,7 +185,7 @@ function enqueue<T>(job: () => Promise<T>) {
   return next
 }
 
-const isServerId = (id: string) => /^d+$/.test(id)
+const isServerId = (id: string) => /^\d+$/.test(id)
 
 const toQuestion = (item: VisitQuestionResponse): Question => ({
   id: String(item.questionId),
