@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router'
 import { useNavigate } from 'react-router'
+import { getErrorCode } from '@/api/axios'
+import { askChat } from '@/api/chat'
 import iconRecords from '@/assets/icons/chat/records.svg'
 import iconRetry from '@/assets/icons/chat/retry.svg'
 import BotMessage, { BotBubble, UserBubble } from '@/components/chat/BotMessage'
@@ -18,28 +20,18 @@ import RiskCard from '@/components/chat/RiskCard'
 import ThinkingBubble from '@/components/chat/ThinkingBubble'
 import Toast from '@/components/common/Toast'
 import ContactMemoSheet from '@/components/my/ContactMemoSheet'
-import { CHAT_INFOS, CHAT_THINKING_MS } from '@/constants/chat'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { saveChatConsent, useAiStore } from '@/stores/useAiStore'
 import { useChatStore } from '@/stores/useChatStore'
-import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { useVisitStore } from '@/stores/useVisitStore'
-import type { BotMessage as BotMessageType, ChatMessage } from '@/types/chat'
-import {
-  buildDraft,
-  buildDraftIntro,
-  classifyQuestion,
-  detectSlot,
-  findInfo,
-  pickDefaultSlot,
-  summarizeRecords,
-} from '@/utils/chat'
+import type { ChatMessage } from '@/types/chat'
+import { DRAFT_INTRO, summarizeServerCard } from '@/utils/chat'
 
 const newId = () => crypto.randomUUID()
 
-// Figma Q-01~Q-09 당당이에게 물어보기. AI 연동 전까지 규칙으로 답함
+// Figma Q-01~Q-09 당당이에게 물어보기. 답의 종류 · 판단은 서버가 하고 화면은 그리기만
 function ChatPage() {
   const navigate = useNavigate()
   const messages = useChatStore((state) => state.messages)
@@ -48,7 +40,6 @@ function ChatPage() {
   const addMessage = useChatStore((state) => state.addMessage)
   const updateMessage = useChatStore((state) => state.updateMessage)
   const removeMessage = useChatStore((state) => state.removeMessage)
-  const records = useGlucoseStore((state) => state.records)
   const criteria = useCriteria()
   const contactMemo = useProfileStore((state) => state.contactMemo)
   const updateProfile = useProfileStore((state) => state.updateProfile)
@@ -65,86 +56,48 @@ function ChatPage() {
     message: string
     action?: { label: string; onClick: () => void }
   } | null>(null)
-  const timerRef = useRef<number | null>(null)
-
-  useEffect(() => () => window.clearTimeout(timerRef.current ?? undefined), [])
 
   useEffect(() => {
     // 새 말풍선이 입력 바 위로 보이게 맨 아래로
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
   }, [messages.length, thinking])
 
-  const answer = (question: string): BotMessageType => {
-    const intent = classifyQuestion(question)
-    const now = new Date()
-    const agreed = !!useAiStore.getState().chat?.agreed
-
-    if (intent === 'records') {
-      const slot = detectSlot(question) ?? pickDefaultSlot(records, criteria, now)
-      return {
-        id: newId(),
-        from: 'bot',
-        kind: 'records',
-        summary: summarizeRecords(records, criteria, slot, now),
-      }
-    }
-    if (intent === 'draft') {
-      // 바로 앞에 찾은 기록이 있으면 그걸로 정리
-      const lastRecords = useChatStore
-        .getState()
-        .messages.findLast((message) => message.from === 'bot' && message.kind === 'records')
-      const slot = detectSlot(question)
-      const summary = !agreed
-        ? null
-        : slot
-          ? summarizeRecords(records, criteria, slot, now)
-          : lastRecords?.from === 'bot' && lastRecords.kind === 'records'
-            ? lastRecords.summary
-            : summarizeRecords(records, criteria, pickDefaultSlot(records, criteria, now), now)
-      return {
-        id: newId(),
-        from: 'bot',
-        kind: 'draft',
-        intro: buildDraftIntro(question),
-        text: buildDraft(summary),
-        added: false,
-      }
-    }
-    if (intent === 'info') {
-      return {
-        id: newId(),
-        from: 'bot',
-        kind: 'info',
-        infoId: findInfo(question)!.id,
-        feedback: null,
-      }
-    }
-    return { id: newId(), from: 'bot', kind: 'unknown', question }
-  }
-
-  const reply = (question: string) => {
-    const intent = classifyQuestion(question)
-    // 위험 신호는 AI를 거치지 않고 바로 정해진 안내
-    if (intent === 'risk') {
-      addMessage({ id: newId(), from: 'bot', kind: 'risk' })
-      return
-    }
-    if (intent === 'records' && !useAiStore.getState().chat?.agreed) {
-      addMessage({ id: newId(), from: 'bot', kind: 'need-consent', question })
-      return
-    }
-    setThinking(intent === 'records' ? '기록을 찾고 있어요' : '답을 찾고 있어요')
-    timerRef.current = window.setTimeout(() => {
-      setThinking(null)
-      addMessage(
-        navigator.onLine ? answer(question) : { id: newId(), from: 'bot', kind: 'fail', question },
-      )
-    }, CHAT_THINKING_MS)
+  // 서버에 묻고 답을 붙임. 서버에 안 남는 실패(403 · 429 · 연결)는 기기에만 안내
+  // userId는 방금 보낸 말풍선. 없으면 이미 화면에 있는 질문을 다시 묻는 것
+  const reply = (question: string, userId?: string) => {
+    setThinking('답을 찾고 있어요')
+    askChat(question)
+      .then((result) => {
+        // 새로 보낸 말풍선은 서버 번호로 바꿈. 다시 묻기 · 동의 뒤 묻기는 앞 말풍선이 이미 있어 답만
+        if (userId) {
+          removeMessage(userId)
+          addMessage(result.question)
+        }
+        addMessage(result.answer)
+      })
+      .catch((error: unknown) => {
+        const code = getErrorCode(error)
+        if (code === 'AI_40301') {
+          addMessage({
+            id: newId(),
+            from: 'bot',
+            kind: 'need-consent',
+            question,
+            reason: 'overseas',
+          })
+        } else if (code === 'AI_42901') {
+          addMessage({ id: newId(), from: 'bot', kind: 'limit' })
+        } else {
+          addMessage({ id: newId(), from: 'bot', kind: 'fail', question })
+        }
+      })
+      .finally(() => setThinking(null))
   }
 
   const ask = (text: string) => {
-    addMessage({ id: newId(), from: 'user', text })
-    reply(text)
+    const id = newId()
+    addMessage({ id, from: 'user', text })
+    reply(text, id)
   }
 
   // 커뮤니티 검색 등에서 질문을 들고 오면 한 번만 바로 물어봄
@@ -169,6 +122,17 @@ function ChatPage() {
       action: { label: '진료 탭에서 보기', onClick: () => navigate(ROUTES.VISIT) },
     })
   }
+
+  // 답 대신 내가 물어볼 말로 직접 정리
+  const addDraftMessage = (question: string) =>
+    addMessage({
+      id: newId(),
+      from: 'bot',
+      kind: 'draft',
+      intro: DRAFT_INTRO,
+      text: question,
+      added: false,
+    })
 
   const closeToast = useCallback(() => setToast(null), [])
   const closeConsent = useCallback(() => {
@@ -198,13 +162,13 @@ function ChatPage() {
 
     switch (message.kind) {
       case 'records': {
-        const { summary } = message
+        const summary = summarizeServerCard(message.card, criteria)
         return (
           <BotMessage key={message.id}>
             {summary.measured === 0 ? (
               <>
                 <BotBubble>
-                  지난 7일 {summary.label} 기록이 없어요. 기록 탭에서 다른 날을 볼 수 있어요.
+                  {summary.range} {summary.label} 기록이 없어요. 기록 탭에서 다른 날을 볼 수 있어요.
                 </BotBubble>
                 <ChatActionButton icon={iconRecords} onClick={() => navigate(ROUTES.RECORDS)}>
                   기록 탭에서 보기
@@ -212,7 +176,7 @@ function ChatPage() {
               </>
             ) : (
               <>
-                <BotBubble>지난 7일 {summary.label} 기록을 찾아봤어요.</BotBubble>
+                <BotBubble>{message.text}</BotBubble>
                 <RecordsCard summary={summary} />
                 <BotBubble>
                   이 기록이 괜찮은지는 제가 말씀드릴 수 없어요. 진료 때 물어볼 말로 정리해 드릴까요?
@@ -244,12 +208,11 @@ function ChatPage() {
           </BotMessage>
         )
       case 'info': {
-        const info = CHAT_INFOS.find((item) => item.id === message.infoId)
-        if (!info) return null
         return (
           <BotMessage key={message.id}>
             <InfoAnswer
-              info={info}
+              text={message.text}
+              sources={message.sources}
               feedback={message.feedback}
               onFeedback={(feedback) => updateMessage(message.id, { feedback })}
             />
@@ -257,26 +220,22 @@ function ChatPage() {
         )
       }
       case 'risk':
-        return <RiskCard key={message.id} />
+        return (
+          <div key={message.id} className="flex flex-col gap-2.5">
+            <RiskCard text={message.text} actions={message.actions} />
+            {/* 약 용량은 진료 때 잊지 않게 물어볼 말로 */}
+            {message.dose && (
+              <ChatActionButton primary onClick={() => addDraftMessage(message.question)}>
+                물어볼 말로 정리하기
+              </ChatActionButton>
+            )}
+          </div>
+        )
       case 'unknown':
         return (
           <BotMessage key={message.id}>
-            <BotBubble>
-              그 질문은 제가 확인한 자료로는 답하기 어려워요. 병원에 물어보시는 게 가장 정확해요.
-            </BotBubble>
-            <ChatActionButton
-              primary
-              onClick={() =>
-                addMessage({
-                  id: newId(),
-                  from: 'bot',
-                  kind: 'draft',
-                  intro: buildDraftIntro(''),
-                  text: message.question,
-                  added: false,
-                })
-              }
-            >
+            <BotBubble>{message.text}</BotBubble>
+            <ChatActionButton primary onClick={() => addDraftMessage(message.question)}>
               물어볼 말로 정리하기
             </ChatActionButton>
           </BotMessage>
@@ -308,7 +267,9 @@ function ChatPage() {
         return (
           <BotMessage key={message.id}>
             <BotBubble>
-              기록을 보려면 먼저 동의가 필요해요. 동의하지 않으면 일반 질문에만 답할 수 있어요.
+              {message.reason === 'records'
+                ? '기록을 보려면 먼저 동의가 필요해요. 동의하지 않으면 일반 질문에만 답할 수 있어요.'
+                : 'AI가 답하려면 해외 AI 서비스 이용(국외 이전) 동의가 필요해요.'}
             </BotBubble>
             <ChatActionButton
               primary
@@ -317,7 +278,19 @@ function ChatPage() {
                 setConsentSheet(true)
               }}
             >
-              기록 보여 주기
+              {message.reason === 'records' ? '기록 보여 주기' : '동의하고 물어보기'}
+            </ChatActionButton>
+          </BotMessage>
+        )
+      case 'limit':
+        return (
+          <BotMessage key={message.id} avatar="sorry">
+            <BotBubble>
+              오늘은 질문을 모두 쓰셨어요. 내일 다시 물어봐 주세요. 기록은 기록 탭에서 바로 볼 수
+              있어요.
+            </BotBubble>
+            <ChatActionButton icon={iconRecords} onClick={() => navigate(ROUTES.RECORDS)}>
+              기록 탭에서 보기
             </ChatActionButton>
           </BotMessage>
         )
