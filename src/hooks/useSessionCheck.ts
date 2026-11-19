@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { getMe } from '@/api/me'
 import { syncPushSubscription } from '@/api/push'
+import { syncChatConsent } from '@/stores/useAiStore'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { syncCommunityProfile } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
@@ -37,6 +38,7 @@ export function useSessionCheck() {
           syncHospitals(),
           syncCommunityProfile(),
           syncPostpartum(me.pregnancyState),
+          syncChatConsent(),
         ])
       })
       .catch(() => {

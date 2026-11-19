@@ -4,10 +4,11 @@ import { extractVisitNote } from '@/api/visitNote'
 import iconSparkle from '@/assets/icons/sparkle.svg'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import SubPageHeader from '@/components/common/SubPageHeader'
+import Toast from '@/components/common/Toast'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
-import { useAiStore } from '@/stores/useAiStore'
+import { saveChatConsent, useAiStore } from '@/stores/useAiStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 
 const NOTE_MAX = 500
@@ -21,8 +22,9 @@ function VisitNotePage() {
   const setNote = useVisitStore((state) => state.setNote)
   // 메모 글이 해외 AI를 거쳐서 당당이 기록 보기 동의를 같이 씀
   const aiAgreed = useAiStore((state) => !!state.chat?.agreed)
-  const setConsent = useAiStore((state) => state.setConsent)
   const [consentOpen, setConsentOpen] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const closeToast = useCallback(() => setToast(null), [])
   const [loading, setLoading] = useState(false)
 
   const organize = async () => {
@@ -95,13 +97,17 @@ function VisitNotePage() {
           description="메모 글이 해외 AI 서비스를 거쳐요. 이름·연락처는 보내지 않고, 마이 › AI 설정에서 언제든 끌 수 있어요."
           confirmLabel="켜고 정리하기"
           onConfirm={() => {
-            setConsent('chat', true)
             setConsentOpen(false)
-            void organize()
+            // 동의 저장 실패만 안내. 정리 실패는 기존처럼 정리 쪽에서 처리
+            saveChatConsent(true).then(
+              () => void organize(),
+              () => setToast('동의를 저장하지 못했어요. 잠시 후 다시 시도해 주세요'),
+            )
           }}
           onClose={closeConsent}
         />
       )}
+      {toast && <Toast message={toast} onClose={closeToast} />}
     </main>
   )
 }
