@@ -21,7 +21,7 @@ import ContactMemoSheet from '@/components/my/ContactMemoSheet'
 import { CHAT_INFOS, CHAT_THINKING_MS } from '@/constants/chat'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
-import { useAiStore } from '@/stores/useAiStore'
+import { saveChatConsent, useAiStore } from '@/stores/useAiStore'
 import { useChatStore } from '@/stores/useChatStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useProfileStore } from '@/stores/useProfileStore'
@@ -177,10 +177,20 @@ function ChatPage() {
   }, [])
 
   const chooseConsent = (agreed: boolean) => {
-    setConsent('chat', agreed)
+    const question = pendingQuestion
     setConsentSheet(false)
-    if (agreed && pendingQuestion) reply(pendingQuestion)
     setPendingQuestion(null)
+    // 거절은 서버에 못 남겨도 기기에선 거절로
+    if (!agreed) {
+      setConsent('chat', false)
+      saveChatConsent(false).catch(() => {})
+      return
+    }
+    saveChatConsent(true)
+      .then(() => {
+        if (question) reply(question)
+      })
+      .catch(() => setToast({ message: '동의를 저장하지 못했어요. 잠시 후 다시 시도해 주세요' }))
   }
 
   const renderMessage = (message: ChatMessage) => {

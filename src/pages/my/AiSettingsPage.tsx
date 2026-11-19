@@ -9,7 +9,13 @@ import Toast from '@/components/common/Toast'
 import { ROUTES } from '@/constants/routes'
 import { useNavigate } from 'react-router'
 import { useGoBack } from '@/hooks/useGoBack'
-import { useAiStore, type AiConsent, type AiFeature } from '@/stores/useAiStore'
+import {
+  saveChatConsent,
+  useAiStore,
+  withdrawAiConsents,
+  type AiConsent,
+  type AiFeature,
+} from '@/stores/useAiStore'
 
 const FEATURES: { key: AiFeature; icon: string; title: string }[] = [
   { key: 'photo', icon: iconCamera, title: '사진으로 음식 후보 찾기' },
@@ -34,7 +40,6 @@ function AiSettingsPage() {
   const photo = useAiStore((state) => state.photo)
   const chat = useAiStore((state) => state.chat)
   const setConsent = useAiStore((state) => state.setConsent)
-  const withdrawAll = useAiStore((state) => state.withdrawAll)
   const [confirm, setConfirm] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
@@ -62,8 +67,16 @@ function AiSettingsPage() {
               checked={!!consents[key]?.agreed}
               label={title}
               onChange={(checked) => {
-                setConsent(key, checked)
-                setToast(`${title}를 ${checked ? '켰어요' : '껐어요'}`)
+                const done = `${title}를 ${checked ? '켰어요' : '껐어요'}`
+                // 사진 동의는 기기에만, 당당이 질문은 서버에 저장
+                if (key === 'photo') {
+                  setConsent(key, checked)
+                  setToast(done)
+                  return
+                }
+                saveChatConsent(checked)
+                  .then(() => setToast(done))
+                  .catch(() => setToast('설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요'))
               }}
             />
           </div>
@@ -111,9 +124,10 @@ function AiSettingsPage() {
           confirmLabel="철회하기"
           danger
           onConfirm={() => {
-            withdrawAll()
             setConfirm(false)
-            setToast('AI 사용 동의를 철회했어요')
+            withdrawAiConsents()
+              .then(() => setToast('AI 사용 동의를 철회했어요'))
+              .catch(() => setToast('동의를 철회하지 못했어요. 잠시 후 다시 시도해 주세요'))
           }}
           onClose={closeConfirm}
         />
