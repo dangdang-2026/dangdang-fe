@@ -1,9 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { getErrorCode } from '@/api/axios'
 import { getMyCommunityProfile } from '@/api/communityProfile'
+import { createComment, deleteComment, getComments } from '@/api/comments'
 import { savePostDraft } from '@/api/posts'
 import { MY_AUTHOR_ID } from '@/constants/community'
-import type { Author, Post, PostDraft, ReportReason } from '@/types/community'
+import type { Author, CommunityComment, Post, PostDraft, ReportReason } from '@/types/community'
 
 type CommunityState = {
   // 커뮤니티 첫 진입에 정함. 안 정했으면 null
@@ -24,7 +26,10 @@ type CommunityState = {
   dismissNotice: () => void
   toggleLikePost: (postId: string) => void
   toggleLikeComment: (postId: string, commentId: string) => void
-  addComment: (postId: string, author: Author, body: string, parentId?: string) => void
+  // 서버 댓글 목록 · 전체 수로 바꿈
+  setComments: (postId: string, comments: CommunityComment[], total: number) => void
+  // 서버에 남긴 댓글을 붙임
+  addComment: (postId: string, comment: CommunityComment) => void
   removeComment: (postId: string, commentId: string) => void
   // 글 id → 내가 고른 투표 항목 id
   votes: Record<string, string>
@@ -162,32 +167,32 @@ export const useCommunityStore = create<CommunityState>()(
             })),
           }
         }),
-      addComment: (postId, author, body, parentId) =>
+      setComments: (postId, comments, total) =>
         set((state) => ({
           posts: updatePost(state.posts, postId, (post) => ({
             ...post,
-            comments: [
-              ...post.comments,
-              {
-                id: crypto.randomUUID(),
-                author,
-                body,
-                createdAt: new Date().toISOString(),
-                likes: 0,
-                parentId,
-              },
-            ],
+            comments,
+            commentCount: total,
+          })),
+        })),
+      addComment: (postId, comment) =>
+        set((state) => ({
+          posts: updatePost(state.posts, postId, (post) => ({
+            ...post,
+            comments: [...post.comments, comment],
+            commentCount: post.commentCount + 1,
           })),
         })),
       // 답글이 달린 댓글을 지우면 답글도 함께
       removeComment: (postId, commentId) =>
         set((state) => ({
-          posts: updatePost(state.posts, postId, (post) => ({
-            ...post,
-            comments: post.comments.filter(
+          posts: updatePost(state.posts, postId, (post) => {
+            const comments = post.comments.filter(
               (item) => item.id !== commentId && item.parentId !== commentId,
-            ),
-          })),
+            )
+            const removed = post.comments.length - comments.length
+            return { ...post, comments, commentCount: Math.max(0, post.commentCount - removed) }
+          }),
         })),
       // 한 번 고르면 바꿀 수 없음
       vote: (postId, optionId) =>
@@ -250,4 +255,26 @@ export function keepPostDraft(draft: PostDraft) {
 export function dropPostDraft() {
   useCommunityStore.getState().clearDraft()
   return savePostDraft(null)
+}
+
+// 서버 댓글로 글 화면을 맞춤
+export async function loadComments(postId: string) {
+  const { comments, total } = await getComments(postId)
+  useCommunityStore.getState().setComments(postId, comments, total)
+}
+
+// 서버에 댓글 · 답글을 남긴 뒤 글에 붙임
+export async function writeComment(postId: string, body: string, parentId?: string) {
+  const comment = await createComment(postId, body, parentId)
+  useCommunityStore.getState().addComment(postId, comment)
+}
+
+// 서버에서 지운 뒤 글에서 뺌. 이미 없는 댓글이어도 지운 걸로
+export async function eraseComment(postId: string, commentId: string) {
+  try {
+    await deleteComment(commentId)
+  } catch (error) {
+    if (getErrorCode(error) !== 'COMMENT_40401') throw error
+  }
+  useCommunityStore.getState().removeComment(postId, commentId)
 }
