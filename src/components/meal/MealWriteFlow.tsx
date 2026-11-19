@@ -60,6 +60,7 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
   const photoConsent = useAiStore((state) => state.photo)
   const setConsent = useAiStore((state) => state.setConsent)
   const addMyFood = useFoodStore((state) => state.addMyFood)
+  const rememberFood = useFoodStore((state) => state.rememberFood)
   const setMealPhotoInfo = useGlucoseStore((state) => state.setMealPhotoInfo)
   // 찾는 중에 이름으로 넘어가면 분석은 이어서 하고 식사 시트에 결과를 보여 줌(F-03·F-04)
   const [analysis, setAnalysis] = useState<Omit<PhotoAnalysis, 'photoUrl'> | null>(null)
@@ -113,8 +114,10 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
     setPhotoUrl(URL.createObjectURL(photo))
     setStep('finding')
     try {
-      const result = await findFoodInPhoto(meal.id, photo)
+      const { result, foods } = await findFoodInPhoto(photo)
       if (request !== requestRef.current) return
+      // 후보 이름으로 식품코드 · 영양값을 다시 찾게 남김
+      foods.forEach(rememberFood)
       const unclear = result.status === 'unclear' || result.foods.length === 0
       // 이미 식사 시트로 넘어갔으면 시트에 후보만 채움
       if (handoffRef.current) {

@@ -6,7 +6,7 @@ import { looksLikeStaple } from '@/utils/meal'
 type FoodOrigin = 'HOME' | 'RESTAURANT' | 'MEAL_SERVICE' | 'FRANCHISE'
 
 // 백엔드 FoodResponse. 영양값은 1인분 기준, servingG가 null이면 100g(ml)당. 모르는 값은 null
-type FoodResponse = {
+export type FoodResponse = {
   foodCode: string
   name: string
   displayName: string
@@ -37,7 +37,7 @@ const SERVER_FOOD_UNIT = '인분'
 const BASE_AMOUNT = 100
 
 // 서버 음식 → 화면 음식. 열량·탄수화물을 모르면 영양 참고값 없음, 나머지 모르는 값은 0
-function toFood(item: FoodResponse): Food {
+export function toFood(item: FoodResponse): Food {
   const { kcal, carbG } = item
   return {
     code: item.foodCode,
