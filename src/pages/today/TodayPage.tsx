@@ -26,7 +26,7 @@ import { useNow } from '@/hooks/useNow'
 import { useOnline } from '@/hooks/useOnline'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useTodaySync } from '@/hooks/useTodaySync'
-import { useProfileStore } from '@/stores/useProfileStore'
+import { saveHospitalized, useProfileStore } from '@/stores/useProfileStore'
 import { saveMealStart, useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useInboxStore } from '@/stores/useInboxStore'
 import { saveNotificationSettings, useNotificationStore } from '@/stores/useNotificationStore'
@@ -306,8 +306,9 @@ function TodayPage() {
         {hospitalized ? (
           <HospitalHero
             onResume={() => {
-              updateProfile({ hospitalized: false })
-              setToast('측정 알림을 다시 켰어요')
+              saveHospitalized(false)
+                .then(() => setToast('측정 알림을 다시 켰어요'))
+                .catch(() => setToast('알림을 다시 켜지 못했어요. 잠시 후 다시 시도해 주세요'))
             }}
           />
         ) : !online && heroState.kind === 'eating' ? (

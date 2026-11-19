@@ -1,5 +1,21 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { getErrorCode } from '@/api/axios'
+import {
+  createPostpartumTest,
+  deletePostpartumTest,
+  getPostpartumHome,
+  getPostpartumTests,
+  remindLater,
+  updatePostpartumTest,
+  updatePostpartumTestResult,
+} from '@/api/postpartum'
+import {
+  graduate,
+  updateDeliveryDate,
+  updateHospitalization,
+  type PregnancyState,
+} from '@/api/pregnancy'
 import { MOCK_USER } from '@/mocks/user'
 
 // 관리 모드: 식사·운동 / 인슐린 함께 / 먹는 약 함께
@@ -60,3 +76,90 @@ export const useProfileStore = create<ProfileState>()(
     { name: 'dangdang-profile' },
   ),
 )
+
+// 서버에 입원 상태를 저장한 뒤 기기에 반영. 다시 켜기인데 서버가 이미 입원 중이 아니면(409) 그대로 끔
+export async function saveHospitalized(hospitalized: boolean) {
+  try {
+    await updateHospitalization(hospitalized)
+  } catch (error) {
+    if (hospitalized || getErrorCode(error) !== 'PREGNANCY_40901') throw error
+  }
+  useProfileStore.getState().updateProfile({ hospitalized })
+}
+
+// 산후 홈(출산일 · 다시 물어볼 날)과 검사 목록(지난 검사 포함)을 기기에 반영. 산후가 아니면 409
+export async function syncPostpartumHome() {
+  const [home, checks] = await Promise.all([getPostpartumHome(), getPostpartumTests()])
+  useProfileStore.getState().updateProfile({
+    deliveryDate: home.deliveryDate,
+    checkRemindAt: home.askOn,
+    postpartumChecks: checks,
+  })
+}
+
+// 서버 임신 상태로 산후 모드를 맞춤. 산후면 산후 홈을 받고, 아니면 비움
+export async function syncPostpartum(pregnancyState: PregnancyState | null) {
+  if (pregnancyState === 'POSTPARTUM') return syncPostpartumHome()
+  useProfileStore
+    .getState()
+    .updateProfile({ deliveryDate: null, checkRemindAt: null, postpartumChecks: [] })
+}
+
+type CheckInput = Pick<PostpartumCheck, 'name' | 'date' | 'remind'>
+
+// 서버에 검사 일정을 등록(id 없음) · 수정한 뒤 기기에 반영. 날짜를 적었으니 다시 물어보지 않음
+export async function savePostpartumCheck(input: CheckInput, id?: string) {
+  const saved = id ? await updatePostpartumTest(id, input) : await createPostpartumTest(input)
+  const { postpartumChecks, updateProfile } = useProfileStore.getState()
+  updateProfile({
+    postpartumChecks: id
+      ? postpartumChecks.map((item) => (item.id === id ? saved : item))
+      : [...postpartumChecks, saved],
+    checkRemindAt: null,
+  })
+}
+
+// 서버에 결과 메모를 저장한 뒤 기기에 반영
+export async function savePostpartumCheckResult(id: string, memo: string) {
+  const saved = await updatePostpartumTestResult(id, memo)
+  const { postpartumChecks, updateProfile } = useProfileStore.getState()
+  updateProfile({
+    postpartumChecks: postpartumChecks.map((item) => (item.id === id ? saved : item)),
+  })
+}
+
+// 서버에 다시 물어볼 날을 저장한 뒤 기기에 반영
+export async function saveRemindLater(remindOn: string) {
+  const saved = await remindLater(remindOn)
+  useProfileStore.getState().updateProfile({ checkRemindAt: saved })
+}
+
+// 서버에 출산일을 저장한 뒤 산후 모드로. 입원 · 다시 물어볼 날은 초기화
+export async function saveDeliveryDate(deliveryDate: string) {
+  const saved = await updateDeliveryDate(deliveryDate)
+  useProfileStore.getState().updateProfile({
+    deliveryDate: saved.deliveryDate ?? deliveryDate,
+    hospitalized: false,
+    checkRemindAt: null,
+  })
+}
+
+// 서버에서 졸업한 뒤 기기의 산후 모드를 비움. 졸업 화면 숫자를 돌려줌
+export async function graduatePostpartum() {
+  const stats = await graduate()
+  useProfileStore
+    .getState()
+    .updateProfile({ deliveryDate: null, checkRemindAt: null, postpartumChecks: [] })
+  return stats
+}
+
+// 서버에서 검사 일정을 지운 뒤 기기에서도 뺌. 이미 없는 일정(404)이면 그대로 뺌
+export async function deletePostpartumCheck(id: string) {
+  try {
+    await deletePostpartumTest(id)
+  } catch (error) {
+    if (getErrorCode(error) !== 'POSTPARTUM_40401') throw error
+  }
+  const { postpartumChecks, updateProfile } = useProfileStore.getState()
+  updateProfile({ postpartumChecks: postpartumChecks.filter((item) => item.id !== id) })
+}

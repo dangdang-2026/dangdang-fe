@@ -1,38 +1,28 @@
-import { Navigate, useNavigate } from 'react-router'
+import { Navigate, useLocation, useNavigate } from 'react-router'
+import type { GraduationStats } from '@/api/pregnancy'
 import iconArchive from '@/assets/icons/postpartum/archive-md.svg'
 import DangdangAvatar from '@/components/common/DangdangAvatar'
 import { ROUTES } from '@/constants/routes'
-import { useGlucoseStore } from '@/stores/useGlucoseStore'
-import { useProfileStore } from '@/stores/useProfileStore'
 import { useReportStore } from '@/stores/useReportStore'
 import { useSplashStore } from '@/stores/useSplashStore'
-import { diffInDays, parseDateKey } from '@/utils/date'
 
 // Figma E-12 임신 중 관리 졸업 · E-12a·E-12b 등장. 지킨 것만 보여 주고 평가·연속 축하는 없음
 function GraduationPage() {
   const navigate = useNavigate()
-  const deliveryDate = parseDateKey(useProfileStore((state) => state.deliveryDate))
-  const records = useGlucoseStore((state) => state.records)
-  const meals = useGlucoseStore((state) => state.meals)
+  const location = useLocation()
+  // 산후 홈에서 졸업한 뒤 서버가 준 숫자
+  const graduation = (location.state as { graduation?: GraduationStats } | null)?.graduation
   const reportCount = useReportStore((state) => state.reports.length)
   // 주소로 바로 열면 스플래시가 덮으므로 걷힌 뒤에 등장
   const splashing = useSplashStore((state) => state.visible)
 
-  if (!deliveryDate) return <Navigate to={ROUTES.TODAY} replace />
+  if (!graduation) return <Navigate to={ROUTES.TODAY} replace />
   if (splashing) return <main className="min-h-dvh bg-white" />
 
-  // 첫 기록부터 출산일까지. 기록이 없으면 1주
-  const firstAt = Math.min(
-    ...records.map((record) => new Date(record.measuredAt).getTime()),
-    ...meals.map((meal) => new Date(meal.startedAt).getTime()),
-    deliveryDate.getTime(),
-  )
-  const weeks = Math.max(1, Math.ceil(diffInDays(new Date(firstAt), deliveryDate) / 7))
-
   const stats = [
-    { value: `${records.length}번`, label: '지킨 측정' },
+    { value: `${graduation.keptMeasurements}번`, label: '지킨 측정' },
     { value: `${reportCount}장`, label: '진료 리포트' },
-    { value: `${weeks}주`, label: '함께한 시간' },
+    { value: `${graduation.weeksTogether}주`, label: '함께한 시간' },
   ]
 
   return (
@@ -46,7 +36,7 @@ function GraduationPage() {
         <p className="text-t6 text-grey-600 leading-relaxed">
           병원 기준대로 하루하루 챙겨 오셨어요.
           <br />
-          이제 산후 검사 일정만 함께 챙겨요.
+          그동안 정말 수고 많으셨어요.
         </p>
       </div>
 
@@ -73,7 +63,7 @@ function GraduationPage() {
           className="bg-primary rounded-key mt-auto py-4 text-base leading-snug font-bold text-white"
           onClick={() => navigate(ROUTES.TODAY, { replace: true })}
         >
-          산후 홈으로
+          홈으로
         </button>
       </div>
     </main>
