@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { getMe } from '@/api/me'
 import { syncPushSubscription } from '@/api/push'
 import { syncAiConsents } from '@/stores/useAiStore'
+import { syncMyFoods } from '@/stores/useFoodStore'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { syncCommunityProfile } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
@@ -33,6 +34,7 @@ export function useSessionCheck() {
         return Promise.all([
           syncCriteria(),
           syncMeals(),
+          syncMyFoods(),
           syncRecords(),
           syncInbox(),
           syncHospitals(),

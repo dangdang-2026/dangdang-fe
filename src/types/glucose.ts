@@ -64,6 +64,10 @@ export type MyFood = Food & {
   similarTo?: string
   // 자주 먹는 양. 주식일 때만
   portion?: Portion
+  // 서버 내 음식 id. 아직 못 보냈으면 없음
+  serverId?: number
+  // 고친 내용을 서버에 아직 못 보냄
+  pending?: boolean
 }
 
 export type GlucoseRecord = {

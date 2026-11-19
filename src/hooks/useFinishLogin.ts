@@ -4,6 +4,7 @@ import { syncPushSubscription } from '@/api/push'
 import { ROUTES } from '@/constants/routes'
 import type { AccountProfile } from '@/mocks/auth'
 import { syncAiConsents } from '@/stores/useAiStore'
+import { syncMyFoods } from '@/stores/useFoodStore'
 import { useAuthStore, type LoginMethod } from '@/stores/useAuthStore'
 import { syncCommunityProfile } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
@@ -50,6 +51,8 @@ export function useFinishLogin() {
       // 식사·혈당 기록은 서버 값으로. 새 계정이면 기기에 남은 다른 계정 기록도 비워짐
       syncMeals().catch(() => {})
       syncRecords().catch(() => {})
+      // 내 음식도 이 계정 것으로. 기기에 남은 다른 계정 음식은 보내지 않음
+      syncMyFoods(false).catch(() => {})
       // 알림함도 이 계정 알림으로. 다른 계정 알림이 남지 않게
       syncInbox().catch(() => {})
       // 다니는 병원도 이 계정 병원으로
