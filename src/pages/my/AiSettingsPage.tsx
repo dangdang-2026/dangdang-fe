@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router'
 import { useGoBack } from '@/hooks/useGoBack'
 import {
   saveChatConsent,
+  savePhotoConsent,
   useAiStore,
   withdrawAiConsents,
   type AiConsent,
@@ -40,7 +41,6 @@ function AiSettingsPage() {
   const goBack = useGoBack(ROUTES.MY)
   const photo = useAiStore((state) => state.photo)
   const chat = useAiStore((state) => state.chat)
-  const setConsent = useAiStore((state) => state.setConsent)
   const [confirm, setConfirm] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
@@ -71,13 +71,8 @@ function AiSettingsPage() {
               label={title}
               onChange={(checked) => {
                 const done = `${title}를 ${checked ? '켰어요' : '껐어요'}`
-                // 사진 동의는 기기에만, 당당이 질문은 서버에 저장
-                if (key === 'photo') {
-                  setConsent(key, checked)
-                  setToast(done)
-                  return
-                }
-                saveChatConsent(checked)
+                const save = key === 'photo' ? savePhotoConsent : saveChatConsent
+                save(checked)
                   .then(() => setToast(done))
                   .catch(() => setToast('설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요'))
               }}

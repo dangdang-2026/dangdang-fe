@@ -1,7 +1,8 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
-import { fromServerMeal, type ServerMealSlot } from '@/api/meals'
+import type { MealItemSummary } from '@/api/mealItems'
+import { fromServerMeal, type ServerMeal, type ServerMealSlot } from '@/api/meals'
 import { fromServerReading, type ReadingType, type ServerSlot } from '@/api/readings'
-import type { GlucoseRecord, Meal } from '@/types/glucose'
+import type { GlucoseRecord } from '@/types/glucose'
 import { addDays, parseDateKey, toDateKey } from '@/utils/date'
 
 // 백엔드 RecordEventResponse. type에 맞는 칸(reading 또는 meal) 하나만 옴
@@ -23,6 +24,7 @@ type RecordEventResponse = {
     mealSlot: ServerMealSlot
     startedOffline: boolean
     note: string | null
+    items: MealItemSummary[]
   }
 }
 
@@ -40,7 +42,7 @@ export async function getRecords(from: Date, to: Date) {
   })
   if (!data.data) throw new Error('기록 조회 응답이 비어 있음')
   const events = data.data.days.flatMap((day) => day.events)
-  const meals: Pick<Meal, 'id' | 'type' | 'startedAt'>[] = []
+  const meals: ServerMeal[] = []
   const records: GlucoseRecord[] = []
   events.forEach((event) => {
     if (event.type === 'MEAL' && event.meal) {
@@ -48,6 +50,7 @@ export async function getRecords(from: Date, to: Date) {
         mealId: event.id,
         mealSlot: event.meal.mealSlot,
         startedAt: event.occurredAt,
+        items: event.meal.items,
       })
       if (meal) meals.push(meal)
     }

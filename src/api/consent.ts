@@ -51,6 +51,11 @@ export async function saveChatConsent(agreed: boolean) {
   await apiClient.post('/me/consents', { items })
 }
 
+// 사진 AI 분석 동의. 사진은 당당 서버에서만 처리해서 국외 이전은 안 씀
+export async function savePhotoConsent(agreed: boolean) {
+  await apiClient.post('/me/consents', { items: [{ type: 'AI_PHOTO', granted: agreed }] })
+}
+
 // M-12 AI 사용 동의 모두 철회
 export async function withdrawAiConsents() {
   const types: ConsentType[] = ['AI_PHOTO', 'AI_CHAT_RECORDS', 'OVERSEAS_TRANSFER']
