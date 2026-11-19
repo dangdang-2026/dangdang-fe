@@ -52,7 +52,6 @@ function CommunitySettingsPage() {
   const showWeek = useCommunityStore((state) => state.showWeek)
   const setShowWeek = useCommunityStore((state) => state.setShowWeek)
   const posts = useCommunityStore((state) => state.posts)
-  const likedPostIds = useCommunityStore((state) => state.likedPostIds)
   const blockedAuthors = useCommunityStore((state) => state.blockedAuthors)
   const unblockAuthor = useCommunityStore((state) => state.unblockAuthor)
   const [blockedOpen, setBlockedOpen] = useState(false)
@@ -103,7 +102,7 @@ function CommunitySettingsPage() {
               title={ACTIVITY_LABEL[type]}
               right={
                 <span className="text-grey-500 text-sm leading-snug font-medium">
-                  {filterActivity(posts, type, likedPostIds).length}개
+                  {filterActivity(posts, type).length}개
                 </span>
               }
               onClick={() => navigate(`${ROUTES.MY_COMMUNITY_ACTIVITY}?type=${type}`)}

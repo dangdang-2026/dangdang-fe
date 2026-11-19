@@ -4,6 +4,7 @@ import { getErrorCode } from '@/api/axios'
 import { getMyCommunityProfile } from '@/api/communityProfile'
 import { createComment, deleteComment, getComments } from '@/api/comments'
 import { savePostDraft } from '@/api/posts'
+import { reactComment, reactPost } from '@/api/reactions'
 import { MY_AUTHOR_ID } from '@/constants/community'
 import type { Author, CommunityComment, Post, PostDraft, ReportReason } from '@/types/community'
 
@@ -16,16 +17,15 @@ type CommunityState = {
   posts: Post[]
   // full이면 상세 글이라 본문까지 그대로 바꿈
   cachePosts: (posts: Post[], full?: boolean) => void
-  likedPostIds: string[]
-  likedCommentIds: string[]
   // 메인 안내 띠를 닫았는지
   noticeDismissed: boolean
   // 바꾸면 내가 쓴 글·댓글 이름도 함께 바뀜(익명 글 빼고)
   setNickname: (nickname: string, showWeek?: boolean) => void
   setShowWeek: (showWeek: boolean) => void
   dismissNotice: () => void
-  toggleLikePost: (postId: string) => void
-  toggleLikeComment: (postId: string, commentId: string) => void
+  // 공감 여부 · 수를 바꿈. 서버 응답이나 누르자마자 보여 줄 값
+  setPostLike: (postId: string, liked: boolean, likes: number) => void
+  setCommentLike: (postId: string, commentId: string, liked: boolean, likes: number) => void
   // 서버 댓글 목록 · 전체 수로 바꿈
   setComments: (postId: string, comments: CommunityComment[], total: number) => void
   // 서버에 남긴 댓글을 붙임
@@ -124,8 +124,6 @@ export const useCommunityStore = create<CommunityState>()(
       posts: [],
       cachePosts: (posts, full = false) =>
         set((state) => ({ posts: mergePosts(state.posts, posts, full) })),
-      likedPostIds: [],
-      likedCommentIds: [],
       noticeDismissed: false,
       draft: null,
       restrictedUntil: null,
@@ -143,30 +141,19 @@ export const useCommunityStore = create<CommunityState>()(
         })),
       setShowWeek: (showWeek) => set({ showWeek }),
       dismissNotice: () => set({ noticeDismissed: true }),
-      toggleLikePost: (postId) =>
-        set((state) => {
-          const liked = state.likedPostIds.includes(postId)
-          return {
-            likedPostIds: toggle(state.likedPostIds, postId),
-            posts: updatePost(state.posts, postId, (post) => ({
-              ...post,
-              likes: post.likes + (liked ? -1 : 1),
-            })),
-          }
-        }),
-      toggleLikeComment: (postId, commentId) =>
-        set((state) => {
-          const liked = state.likedCommentIds.includes(commentId)
-          return {
-            likedCommentIds: toggle(state.likedCommentIds, commentId),
-            posts: updatePost(state.posts, postId, (post) => ({
-              ...post,
-              comments: post.comments.map((item) =>
-                item.id === commentId ? { ...item, likes: item.likes + (liked ? -1 : 1) } : item,
-              ),
-            })),
-          }
-        }),
+      setPostLike: (postId, liked, likes) =>
+        set((state) => ({
+          posts: updatePost(state.posts, postId, (post) => ({ ...post, liked, likes })),
+        })),
+      setCommentLike: (postId, commentId, liked, likes) =>
+        set((state) => ({
+          posts: updatePost(state.posts, postId, (post) => ({
+            ...post,
+            comments: post.comments.map((item) =>
+              item.id === commentId ? { ...item, liked, likes } : item,
+            ),
+          })),
+        })),
       setComments: (postId, comments, total) =>
         set((state) => ({
           posts: updatePost(state.posts, postId, (post) => ({
@@ -277,4 +264,37 @@ export async function eraseComment(postId: string, commentId: string) {
     if (getErrorCode(error) !== 'COMMENT_40401') throw error
   }
   useCommunityStore.getState().removeComment(postId, commentId)
+}
+
+// 글 공감 누르기 · 취소. 바로 보여 주고 서버 수로 맞춤, 못 남기면 되돌림
+export async function toggleLikePost(postId: string) {
+  const post = useCommunityStore.getState().posts.find((item) => item.id === postId)
+  if (!post) return
+  const { setPostLike } = useCommunityStore.getState()
+  const on = !post.liked
+  setPostLike(postId, on, Math.max(0, post.likes + (on ? 1 : -1)))
+  try {
+    const result = await reactPost(postId, on)
+    setPostLike(postId, result.liked, result.likes)
+  } catch (error) {
+    setPostLike(postId, !!post.liked, post.likes)
+    throw error
+  }
+}
+
+// 댓글 공감 누르기 · 취소
+export async function toggleLikeComment(postId: string, commentId: string) {
+  const post = useCommunityStore.getState().posts.find((item) => item.id === postId)
+  const comment = post?.comments.find((item) => item.id === commentId)
+  if (!comment) return
+  const { setCommentLike } = useCommunityStore.getState()
+  const on = !comment.liked
+  setCommentLike(postId, commentId, on, Math.max(0, comment.likes + (on ? 1 : -1)))
+  try {
+    const result = await reactComment(commentId, on)
+    setCommentLike(postId, commentId, result.liked, result.likes)
+  } catch (error) {
+    setCommentLike(postId, commentId, !!comment.liked, comment.likes)
+    throw error
+  }
 }

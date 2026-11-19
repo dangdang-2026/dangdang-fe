@@ -31,6 +31,8 @@ import { useNow } from '@/hooks/useNow'
 import {
   eraseComment,
   loadComments,
+  toggleLikeComment,
+  toggleLikePost,
   useCommunityStore,
   writeComment,
 } from '@/stores/useCommunityStore'
@@ -96,10 +98,6 @@ function PostDetailPage() {
   const now = useNow()
   const me = useMyAuthor()
   const post = useCommunityStore((state) => state.posts.find((item) => item.id === id))
-  const likedPostIds = useCommunityStore((state) => state.likedPostIds)
-  const likedCommentIds = useCommunityStore((state) => state.likedCommentIds)
-  const toggleLikePost = useCommunityStore((state) => state.toggleLikePost)
-  const toggleLikeComment = useCommunityStore((state) => state.toggleLikeComment)
   const restrictedUntil = useCommunityStore((state) => state.restrictedUntil)
   const blockedAuthors = useCommunityStore((state) => state.blockedAuthors)
   const removePost = useCommunityStore((state) => state.removePost)
@@ -155,7 +153,14 @@ function PostDetailPage() {
     )
   }
 
-  const liked = likedPostIds.includes(post.id)
+  const liked = !!post.liked
+  // 공감은 바로 보여 주고 서버에 못 남기면 되돌린 뒤 안내
+  const likePost = () =>
+    toggleLikePost(post.id).catch(() => setToast('공감하지 못했어요. 잠시 후 다시 시도해 주세요'))
+  const likeComment = (commentId: string) =>
+    toggleLikeComment(post.id, commentId).catch(() =>
+      setToast('공감하지 못했어요. 잠시 후 다시 시도해 주세요'),
+    )
   const best = getBestComment(post)
   const week = formatAuthorWeek(post.author)
   const mine = post.author.id === MY_AUTHOR_ID
@@ -279,7 +284,7 @@ function PostDetailPage() {
                 className={`border-grey-200 flex items-center gap-1.5 rounded-full border px-4.5 py-2.5 text-sm leading-snug font-medium ${
                   liked ? 'border-red-500 font-bold text-red-500' : 'text-grey-700'
                 }`}
-                onClick={() => toggleLikePost(post.id)}
+                onClick={likePost}
               >
                 공감 {formatCount(post.likes)}
                 <img src={iconHeart} alt="" width={18} height={18} />
@@ -312,8 +317,8 @@ function PostDetailPage() {
                     comment={comment}
                     now={now}
                     best={comment.id === best?.id}
-                    liked={likedCommentIds.includes(comment.id)}
-                    onLike={() => toggleLikeComment(post.id, comment.id)}
+                    liked={!!comment.liked}
+                    onLike={() => likeComment(comment.id)}
                     onReply={
                       comment.parentId
                         ? undefined
@@ -369,7 +374,7 @@ function PostDetailPage() {
                   type="button"
                   aria-pressed={liked}
                   className={`flex items-center gap-1 ${liked ? 'font-bold text-red-500' : 'text-grey-600'}`}
-                  onClick={() => toggleLikePost(post.id)}
+                  onClick={likePost}
                 >
                   <img src={iconHeartBar} alt="" width={20} height={20} />
                   공감 {formatCount(post.likes)}
