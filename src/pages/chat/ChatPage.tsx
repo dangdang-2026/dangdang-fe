@@ -30,7 +30,7 @@ import {
   useChatStore,
 } from '@/stores/useChatStore'
 import { useProfileStore } from '@/stores/useProfileStore'
-import { useVisitStore } from '@/stores/useVisitStore'
+import { saveQuestion } from '@/stores/useVisitStore'
 import type { ChatMessage } from '@/types/chat'
 import { DRAFT_INTRO, summarizeServerCard } from '@/utils/chat'
 
@@ -48,7 +48,6 @@ function ChatPage() {
   const criteria = useCriteria()
   const contactMemo = useProfileStore((state) => state.contactMemo)
   const updateProfile = useProfileStore((state) => state.updateProfile)
-  const addQuestion = useVisitStore((state) => state.addQuestion)
 
   // 처음 들어오면 동의부터 물어봄
   const [consentSheet, setConsentSheet] = useState(consent === null)
@@ -144,8 +143,12 @@ function ChatPage() {
   }, [initialAsk])
 
   const addDraft = (id: string, text: string) => {
-    addQuestion(text)
     updateMessage(id, { text, added: true })
+    // 서버에 못 남기면 추가 전으로 되돌림
+    saveQuestion(text).catch(() => {
+      updateMessage(id, { added: false })
+      setToast({ message: '물어볼 것을 저장하지 못했어요. 잠시 후 다시 시도해 주세요' })
+    })
     setToast({
       message: '물어볼 것에 추가했어요',
       action: { label: '진료 탭에서 보기', onClick: () => navigate(ROUTES.VISIT) },

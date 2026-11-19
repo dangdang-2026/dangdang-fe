@@ -55,3 +55,35 @@ export async function updateVisitAt(visitId: string, visitAt: string | null) {
   if (!data.data) throw new Error('진료 일정 수정 응답이 비어 있음')
   return data.data
 }
+
+// 백엔드 VisitQuestionResponse. sortOrder 작은 순 → 먼저 만든 순
+export type VisitQuestionResponse = {
+  questionId: number
+  content: string
+  source: 'USER' | 'CHATBOT'
+  sortOrder: number
+  createdAt: string
+}
+
+// 진료 질문 목록
+export async function getVisitQuestions(visitId: string) {
+  const { data } = await apiClient.get<BaseResponse<VisitQuestionResponse[]>>(
+    `/visits/${visitId}/questions`,
+  )
+  return data.data ?? []
+}
+
+// 진료 질문 등록(500자). sortOrder를 안 보내면 맨 뒤
+export async function createVisitQuestion(visitId: string, content: string, sortOrder?: number) {
+  const { data } = await apiClient.post<BaseResponse<VisitQuestionResponse>>(
+    `/visits/${visitId}/questions`,
+    { content, sortOrder },
+  )
+  if (!data.data) throw new Error('진료 질문 등록 응답이 비어 있음')
+  return data.data
+}
+
+// 진료 질문 삭제. 이미 지운 질문이어도 200
+export async function deleteVisitQuestion(visitId: string, questionId: string) {
+  await apiClient.delete(`/visits/${visitId}/questions/${questionId}`)
+}

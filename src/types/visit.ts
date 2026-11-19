@@ -3,6 +3,8 @@ export type Question = {
   id: string
   text: string
   createdAt: string
+  // 서버 순서. 되돌릴 때 원래 자리로
+  sortOrder?: number
 }
 
 // AI가 진료 후 메모에서 찾는 항목. 측정 시점·목표·다음 진료일만

@@ -14,7 +14,13 @@ import QuestionsCard from '@/components/visit/QuestionsCard'
 import VisitDateSheet from '@/components/visit/VisitDateSheet'
 import { ROUTES } from '@/constants/routes'
 import { useNow } from '@/hooks/useNow'
-import { saveNextVisit, useVisitStore } from '@/stores/useVisitStore'
+import {
+  deleteQuestion,
+  restoreDeletedQuestion,
+  saveNextVisit,
+  saveQuestion,
+  useVisitStore,
+} from '@/stores/useVisitStore'
 import type { Question } from '@/types/visit'
 import { formatMonthDay, startOfDay } from '@/utils/date'
 import { getVisitStatus, getVisitedDay } from '@/utils/visit'
@@ -29,9 +35,6 @@ function VisitPage() {
   // 첫 진입이면 다음 진료일부터 물어봄
   const [dateSheet, setDateSheet] = useState<DateSheet>(() => (asked ? null : 'first'))
   const questions = useVisitStore((state) => state.questions)
-  const addQuestion = useVisitStore((state) => state.addQuestion)
-  const removeQuestion = useVisitStore((state) => state.removeQuestion)
-  const restoreQuestion = useVisitStore((state) => state.restoreQuestion)
   const [questionSheetOpen, setQuestionSheetOpen] = useState(false)
   // 진료 후 메모 정리에서 다음 진료일만 바꾸고 오면 안내
   const savedToast = (useLocation().state as { toast?: string } | null)?.toast
@@ -66,18 +69,29 @@ function VisitPage() {
     setDateSheet(null)
   }
 
+  // 화면엔 바로 넣고 서버에 못 남기면 빼고 안내
   const handleAddQuestion = (text: string) => {
-    addQuestion(text)
+    saveQuestion(text).catch(() =>
+      setToast({ message: '물어볼 것을 저장하지 못했어요. 잠시 후 다시 시도해 주세요' }),
+    )
     setQuestionSheetOpen(false)
   }
 
   // 지운 직후 토스트에서 원래 자리로 되돌릴 수 있게
   const handleRemoveQuestion = (question: Question) => {
     const index = questions.findIndex((item) => item.id === question.id)
-    removeQuestion(question.id)
+    deleteQuestion(question, index).catch(() =>
+      setToast({ message: '질문을 지우지 못했어요. 잠시 후 다시 시도해 주세요' }),
+    )
     setToast({
       message: '질문을 지웠어요',
-      action: { label: '되돌리기', onClick: () => restoreQuestion(question, index) },
+      action: {
+        label: '되돌리기',
+        onClick: () =>
+          restoreDeletedQuestion(question, index).catch(() =>
+            setToast({ message: '질문을 되돌리지 못했어요. 잠시 후 다시 시도해 주세요' }),
+          ),
+      },
     })
   }
 

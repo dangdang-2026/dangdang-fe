@@ -9,7 +9,7 @@ import { syncCriteria } from '@/stores/useCriteriaStore'
 import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncMealGuide } from '@/stores/useMealGuideStore'
-import { syncVisits } from '@/stores/useVisitStore'
+import { syncQuestions, syncVisits } from '@/stores/useVisitStore'
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
 import { syncPostpartum, useProfileStore } from '@/stores/useProfileStore'
@@ -41,7 +41,12 @@ export function useSessionCheck() {
           syncInbox(),
           // 식사 안내 받은 곳 · 진료 일정 병원은 병원 목록이 있어야 해서 병원 다음에
           syncHospitals().finally(() =>
-            Promise.all([syncMealGuide().catch(() => {}), syncVisits().catch(() => {})]),
+            Promise.all([
+              syncMealGuide().catch(() => {}),
+              syncVisits()
+                .then(() => syncQuestions())
+                .catch(() => {}),
+            ]),
           ),
           syncCommunityProfile(),
           syncPostpartum(me.pregnancyState),
