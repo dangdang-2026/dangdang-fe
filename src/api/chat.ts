@@ -116,3 +116,14 @@ export async function getChatMessages(cursorId?: number) {
   })
   return { messages, hasNext: data.data.hasNext, nextCursorId: data.data.nextCursorId }
 }
+
+// 대화 모두 지우기. 바로 지워지고 되돌릴 수 없음
+export async function deleteChatMessages() {
+  const { data } = await apiClient.delete<BaseResponse<{ deletedCount: number }>>('/chat/messages')
+  return data.data?.deletedCount ?? 0
+}
+
+// 도움이 됐나요. 당당이 답에만 남길 수 있음
+export async function rateChatMessage(id: string, helpful: boolean) {
+  await apiClient.patch(`/chat/messages/${id}/feedback`, { helpful })
+}

@@ -16,6 +16,7 @@ import {
   type AiConsent,
   type AiFeature,
 } from '@/stores/useAiStore'
+import { clearChatMessages } from '@/stores/useChatStore'
 
 const FEATURES: { key: AiFeature; icon: string; title: string }[] = [
   { key: 'photo', icon: iconCamera, title: '사진으로 음식 후보 찾기' },
@@ -44,6 +45,8 @@ function AiSettingsPage() {
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
   const closeConfirm = useCallback(() => setConfirm(false), [])
+  const [clearing, setClearing] = useState(false)
+  const closeClearing = useCallback(() => setClearing(false), [])
   const consents = { photo, chat }
 
   return (
@@ -110,6 +113,14 @@ function AiSettingsPage() {
 
       <button
         type="button"
+        className="text-body-3 text-grey-600 mt-5 self-center underline"
+        onClick={() => setClearing(true)}
+      >
+        당당이 대화 모두 지우기
+      </button>
+
+      <button
+        type="button"
         disabled={!photo?.agreed && !chat?.agreed}
         className="text-subtitle-1 border-grey-200 text-grey-900 disabled:text-grey-400 mt-auto h-14 rounded-xl border leading-none"
         onClick={() => setConfirm(true)}
@@ -130,6 +141,21 @@ function AiSettingsPage() {
               .catch(() => setToast('동의를 철회하지 못했어요. 잠시 후 다시 시도해 주세요'))
           }}
           onClose={closeConfirm}
+        />
+      )}
+      {clearing && (
+        <ConfirmDialog
+          title="당당이 대화를 모두 지울까요?"
+          description="물어본 말과 당당이 답이 바로 지워지고 되돌릴 수 없어요. 진료 탭에 추가한 물어볼 말은 그대로 남아요."
+          confirmLabel="지우기"
+          danger
+          onConfirm={() => {
+            setClearing(false)
+            clearChatMessages()
+              .then(() => setToast('당당이 대화를 모두 지웠어요'))
+              .catch(() => setToast('대화를 지우지 못했어요. 잠시 후 다시 시도해 주세요'))
+          }}
+          onClose={closeClearing}
         />
       )}
       {toast && <Toast message={toast} onClose={closeToast} />}

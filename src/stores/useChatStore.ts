@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { getChatMessages } from '@/api/chat'
+import { deleteChatMessages, getChatMessages, rateChatMessage } from '@/api/chat'
 import type { BotMessage, ChatMessage } from '@/types/chat'
 
 type ChatState = {
@@ -64,4 +64,22 @@ export async function loadOlderChatMessages(cursorId: number) {
     }
   })
   return page
+}
+
+// 서버 대화를 모두 지운 뒤 화면도 비움
+export async function clearChatMessages() {
+  await deleteChatMessages()
+  useChatStore.setState({ messages: [] })
+}
+
+// 도움이 됐나요. 먼저 표시하고 서버에 못 남기면 되돌림
+export async function rateChatAnswer(id: string, feedback: 'yes' | 'no') {
+  const { updateMessage } = useChatStore.getState()
+  updateMessage(id, { feedback })
+  try {
+    await rateChatMessage(id, feedback === 'yes')
+  } catch (error) {
+    updateMessage(id, { feedback: null })
+    throw error
+  }
 }

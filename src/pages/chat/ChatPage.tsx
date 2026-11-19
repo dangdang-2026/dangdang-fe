@@ -23,7 +23,12 @@ import ContactMemoSheet from '@/components/my/ContactMemoSheet'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { saveChatConsent, useAiStore } from '@/stores/useAiStore'
-import { loadOlderChatMessages, syncChatMessages, useChatStore } from '@/stores/useChatStore'
+import {
+  loadOlderChatMessages,
+  rateChatAnswer,
+  syncChatMessages,
+  useChatStore,
+} from '@/stores/useChatStore'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import type { ChatMessage } from '@/types/chat'
@@ -238,7 +243,11 @@ function ChatPage() {
               text={message.text}
               sources={message.sources}
               feedback={message.feedback}
-              onFeedback={(feedback) => updateMessage(message.id, { feedback })}
+              onFeedback={(feedback) =>
+                rateChatAnswer(message.id, feedback).catch(() =>
+                  setToast({ message: '의견을 보내지 못했어요. 잠시 후 다시 시도해 주세요' }),
+                )
+              }
             />
           </BotMessage>
         )
