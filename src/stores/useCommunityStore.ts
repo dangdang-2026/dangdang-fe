@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import { getErrorCode } from '@/api/axios'
 import { getMyCommunityProfile } from '@/api/communityProfile'
 import { createComment, deleteComment, getComments } from '@/api/comments'
-import { savePostDraft } from '@/api/posts'
+import { savePostDraft, votePoll } from '@/api/posts'
 import { reactComment, reactPost } from '@/api/reactions'
 import { MY_AUTHOR_ID } from '@/constants/community'
 import type { Author, CommunityComment, Post, PostDraft, ReportReason } from '@/types/community'
@@ -31,9 +31,8 @@ type CommunityState = {
   // 서버에 남긴 댓글을 붙임
   addComment: (postId: string, comment: CommunityComment) => void
   removeComment: (postId: string, commentId: string) => void
-  // 글 id → 내가 고른 투표 항목 id
-  votes: Record<string, string>
-  vote: (postId: string, optionId: string) => void
+  // 서버 투표 결과로 바꿈
+  setPoll: (postId: string, poll: Pick<Post, 'poll' | 'pollTotal' | 'myVote'>) => void
   // 쓰다 나갈 때 임시 저장
   draft: PostDraft | null
   saveDraft: (draft: PostDraft) => void
@@ -130,7 +129,6 @@ export const useCommunityStore = create<CommunityState>()(
       reports: [],
       blockedAuthors: [],
       likedNewsIds: [],
-      votes: {},
 
       dismissedNewsId: null,
       setNickname: (nickname, showWeek) =>
@@ -181,20 +179,10 @@ export const useCommunityStore = create<CommunityState>()(
             return { ...post, comments, commentCount: Math.max(0, post.commentCount - removed) }
           }),
         })),
-      // 한 번 고르면 바꿀 수 없음
-      vote: (postId, optionId) =>
-        set((state) => {
-          if (state.votes[postId]) return state
-          return {
-            votes: { ...state.votes, [postId]: optionId },
-            posts: updatePost(state.posts, postId, (post) => ({
-              ...post,
-              poll: post.poll?.map((option) =>
-                option.id === optionId ? { ...option, votes: option.votes + 1 } : option,
-              ),
-            })),
-          }
-        }),
+      setPoll: (postId, poll) =>
+        set((state) => ({
+          posts: updatePost(state.posts, postId, (post) => ({ ...post, ...poll })),
+        })),
       saveDraft: (draft) => set({ draft }),
       clearDraft: () => set({ draft: null }),
       removePost: (postId) =>
@@ -297,4 +285,10 @@ export async function toggleLikeComment(postId: string, commentId: string) {
     setCommentLike(postId, commentId, !!comment.liked, comment.likes)
     throw error
   }
+}
+
+// 투표. 고르면 서버 결과(항목별 수 · 참여 인원)로 바꿈. 한 번 고르면 바꿀 수 없음
+export async function voteOnPost(postId: string, optionId: string) {
+  const poll = await votePoll(postId, optionId)
+  useCommunityStore.getState().setPoll(postId, poll)
 }

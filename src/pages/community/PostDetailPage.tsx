@@ -34,6 +34,7 @@ import {
   toggleLikeComment,
   toggleLikePost,
   useCommunityStore,
+  voteOnPost,
   writeComment,
 } from '@/stores/useCommunityStore'
 import type { CommunityComment } from '@/types/community'
@@ -103,8 +104,6 @@ function PostDetailPage() {
   const removePost = useCommunityStore((state) => state.removePost)
   const reportPost = useCommunityStore((state) => state.reportPost)
   const blockAuthor = useCommunityStore((state) => state.blockAuthor)
-  const votes = useCommunityStore((state) => state.votes)
-  const vote = useCommunityStore((state) => state.vote)
   const [moreOpen, setMoreOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
   const [confirming, setConfirming] = useState<Confirming | null>(null)
@@ -273,8 +272,16 @@ function PostDetailPage() {
               <PollCard
                 options={post.poll}
                 total={post.pollTotal}
-                votedId={votes[post.id] ?? post.myVote ?? null}
-                onVote={(optionId) => vote(post.id, optionId)}
+                votedId={post.myVote ?? null}
+                onVote={(optionId) =>
+                  voteOnPost(post.id, optionId).catch((error) =>
+                    setToast(
+                      getErrorCode(error) === 'POST_40901'
+                        ? '이미 다른 항목에 투표했어요'
+                        : '투표하지 못했어요. 잠시 후 다시 시도해 주세요',
+                    ),
+                  )
+                }
               />
             )}
             <div className="flex justify-center gap-2 pt-1.5">
