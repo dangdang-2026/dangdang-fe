@@ -21,6 +21,8 @@ export type Meal = {
   aiCandidates?: string[]
   // 한상에서 음식마다 고른 양(F-13)
   portions?: Record<string, Portion>
+  // 고친 음식을 서버 항목에 아직 못 맞춤. 동기화 때 다시 보냄
+  itemsPending?: boolean
 }
 
 // 양: 반 · 1 · 1.5
@@ -62,6 +64,10 @@ export type MyFood = Food & {
   similarTo?: string
   // 자주 먹는 양. 주식일 때만
   portion?: Portion
+  // 서버 내 음식 id. 아직 못 보냈으면 없음
+  serverId?: number
+  // 고친 내용을 서버에 아직 못 보냄
+  pending?: boolean
 }
 
 export type GlucoseRecord = {

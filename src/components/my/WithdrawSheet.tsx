@@ -2,7 +2,11 @@ import { useState } from 'react'
 import type { CommunityPostsOnLeave } from '@/api/auth'
 import iconRadioOff from '@/assets/icons/my/radio-off.svg'
 import iconRadioOn from '@/assets/icons/my/radio-on.svg'
+import iconAlert from '@/assets/icons/auth/alert.svg'
+import iconEyeOff from '@/assets/icons/auth/eye-off.svg'
+import iconEye from '@/assets/icons/auth/eye.svg'
 import iconLoading from '@/assets/icons/auth/loading.svg'
+import AuthField from '@/components/auth/AuthField'
 import BottomSheet from '@/components/common/BottomSheet'
 
 const POST_OPTIONS: { value: CommunityPostsOnLeave; title: string; description: string }[] = [
@@ -16,13 +20,42 @@ const POST_OPTIONS: { value: CommunityPostsOnLeave; title: string; description: 
 
 type WithdrawSheetProps = {
   loading: boolean
-  onWithdraw: (posts: CommunityPostsOnLeave) => void
+  // 이메일 가입자는 지금 비밀번호를 받음
+  needsPassword: boolean
+  // 서버가 비밀번호가 틀리다고 함
+  wrongPassword: boolean
+  onPasswordChange: () => void
+  onWithdraw: (posts: CommunityPostsOnLeave, password: string | null) => void
   onClose: () => void
 }
 
-// Figma M-08 탈퇴 확인: 커뮤니티 글 처리 방식을 고르고 탈퇴
-function WithdrawSheet({ loading, onWithdraw, onClose }: WithdrawSheetProps) {
+// Figma M-08 탈퇴 확인: 커뮤니티 글 처리 방식을 고르고 탈퇴. 비밀번호 칸은 Figma에 없어 비밀번호 변경 칸 모양
+function WithdrawSheet({
+  loading,
+  needsPassword,
+  wrongPassword,
+  onPasswordChange,
+  onWithdraw,
+  onClose,
+}: WithdrawSheetProps) {
   const [posts, setPosts] = useState<CommunityPostsOnLeave>('delete')
+  const [password, setPassword] = useState('')
+  const [shown, setShown] = useState(false)
+  const [empty, setEmpty] = useState(false)
+  const helperText = empty
+    ? '비밀번호를 입력해 주세요'
+    : wrongPassword
+      ? '비밀번호가 맞지 않아요'
+      : null
+
+  const submit = () => {
+    if (loading) return
+    if (needsPassword && !password) {
+      setEmpty(true)
+      return
+    }
+    onWithdraw(posts, needsPassword ? password : null)
+  }
 
   return (
     <BottomSheet label="탈퇴 확인" onClose={onClose}>
@@ -60,11 +93,47 @@ function WithdrawSheet({ loading, onWithdraw, onClose }: WithdrawSheetProps) {
         })}
       </fieldset>
 
+      {needsPassword && (
+        <AuthField
+          label="비밀번호 확인"
+          inputId="withdraw-password"
+          invalid={!!helperText}
+          helper={helperText ? { icon: iconAlert, text: helperText, tone: 'error' } : null}
+        >
+          <input
+            id="withdraw-password"
+            type={shown ? 'text' : 'password'}
+            autoComplete="current-password"
+            placeholder="지금 쓰는 비밀번호"
+            value={password}
+            aria-invalid={!!helperText}
+            aria-describedby={helperText ? 'withdraw-password-helper' : undefined}
+            className={`text-grey-900 placeholder:text-grey-500 placeholder:text-input caret-primary min-w-0 flex-1 bg-transparent outline-none ${
+              password && !shown ? 'text-t4 font-medium' : 'text-input'
+            }`}
+            onChange={(event) => {
+              setPassword(event.target.value)
+              setEmpty(false)
+              onPasswordChange()
+            }}
+          />
+          <button
+            type="button"
+            aria-label={shown ? '비밀번호 숨기기' : '비밀번호 보기'}
+            aria-pressed={shown}
+            className="shrink-0"
+            onClick={() => setShown((value) => !value)}
+          >
+            <img src={shown ? iconEye : iconEyeOff} alt="" width={20} height={20} />
+          </button>
+        </AuthField>
+      )}
+
       <button
         type="button"
         aria-busy={loading}
         className="text-subtitle-1 bg-primary relative mt-6 h-14 rounded-xl leading-none text-white"
-        onClick={() => onWithdraw(posts)}
+        onClick={submit}
       >
         <span className={loading ? 'opacity-0' : undefined}>탈퇴하기</span>
         {loading && (

@@ -17,7 +17,7 @@ import { ROUTES } from '@/constants/routes'
 import { useNow } from '@/hooks/useNow'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useWeekRecordsSync } from '@/hooks/useWeekRecordsSync'
-import { removeRecord, useGlucoseStore } from '@/stores/useGlucoseStore'
+import { removeRecord, saveMealContent, useGlucoseStore } from '@/stores/useGlucoseStore'
 import type {
   GlucoseRecord,
   InsulinRecord,
@@ -42,7 +42,6 @@ function RecordsPage() {
   const [editing, setEditing] = useState<GlucoseRecord | null>(null)
   const [deleting, setDeleting] = useState<GlucoseRecord | null>(null)
   const [removing, setRemoving] = useState(false)
-  const setMealContent = useGlucoseStore((state) => state.setMealContent)
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const criteria = useCriteria()
@@ -94,7 +93,7 @@ function RecordsPage() {
     nutritionEdits?: NutritionEdits,
   ) => {
     if (!editingMeal) return
-    setMealContent(editingMeal.id, foods, portion, nutritionEdits)
+    void saveMealContent(editingMeal.id, foods, portion, nutritionEdits)
     setEditingMeal(null)
     setToast(`${MEAL_LABEL[editingMeal.type]} 기록을 고쳤어요`)
   }

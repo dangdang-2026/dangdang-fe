@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router'
+import { getFoodMeals } from '@/api/foods'
 import iconInfo from '@/assets/icons/info-lg.svg'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import { MEAL_LABEL } from '@/constants/glucose'
@@ -6,7 +8,8 @@ import { ROUTES } from '@/constants/routes'
 import { useFoods } from '@/hooks/useFoods'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
-import { useGlucoseStore } from '@/stores/useGlucoseStore'
+import { mergeServerMeal, useGlucoseStore } from '@/stores/useGlucoseStore'
+import type { GlucoseRecord, Meal } from '@/types/glucose'
 import { getLateMinutes } from '@/utils/glucose'
 import { formatDuration } from '@/utils/criteria'
 import {
@@ -61,6 +64,35 @@ function HistoryRow({ entry, portion, lateMinutes }: HistoryRowProps) {
   )
 }
 
+type ServerHistory = { meals: Meal[]; records: GlucoseRecord[] }
+
+// 식품코드로 서버 지난 기록. 코드가 없거나 받기 전 · 실패면 null
+function useServerHistory(code: string | undefined) {
+  const [result, setResult] = useState<{ code: string; history: ServerHistory | null } | null>(null)
+
+  useEffect(() => {
+    if (!code) return
+    // 늦게 온 이전 음식 결과는 버림
+    let stale = false
+    getFoodMeals(code)
+      .then(({ meals, records }) => {
+        if (!stale)
+          setResult({
+            code,
+            history: { meals: meals.map((meal) => mergeServerMeal(meal)), records },
+          })
+      })
+      .catch(() => {
+        if (!stale) setResult({ code, history: null })
+      })
+    return () => {
+      stale = true
+    }
+  }, [code])
+
+  return code && result?.code === code ? result.history : null
+}
+
 // Figma D-12 같은 메뉴 지난 기록. 먹은 날짜·양·식후 수치만
 function FoodHistoryPage() {
   const goBack = useGoBack(ROUTES.RECORDS)
@@ -71,9 +103,13 @@ function FoodHistoryPage() {
   const records = useGlucoseStore((state) => state.records)
   const versions = useCriteriaStore((state) => state.versions)
   const foods = useFoods()
+  const code = findFood(name, foods)?.code
+  const server = useServerHistory(code)
 
   if (!name) return <Navigate to={ROUTES.RECORDS} replace />
-  const history = getFoodHistory(name, meals, records, versions, excludeMealId)
+  // 고른 음식은 서버 기록(다른 기기 포함), 직접 적은 음식이나 못 받았을 땐 기기 기록
+  const source = server ?? { meals, records }
+  const history = getFoodHistory(name, source.meals, source.records, versions, excludeMealId)
 
   // 이 음식이 그 끼니의 주식일 때만 양 표시
   const getPortion = ({ meal }: FoodHistoryEntry) => {
@@ -100,7 +136,7 @@ function FoodHistoryPage() {
               entry={entry}
               portion={getPortion(entry)}
               lateMinutes={
-                entry.record ? getLateMinutes(entry.record, meals, entry.postMealHours) : 0
+                entry.record ? getLateMinutes(entry.record, source.meals, entry.postMealHours) : 0
               }
             />
           ))}

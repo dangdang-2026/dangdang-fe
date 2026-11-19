@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { createMeal, getAllMeals } from '@/api/meals'
+import { getErrorCode } from '@/api/axios'
+import { applyMealItems, toMealContent } from '@/api/mealItems'
+import { createMeal, getAllMeals, type ServerMeal } from '@/api/meals'
 import { createReading, deleteReading, getAllReadings, updateReading } from '@/api/readings'
 import type {
   GlucoseRecord,
@@ -11,6 +13,7 @@ import type {
   NutritionEdits,
   Portion,
 } from '@/types/glucose'
+import { useFoodStore } from '@/stores/useFoodStore'
 
 type InsulinInput = Pick<InsulinRecord, 'kind' | 'name' | 'units' | 'takenAt'>
 
@@ -46,7 +49,7 @@ function keepEdits(edits: NutritionEdits | undefined, foods: string[]) {
   return kept.length > 0 ? Object.fromEntries(kept) : undefined
 }
 
-// API 연동 전까지 기기(localStorage)에 저장
+// 서버 기록을 기기(localStorage)에도 둠
 export const useGlucoseStore = create<GlucoseState>()(
   persist(
     (set) => ({
@@ -77,13 +80,16 @@ export const useGlucoseStore = create<GlucoseState>()(
                   foods,
                   portion,
                   nutritionEdits: keepEdits(nutritionEdits ?? meal.nutritionEdits, foods),
+                  itemsPending: true,
                 }
               : meal,
           ),
         })),
       setMealPhotoInfo: (mealId, info) =>
         set((state) => ({
-          meals: state.meals.map((meal) => (meal.id === mealId ? { ...meal, ...info } : meal)),
+          meals: state.meals.map((meal) =>
+            meal.id === mealId ? { ...meal, ...info, itemsPending: true } : meal,
+          ),
         })),
       // 서버 동기화로 같은 기록이 먼저 들어왔으면 바꿔 끼움
       addRecord: (record) =>
@@ -146,10 +152,76 @@ async function sendPendingMeal(meal: Meal, offline: boolean) {
         record.mealId === meal.id ? { ...record, mealId: saved.id } : record,
       ),
     }))
+    // 못 보낸 사이 적은 음식도 이어서 보냄
+    void pushMealItems(saved.id)
     return true
   } catch {
     return false
   }
+}
+
+// 음식 이름으로 코드 · 주식 여부 · 내 음식 영양값을 다시 찾을 목록
+const getKnownFoods = () => {
+  const { myFoods, pickedFoods } = useFoodStore.getState()
+  return [...myFoods, ...pickedFoods]
+}
+
+// 서버 식사를 기기 식사에 합침. 기기에서 고치고 못 보낸 음식은 기기 값, 아니면 서버 항목
+export function mergeServerMeal(server: ServerMeal, local?: Meal): Meal {
+  const { items, ...base } = server
+  const meal: Meal = local ? { ...local, ...base } : { ...base, skipped: false }
+  if (!items || meal.itemsPending) return meal
+  // 항목 API 전에 기기에만 적은 음식은 서버로 옮김
+  if (items.length === 0) return meal.foods?.length ? { ...meal, itemsPending: true } : meal
+  return { ...meal, ...toMealContent(items, getKnownFoods(), meal.startedAt) }
+}
+
+// 같은 식사를 동시에 맞추면 항목이 두 번 생겨서 차례로
+const pushing = new Map<string, Promise<boolean>>()
+
+async function pushMealItemsOnce(mealId: string) {
+  const meal = useGlucoseStore.getState().meals.find((item) => item.id === mealId)
+  if (!meal || meal.pending || !meal.itemsPending) return true
+  try {
+    await applyMealItems(meal, getKnownFoods())
+  } catch (error) {
+    // 서버에서 지운 식사면 더 보내지 않음
+    if (getErrorCode(error) !== 'MEAL_40401') return false
+  }
+  // 보내는 사이 또 고쳤으면 다음 차례에 다시 보냄. 동기화로 객체만 바뀐 건 같은 내용으로 봄
+  const same = (item: Meal) =>
+    item.foods === meal.foods &&
+    item.portion === meal.portion &&
+    item.portions === meal.portions &&
+    item.nutritionEdits === meal.nutritionEdits
+  useGlucoseStore.setState((state) => ({
+    meals: state.meals.map((item) =>
+      item.id === mealId && same(item) ? { ...item, itemsPending: undefined } : item,
+    ),
+  }))
+  return true
+}
+
+// 기기 끼니 내용을 서버 항목으로 맞춤. 실패하면 itemsPending으로 남겨 동기화 때 다시
+export function pushMealItems(mealId: string) {
+  const prev = pushing.get(mealId) ?? Promise.resolve(true)
+  const next = prev.then(() => pushMealItemsOnce(mealId))
+  pushing.set(mealId, next)
+  void next.finally(() => {
+    if (pushing.get(mealId) === next) pushing.delete(mealId)
+  })
+  return next
+}
+
+// 끼니 내용은 기기에 먼저 적고 서버에 보냄. 못 보낸 식사면 식사를 보낼 때 같이
+export function saveMealContent(
+  mealId: string,
+  foods: string[],
+  portion?: Portion,
+  nutritionEdits?: NutritionEdits,
+) {
+  useGlucoseStore.getState().setMealContent(mealId, foods, portion, nutritionEdits)
+  return pushMealItems(mealId)
 }
 
 // 식사 시작은 원탭이라 기기에 먼저 적고 서버에 보냄. 실패하면 pending으로 남겨 동기화 때 다시 보냄
@@ -166,10 +238,7 @@ export async function syncMeals() {
   const server = await getAllMeals()
   useGlucoseStore.setState((state) => {
     const local = new Map(state.meals.map((meal) => [meal.id, meal]))
-    const synced = server.map((meal) => {
-      const prev = local.get(meal.id)
-      return prev ? { ...prev, ...meal } : { ...meal, skipped: false }
-    })
+    const synced = server.map((meal) => mergeServerMeal(meal, local.get(meal.id)))
     // 또 못 보낸 식사는 기기에 남겨 다음에 다시 보냄
     const stillPending = state.meals.filter((meal) => meal.pending)
     return {
@@ -178,6 +247,8 @@ export async function syncMeals() {
       ),
     }
   })
+  const unsent = useGlucoseStore.getState().meals.filter((meal) => meal.itemsPending)
+  await Promise.all(unsent.map((meal) => pushMealItems(meal.id)))
 }
 
 // 서버에 등록한 뒤 기기에 반영. 서버에 있는 식사면 끼니도 서버에 연결, 못 보낸 식사면 기기에서만
@@ -217,7 +288,7 @@ export async function syncRecords() {
 // 기간 하나의 서버 기록. to는 포함 안 함
 type ServerRangeData = {
   range: { from: Date; to: Date }
-  meals: Pick<Meal, 'id' | 'type' | 'startedAt'>[]
+  meals: ServerMeal[]
   records: GlucoseRecord[]
 }
 
@@ -249,11 +320,11 @@ export async function syncServerRange<T extends ServerRangeData>(load: () => Pro
     const meals = [
       ...keptMeals.map((meal) => {
         const server = serverMeals.get(meal.id)
-        return server ? { ...meal, ...server } : meal
+        return server ? mergeServerMeal(server, meal) : meal
       }),
       ...data.meals
         .filter((meal) => !localMealIds.has(meal.id))
-        .map((meal) => ({ ...meal, skipped: false })),
+        .map((meal) => mergeServerMeal(meal)),
     ].sort((a, b) => toTime(a.startedAt) - toTime(b.startedAt))
 
     const serverRecords = new Map(data.records.map((record) => [record.id, record]))

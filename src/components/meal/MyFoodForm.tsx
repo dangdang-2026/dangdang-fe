@@ -4,13 +4,13 @@ import iconPrivate from '@/assets/icons/private.svg'
 import iconSearchSm from '@/assets/icons/search-sm.svg'
 import { useFoodSearch, useFoods } from '@/hooks/useFoods'
 import { useFoodStore } from '@/stores/useFoodStore'
+import { MY_FOOD_UNIT } from '@/api/myFoods'
 import type { MyFood, Portion } from '@/types/glucose'
 import { findFood, formatPortion, looksLikeStaple } from '@/utils/meal'
 
 const PORTIONS: Portion[] = ['half', 'one', 'one-half']
 const SIMILAR_LIMIT = 3
 const SEARCH_LIMIT = 6
-const MY_FOOD_UNIT = '인분'
 
 type MyFoodFormProps = {
   initialName: string

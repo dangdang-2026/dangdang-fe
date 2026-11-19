@@ -6,7 +6,7 @@ import SubPageHeader from '@/components/common/SubPageHeader'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
-import { useVisitStore } from '@/stores/useVisitStore'
+import { saveNextVisit } from '@/stores/useVisitStore'
 import type { CriteriaPrefill } from '@/types/criteria'
 import type { NoteExtraction, NoteFinding, NoteFindingKey } from '@/types/visit'
 import { formatPostMealHours, formatTarget } from '@/utils/criteria'
@@ -72,7 +72,6 @@ function VisitNoteResultPage() {
   const location = useLocation()
   const result = (location.state as { result?: NoteExtraction } | null)?.result
   const criteria = useCriteria()
-  const setNextVisit = useVisitStore((state) => state.setNextVisit)
   // 애매한 항목은 체크 안 한 채로 시작
   const [checked, setChecked] = useState<NoteFindingKey[]>(
     () => result?.findings.filter((item) => !item.needsCheck).map((item) => item.key) ?? [],
@@ -99,7 +98,8 @@ function VisitNoteResultPage() {
     const selected = findings.filter((item) => checked.includes(item.key))
     const prefill: CriteriaPrefill = {}
     for (const { key, value } of selected) {
-      if (key === 'nextVisit') setNextVisit(String(value))
+      // 못 남기면 원래 날짜로 돌아가 진료 탭에서 다시 정함
+      if (key === 'nextVisit') saveNextVisit(String(value)).catch(() => {})
       else prefill[key] = Number(value)
     }
     // 기준 항목이 있으면 기준 바꾸기에서 전후 확인 후 저장

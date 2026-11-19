@@ -16,24 +16,19 @@ import iconClear from '@/assets/icons/clear.svg'
 import iconBell from '@/assets/icons/my/bell.svg'
 import Toast from '@/components/common/Toast'
 import CommunityEmpty from '@/components/community/CommunityEmpty'
+import MorePostsButton from '@/components/community/MorePostsButton'
 import NicknameSheet from '@/components/community/NicknameSheet'
 import PostCard from '@/components/community/PostCard'
 import SearchResults from '@/components/community/SearchResults'
 import SortToggle from '@/components/community/SortToggle'
 import { BOARD_ICON, BOARD_LABEL, BOARD_ORDER } from '@/constants/community'
-import {
-  ROUTES,
-  communityBoardPath,
-  communityNewsPath,
-  communityPostPath,
-} from '@/constants/routes'
+import { ROUTES, communityBoardPath, communityPostPath } from '@/constants/routes'
 import { useNow } from '@/hooks/useNow'
 import { useOnline } from '@/hooks/useOnline'
-import { useVisiblePosts } from '@/hooks/useVisiblePosts'
+import { usePostList } from '@/hooks/usePostList'
 import { syncCommunityProfile, useCommunityStore } from '@/stores/useCommunityStore'
-import { LATEST_NEWS } from '@/mocks/news'
+import { getAnnouncementLabel, useAnnouncement, useOpenAnnouncement } from '@/hooks/useAnnouncement'
 import type { PostSort } from '@/types/community'
-import { sortPosts } from '@/utils/community'
 
 type Category = { key: string; label: string; icon: string; onClick: () => void }
 
@@ -48,16 +43,18 @@ function CommunityPage() {
   const focusSearch = !!(useLocation().state as { focusSearch?: boolean } | null)?.focusSearch
   const now = useNow()
   const { online, recheck } = useOnline()
-  const posts = useVisiblePosts()
+  const [sort, setSort] = useState<PostSort>('popular')
+  // 메인은 전체 게시판. 검색 중엔 검색 결과가 따로 받음
+  const list = usePostList({ sort }, !searching)
   const noticeDismissed = useCommunityStore((state) => state.noticeDismissed)
   const dismissNotice = useCommunityStore((state) => state.dismissNotice)
-  const newsCardDismissed = useCommunityStore((state) => state.newsCardDismissed)
+  const dismissedNewsId = useCommunityStore((state) => state.dismissedNewsId)
   const dismissNewsCard = useCommunityStore((state) => state.dismissNewsCard)
-  // 메인에는 가장 최근 당당 소식 한 장
-  const latestNews = LATEST_NEWS
+  // 메인에는 서버에 걸린 소식 · 광고 카드 한 장. 닫은 카드만 숨김
+  const announcement = useAnnouncement('COMMUNITY')
+  const openAnnouncement = useOpenAnnouncement()
   const nickname = useCommunityStore((state) => state.nickname)
   const setNickname = useCommunityStore((state) => state.setNickname)
-  const [sort, setSort] = useState<PostSort>('popular')
   // 닉네임이 없으면 처음 들어올 때 바로 정하기
   const [nicknameOpen, setNicknameOpen] = useState(nickname === null)
   const [toast, setToast] = useState<string | null>(null)
@@ -148,13 +145,12 @@ function CommunityPage() {
       {searching ? (
         <SearchResults
           query={query}
-          posts={posts}
           now={now}
           onOpen={(post) => navigate(communityPostPath(post.id))}
           onAsk={() =>
             navigate(ROUTES.ASK, { state: { ask: `${query.trim()} 물어볼 말 정리해 줘` } })
           }
-          onWrite={() => navigate(`${ROUTES.COMMUNITY_WRITE}?board=question`)}
+          onWrite={startWriting}
         />
       ) : (
         <>
@@ -183,12 +179,19 @@ function CommunityPage() {
             ))}
           </nav>
 
-          {!online ? (
+          {!online || list.status === 'error' ? (
             <CommunityEmpty
               variant="sorry"
               title="글을 불러오지 못했어요"
               description="인터넷 연결을 확인하고 다시 시도해 주세요."
-              action={{ icon: iconRefresh, label: '다시 불러오기', onClick: recheck }}
+              action={{
+                icon: iconRefresh,
+                label: '다시 불러오기',
+                onClick: () => {
+                  recheck()
+                  list.reload()
+                },
+              }}
             />
           ) : (
             <>
@@ -206,32 +209,32 @@ function CommunityPage() {
                 </div>
               )}
 
-              {!newsCardDismissed && (
+              {announcement && dismissedNewsId !== announcement.id && (
                 <div className="px-5 pb-2">
                   <div className="flex items-center gap-3 rounded-2xl bg-yellow-50 p-3">
                     <button
                       type="button"
                       className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                      onClick={() => navigate(communityNewsPath(latestNews.id))}
+                      onClick={() => openAnnouncement(announcement)}
                     >
                       <span className="rounded-tag text-caption text-grey-800 flex size-14 shrink-0 items-start bg-white p-2 font-bold">
-                        {latestNews.slides.length}장
+                        {announcement.kind === 'AD' ? 'AD' : '소식'}
                       </span>
                       <span className="flex min-w-0 flex-col gap-0.5">
                         <span className="text-caption text-grey-800 flex items-center gap-1 font-bold">
                           <img src={iconNewsCheck} alt="" width={12} height={12} />
-                          당당 공식 · {latestNews.series}
+                          {getAnnouncementLabel(announcement)}
                         </span>
                         <span className="text-grey-900 truncate text-sm leading-snug font-bold">
-                          {latestNews.title}
-                        </span>
-                        <span className="text-caption text-grey-500 font-normal">
-                          출처 {latestNews.sources.length} · 확인일{' '}
-                          {latestNews.checkedAt.slice(5).replace('-', '/')}
+                          {announcement.title}
                         </span>
                       </span>
                     </button>
-                    <button type="button" aria-label="당당 소식 닫기" onClick={dismissNewsCard}>
+                    <button
+                      type="button"
+                      aria-label="당당 소식 닫기"
+                      onClick={() => dismissNewsCard(announcement.id)}
+                    >
                       <img src={iconCardClose} alt="" width={16} height={16} />
                     </button>
                   </div>
@@ -242,7 +245,7 @@ function CommunityPage() {
                 <SortToggle value={sort} onChange={setSort} />
               </div>
               <ul>
-                {sortPosts(posts, sort).map((post) => (
+                {list.posts.map((post) => (
                   <li key={post.id}>
                     <PostCard
                       post={post}
@@ -252,6 +255,18 @@ function CommunityPage() {
                   </li>
                 ))}
               </ul>
+              {list.hasNext && (
+                <MorePostsButton loading={list.loadingMore} onClick={list.loadMore} />
+              )}
+              {list.status !== 'done' || list.posts.length === 0 ? (
+                <p className="text-grey-500 py-12 text-center text-sm leading-normal">
+                  {list.status === 'loading'
+                    ? '글을 불러오는 중이에요'
+                    : sort === 'popular'
+                      ? '오늘 인기 글이 아직 없어요'
+                      : '아직 올라온 글이 없어요'}
+                </p>
+              ) : null}
             </>
           )}
         </>

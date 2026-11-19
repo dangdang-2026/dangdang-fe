@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import {
   getConsents,
   saveChatConsent as postChatConsent,
+  savePhotoConsent as postPhotoConsent,
   withdrawAiConsents as postWithdrawAiConsents,
 } from '@/api/consent'
 
@@ -24,7 +25,7 @@ type AiState = {
   withdrawAll: (now?: Date) => void
 }
 
-// 사진 동의는 기기에만, 기록 보기 동의는 서버에도 저장
+// 서버 동의를 기기에도 둠. 사진 · 기록 보기 동의 모두 서버가 기준
 export const useAiStore = create<AiState>()(
   persist(
     (set) => ({
@@ -50,22 +51,29 @@ export async function saveChatConsent(agreed: boolean) {
   useAiStore.getState().setConsent('chat', agreed)
 }
 
+// 서버에 사진 AI 분석 동의를 저장한 뒤 기기에 반영
+export async function savePhotoConsent(agreed: boolean) {
+  await postPhotoConsent(agreed)
+  useAiStore.getState().setConsent('photo', agreed)
+}
+
 // 서버에서 AI 동의를 모두 철회한 뒤 기기도 끔
 export async function withdrawAiConsents() {
   await postWithdrawAiConsents()
   useAiStore.getState().withdrawAll()
 }
 
-// 서버 동의로 기록 보기 동의를 맞춤. 기록 사용 · 국외 이전 둘 다 있어야 켜짐, 한 번도 안 골랐으면 다시 물어봄
-export async function syncChatConsent() {
+// 서버 동의로 사진 · 기록 보기 동의를 맞춤. 한 번도 안 골랐으면 다시 물어봄
+// 기록 보기는 기록 사용 · 국외 이전 둘 다 있어야 켜짐
+export async function syncAiConsents() {
   const items = await getConsents()
+  const photo = items.find((item) => item.type === 'AI_PHOTO')
   const records = items.find((item) => item.type === 'AI_CHAT_RECORDS')
   const overseas = items.find((item) => item.type === 'OVERSEAS_TRANSFER')
-  if (!records?.occurredAt) {
-    useAiStore.setState({ chat: null })
-    return
-  }
   useAiStore.setState({
-    chat: { agreed: records.granted && !!overseas?.granted, at: records.occurredAt },
+    photo: photo?.occurredAt ? { agreed: photo.granted, at: photo.occurredAt } : null,
+    chat: records?.occurredAt
+      ? { agreed: records.granted && !!overseas?.granted, at: records.occurredAt }
+      : null,
   })
 }

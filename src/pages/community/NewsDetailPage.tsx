@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router'
+import { getErrorCode } from '@/api/axios'
+import { getCard, saveCard, unsaveCard } from '@/api/cards'
 import iconAskPencil from '@/assets/icons/community/ask-pencil.svg'
 import iconCorrection from '@/assets/icons/community/correction.svg'
 import iconNewsCheck from '@/assets/icons/community/news-check.svg'
@@ -15,9 +17,9 @@ import Toast from '@/components/common/Toast'
 import NewsAskSheet from '@/components/community/NewsAskSheet'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { MOCK_NEWS } from '@/mocks/news'
 import { useCommunityStore } from '@/stores/useCommunityStore'
-import { useVisitStore } from '@/stores/useVisitStore'
+import { saveQuestion } from '@/stores/useVisitStore'
+import type { NewsCard } from '@/types/news'
 import { parseDateKey } from '@/utils/date'
 
 // 예: 10/19
@@ -26,17 +28,36 @@ const formatShortDate = (key: string) => {
   return date ? `${date.getMonth() + 1}/${date.getDate()}` : ''
 }
 
+// 서버 카드 하나. 받기 전 undefined, 실패하면 null
+function useCard(id: string | undefined) {
+  const [result, setResult] = useState<{ id: string; card: NewsCard | null } | null>(null)
+  useEffect(() => {
+    if (!id) return
+    let stale = false
+    getCard(id)
+      .then((card) => {
+        if (!stale) setResult({ id, card })
+      })
+      .catch(() => {
+        if (!stale) setResult({ id, card: null })
+      })
+    return () => {
+      stale = true
+    }
+  }, [id])
+  return id && result?.id === id ? result.card : id ? undefined : null
+}
+
 // Figma U-26 당당 소식 카드뉴스 상세 · U-26b 정정된 카드 · U-26c 내려간 카드 · U-28 물어볼 것에 적기
 function NewsDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.COMMUNITY_NEWS)
-  const card = MOCK_NEWS.find((item) => item.id === id)
+  const card = useCard(id)
   const likedNewsIds = useCommunityStore((state) => state.likedNewsIds)
-  const savedNewsIds = useCommunityStore((state) => state.savedNewsIds)
   const toggleLikeNews = useCommunityStore((state) => state.toggleLikeNews)
-  const toggleSaveNews = useCommunityStore((state) => state.toggleSaveNews)
-  const addQuestion = useVisitStore((state) => state.addQuestion)
+  // 저장을 누른 뒤 값. 누르기 전엔 서버 값
+  const [savedNow, setSavedNow] = useState<{ id: string; saved: boolean } | null>(null)
   const [slide, setSlide] = useState(0)
   const [sourcesOpen, setSourcesOpen] = useState(false)
   const [askOpen, setAskOpen] = useState(false)
@@ -46,7 +67,19 @@ function NewsDetailPage() {
   const closeSources = () => setSourcesOpen(false)
   const closeAsk = () => setAskOpen(false)
 
-  if (!card) return <Navigate to={ROUTES.COMMUNITY_NEWS} replace />
+  // 받는 중이거나 못 받았으면 안내만
+  if (!card) {
+    return (
+      <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-32">
+        <SubPageHeader title="당당 소식" onBack={goBack} />
+        <p className="text-grey-500 py-16 text-center text-sm leading-normal">
+          {card === undefined
+            ? '소식을 불러오는 중이에요'
+            : '소식을 불러오지 못했어요. 잠시 후 다시 열어 주세요'}
+        </p>
+      </main>
+    )
+  }
 
   // 출처를 다시 확인하느라 내린 카드
   if (card.withdrawn) {
@@ -78,7 +111,22 @@ function NewsDetailPage() {
   }
 
   const liked = likedNewsIds.includes(card.id)
-  const saved = savedNewsIds.includes(card.id)
+  const saved = savedNow?.id === card.id ? savedNow.saved : !!card.saved
+
+  // 화면엔 바로 바꾸고 서버에 못 남기면 되돌림
+  const toggleSave = () => {
+    const next = !saved
+    setSavedNow({ id: card.id, saved: next })
+    setToast(next ? '저장한 카드에 담았어요' : '저장을 풀었어요')
+    ;(next ? saveCard(card.id) : unsaveCard(card.id)).catch((error) => {
+      setSavedNow({ id: card.id, saved })
+      setToast(
+        getErrorCode(error) === 'CARD_40901'
+          ? '내려간 카드라 저장할 수 없어요'
+          : '저장하지 못했어요. 잠시 후 다시 시도해 주세요',
+      )
+    })
+  }
   const checkedAt = formatShortDate(card.checkedAt)
 
   const copyLink = async () => {
@@ -101,10 +149,7 @@ function NewsDetailPage() {
       icon: iconNewsSave,
       label: saved ? '저장됨' : '저장',
       active: saved,
-      onClick: () => {
-        toggleSaveNews(card.id)
-        setToast(saved ? '저장을 풀었어요' : '저장한 카드에 담았어요')
-      },
+      onClick: toggleSave,
     },
     { icon: iconNewsLink, label: '링크 복사', active: false, onClick: copyLink },
   ]
@@ -262,9 +307,11 @@ function NewsDetailPage() {
         <NewsAskSheet
           questions={card.questions}
           onSubmit={(questions) => {
-            questions.forEach((question) => addQuestion(question))
             setAskOpen(false)
             setToast(`진료 탭 물어볼 것에 ${questions.length}개 적었어요`)
+            Promise.all(questions.map(saveQuestion)).catch(() =>
+              setToast('물어볼 것을 저장하지 못했어요. 잠시 후 다시 시도해 주세요'),
+            )
           }}
           onClose={closeAsk}
         />

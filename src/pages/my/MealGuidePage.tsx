@@ -1,12 +1,13 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import iconCamera from '@/assets/icons/meal-guide/camera.svg'
 import iconClose from '@/assets/icons/meal/close.svg'
 import SubPageHeader from '@/components/common/SubPageHeader'
+import Toast from '@/components/common/Toast'
 import ProfileDateSheet from '@/components/my/ProfileDateSheet'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
-import { useMealGuideStore } from '@/stores/useMealGuideStore'
+import { saveMealGuide, useMealGuideStore } from '@/stores/useMealGuideStore'
 import { parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 import { resizeImageFile } from '@/utils/image'
 
@@ -30,7 +31,9 @@ function MealGuidePage() {
   const goBack = useGoBack(ROUTES.MY_CRITERIA)
   const hospital = usePrimaryHospital()
   const guide = useMealGuideStore((state) => state.guide)
-  const saveGuide = useMealGuideStore((state) => state.saveGuide)
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const closeToast = useCallback(() => setToast(null), [])
   const today = startOfDay(new Date())
   const [receivedOn, setReceivedOn] = useState(guide?.receivedOn ?? toDateKey(today))
   const [place, setPlace] = useState(guide?.place ?? hospital.name)
@@ -48,15 +51,21 @@ function MealGuidePage() {
     setPhoto(await resizeImageFile(file))
   }
 
+  // 서버에 저장되면 돌아감
   const save = () => {
-    saveGuide({
+    setSaving(true)
+    saveMealGuide({
       receivedOn,
       place: place.trim(),
       meals: meals.trim(),
       snacks: snacks.trim(),
       photo,
     })
-    goBack()
+      .then(goBack)
+      .catch(() => {
+        setSaving(false)
+        setToast('식사 안내를 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+      })
   }
 
   return (
@@ -173,7 +182,7 @@ function MealGuidePage() {
       <div className="min-h-8 flex-1" />
       <button
         type="button"
-        disabled={!canSave}
+        disabled={!canSave || saving}
         className="text-subtitle-1 disabled:bg-grey-100 disabled:text-grey-400 bg-primary h-14 shrink-0 rounded-xl leading-none text-white"
         onClick={save}
       >
@@ -194,6 +203,7 @@ function MealGuidePage() {
           onClose={() => setDateSheet(false)}
         />
       )}
+      {toast && <Toast message={toast} onClose={closeToast} />}
     </main>
   )
 }

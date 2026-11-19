@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { getErrorCode } from '@/api/axios'
 import { findFoodInPhoto } from '@/api/foodPhoto'
 import BottomSheet from '@/components/common/BottomSheet'
 import MealContentSheet, { type PhotoAnalysis } from '@/components/meal/MealContentSheet'
@@ -11,7 +12,7 @@ import PhotoSearchScreen from '@/components/meal/photo/PhotoSearchScreen'
 import PhotoTableScreen, { type TableItem } from '@/components/meal/photo/PhotoTableScreen'
 import PhotoUnclearScreen from '@/components/meal/photo/PhotoUnclearScreen'
 import { MEAL_LABEL } from '@/constants/glucose'
-import { useAiStore } from '@/stores/useAiStore'
+import { savePhotoConsent, useAiStore } from '@/stores/useAiStore'
 import { useFoodStore } from '@/stores/useFoodStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import type { DetectedFood } from '@/types/foodPhoto'
@@ -60,6 +61,7 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
   const photoConsent = useAiStore((state) => state.photo)
   const setConsent = useAiStore((state) => state.setConsent)
   const addMyFood = useFoodStore((state) => state.addMyFood)
+  const rememberFood = useFoodStore((state) => state.rememberFood)
   const setMealPhotoInfo = useGlucoseStore((state) => state.setMealPhotoInfo)
   // 찾는 중에 이름으로 넘어가면 분석은 이어서 하고 식사 시트에 결과를 보여 줌(F-03·F-04)
   const [analysis, setAnalysis] = useState<Omit<PhotoAnalysis, 'photoUrl'> | null>(null)
@@ -113,8 +115,10 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
     setPhotoUrl(URL.createObjectURL(photo))
     setStep('finding')
     try {
-      const result = await findFoodInPhoto(meal.id, photo)
+      const { result, foods } = await findFoodInPhoto(photo)
       if (request !== requestRef.current) return
+      // 후보 이름으로 식품코드 · 영양값을 다시 찾게 남김
+      foods.forEach(rememberFood)
       const unclear = result.status === 'unclear' || result.foods.length === 0
       // 이미 식사 시트로 넘어갔으면 시트에 후보만 채움
       if (handoffRef.current) {
@@ -147,10 +151,11 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
       // 1등 후보만 골라 둠. 애매하면 비워 두고 사용자가 고름
       setSelected(food.needsCheck ? [] : food.candidates.slice(0, 1))
       setStep('single')
-    } catch {
+    } catch (error) {
       if (request !== requestRef.current) return
       setAnalysis(null)
-      setStep('failed')
+      // 서버에 사진 동의가 없으면 동의부터 다시
+      setStep(getErrorCode(error) === 'FOOD_40301' && !handoffRef.current ? 'consent' : 'failed')
     }
   }
 
@@ -208,11 +213,14 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
       return (
         <PhotoConsentSheet
           onAgree={() => {
-            setConsent('photo', true)
+            // 찍는 동안 서버에 저장. 못 하면 분석 때 403으로 다시 물어봄
+            savePhotoConsent(true).catch(() => {})
             setStep('camera')
           }}
           onDecline={() => {
+            // 거절은 서버에 못 남겨도 다시 묻지 않음
             setConsent('photo', false)
+            savePhotoConsent(false).catch(() => {})
             setStep('name')
           }}
           onClose={onClose}

@@ -1,16 +1,19 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getMyCommunityProfile } from '@/api/communityProfile'
+import { savePostDraft } from '@/api/posts'
 import { MY_AUTHOR_ID } from '@/constants/community'
-import { MOCK_POSTS } from '@/mocks/community'
-import type { Author, BoardKey, Post, PostDraft, ReportReason } from '@/types/community'
+import type { Author, Post, PostDraft, ReportReason } from '@/types/community'
 
 type CommunityState = {
   // 커뮤니티 첫 진입에 정함. 안 정했으면 null
   nickname: string | null
   // 글·댓글 옆에 임신 주수 배지
   showWeek: boolean
+  // 서버에서 받은 글. 목록 · 상세에서 받을 때마다 맞춤
   posts: Post[]
+  // full이면 상세 글이라 본문까지 그대로 바꿈
+  cachePosts: (posts: Post[], full?: boolean) => void
   likedPostIds: string[]
   likedCommentIds: string[]
   // 메인 안내 띠를 닫았는지
@@ -19,23 +22,13 @@ type CommunityState = {
   setNickname: (nickname: string, showWeek?: boolean) => void
   setShowWeek: (showWeek: boolean) => void
   dismissNotice: () => void
-  viewPost: (postId: string) => void
   toggleLikePost: (postId: string) => void
   toggleLikeComment: (postId: string, commentId: string) => void
   addComment: (postId: string, author: Author, body: string, parentId?: string) => void
   removeComment: (postId: string, commentId: string) => void
-  // 새 글 id를 돌려줌
-  addPost: (input: {
-    board: BoardKey
-    title: string
-    body: string
-    author: Author
-    poll?: string[]
-  }) => string
   // 글 id → 내가 고른 투표 항목 id
   votes: Record<string, string>
   vote: (postId: string, optionId: string) => void
-  editPost: (postId: string, changes: Pick<Post, 'board' | 'title' | 'body'>) => void
   // 쓰다 나갈 때 임시 저장
   draft: PostDraft | null
   saveDraft: (draft: PostDraft) => void
@@ -52,12 +45,12 @@ type CommunityState = {
   unblockAuthor: (authorId: string) => void
   // 당당 소식 카드 공감·저장
   likedNewsIds: string[]
-  savedNewsIds: string[]
+
   toggleLikeNews: (newsId: string) => void
-  toggleSaveNews: (newsId: string) => void
-  // 메인 당당 소식 카드를 닫았는지
-  newsCardDismissed: boolean
-  dismissNewsCard: () => void
+
+  // 커뮤니티 메인에서 닫은 소식 카드. 새 카드가 걸리면 다시 보임
+  dismissedNewsId: number | null
+  dismissNewsCard: (id: number) => void
 }
 
 // 글 하나만 바꿔 끼움
@@ -78,13 +71,54 @@ const renameMe = (posts: Post[], from: string | null, to: string) => {
 const toggle = (ids: string[], id: string) =>
   ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]
 
-// API 연동 전까지 mock 글로 시작해 기기에 저장
+// 목록 본문은 앞 100자. 그보다 짧으면 본문 전체
+const EXCERPT_LENGTH = 100
+// 기기에 둘 글 수. 넘으면 오래된 글부터 버리고 내 글은 남김
+const MAX_CACHED_POSTS = 300
+
+// 오래된 글부터 버림. 내 글은 커뮤니티 활동에서 보여서 남김
+function trimPosts(posts: Post[]) {
+  if (posts.length <= MAX_CACHED_POSTS) return posts
+  const keep = new Set(
+    [...posts]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, MAX_CACHED_POSTS)
+      .map((post) => post.id),
+  )
+  return posts.filter((post) => keep.has(post.id) || post.author.id === MY_AUTHOR_ID)
+}
+
+// 받은 글은 그대로 바꿔 끼움. 상세에서 받은 댓글 · 투표 항목은 목록 글로 덮지 않음
+const mergePosts = (posts: Post[], incoming: Post[], full: boolean) => {
+  const byId = new Map(incoming.map((post) => [post.id, post]))
+  const merged = posts.map((post) => {
+    const next = byId.get(post.id)
+    if (!next) return post
+    byId.delete(post.id)
+    return {
+      ...post,
+      ...next,
+      // 목록은 본문 앞부분만 와서 상세에서 받은 본문을 남김
+      body:
+        full || [...next.body].length < EXCERPT_LENGTH || next.body.length >= post.body.length
+          ? next.body
+          : post.body,
+      comments: next.comments.length > 0 ? next.comments : post.comments,
+      poll: next.poll?.length ? next.poll : (post.poll ?? next.poll),
+    }
+  })
+  return trimPosts([...merged, ...byId.values()])
+}
+
+// 커뮤니티 글은 서버에서 받아 기기에도 둠
 export const useCommunityStore = create<CommunityState>()(
   persist(
     (set) => ({
       nickname: null,
       showWeek: false,
-      posts: MOCK_POSTS,
+      posts: [],
+      cachePosts: (posts, full = false) =>
+        set((state) => ({ posts: mergePosts(state.posts, posts, full) })),
       likedPostIds: [],
       likedCommentIds: [],
       noticeDismissed: false,
@@ -94,8 +128,8 @@ export const useCommunityStore = create<CommunityState>()(
       blockedAuthors: [],
       likedNewsIds: [],
       votes: {},
-      savedNewsIds: [],
-      newsCardDismissed: false,
+
+      dismissedNewsId: null,
       setNickname: (nickname, showWeek) =>
         set((state) => ({
           nickname,
@@ -104,10 +138,6 @@ export const useCommunityStore = create<CommunityState>()(
         })),
       setShowWeek: (showWeek) => set({ showWeek }),
       dismissNotice: () => set({ noticeDismissed: true }),
-      viewPost: (postId) =>
-        set((state) => ({
-          posts: updatePost(state.posts, postId, (post) => ({ ...post, views: post.views + 1 })),
-        })),
       toggleLikePost: (postId) =>
         set((state) => {
           const liked = state.likedPostIds.includes(postId)
@@ -159,31 +189,6 @@ export const useCommunityStore = create<CommunityState>()(
             ),
           })),
         })),
-      addPost: ({ board, title, body, author, poll }) => {
-        const id = crypto.randomUUID()
-        const post: Post = {
-          id,
-          board,
-          title,
-          body,
-          author,
-          createdAt: new Date().toISOString(),
-          views: 0,
-          likes: 0,
-          comments: [],
-          poll: poll?.map((label, index) => ({ id: 'o' + (index + 1), label, votes: 0 })),
-        }
-        set((state) => ({ posts: [post, ...state.posts], draft: null }))
-        return id
-      },
-      editPost: (postId, changes) =>
-        set((state) => ({
-          posts: updatePost(state.posts, postId, (post) => ({
-            ...post,
-            ...changes,
-            editedAt: new Date().toISOString(),
-          })),
-        })),
       // 한 번 고르면 바꿀 수 없음
       vote: (postId, optionId) =>
         set((state) => {
@@ -213,15 +218,18 @@ export const useCommunityStore = create<CommunityState>()(
         })),
       toggleLikeNews: (newsId) =>
         set((state) => ({ likedNewsIds: toggle(state.likedNewsIds, newsId) })),
-      toggleSaveNews: (newsId) =>
-        set((state) => ({ savedNewsIds: toggle(state.savedNewsIds, newsId) })),
-      dismissNewsCard: () => set({ newsCardDismissed: true }),
+      dismissNewsCard: (id) => set({ dismissedNewsId: id }),
       unblockAuthor: (authorId) =>
         set((state) => ({
           blockedAuthors: state.blockedAuthors.filter((item) => item.id !== authorId),
         })),
     }),
-    { name: 'dangdang-community' },
+    {
+      name: 'dangdang-community',
+      // 1: 연동 전 가짜 글을 지움
+      version: 1,
+      migrate: (persisted) => ({ ...(persisted as CommunityState), posts: [] }),
+    },
   ),
 )
 
@@ -230,4 +238,16 @@ export async function syncCommunityProfile() {
   const profile = await getMyCommunityProfile()
   if (profile) useCommunityStore.getState().setNickname(profile.nickname, profile.showWeek)
   else useCommunityStore.setState({ nickname: null, showWeek: false })
+}
+
+// 임시 저장. 기기에 먼저 두고 서버에도 남겨 다른 기기에서 이어 씀
+export function keepPostDraft(draft: PostDraft) {
+  useCommunityStore.getState().saveDraft(draft)
+  return savePostDraft(draft)
+}
+
+// 임시 글 버리기. 서버엔 지우기 API가 없어 빈 글로 덮어씀
+export function dropPostDraft() {
+  useCommunityStore.getState().clearDraft()
+  return savePostDraft(null)
 }

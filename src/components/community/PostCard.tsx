@@ -80,7 +80,7 @@ function PostCard({ post, now, highlight = '', onClick }: PostCardProps) {
           <img src={iconView} alt="조회" width={16} height={16} />
           {formatCount(post.views)}
           <img src={iconComment} alt="댓글" width={16} height={16} className="ml-1.5" />
-          {formatCount(post.comments.length)}
+          {formatCount(post.commentCount)}
         </span>
       </span>
     </button>

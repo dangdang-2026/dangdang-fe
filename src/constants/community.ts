@@ -34,8 +34,11 @@ export const BOARD_ICON: Partial<Record<BoardKey, string>> = {
   birth: iconCatBirth,
 }
 
-// 식단 게시판은 사진·메뉴 비교로 번지지 않게 최신순만
-export const LATEST_ONLY_BOARDS: BoardKey[] = ['diet']
+// 식단 · 진료 후기는 비교로 번지지 않게 최신순만(서버도 인기순을 막음)
+export const LATEST_ONLY_BOARDS: BoardKey[] = ['diet', 'visit']
+
+// 서버에 아직 없는 게시판. 탭은 두고 준비 중으로
+export const PREPARING_BOARDS: BoardKey[] = ['free', 'question']
 
 // 조회수가 이만큼 넘으면 인기 칩
 export const POPULAR_VIEWS = 1000

@@ -1,0 +1,241 @@
+import { apiClient, type BaseResponse } from '@/api/axios'
+import { getMeal } from '@/api/meals'
+import type { Food, Meal, MyFood, NutritionEdit, NutritionEdits, Portion } from '@/types/glucose'
+import { findFood, getPortionFactor, looksLikeStaple } from '@/utils/meal'
+
+// 백엔드 MealNutrition. 먹은 양 전체 기준, 모르는 값은 null
+type MealNutrition = {
+  kcal: number | null
+  carbG: number | null
+  proteinG: number | null
+  fatG: number | null
+  sugarG: number | null
+}
+
+// 백엔드 MealItemSummaryResponse. 식사 상세 · 목록 · 오늘 · 기록 조회에 같이 옴
+export type MealItemSummary = {
+  itemId: number
+  // 직접 적은 음식이면 null
+  foodCode: string | null
+  name: string
+  servings: number
+  weightG: number | null
+  unit: 'g' | 'ml'
+  nutritionSource: 'DB' | 'USER'
+  nutrition: MealNutrition
+  // 직접 적은 값만, 없으면 null
+  nutritionOverride: MealNutrition | null
+}
+
+// 백엔드 MealItemResponse. mealUpdatedAt은 다음 영양값 입력의 expectedUpdatedAt
+type MealItemResponse = MealItemSummary & { mealUpdatedAt: string }
+
+type MealItemCreate =
+  | { foodCode: string; servings: number }
+  | { name: string; servings: number; weightG?: number; nutrition?: MealNutrition }
+
+// 식사에 음식 추가. foodCode · name 중 하나만, 직접 적은 음식만 nutrition
+async function addMealItem(mealId: string, body: MealItemCreate) {
+  const { data } = await apiClient.post<BaseResponse<MealItemResponse>>(
+    `/meals/${mealId}/items`,
+    body,
+  )
+  if (!data.data) throw new Error('식사 항목 추가 응답이 비어 있음')
+  return data.data
+}
+
+// 먹은 양(인분) 바꾸기
+async function updateMealItem(mealId: string, itemId: number, servings: number) {
+  const { data } = await apiClient.patch<BaseResponse<MealItemResponse>>(
+    `/meals/${mealId}/items/${itemId}`,
+    { servings },
+  )
+  if (!data.data) throw new Error('식사 항목 수정 응답이 비어 있음')
+  return data.data
+}
+
+// 내가 잰 영양값 넣기. 그사이 식사가 바뀌었으면 409 MEAL_40901
+async function setMealItemNutrition(
+  mealId: string,
+  itemId: number,
+  edit: NutritionEdit,
+  expectedUpdatedAt: string,
+) {
+  const { data } = await apiClient.post<BaseResponse<MealItemResponse>>(
+    `/meals/${mealId}/items/${itemId}/nutrition`,
+    { nutritionOverride: toNutrition(edit), weightG: edit.grams ?? null, expectedUpdatedAt },
+  )
+  if (!data.data) throw new Error('영양값 입력 응답이 비어 있음')
+  return data.data
+}
+
+// 식약처 값으로 되돌리기. 고른 음식만 됨
+async function revertMealItemNutrition(mealId: string, itemId: number) {
+  const { data } = await apiClient.delete<BaseResponse<MealItemResponse>>(
+    `/meals/${mealId}/items/${itemId}/nutrition`,
+  )
+  if (!data.data) throw new Error('영양값 되돌리기 응답이 비어 있음')
+  return data.data
+}
+
+// 음식 빼기
+async function deleteMealItem(mealId: string, itemId: number) {
+  await apiClient.delete(`/meals/${mealId}/items/${itemId}`)
+}
+
+// 서버는 소수 첫째 자리까지
+const round1 = (value: number) => Math.round(value * 10) / 10
+
+function toNutrition(values: Omit<NutritionEdit, 'grams' | 'editedAt'>): MealNutrition {
+  return {
+    kcal: round1(values.kcal),
+    carbG: round1(values.carbs),
+    proteinG: round1(values.protein),
+    fatG: round1(values.fat),
+    sugarG: round1(values.sugar),
+  }
+}
+
+// 서버 인분 → 화면 양(반 · 1 · 1.5)
+function toPortion(servings: number): Portion {
+  if (servings <= 0.75) return 'half'
+  return servings >= 1.25 ? 'one-half' : 'one'
+}
+
+const isStaple = (name: string, known: Food[]) =>
+  findFood(name, known)?.staple ?? looksLikeStaple(name)
+
+// 서버 항목 → 화면 끼니 내용
+export function toMealContent(
+  items: MealItemSummary[],
+  known: Food[],
+  editedAt: string,
+): Pick<Meal, 'foods' | 'portion' | 'portions' | 'nutritionEdits'> {
+  const staple = items.find((item) => isStaple(item.name, known))
+  const portions = items.filter((item) => item !== staple && toPortion(item.servings) !== 'one')
+  const edited = items.filter((item) => isEdited(item, known))
+  return {
+    foods: [...new Set(items.map((item) => item.name))],
+    portion: staple ? toPortion(staple.servings) : undefined,
+    portions: portions.length
+      ? Object.fromEntries(portions.map((item) => [item.name, toPortion(item.servings)]))
+      : undefined,
+    nutritionEdits: edited.length
+      ? Object.fromEntries(
+          edited.map((item) => [
+            item.name,
+            {
+              kcal: item.nutrition.kcal ?? 0,
+              carbs: item.nutrition.carbG ?? 0,
+              sugar: item.nutrition.sugarG ?? 0,
+              protein: item.nutrition.proteinG ?? 0,
+              fat: item.nutrition.fatG ?? 0,
+              grams: item.weightG ?? undefined,
+              editedAt,
+            },
+          ]),
+        )
+      : undefined,
+  }
+}
+
+// 주식은 끼니 양, 한상 사진은 음식별 양, 나머지는 1인분
+function getServings(meal: Meal, name: string, known: Food[]) {
+  const portion = (isStaple(name, known) && meal.portion) || meal.portions?.[name]
+  return getPortionFactor(portion || undefined)
+}
+
+const near = (a: number | null, b: number | null) =>
+  a !== null && b !== null && Math.abs(a - b) < 0.05
+
+// 영양값 다섯 칸이 같은지(소수 첫째 자리)
+function sameNutrition(saved: MealNutrition, sent: MealNutrition) {
+  return (
+    near(saved.kcal, sent.kcal) &&
+    near(saved.carbG, sent.carbG) &&
+    near(saved.proteinG, sent.proteinG) &&
+    near(saved.fatG, sent.fatG) &&
+    near(saved.sugarG, sent.sugarG)
+  )
+}
+
+// 서버에 이미 같은 영양값이 들어가 있는지
+function sameEdit(edit: NutritionEdit, item: MealItemSummary) {
+  return (
+    !!item.nutritionOverride &&
+    sameNutrition(item.nutritionOverride, toNutrition(edit)) &&
+    (item.weightG ?? undefined) === (edit.grams ?? undefined)
+  )
+}
+
+// 직접 적은 음식은 추가할 때 내 음식 값도 같이 보내서, 그 값과 다를 때만 내가 잰 값
+function isEdited(item: MealItemSummary, known: Food[]) {
+  if (!item.nutritionOverride) return false
+  if (item.foodCode) return true
+  const mine = myFoodNutrition(findFood(item.name, known), item.servings)
+  return !mine || !sameNutrition(item.nutritionOverride, mine)
+}
+
+// 내 음식의 1인분 영양값 × 먹은 양. 모르면 안 보냄
+function myFoodNutrition(food: MyFood | Food | undefined, servings: number) {
+  if (!food?.nutrition) return undefined
+  const { kcal, carbs, sugar, protein, fat } = food.nutrition
+  return toNutrition({
+    kcal: kcal * servings,
+    carbs: carbs * servings,
+    sugar: sugar * servings,
+    protein: protein * servings,
+    fat: fat * servings,
+  })
+}
+
+// 화면 끼니 내용대로 서버 항목을 맞춤. 같은 이름(고른 음식이면 같은 코드)은 그대로 두고 바뀐 것만 보냄
+export async function applyMealItems(meal: Meal, known: Food[]) {
+  const server = await getMeal(meal.id)
+  let updatedAt = server.updatedAt
+  const remaining = [...server.items]
+  const edits: NutritionEdits = meal.nutritionEdits ?? {}
+
+  for (const name of meal.foods ?? []) {
+    const food = findFood(name, known)
+    const code = food?.code
+    const servings = getServings(meal, name, known)
+    const edit = edits[name]
+    const index = remaining.findIndex(
+      (item) => item.name === name && (code === undefined || item.foodCode === code),
+    )
+    let item: MealItemSummary
+    if (index < 0) {
+      const added = await addMealItem(
+        meal.id,
+        code
+          ? { foodCode: code, servings }
+          : {
+              name,
+              servings,
+              weightG: edit?.grams,
+              nutrition: edit ? toNutrition(edit) : myFoodNutrition(food, servings),
+            },
+      )
+      updatedAt = added.mealUpdatedAt
+      item = added
+      // 직접 적은 음식은 추가할 때 영양값까지 넣음
+      if (!code) continue
+    } else {
+      item = remaining.splice(index, 1)[0]
+      if (item.servings !== servings) {
+        const updated = await updateMealItem(meal.id, item.itemId, servings)
+        updatedAt = updated.mealUpdatedAt
+        item = updated
+      }
+    }
+    if (edit && !sameEdit(edit, item)) {
+      updatedAt = (await setMealItemNutrition(meal.id, item.itemId, edit, updatedAt)).mealUpdatedAt
+    } else if (!edit && item.foodCode && item.nutritionSource === 'USER') {
+      updatedAt = (await revertMealItemNutrition(meal.id, item.itemId)).mealUpdatedAt
+    }
+  }
+
+  // 수정 시각이 필요 없는 빼기는 마지막에
+  for (const item of remaining) await deleteMealItem(meal.id, item.itemId)
+}

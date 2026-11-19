@@ -8,7 +8,7 @@ export type ReadingType = 'FASTING' | 'POST_MEAL' | 'OTHER'
 export type ServerSlot = 'FASTING' | 'BREAKFAST_AFTER' | 'LUNCH_AFTER' | 'DINNER_AFTER' | 'BEDTIME'
 
 // 백엔드 ReadingResponse
-type ReadingResponse = {
+export type ReadingResponse = {
   readingId: number
   value: number
   measuredAt: string

@@ -6,14 +6,19 @@ import { formatCount } from '@/utils/community'
 
 type PollCardProps = {
   options: PollOption[]
+  // 참여한 사람 수. 투표 전엔 항목별 수가 없어 따로 받음
+  total?: number
   // 내가 고른 항목 id. 고르기 전엔 null
   votedId: string | null
   onVote: (optionId: string) => void
 }
 
 // Figma U-02 투표 참여 전 · U-09 참여 후 결과
-function PollCard({ options, votedId, onVote }: PollCardProps) {
-  const total = options.reduce((sum, option) => sum + option.votes, 0)
+function PollCard({ options, total: totalVotes, votedId, onVote }: PollCardProps) {
+  const total = Math.max(
+    totalVotes ?? 0,
+    options.reduce((sum, option) => sum + option.votes, 0),
+  )
   const percent = (votes: number) => (total === 0 ? 0 : Math.round((votes / total) * 100))
 
   return (

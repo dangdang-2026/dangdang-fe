@@ -10,19 +10,22 @@ import Toast from '@/components/common/Toast'
 import BoardNotice from '@/components/community/BoardNotice'
 import BoardTabs, { type BoardTab } from '@/components/community/BoardTabs'
 import CommunityEmpty from '@/components/community/CommunityEmpty'
+import MorePostsButton from '@/components/community/MorePostsButton'
 import PopularList from '@/components/community/PopularList'
 import PostRow from '@/components/community/PostRow'
 import SortToggle from '@/components/community/SortToggle'
-import { BOARD_LABEL, BOARD_ORDER, LATEST_ONLY_BOARDS } from '@/constants/community'
+import {
+  BOARD_LABEL,
+  BOARD_ORDER,
+  LATEST_ONLY_BOARDS,
+  PREPARING_BOARDS,
+} from '@/constants/community'
 import { ROUTES, communityBoardPath, communityPostPath } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
 import { useOnline } from '@/hooks/useOnline'
-import { useVisiblePosts } from '@/hooks/useVisiblePosts'
-import { useProfileStore } from '@/stores/useProfileStore'
+import { usePostList } from '@/hooks/usePostList'
 import type { BoardKey, PostSort } from '@/types/community'
-import { sortPosts } from '@/utils/community'
-import { getPregnancyAge } from '@/utils/pregnancy'
 
 const GUIDE_RULES = [
   '내 경험과 하루를 편하게 나눠 주세요.',
@@ -39,8 +42,6 @@ function BoardPage() {
   const goBack = useGoBack(ROUTES.COMMUNITY)
   const now = useNow()
   const { online, recheck } = useOnline()
-  const posts = useVisiblePosts()
-  const dueDate = useProfileStore((state) => state.dueDate)
   const [sort, setSort] = useState<PostSort>('latest')
   const [guideOpen, setGuideOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -48,14 +49,17 @@ function BoardPage() {
   const closeGuide = useCallback(() => setGuideOpen(false), [])
 
   const popular = board === 'popular'
-  if (!popular && !isBoardKey(board)) return <Navigate to={ROUTES.COMMUNITY} replace />
+  const boardKey = isBoardKey(board) ? board : undefined
+  const latestOnly = !!boardKey && LATEST_ONLY_BOARDS.includes(boardKey)
+  const preparing = !!boardKey && PREPARING_BOARDS.includes(boardKey)
+  const list = usePostList(
+    { board: boardKey, sort: latestOnly ? 'latest' : sort },
+    !!boardKey && !preparing,
+  )
+  if (!popular && !boardKey) return <Navigate to={ROUTES.COMMUNITY} replace />
 
   const label = popular ? '인기' : BOARD_LABEL[board as BoardKey]
-  const latestOnly = !popular && LATEST_ONLY_BOARDS.includes(board as BoardKey)
-  const boardPosts = sortPosts(
-    posts.filter((post) => post.board === board),
-    latestOnly ? 'latest' : sort,
-  )
+  const boardPosts = list.posts
   const openPost = (id: string) => navigate(communityPostPath(id))
   const openPolicy = () => navigate(ROUTES.COMMUNITY_POLICY)
 
@@ -95,22 +99,29 @@ function BoardPage() {
         </span>
       </p>
 
-      {!online ? (
+      {preparing ? (
+        <CommunityEmpty
+          variant="front"
+          title={`${label} 게시판은 준비 중이에요`}
+          description="곧 열 거예요. 지금은 다른 게시판에 이야기를 남겨 주세요."
+          action={{ label: '전체 글 보기', onClick: () => navigate(ROUTES.COMMUNITY) }}
+        />
+      ) : !online || list.status === 'error' ? (
         <CommunityEmpty
           variant="sorry"
           title="글을 불러오지 못했어요"
           description="인터넷 연결을 확인하고 다시 시도해 주세요."
-          action={{ icon: iconRefresh, label: '다시 불러오기', onClick: recheck }}
+          action={{
+            icon: iconRefresh,
+            label: '다시 불러오기',
+            onClick: () => {
+              recheck()
+              list.reload()
+            },
+          }}
         />
       ) : popular ? (
-        <PopularList
-          posts={posts}
-          now={now}
-          myWeek={getPregnancyAge(dueDate, now)?.weeks ?? null}
-          onOpen={(post) => openPost(post.id)}
-          onPolicy={openPolicy}
-          onNeedDueDate={() => setToast('마이 › 내 정보에서 출산예정일을 적어 주세요')}
-        />
+        <PopularList now={now} onOpen={(post) => openPost(post.id)} onPolicy={openPolicy} />
       ) : (
         <>
           <div className="flex justify-end px-5 pt-4 pb-1">
@@ -140,8 +151,14 @@ function BoardPage() {
               </li>
             ))}
           </ul>
+          {list.hasNext && <MorePostsButton loading={list.loadingMore} onClick={list.loadMore} />}
 
-          {boardPosts.length === 0 && (
+          {list.status === 'loading' && (
+            <p className="text-grey-500 py-12 text-center text-sm leading-normal">
+              글을 불러오는 중이에요
+            </p>
+          )}
+          {list.status === 'done' && boardPosts.length === 0 && (
             <CommunityEmpty
               variant="front"
               title="아직 글이 없어요"
