@@ -20,11 +20,16 @@ type FoodImageAnalysisResponse = {
 async function shrinkPhoto(photo: Blob) {
   try {
     const bitmap = await createImageBitmap(photo)
+    const context = document.createElement('canvas').getContext('2d')
     const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height))
-    const canvas = document.createElement('canvas')
+    const canvas = context?.canvas
+    if (!context || !canvas) {
+      bitmap.close()
+      return photo
+    }
     canvas.width = Math.round(bitmap.width * scale)
     canvas.height = Math.round(bitmap.height * scale)
-    canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
     bitmap.close()
     const jpeg = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY),

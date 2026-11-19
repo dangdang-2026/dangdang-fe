@@ -32,7 +32,7 @@ type MealItemResponse = MealItemSummary & { mealUpdatedAt: string }
 
 type MealItemCreate =
   | { foodCode: string; servings: number }
-  | { name: string; servings: number; nutrition?: MealNutrition }
+  | { name: string; servings: number; weightG?: number; nutrition?: MealNutrition }
 
 // 식사에 음식 추가. foodCode · name 중 하나만, 직접 적은 음식만 nutrition
 async function addMealItem(mealId: string, body: MealItemCreate) {
@@ -213,6 +213,7 @@ export async function applyMealItems(meal: Meal, known: Food[]) {
           : {
               name,
               servings,
+              weightG: edit?.grams,
               nutrition: edit ? toNutrition(edit) : myFoodNutrition(food, servings),
             },
       )

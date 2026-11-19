@@ -188,9 +188,16 @@ async function pushMealItemsOnce(mealId: string) {
     // 서버에서 지운 식사면 더 보내지 않음
     if (getErrorCode(error) !== 'MEAL_40401') return false
   }
-  // 보내는 사이 또 고쳤으면 다음 차례에 다시 보냄
+  // 보내는 사이 또 고쳤으면 다음 차례에 다시 보냄. 동기화로 객체만 바뀐 건 같은 내용으로 봄
+  const same = (item: Meal) =>
+    item.foods === meal.foods &&
+    item.portion === meal.portion &&
+    item.portions === meal.portions &&
+    item.nutritionEdits === meal.nutritionEdits
   useGlucoseStore.setState((state) => ({
-    meals: state.meals.map((item) => (item === meal ? { ...item, itemsPending: undefined } : item)),
+    meals: state.meals.map((item) =>
+      item.id === mealId && same(item) ? { ...item, itemsPending: undefined } : item,
+    ),
   }))
   return true
 }
