@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import { ROUTES, communityNewsPath } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { getCards } from '@/api/cards'
+import { getCards, getSavedCards } from '@/api/cards'
 import type { NewsSummary } from '@/types/news'
 
 type Tab = 'all' | 'saved'
@@ -16,23 +16,23 @@ const TABS: { value: Tab; label: string }[] = [
 // 예: 10/19
 const formatShortDate = (date: string) => `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`
 
-// 서버 카드 목록. 받기 전 undefined, 실패하면 null
-function useCards() {
-  const [cards, setCards] = useState<NewsSummary[] | null | undefined>(undefined)
+// 탭별 서버 카드. 저장한 카드엔 내려간 카드도 남음. 받기 전 undefined, 실패하면 null
+function useCards(tab: Tab) {
+  const [result, setResult] = useState<{ tab: Tab; cards: NewsSummary[] | null } | null>(null)
   useEffect(() => {
     let stale = false
-    getCards()
-      .then((items) => {
-        if (!stale) setCards(items)
+    ;(tab === 'all' ? getCards() : getSavedCards())
+      .then((cards) => {
+        if (!stale) setResult({ tab, cards })
       })
       .catch(() => {
-        if (!stale) setCards(null)
+        if (!stale) setResult({ tab, cards: null })
       })
     return () => {
       stale = true
     }
-  }, [])
-  return cards
+  }, [tab])
+  return result?.tab === tab ? result.cards : undefined
 }
 
 // Figma U-27 당당 소식 모아보기
@@ -40,8 +40,8 @@ function NewsListPage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.COMMUNITY)
   const [tab, setTab] = useState<Tab>('all')
-  const all = useCards()
-  const cards = (all ?? []).filter((card) => (tab === 'all' ? !card.withdrawn : card.saved))
+  const all = useCards(tab)
+  const cards = all ?? []
   const seriesTitle = [...new Set(cards.map((card) => card.series))].join(' · ')
 
   return (

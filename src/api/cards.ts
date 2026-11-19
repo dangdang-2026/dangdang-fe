@@ -85,3 +85,19 @@ export async function getCard(cardId: string) {
   if (!data.data) throw new Error('카드뉴스 응답이 비어 있음')
   return toNewsCard(data.data)
 }
+
+// 카드 저장. 두 번 눌러도 한 번, 내려간 카드는 409 CARD_40901
+export async function saveCard(cardId: string) {
+  await apiClient.put(`/cards/${cardId}/save`)
+}
+
+// 카드 저장 취소
+export async function unsaveCard(cardId: string) {
+  await apiClient.delete(`/cards/${cardId}/save`)
+}
+
+// 저장한 카드. 최근에 저장한 순, 내려간 카드도 남음
+export async function getSavedCards() {
+  const { data } = await apiClient.get<BaseResponse<CardSummaryResponse[]>>('/me/card-saves')
+  return (data.data ?? []).map(toNewsSummary)
+}

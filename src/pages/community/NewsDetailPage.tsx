@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { getCard } from '@/api/cards'
+import { getErrorCode } from '@/api/axios'
+import { getCard, saveCard, unsaveCard } from '@/api/cards'
 import iconAskPencil from '@/assets/icons/community/ask-pencil.svg'
 import iconCorrection from '@/assets/icons/community/correction.svg'
 import iconNewsCheck from '@/assets/icons/community/news-check.svg'
@@ -54,9 +55,9 @@ function NewsDetailPage() {
   const goBack = useGoBack(ROUTES.COMMUNITY_NEWS)
   const card = useCard(id)
   const likedNewsIds = useCommunityStore((state) => state.likedNewsIds)
-  const savedNewsIds = useCommunityStore((state) => state.savedNewsIds)
   const toggleLikeNews = useCommunityStore((state) => state.toggleLikeNews)
-  const toggleSaveNews = useCommunityStore((state) => state.toggleSaveNews)
+  // 저장을 누른 뒤 값. 누르기 전엔 서버 값
+  const [savedNow, setSavedNow] = useState<{ id: string; saved: boolean } | null>(null)
   const [slide, setSlide] = useState(0)
   const [sourcesOpen, setSourcesOpen] = useState(false)
   const [askOpen, setAskOpen] = useState(false)
@@ -110,7 +111,22 @@ function NewsDetailPage() {
   }
 
   const liked = likedNewsIds.includes(card.id)
-  const saved = savedNewsIds.includes(card.id)
+  const saved = savedNow?.id === card.id ? savedNow.saved : !!card.saved
+
+  // 화면엔 바로 바꾸고 서버에 못 남기면 되돌림
+  const toggleSave = () => {
+    const next = !saved
+    setSavedNow({ id: card.id, saved: next })
+    setToast(next ? '저장한 카드에 담았어요' : '저장을 풀었어요')
+    ;(next ? saveCard(card.id) : unsaveCard(card.id)).catch((error) => {
+      setSavedNow({ id: card.id, saved })
+      setToast(
+        getErrorCode(error) === 'CARD_40901'
+          ? '내려간 카드라 저장할 수 없어요'
+          : '저장하지 못했어요. 잠시 후 다시 시도해 주세요',
+      )
+    })
+  }
   const checkedAt = formatShortDate(card.checkedAt)
 
   const copyLink = async () => {
@@ -133,10 +149,7 @@ function NewsDetailPage() {
       icon: iconNewsSave,
       label: saved ? '저장됨' : '저장',
       active: saved,
-      onClick: () => {
-        toggleSaveNews(card.id)
-        setToast(saved ? '저장을 풀었어요' : '저장한 카드에 담았어요')
-      },
+      onClick: toggleSave,
     },
     { icon: iconNewsLink, label: '링크 복사', active: false, onClick: copyLink },
   ]
