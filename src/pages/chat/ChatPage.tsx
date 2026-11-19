@@ -281,15 +281,18 @@ function ChatPage() {
               수 있어요.
             </BotBubble>
             <div className="flex gap-2">
-              <ChatActionButton
-                icon={iconRetry}
-                onClick={() => {
-                  removeMessage(message.id)
-                  reply(message.question)
-                }}
-              >
-                다시 물어보기
-              </ChatActionButton>
+              {/* 이전 대화 장 경계에서 앞 질문을 모르면 다시 묻기 숨김 */}
+              {message.question && (
+                <ChatActionButton
+                  icon={iconRetry}
+                  onClick={() => {
+                    removeMessage(message.id)
+                    reply(message.question)
+                  }}
+                >
+                  다시 물어보기
+                </ChatActionButton>
+              )}
               <ChatActionButton icon={iconRecords} onClick={() => navigate(ROUTES.RECORDS)}>
                 기록 탭에서 보기
               </ChatActionButton>
