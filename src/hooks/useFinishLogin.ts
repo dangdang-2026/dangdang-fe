@@ -11,7 +11,7 @@ import { syncCriteria } from '@/stores/useCriteriaStore'
 import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncMealGuide } from '@/stores/useMealGuideStore'
-import { syncQuestions, syncVisits } from '@/stores/useVisitStore'
+import { syncQuestions, syncVisitNote, syncVisits } from '@/stores/useVisitStore'
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
@@ -63,9 +63,12 @@ export function useFinishLogin() {
         .catch(() => {})
         .then(() =>
           Promise.all(
-            [syncMealGuide(false), syncVisits(false).then(() => syncQuestions(false))].map((job) =>
-              job.catch(() => {}),
-            ),
+            [
+              syncMealGuide(false),
+              syncVisits(false).then(() =>
+                Promise.all([syncQuestions(false), syncVisitNote(false)]),
+              ),
+            ].map((job) => job.catch(() => {})),
           ),
         )
       // 커뮤니티 닉네임도 이 계정 닉네임으로

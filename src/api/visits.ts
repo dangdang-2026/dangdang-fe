@@ -87,3 +87,39 @@ export async function createVisitQuestion(visitId: string, content: string, sort
 export async function deleteVisitQuestion(visitId: string, questionId: string) {
   await apiClient.delete(`/visits/${visitId}/questions/${questionId}`)
 }
+
+// 백엔드 VisitNoteResponse
+export type VisitNoteResponse = {
+  noteId: number
+  content: string
+  createdAt: string
+  updatedAt: string
+}
+
+// 진료 메모 목록. 먼저 쓴 순
+export async function getVisitNotes(visitId: string) {
+  const { data } = await apiClient.get<BaseResponse<VisitNoteResponse[]>>(
+    `/visits/${visitId}/notes`,
+  )
+  return data.data ?? []
+}
+
+// 진료 메모 등록(5000자). 적은 그대로 저장, AI 정리는 안 돌림
+export async function createVisitNote(visitId: string, content: string) {
+  const { data } = await apiClient.post<BaseResponse<VisitNoteResponse>>(
+    `/visits/${visitId}/notes`,
+    { content },
+  )
+  if (!data.data) throw new Error('진료 메모 등록 응답이 비어 있음')
+  return data.data
+}
+
+// 진료 메모 통째로 고치기
+export async function updateVisitNote(visitId: string, noteId: string, content: string) {
+  const { data } = await apiClient.patch<BaseResponse<VisitNoteResponse>>(
+    `/visits/${visitId}/notes/${noteId}`,
+    { content },
+  )
+  if (!data.data) throw new Error('진료 메모 수정 응답이 비어 있음')
+  return data.data
+}

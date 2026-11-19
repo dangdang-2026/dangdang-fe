@@ -9,14 +9,14 @@ import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
 import { saveChatConsent, useAiStore } from '@/stores/useAiStore'
-import { useVisitStore } from '@/stores/useVisitStore'
+import { saveVisitNote, useVisitStore } from '@/stores/useVisitStore'
 
 const NOTE_MAX = 500
 
 // Figma C-11 진료 후 메모 쓰기. AI는 3가지만 찾고 고르는 건 사용자
 function VisitNotePage() {
   const navigate = useNavigate()
-  const goBack = useGoBack(ROUTES.VISIT)
+  const back = useGoBack(ROUTES.VISIT)
   const criteria = useCriteria()
   const note = useVisitStore((state) => state.note)
   const setNote = useVisitStore((state) => state.setNote)
@@ -27,7 +27,15 @@ function VisitNotePage() {
   const closeToast = useCallback(() => setToast(null), [])
   const [loading, setLoading] = useState(false)
 
+  // 메모는 화면을 떠날 때 서버에 남김. 못 남기면 기기에 두고 다음 동기화 때 다시
+  const keepNote = () => void saveVisitNote().catch(() => {})
+  const goBack = () => {
+    keepNote()
+    back()
+  }
+
   const organize = async () => {
+    keepNote()
     setLoading(true)
     const result = await extractVisitNote(note.trim(), criteria)
     setLoading(false)
@@ -77,7 +85,10 @@ function VisitNotePage() {
         <button
           type="button"
           className="bg-grey-100 text-grey-800 rounded-key px-4.5 py-4 text-base leading-snug font-bold"
-          onClick={() => navigate(ROUTES.VISIT_CRITERIA)}
+          onClick={() => {
+            keepNote()
+            navigate(ROUTES.VISIT_CRITERIA)
+          }}
         >
           직접 바꾸기
         </button>

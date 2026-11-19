@@ -2,11 +2,14 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import {
   createVisit,
+  createVisitNote,
   createVisitQuestion,
   deleteVisitQuestion,
   getAllVisits,
+  getVisitNotes,
   getVisitQuestions,
   updateVisitAt,
+  updateVisitNote,
   type VisitQuestionResponse,
   type VisitResponse,
 } from '@/api/visits'
@@ -25,6 +28,11 @@ type VisitState = {
   questions: Question[]
   // 진료 후 메모. 나갔다 와도 이어 쓰게 남겨 둠
   note: string
+  // 메모를 저장한 진료 일정 · 서버 메모 id. 아직 안 남겼으면 null
+  noteVisitId: string | null
+  noteId: string | null
+  // 서버에 아직 안 남긴 글이 있음
+  noteDirty: boolean
   setNextVisit: (at: string | null) => void
   setNote: (note: string) => void
   // 기기 질문 id를 돌려줌
@@ -44,6 +52,9 @@ export const useVisitStore = create<VisitState>()(
       asked: false,
       questions: [],
       note: '',
+      noteVisitId: null,
+      noteId: null,
+      noteDirty: false,
       // 다녀온 진료일을 새 날짜로 바꾸면 지난 진료일에 남김
       setNextVisit: (at) =>
         set((state) => {
@@ -58,7 +69,7 @@ export const useVisitStore = create<VisitState>()(
                 : state.pastVisits,
           }
         }),
-      setNote: (note) => set({ note }),
+      setNote: (note) => set({ note, noteDirty: true }),
       addQuestion: (text, now = new Date()) => {
         const id = crypto.randomUUID()
         set((state) => ({
@@ -103,6 +114,8 @@ export async function saveNextVisit(at: string | null) {
     useVisitStore.setState({ visitId: String(saved.visitId) })
     // 남은 질문은 새 진료로 옮김. 실패해도 일정은 저장된 것
     if (moving && visitId) {
+      // 메모는 다녀온 진료 것이라 새 진료에선 빈 메모로
+      useVisitStore.setState({ note: '', noteVisitId: null, noteId: null, noteDirty: false })
       void enqueue(() => moveQuestions(visitId, String(saved.visitId))).catch(() => {})
     }
   } catch (error) {
@@ -260,4 +273,56 @@ export function syncQuestions(keepLocal = true) {
     }
     useVisitStore.setState({ questions: server.map(toQuestion) })
   })
+}
+
+// 진료 후 메모를 지금 진료 일정에 남김. 같은 진료면 고치고, 처음이면 등록
+export function saveVisitNote() {
+  // 부른 때의 글 · 진료를 남김. 기다리는 사이 새 진료로 넘어가도 원래 진료에 남게
+  const { note, noteDirty, noteId, noteVisitId, visitId } = useVisitStore.getState()
+  const content = note.trim()
+  if (!noteDirty || !content) return Promise.resolve()
+  return enqueue(async () => {
+    const target = noteVisitId ?? visitId ?? (await ensureVisitId())
+    const saved =
+      noteId && noteVisitId === target
+        ? await updateVisitNote(target, noteId, content)
+        : await createVisitNote(target, content)
+    useVisitStore.setState((state) =>
+      // 새 진료로 넘어가 메모가 비워졌으면 그대로 둠
+      state.note === '' && state.noteId === null && note !== ''
+        ? state
+        : {
+            noteVisitId: target,
+            noteId: String(saved.noteId),
+            // 보내는 사이 또 고쳤으면 다음에 다시
+            noteDirty: state.note !== note,
+          },
+    )
+  })
+}
+
+// 지금 진료 일정의 마지막 메모로 맞춤. 안 남긴 글은 기기 값 유지 후 서버로
+// 새로 로그인하면 기기에 남은 메모는 다른 계정 것일 수 있어 버림
+export async function syncVisitNote(keepLocal = true) {
+  if (!keepLocal) {
+    useVisitStore.setState({ note: '', noteVisitId: null, noteId: null, noteDirty: false })
+  }
+  const { visitId } = useVisitStore.getState()
+  const last = visitId ? (await getVisitNotes(visitId)).at(-1) : undefined
+  const local = useVisitStore.getState()
+  // 연동 전에 적은 메모도 안 남긴 글로 봄
+  const dirty = local.noteDirty || (!!local.note.trim() && !local.noteId)
+  if (dirty) {
+    useVisitStore.setState({
+      noteDirty: true,
+      ...(last && visitId ? { noteVisitId: visitId, noteId: String(last.noteId) } : {}),
+    })
+    await saveVisitNote()
+    return
+  }
+  useVisitStore.setState(
+    last && visitId
+      ? { note: last.content, noteVisitId: visitId, noteId: String(last.noteId), noteDirty: false }
+      : { note: '', noteVisitId: null, noteId: null, noteDirty: false },
+  )
 }
