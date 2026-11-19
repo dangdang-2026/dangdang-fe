@@ -17,7 +17,7 @@ import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { MOCK_NEWS } from '@/mocks/news'
 import { useCommunityStore } from '@/stores/useCommunityStore'
-import { useVisitStore } from '@/stores/useVisitStore'
+import { saveQuestion } from '@/stores/useVisitStore'
 import { parseDateKey } from '@/utils/date'
 
 // 예: 10/19
@@ -36,7 +36,6 @@ function NewsDetailPage() {
   const savedNewsIds = useCommunityStore((state) => state.savedNewsIds)
   const toggleLikeNews = useCommunityStore((state) => state.toggleLikeNews)
   const toggleSaveNews = useCommunityStore((state) => state.toggleSaveNews)
-  const addQuestion = useVisitStore((state) => state.addQuestion)
   const [slide, setSlide] = useState(0)
   const [sourcesOpen, setSourcesOpen] = useState(false)
   const [askOpen, setAskOpen] = useState(false)
@@ -262,9 +261,11 @@ function NewsDetailPage() {
         <NewsAskSheet
           questions={card.questions}
           onSubmit={(questions) => {
-            questions.forEach((question) => addQuestion(question))
             setAskOpen(false)
             setToast(`진료 탭 물어볼 것에 ${questions.length}개 적었어요`)
+            Promise.all(questions.map(saveQuestion)).catch(() =>
+              setToast('물어볼 것을 저장하지 못했어요. 잠시 후 다시 시도해 주세요'),
+            )
           }}
           onClose={closeAsk}
         />

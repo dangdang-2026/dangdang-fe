@@ -19,7 +19,7 @@ import {
   saveNewHospital,
   useHospitalStore,
 } from '@/stores/useHospitalStore'
-import { useVisitStore } from '@/stores/useVisitStore'
+import { saveNextVisit, useVisitStore } from '@/stores/useVisitStore'
 import type { Hospital, HospitalInfo } from '@/types/hospital'
 import { objectParticle } from '@/utils/josa'
 
@@ -42,7 +42,6 @@ function HospitalsPage() {
   const hospitals = useHospitalStore((state) => state.hospitals)
   const setDraft = useHospitalStore((state) => state.setDraft)
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
-  const setNextVisit = useVisitStore((state) => state.setNextVisit)
 
   // 병원 찾기에서 고르고 돌아오면 바로 추가 시트
   const [sheet, setSheet] = useState<Sheet | null>(() => {
@@ -78,7 +77,8 @@ function HospitalsPage() {
       } finally {
         setSaving(false)
       }
-      if (first) setNextVisit(input.nextVisitAt)
+      // 대표 병원의 다음 진료일은 진료 일정으로. 못 남기면 진료 탭에서 다시 정함
+      if (first) saveNextVisit(input.nextVisitAt).catch(() => {})
       setToast(`${input.name}${objectParticle(input.name)} 추가했어요`)
       closeSheet()
       return
@@ -112,7 +112,7 @@ function HospitalsPage() {
       return
     }
     // 대표 병원을 지우면 다음 병원이 대표가 되고 그 진료일을 이어받음
-    if (index === 0) setNextVisit(hospitals[1]?.nextVisitAt ?? null)
+    if (index === 0) saveNextVisit(hospitals[1]?.nextVisitAt ?? null).catch(() => {})
     setToast('병원을 지웠어요')
   }
 
