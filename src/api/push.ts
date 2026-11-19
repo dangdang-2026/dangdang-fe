@@ -19,11 +19,14 @@ function toKeyBytes(base64: string) {
   return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0))
 }
 
+// 서버 키가 있고 브라우저가 푸시를 지원하는지
+export function canServerPush() {
+  return !!VAPID_PUBLIC_KEY && 'serviceWorker' in navigator && 'PushManager' in window
+}
+
 // 알림 권한을 받은 뒤 푸시 구독을 만들어 서버에 등록. 같은 기기면 서버가 지금 계정으로 다시 씀
 export async function subscribePush() {
-  if (!VAPID_PUBLIC_KEY || !('serviceWorker' in navigator) || !('PushManager' in window)) {
-    return null
-  }
+  if (!VAPID_PUBLIC_KEY || !canServerPush()) return null
   const registration = await navigator.serviceWorker.ready
   const subscription =
     (await registration.pushManager.getSubscription()) ??

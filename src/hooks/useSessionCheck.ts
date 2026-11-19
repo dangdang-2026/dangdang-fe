@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { getMe } from '@/api/me'
 import { syncPushSubscription } from '@/api/push'
+import { syncChatConsent } from '@/stores/useAiStore'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { syncCommunityProfile } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
@@ -8,7 +9,7 @@ import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
-import { useProfileStore } from '@/stores/useProfileStore'
+import { syncPostpartum, useProfileStore } from '@/stores/useProfileStore'
 
 // 앱을 열 때 한 번 서버 로그인 확인. 스플래시 동안 뒤에서 돌아 기다리지 않음
 export function useSessionCheck() {
@@ -20,7 +21,8 @@ export function useSessionCheck() {
     if (!method) return
     getMe()
       .then((me) => {
-        updateProfile({ name: me.displayName })
+        // 다른 기기에서 바꾼 입원 상태도 서버 값으로
+        updateProfile({ name: me.displayName, hospitalized: me.pregnancyState === 'HOSPITALIZED' })
         // 이메일 채우기 전에 로그인한 카카오 계정도 열 때 채움
         login({ method, email: me.email })
         // 서버 알림 설정을 받은 뒤 측정 알림이 켜져 있으면 이 기기를 구독 등록
@@ -35,6 +37,8 @@ export function useSessionCheck() {
           syncInbox(),
           syncHospitals(),
           syncCommunityProfile(),
+          syncPostpartum(me.pregnancyState),
+          syncChatConsent(),
         ])
       })
       .catch(() => {

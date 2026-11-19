@@ -2,7 +2,8 @@ import { useState } from 'react'
 import iconClose from '@/assets/icons/close.svg'
 import iconPrivate from '@/assets/icons/private.svg'
 import iconSearchSm from '@/assets/icons/search-sm.svg'
-import { useFoods } from '@/hooks/useFoods'
+import { useFoodSearch, useFoods } from '@/hooks/useFoods'
+import { useFoodStore } from '@/stores/useFoodStore'
 import type { MyFood, Portion } from '@/types/glucose'
 import { findFood, formatPortion, looksLikeStaple } from '@/utils/meal'
 
@@ -62,12 +63,10 @@ function MyFoodForm({ initialName, editing, onBack, onAdd, onDelete }: MyFoodFor
   const staple = similar ? !!similar.staple : looksLikeStaple(trimmed)
   const unit = similar?.unit ?? MY_FOOD_UNIT
   const keyword = query.trim()
-  const searchResults = keyword
-    ? foods
-        .filter((food) => food.name !== trimmed && food.name !== editing?.name)
-        .filter((food) => food.name.includes(keyword))
-        .slice(0, SEARCH_LIMIT)
-    : []
+  const searchResults = useFoodSearch(keyword, SEARCH_LIMIT).foods.filter(
+    (food) => food.name !== trimmed && food.name !== editing?.name,
+  )
+  const rememberFood = useFoodStore((state) => state.rememberFood)
 
   return (
     <>
@@ -135,6 +134,7 @@ function MyFoodForm({ initialName, editing, onBack, onAdd, onDelete }: MyFoodFor
                     type="button"
                     className={chipClass(food.name === similarTo)}
                     onClick={() => {
+                      if (food.code) rememberFood(food)
                       setSimilarTo(food.name)
                       setSearching(false)
                       setQuery('')

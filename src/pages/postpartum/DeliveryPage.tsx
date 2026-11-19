@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { getErrorCode, getErrorMessage } from '@/api/axios'
 import iconCheckDark from '@/assets/icons/check-dark.svg'
 import iconCheckYellow from '@/assets/icons/community/promise-check.svg'
 import deliveryCharacter from '@/assets/images/postpartum/delivery-character.svg'
 import SubPageHeader from '@/components/common/SubPageHeader'
+import Toast from '@/components/common/Toast'
 import ProfileDateSheet from '@/components/my/ProfileDateSheet'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { useProfileStore } from '@/stores/useProfileStore'
+import { saveDeliveryDate } from '@/stores/useProfileStore'
 import { addDays, isSameDay, startOfDay, toDateKey } from '@/utils/date'
 
 const CHANGES = [
@@ -16,6 +18,15 @@ const CHANGES = [
   '산후 혈당 검사일은 병원에서 들은 날짜로 직접 적어 주세요',
 ]
 
+// 미래 출산일(400) · 이미 졸업(409)은 서버 문구 그대로, 나머지는 다시 시도 안내
+const DELIVERY_ERRORS = ['PREGNANCY_40001', 'PREGNANCY_40902']
+function getDeliveryError(error: unknown) {
+  const message = DELIVERY_ERRORS.includes(getErrorCode(error) ?? '')
+    ? getErrorMessage(error)
+    : undefined
+  return message ?? '출산일을 저장하지 못했어요. 잠시 후 다시 시도해 주세요'
+}
+
 // 예: 10/14
 const formatSlash = (date: Date) => `${date.getMonth() + 1}/${date.getDate()}`
 
@@ -23,11 +34,13 @@ const formatSlash = (date: Date) => `${date.getMonth() + 1}/${date.getDate()}`
 function DeliveryPage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.MY_PROFILE)
-  const updateProfile = useProfileStore((state) => state.updateProfile)
+  const [toast, setToast] = useState<string | null>(null)
+  const closeToast = useCallback(() => setToast(null), [])
   const today = startOfDay(new Date())
   const yesterday = addDays(today, -1)
   const [date, setDate] = useState(today)
   const [picking, setPicking] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const picked = !isSameDay(date, today) && !isSameDay(date, yesterday)
   const chips = [
@@ -45,9 +58,15 @@ function DeliveryPage() {
   ]
 
   const switchToPostpartum = () => {
-    updateProfile({ deliveryDate: toDateKey(date), hospitalized: false, checkRemindAt: null })
-    // 산후 홈 전에 임신 중 관리 졸업을 한 번 보여 줌
-    navigate(ROUTES.POSTPARTUM_GRADUATION, { replace: true })
+    if (saving) return
+    setSaving(true)
+    saveDeliveryDate(toDateKey(date))
+      // 졸업은 산후를 마칠 때라 바로 산후 홈으로
+      .then(() => navigate(ROUTES.TODAY, { replace: true }))
+      .catch((error: unknown) => {
+        setToast(getDeliveryError(error))
+        setSaving(false)
+      })
   }
 
   return (
@@ -99,6 +118,7 @@ function DeliveryPage() {
 
       <button
         type="button"
+        disabled={saving}
         className="text-subtitle-1 bg-primary mt-auto h-14 rounded-xl leading-none text-white"
         onClick={switchToPostpartum}
       >
@@ -120,6 +140,7 @@ function DeliveryPage() {
           onClose={() => setPicking(false)}
         />
       )}
+      {toast && <Toast message={toast} onClose={closeToast} />}
     </main>
   )
 }

@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router'
 import iconChevron from '@/assets/icons/postpartum/chevron-md.svg'
 import iconPlus from '@/assets/icons/postpartum/plus.svg'
 import SubPageHeader from '@/components/common/SubPageHeader'
+import Toast from '@/components/common/Toast'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { useProfileStore } from '@/stores/useProfileStore'
+import { savePostpartumCheckResult, useProfileStore } from '@/stores/useProfileStore'
 import { formatMonthDay, parseDateKey } from '@/utils/date'
 
 const MEMO_MAX = 300
@@ -13,24 +14,33 @@ const MEMO_MAX = 300
 // Figma E-11 산후 검사 결과 메모. 해석 없이 들은 그대로만
 function CheckResultPage() {
   const navigate = useNavigate()
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const closeToast = useCallback(() => setToast(null), [])
   const goBack = useGoBack(ROUTES.TODAY)
   const [searchParams] = useSearchParams()
   const checks = useProfileStore((state) => state.postpartumChecks)
-  const updateProfile = useProfileStore((state) => state.updateProfile)
   const check = checks.find((item) => item.id === searchParams.get('id'))
   const [memo, setMemo] = useState(check?.memo ?? '')
 
   if (!check) return <Navigate to={ROUTES.TODAY} replace />
   const date = parseDateKey(check.date)
 
-  const saveMemo = () => {
+  // 메모를 서버에 저장하고 다음 화면으로. 비었거나 그대로면 저장 없이 이동
+  const saveMemoAndGo = (to: string, replace: boolean) => {
     const trimmed = memo.trim()
-    if (!trimmed) return
-    updateProfile({
-      postpartumChecks: checks.map((item) =>
-        item.id === check.id ? { ...item, memo: trimmed } : item,
-      ),
-    })
+    if (saving) return
+    if (!trimmed || trimmed === check.memo) {
+      navigate(to, { replace })
+      return
+    }
+    setSaving(true)
+    savePostpartumCheckResult(check.id, trimmed)
+      .then(() => navigate(to, { replace }))
+      .catch(() => {
+        setToast('결과 메모를 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+        setSaving(false)
+      })
   }
 
   return (
@@ -70,11 +80,8 @@ function CheckResultPage() {
         <button
           type="button"
           className="bg-grey-50 rounded-key flex items-center gap-2.5 py-3.5 pr-3.5 pl-4 text-left"
-          onClick={() => {
-            // 적어 둔 메모는 먼저 저장하고 다음 일정으로
-            saveMemo()
-            navigate(ROUTES.POSTPARTUM_CHECK)
-          }}
+          // 적어 둔 메모는 먼저 저장하고 다음 일정으로
+          onClick={() => saveMemoAndGo(ROUTES.POSTPARTUM_CHECK, false)}
         >
           <img src={iconPlus} alt="" width={20} height={20} />
           <span className="flex flex-1 flex-col gap-0.5 leading-snug">
@@ -89,15 +96,13 @@ function CheckResultPage() {
 
       <button
         type="button"
-        disabled={!memo.trim()}
+        disabled={!memo.trim() || saving}
         className="bg-primary disabled:bg-grey-100 disabled:text-grey-400 rounded-key mt-auto py-4 text-base leading-snug font-bold text-white"
-        onClick={() => {
-          saveMemo()
-          navigate(ROUTES.TODAY, { replace: true })
-        }}
+        onClick={() => saveMemoAndGo(ROUTES.TODAY, true)}
       >
         저장
       </button>
+      {toast && <Toast message={toast} onClose={closeToast} />}
     </main>
   )
 }

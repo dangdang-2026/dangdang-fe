@@ -1,5 +1,10 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import {
+  getConsents,
+  saveChatConsent as postChatConsent,
+  withdrawAiConsents as postWithdrawAiConsents,
+} from '@/api/consent'
 
 // 동의·거절과 그 날짜. 아직 안 물어봤으면 null
 export type AiConsent = { agreed: boolean; at: string } | null
@@ -19,7 +24,7 @@ type AiState = {
   withdrawAll: (now?: Date) => void
 }
 
-// API 연동 전까지 기기(localStorage)에 저장
+// 사진 동의는 기기에만, 기록 보기 동의는 서버에도 저장
 export const useAiStore = create<AiState>()(
   persist(
     (set) => ({
@@ -38,3 +43,29 @@ export const useAiStore = create<AiState>()(
     { name: 'dangdang-ai' },
   ),
 )
+
+// 서버에 기록 보기 동의를 저장한 뒤 기기에 반영
+export async function saveChatConsent(agreed: boolean) {
+  await postChatConsent(agreed)
+  useAiStore.getState().setConsent('chat', agreed)
+}
+
+// 서버에서 AI 동의를 모두 철회한 뒤 기기도 끔
+export async function withdrawAiConsents() {
+  await postWithdrawAiConsents()
+  useAiStore.getState().withdrawAll()
+}
+
+// 서버 동의로 기록 보기 동의를 맞춤. 기록 사용 · 국외 이전 둘 다 있어야 켜짐, 한 번도 안 골랐으면 다시 물어봄
+export async function syncChatConsent() {
+  const items = await getConsents()
+  const records = items.find((item) => item.type === 'AI_CHAT_RECORDS')
+  const overseas = items.find((item) => item.type === 'OVERSEAS_TRANSFER')
+  if (!records?.occurredAt) {
+    useAiStore.setState({ chat: null })
+    return
+  }
+  useAiStore.setState({
+    chat: { agreed: records.granted && !!overseas?.granted, at: records.occurredAt },
+  })
+}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
-import { subscribePush } from '@/api/push'
+import { canServerPush, subscribePush } from '@/api/push'
 import { openReminder } from '@/api/reminders'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
@@ -25,7 +25,8 @@ import { useFoods } from '@/hooks/useFoods'
 import { useNow } from '@/hooks/useNow'
 import { useOnline } from '@/hooks/useOnline'
 import { useCriteria } from '@/hooks/useCriteria'
-import { useProfileStore } from '@/stores/useProfileStore'
+import { useTodaySync } from '@/hooks/useTodaySync'
+import { saveHospitalized, useProfileStore } from '@/stores/useProfileStore'
 import { saveMealStart, useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useInboxStore } from '@/stores/useInboxStore'
 import { saveNotificationSettings, useNotificationStore } from '@/stores/useNotificationStore'
@@ -116,6 +117,7 @@ function TodayPage() {
   const insulinMode = useProfileStore((state) => state.careMode === 'insulin')
   const contactMemo = useProfileStore((state) => state.contactMemo)
 
+  const { pushReady, markPushReady } = useTodaySync()
   const now = useNow()
   const { online, recheck } = useOnline()
   const todayMeals = meals.filter((meal) => isSameDay(new Date(meal.startedAt), now))
@@ -128,9 +130,12 @@ function TodayPage() {
   const missedMeals = isDayEnd(now)
     ? getMissedMeals(meals, records, criteria.postMealHours, now)
     : []
-  // 측정 알림을 껐거나 브라우저 권한이 없으면 알림 꺼짐 배너
+  // 측정 알림을 껐거나 브라우저 권한이 없거나, 푸시를 쓸 수 있는데 서버에 구독이 없으면 알림 꺼짐 배너
   const notificationsOff =
-    !measureNotification || !('Notification' in window) || Notification.permission !== 'granted'
+    !measureNotification ||
+    !('Notification' in window) ||
+    Notification.permission !== 'granted' ||
+    (pushReady === false && canServerPush())
 
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
   const questionCount = useVisitStore((state) => state.questions.length)
@@ -188,7 +193,13 @@ function TodayPage() {
     const permission = await Notification.requestPermission()
     finishPermission(permission === 'granted')
     // 앱이 닫혀 있어도 서버가 보낼 수 있게 푸시 구독(서버 키가 있을 때만)
-    if (permission === 'granted') subscribePush().catch(() => {})
+    if (permission === 'granted') {
+      subscribePush()
+        .then((subscription) => {
+          if (subscription) markPushReady()
+        })
+        .catch(() => {})
+    }
   }
 
   // 알림 꺼짐 배너 켜기. 못 쓰는 브라우저·이미 거절한 권한은 물어봐도 소용없어 안내만
@@ -295,8 +306,9 @@ function TodayPage() {
         {hospitalized ? (
           <HospitalHero
             onResume={() => {
-              updateProfile({ hospitalized: false })
-              setToast('측정 알림을 다시 켰어요')
+              saveHospitalized(false)
+                .then(() => setToast('측정 알림을 다시 켰어요'))
+                .catch(() => setToast('알림을 다시 켜지 못했어요. 잠시 후 다시 시도해 주세요'))
             }}
           />
         ) : !online && heroState.kind === 'eating' ? (

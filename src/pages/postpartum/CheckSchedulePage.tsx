@@ -1,14 +1,21 @@
-import { useState, type ReactNode } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import iconInfo from '@/assets/icons/community/info.svg'
 import iconCalendar from '@/assets/icons/postpartum/calendar-sm.svg'
 import iconChevron from '@/assets/icons/postpartum/chevron-sm.svg'
+import ConfirmDialog from '@/components/common/ConfirmDialog'
 import SubPageHeader from '@/components/common/SubPageHeader'
+import Toast from '@/components/common/Toast'
 import ProfileDateSheet from '@/components/my/ProfileDateSheet'
 import ChoiceChip from '@/components/postpartum/ChoiceChip'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { useProfileStore, type PostpartumCheck } from '@/stores/useProfileStore'
+import {
+  deletePostpartumCheck,
+  savePostpartumCheck,
+  useProfileStore,
+  type PostpartumCheck,
+} from '@/stores/useProfileStore'
 import { parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 import { CHECK_PRESETS, REMIND_LABEL, formatDotDate } from '@/utils/postpartum'
 
@@ -35,10 +42,14 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
 function CheckSchedulePage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const closeToast = useCallback(() => setToast(null), [])
+  const [deleting, setDeleting] = useState(false)
+  const closeDelete = useCallback(() => setDeleting(false), [])
   const goBack = useGoBack(ROUTES.TODAY)
   const [searchParams] = useSearchParams()
   const checks = useProfileStore((state) => state.postpartumChecks)
-  const updateProfile = useProfileStore((state) => state.updateProfile)
   const editing = checks.find((check) => check.id === searchParams.get('id'))
   // 참고 정보를 보고 돌아오면 적던 내용 그대로
   const draft = (location.state as { draft?: Draft } | null)?.draft
@@ -60,7 +71,7 @@ function CheckSchedulePage() {
   const today = startOfDay(new Date())
 
   const name = preset ?? customName.trim()
-  const canSave = !!date && !!name
+  const canSave = !!date && !!name && !saving
 
   const toggleRemind = (key: Remind) =>
     setRemind((current) =>
@@ -77,22 +88,26 @@ function CheckSchedulePage() {
   }
 
   const save = () => {
-    if (!date || !name) return
-    const check: PostpartumCheck = {
-      id: editing?.id ?? crypto.randomUUID(),
-      name,
-      date: toDateKey(date),
-      remind,
-      memo: editing?.memo ?? null,
-    }
-    updateProfile({
-      postpartumChecks: editing
-        ? checks.map((item) => (item.id === editing.id ? check : item))
-        : [...checks, check],
-      // 날짜를 적었으니 다시 물어보지 않음
-      checkRemindAt: null,
-    })
-    navigate(ROUTES.TODAY, { replace: true })
+    if (!date || !name || saving) return
+    setSaving(true)
+    savePostpartumCheck({ name, date: toDateKey(date), remind }, editing?.id)
+      .then(() => navigate(ROUTES.TODAY, { replace: true }))
+      .catch(() => {
+        setToast('검사 일정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+        setSaving(false)
+      })
+  }
+
+  const remove = () => {
+    if (!editing || saving) return
+    setSaving(true)
+    deletePostpartumCheck(editing.id)
+      .then(() => navigate(ROUTES.TODAY, { replace: true }))
+      .catch(() => {
+        setDeleting(false)
+        setToast('검사 일정을 지우지 못했어요. 잠시 후 다시 시도해 주세요')
+        setSaving(false)
+      })
   }
 
   return (
@@ -183,6 +198,26 @@ function CheckSchedulePage() {
       >
         {remind.length > 0 ? '저장하고 알림 받기' : '저장'}
       </button>
+      {editing && (
+        <button
+          type="button"
+          className="text-grey-500 mt-4 self-center text-sm leading-normal underline"
+          onClick={() => setDeleting(true)}
+        >
+          일정 지우기
+        </button>
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          title="이 검사 일정을 지울까요?"
+          description="예약한 알림도 함께 지워져요."
+          confirmLabel="지우기"
+          danger
+          onConfirm={remove}
+          onClose={closeDelete}
+        />
+      )}
 
       {picking && (
         <ProfileDateSheet
@@ -199,6 +234,7 @@ function CheckSchedulePage() {
           onClose={() => setPicking(false)}
         />
       )}
+      {toast && <Toast message={toast} onClose={closeToast} />}
     </main>
   )
 }

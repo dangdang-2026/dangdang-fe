@@ -16,6 +16,7 @@ import { MEAL_LABEL } from '@/constants/glucose'
 import { ROUTES } from '@/constants/routes'
 import { useNow } from '@/hooks/useNow'
 import { useCriteria } from '@/hooks/useCriteria'
+import { useWeekRecordsSync } from '@/hooks/useWeekRecordsSync'
 import { removeRecord, useGlucoseStore } from '@/stores/useGlucoseStore'
 import type {
   GlucoseRecord,
@@ -53,6 +54,7 @@ function RecordsPage() {
   const parsed = parseDateKey(searchParams.get('date'))
   const selected = parsed && parsed <= today ? parsed : today
   const isToday = isSameDay(selected, today)
+  useWeekRecordsSync(selected, today)
 
   const dayMeals = meals.filter((meal) => isSameDay(new Date(meal.startedAt), selected))
   const dayRecords = records.filter((record) => isSameDay(new Date(record.measuredAt), selected))

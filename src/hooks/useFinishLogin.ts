@@ -3,6 +3,7 @@ import { getMe } from '@/api/me'
 import { syncPushSubscription } from '@/api/push'
 import { ROUTES } from '@/constants/routes'
 import type { AccountProfile } from '@/mocks/auth'
+import { syncChatConsent } from '@/stores/useAiStore'
 import { useAuthStore, type LoginMethod } from '@/stores/useAuthStore'
 import { syncCommunityProfile } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
@@ -11,7 +12,7 @@ import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
-import { useProfileStore } from '@/stores/useProfileStore'
+import { syncPostpartum, useProfileStore } from '@/stores/useProfileStore'
 
 // 로그인·가입을 마치면 계정을 남기고, 서버 약관 동의 여부로 약관 화면 또는 홈으로
 export function useFinishLogin() {
@@ -42,7 +43,8 @@ export function useFinishLogin() {
     }
     try {
       const me = await getMe()
-      updateProfile({ name: me.displayName })
+      // 입원 상태도 이 계정 값으로
+      updateProfile({ name: me.displayName, hospitalized: me.pregnancyState === 'HOSPITALIZED' })
       // 카카오는 로그인 응답에 이메일이 없어 /me 값으로 채움
       if (!email && me.email) login({ method, email: me.email })
       // 식사·혈당 기록은 서버 값으로. 새 계정이면 기기에 남은 다른 계정 기록도 비워짐
@@ -54,6 +56,10 @@ export function useFinishLogin() {
       syncHospitals().catch(() => {})
       // 커뮤니티 닉네임도 이 계정 닉네임으로
       syncCommunityProfile().catch(() => {})
+      // 산후 모드(출산일 · 다시 물어볼 날)도 이 계정 값으로
+      syncPostpartum(me.pregnancyState).catch(() => {})
+      // 당당이 기록 보기 동의도 이 계정 값으로
+      syncChatConsent().catch(() => {})
       // 알림 설정도 이 계정 값으로. 다른 계정 설정이 남지 않게
       const settingsSynced = syncNotificationSettings().catch(() => {})
       // 약관 전이면 새 계정이거나 설정을 안 마친 계정. 기기에 남은 다른 계정 설정은 비움

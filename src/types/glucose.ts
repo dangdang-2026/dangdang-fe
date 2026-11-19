@@ -28,6 +28,8 @@ export type Portion = 'half' | 'one' | 'one-half'
 
 // 음식 하나. unit은 양 표시 단위(공기·인분 등)
 export type Food = {
+  // 식약처 식품코드. 서버 음식만 있음
+  code?: string
   name: string
   unit: string
   // 밥·면처럼 식후 혈당에 영향이 큰 주식. 이것만 양을 받음
