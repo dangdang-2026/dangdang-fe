@@ -101,3 +101,8 @@ export async function updatePostpartumTestResult(id: string, resultNote: string)
   if (!data.data) throw new Error('산후 검사 결과 응답이 비어 있음')
   return toPostpartumCheck(data.data)
 }
+
+// 산후 검사 일정 지우기. 남의 것 · 없는 번호면 404
+export async function deletePostpartumTest(id: string) {
+  await apiClient.delete(`/postpartum/tests/${id}`)
+}

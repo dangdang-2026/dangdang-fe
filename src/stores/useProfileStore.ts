@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { getErrorCode } from '@/api/axios'
 import {
   createPostpartumTest,
+  deletePostpartumTest,
   getPostpartumHome,
   getPostpartumTests,
   remindLater,
@@ -150,4 +151,15 @@ export async function graduatePostpartum() {
     .getState()
     .updateProfile({ deliveryDate: null, checkRemindAt: null, postpartumChecks: [] })
   return stats
+}
+
+// 서버에서 검사 일정을 지운 뒤 기기에서도 뺌. 이미 없는 일정(404)이면 그대로 뺌
+export async function deletePostpartumCheck(id: string) {
+  try {
+    await deletePostpartumTest(id)
+  } catch (error) {
+    if (getErrorCode(error) !== 'POSTPARTUM_40401') throw error
+  }
+  const { postpartumChecks, updateProfile } = useProfileStore.getState()
+  updateProfile({ postpartumChecks: postpartumChecks.filter((item) => item.id !== id) })
 }
