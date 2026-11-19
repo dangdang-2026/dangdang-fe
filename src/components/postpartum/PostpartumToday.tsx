@@ -4,6 +4,7 @@ import iconChevron from '@/assets/icons/nav-next.svg'
 import iconArchive from '@/assets/icons/postpartum/archive-lg.svg'
 import iconChevronMd from '@/assets/icons/postpartum/chevron-md.svg'
 import iconCalendar from '@/assets/icons/postpartum/calendar.svg'
+import ConfirmDialog from '@/components/common/ConfirmDialog'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import CheckScheduleCard from '@/components/postpartum/CheckScheduleCard'
@@ -12,7 +13,12 @@ import TodayHeader from '@/components/today/TodayHeader'
 import PostpartumHero from '@/components/today/hero/PostpartumHero'
 import { ROUTES } from '@/constants/routes'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
-import { saveRemindLater, syncPostpartumHome, useProfileStore } from '@/stores/useProfileStore'
+import {
+  graduatePostpartum,
+  saveRemindLater,
+  syncPostpartumHome,
+  useProfileStore,
+} from '@/stores/useProfileStore'
 import { useReportStore } from '@/stores/useReportStore'
 import { diffInDays, formatMonthDay, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 import { getPendingCheck } from '@/utils/postpartum'
@@ -41,6 +47,9 @@ function PostpartumToday({ name, deliveryDate, now }: PostpartumTodayProps) {
   const [remindSheet, setRemindSheet] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
+  const [finishing, setFinishing] = useState(false)
+  const [graduating, setGraduating] = useState(false)
+  const closeFinish = useCallback(() => setFinishing(false), [])
 
   // 산후 홈에 들어올 때 다른 기기에서 바꾼 출산일 · 다시 물어볼 날을 반영. 실패하면 기기 값 그대로
   useEffect(() => {
@@ -52,6 +61,44 @@ function PostpartumToday({ name, deliveryDate, now }: PostpartumTodayProps) {
   // 다시 물어볼 날 전까지는 할 일 카드를 숨김
   const showCheckTask = !remindAt || remindAt <= startOfDay(now)
   const archiveSummary = `리포트 ${reportCount}장 · 기록 ${recordCount}개`
+
+  // 산후 관리 마치기 = 서버 졸업. 마치면 산후 홈 · 검사 일정을 못 써서 확인 뒤 진행
+  const finishPostpartum = () => {
+    if (graduating) return
+    setGraduating(true)
+    graduatePostpartum()
+      .then((graduation) =>
+        navigate(ROUTES.POSTPARTUM_GRADUATION, { replace: true, state: { graduation } }),
+      )
+      .catch(() => {
+        setFinishing(false)
+        setGraduating(false)
+        setToast('산후 관리를 마치지 못했어요. 잠시 후 다시 시도해 주세요')
+      })
+  }
+
+  // 두 화면 공통 맨 아래: 산후 관리 마치기 · 확인창 · 토스트
+  const footer = (
+    <>
+      <button
+        type="button"
+        className="text-grey-500 mx-auto mt-6 block text-sm leading-normal underline"
+        onClick={() => setFinishing(true)}
+      >
+        산후 관리 마치기
+      </button>
+      {finishing && (
+        <ConfirmDialog
+          title="산후 관리를 마칠까요?"
+          description="산후 검사 일정과 알림도 함께 끝나요. 마친 뒤에는 되돌릴 수 없어요."
+          confirmLabel="마치기"
+          onConfirm={finishPostpartum}
+          onClose={closeFinish}
+        />
+      )}
+      {toast && <Toast message={toast} onClose={closeToast} />}
+    </>
+  )
 
   // E-10 일정을 적은 뒤엔 흰 바탕에 검사 일정 카드 + 테두리 보관함
   if (pendingCheck) {
@@ -85,6 +132,7 @@ function PostpartumToday({ name, deliveryDate, now }: PostpartumTodayProps) {
           </span>
           <img src={iconChevronMd} alt="" width={16} height={16} />
         </button>
+        {footer}
       </div>
     )
   }
@@ -162,7 +210,7 @@ function PostpartumToday({ name, deliveryDate, now }: PostpartumTodayProps) {
           onClose={() => setRemindSheet(false)}
         />
       )}
-      {toast && <Toast message={toast} onClose={closeToast} />}
+      {footer}
     </>
   )
 }

@@ -61,8 +61,8 @@ function DeliveryPage() {
     if (saving) return
     setSaving(true)
     saveDeliveryDate(toDateKey(date))
-      // 산후 홈 전에 임신 중 관리 졸업을 한 번 보여 줌
-      .then(() => navigate(ROUTES.POSTPARTUM_GRADUATION, { replace: true }))
+      // 졸업은 산후를 마칠 때라 바로 산후 홈으로
+      .then(() => navigate(ROUTES.TODAY, { replace: true }))
       .catch((error: unknown) => {
         setToast(getDeliveryError(error))
         setSaving(false)

@@ -29,3 +29,13 @@ export async function updateDeliveryDate(deliveryDate: string) {
   if (!data.data) throw new Error('출산일 응답이 비어 있음')
   return data.data
 }
+
+// 백엔드 GraduationResponse. 저장한 혈당 수 · 가입한 날부터 함께한 주
+export type GraduationStats = { keptMeasurements: number; weeksTogether: number }
+
+// 졸업. 임신이 끝남(ENDED)이 돼서 뒤로는 산후 홈 · 검사 API를 못 씀. 산후가 아니면 409
+export async function graduate() {
+  const { data } = await apiClient.post<BaseResponse<GraduationStats>>('/me/graduation')
+  if (!data.data) throw new Error('졸업 응답이 비어 있음')
+  return data.data
+}

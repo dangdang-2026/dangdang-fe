@@ -9,7 +9,12 @@ import {
   updatePostpartumTest,
   updatePostpartumTestResult,
 } from '@/api/postpartum'
-import { updateDeliveryDate, updateHospitalization, type PregnancyState } from '@/api/pregnancy'
+import {
+  graduate,
+  updateDeliveryDate,
+  updateHospitalization,
+  type PregnancyState,
+} from '@/api/pregnancy'
 import { MOCK_USER } from '@/mocks/user'
 
 // 관리 모드: 식사·운동 / 인슐린 함께 / 먹는 약 함께
@@ -136,4 +141,13 @@ export async function saveDeliveryDate(deliveryDate: string) {
     hospitalized: false,
     checkRemindAt: null,
   })
+}
+
+// 서버에서 졸업한 뒤 기기의 산후 모드를 비움. 졸업 화면 숫자를 돌려줌
+export async function graduatePostpartum() {
+  const stats = await graduate()
+  useProfileStore
+    .getState()
+    .updateProfile({ deliveryDate: null, checkRemindAt: null, postpartumChecks: [] })
+  return stats
 }
