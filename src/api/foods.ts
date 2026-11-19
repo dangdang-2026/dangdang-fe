@@ -1,5 +1,8 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
-import type { Food } from '@/types/glucose'
+import type { MealItemSummary } from '@/api/mealItems'
+import { fromServerMeal, type ServerMeal, type ServerMealSlot } from '@/api/meals'
+import { toGlucoseRecord, type ReadingResponse } from '@/api/readings'
+import type { Food, GlucoseRecord } from '@/types/glucose'
 import { looksLikeStaple } from '@/utils/meal'
 
 // 백엔드 FoodOrigin. 같은 이름이 출처별로 여러 줄일 때 구분용
@@ -75,4 +78,40 @@ export async function searchFoods(q: string, size: number) {
   })
   const foods = (data.data?.items ?? []).map(toFood)
   return foods.filter((food, index) => foods.findIndex((item) => item.name === food.name) === index)
+}
+
+// 백엔드 FoodHistoryPageResponse. 이 음식을 먹은 내 식사, 최신순
+type FoodHistoryPageResponse = {
+  items: {
+    mealId: number
+    startedAt: string
+    mealSlot: ServerMealSlot
+    // 이 식사에서 이 음식을 먹은 항목만
+    items: MealItemSummary[]
+    // 이 식사에 연결된 혈당, 잰 시각 순
+    readings: ReadingResponse[]
+  }[]
+  totalElements: number
+  hasNext: boolean
+}
+
+// 한 번에 받을 최대 개수(서버 상한 100)
+const HISTORY_SIZE = 100
+
+// 같은 음식 지난 기록. 고른 음식(식품코드)만 됨. 간식은 프론트 끼니에 없어 뺌
+export async function getFoodMeals(code: string) {
+  const { data } = await apiClient.get<BaseResponse<FoodHistoryPageResponse>>(
+    `/foods/${encodeURIComponent(code)}/history`,
+    { params: { size: HISTORY_SIZE } },
+  )
+  if (!data.data) throw new Error('지난 기록 응답이 비어 있음')
+  const meals: ServerMeal[] = []
+  const records: GlucoseRecord[] = []
+  data.data.items.forEach((item) => {
+    const meal = fromServerMeal(item)
+    if (!meal) return
+    meals.push(meal)
+    records.push(...item.readings.map(toGlucoseRecord))
+  })
+  return { meals, records }
 }

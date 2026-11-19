@@ -167,7 +167,7 @@ const getKnownFoods = () => {
 }
 
 // 서버 식사를 기기 식사에 합침. 기기에서 고치고 못 보낸 음식은 기기 값, 아니면 서버 항목
-function mergeServerMeal(server: ServerMeal, local?: Meal): Meal {
+export function mergeServerMeal(server: ServerMeal, local?: Meal): Meal {
   const { items, ...base } = server
   const meal: Meal = local ? { ...local, ...base } : { ...base, skipped: false }
   if (!items || meal.itemsPending) return meal
