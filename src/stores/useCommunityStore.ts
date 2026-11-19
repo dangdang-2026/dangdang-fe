@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getMyCommunityProfile } from '@/api/communityProfile'
 import { MY_AUTHOR_ID } from '@/constants/community'
-import type { Author, BoardKey, Post, PostDraft, ReportReason } from '@/types/community'
+import type { Author, Post, PostDraft, ReportReason } from '@/types/community'
 
 type CommunityState = {
   // 커뮤니티 첫 진입에 정함. 안 정했으면 null
@@ -25,18 +25,9 @@ type CommunityState = {
   toggleLikeComment: (postId: string, commentId: string) => void
   addComment: (postId: string, author: Author, body: string, parentId?: string) => void
   removeComment: (postId: string, commentId: string) => void
-  // 새 글 id를 돌려줌
-  addPost: (input: {
-    board: BoardKey
-    title: string
-    body: string
-    author: Author
-    poll?: string[]
-  }) => string
   // 글 id → 내가 고른 투표 항목 id
   votes: Record<string, string>
   vote: (postId: string, optionId: string) => void
-  editPost: (postId: string, changes: Pick<Post, 'board' | 'title' | 'body'>) => void
   // 쓰다 나갈 때 임시 저장
   draft: PostDraft | null
   saveDraft: (draft: PostDraft) => void
@@ -175,32 +166,6 @@ export const useCommunityStore = create<CommunityState>()(
             comments: post.comments.filter(
               (item) => item.id !== commentId && item.parentId !== commentId,
             ),
-          })),
-        })),
-      addPost: ({ board, title, body, author, poll }) => {
-        const id = crypto.randomUUID()
-        const post: Post = {
-          id,
-          board,
-          title,
-          body,
-          author,
-          createdAt: new Date().toISOString(),
-          views: 0,
-          likes: 0,
-          comments: [],
-          commentCount: 0,
-          poll: poll?.map((label, index) => ({ id: 'o' + (index + 1), label, votes: 0 })),
-        }
-        set((state) => ({ posts: [post, ...state.posts], draft: null }))
-        return id
-      },
-      editPost: (postId, changes) =>
-        set((state) => ({
-          posts: updatePost(state.posts, postId, (post) => ({
-            ...post,
-            ...changes,
-            editedAt: new Date().toISOString(),
           })),
         })),
       // 한 번 고르면 바꿀 수 없음

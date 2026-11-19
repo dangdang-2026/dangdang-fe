@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import iconCommentChevron from '@/assets/icons/chevron-right.svg'
 import { useNavigate, useParams } from 'react-router'
 import { getErrorCode } from '@/api/axios'
-import { getPost } from '@/api/posts'
+import { deletePost, getPost } from '@/api/posts'
 import iconBack from '@/assets/icons/back.svg'
 import iconAvatar from '@/assets/icons/community/avatar-lg.svg'
 import iconCommentBar from '@/assets/icons/community/comment-bar.svg'
@@ -421,8 +421,19 @@ function PostDetailPage() {
           confirmLabel="삭제"
           danger
           onConfirm={() => {
-            removePost(post.id)
-            navigate(ROUTES.COMMUNITY, { replace: true })
+            setConfirming(null)
+            // 서버에서 지운 뒤 기기에서도 빼고 나감. 이미 없는 글이어도 지운 걸로
+            deletePost(post.id)
+              .catch((error) => {
+                if (getErrorCode(error) !== 'POST_40401') throw error
+              })
+              .then(
+                () => {
+                  removePost(post.id)
+                  navigate(ROUTES.COMMUNITY, { replace: true })
+                },
+                () => setToast('글을 지우지 못했어요. 잠시 후 다시 시도해 주세요'),
+              )
           }}
           onClose={closeConfirming}
         />

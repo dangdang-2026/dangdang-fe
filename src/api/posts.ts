@@ -189,3 +189,44 @@ export async function getPost(postId: string) {
   if (!data.data) throw new Error('글 상세 응답이 비어 있음')
   return toPostDetail(data.data)
 }
+
+export type PostInput = {
+  board: BoardKey
+  title: string
+  body: string
+  anonymous: boolean
+  // 투표 항목 2~5개. 없으면 투표 없음
+  poll?: string[]
+}
+
+// 글 쓰기. 프로필 없음 404 COMMUNITY_40401, 이용 제한 중 403 COMMUNITY_40301
+export async function createPost(input: PostInput) {
+  const { data } = await apiClient.post<BaseResponse<PostDetailResponse>>('/posts', {
+    category: CATEGORY[input.board],
+    title: input.title,
+    content: input.body,
+    isAnonymous: input.anonymous,
+    poll: input.poll,
+  })
+  if (!data.data) throw new Error('글 쓰기 응답이 비어 있음')
+  return toPostDetail(data.data)
+}
+
+// 글 고치기. 투표 · 익명은 못 바꿈
+export async function updatePost(
+  postId: string,
+  changes: Pick<PostInput, 'board' | 'title' | 'body'>,
+) {
+  const { data } = await apiClient.patch<BaseResponse<PostDetailResponse>>(`/posts/${postId}`, {
+    category: CATEGORY[changes.board],
+    title: changes.title,
+    content: changes.body,
+  })
+  if (!data.data) throw new Error('글 고치기 응답이 비어 있음')
+  return toPostDetail(data.data)
+}
+
+// 글 지우기
+export async function deletePost(postId: string) {
+  await apiClient.delete(`/posts/${postId}`)
+}

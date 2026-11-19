@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router'
+import { getErrorCode } from '@/api/axios'
+import { createPost, updatePost } from '@/api/posts'
 import iconCaret from '@/assets/icons/community/caret.svg'
 import iconCheckCircle from '@/assets/icons/community/check-circle.svg'
 import iconPhoto from '@/assets/icons/community/photo.svg'
@@ -11,7 +13,7 @@ import Toast from '@/components/common/Toast'
 import PollEditor from '@/components/community/PollEditor'
 import PostWarningSheet from '@/components/community/PostWarningSheet'
 import RestrictedSheet from '@/components/community/RestrictedSheet'
-import { BOARD_LABEL, BOARD_ORDER, POLL_MIN_OPTIONS } from '@/constants/community'
+import { BOARD_LABEL, BOARD_ORDER, POLL_MIN_OPTIONS, PREPARING_BOARDS } from '@/constants/community'
 import { ROUTES, communityPostPath } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useMyAuthor } from '@/hooks/useMyAuthor'
@@ -29,8 +31,9 @@ const BODY_PLACEHOLDER = [
   '같은 길을 걷는 산모끼리, 서로 존중하는 따뜻한 당당 커뮤니티를 함께 만들어 가요.',
 ].join('\n\n')
 
+// 서버에 있는 게시판만 고를 수 있음
 const isBoardKey = (value: string | null): value is BoardKey =>
-  BOARD_ORDER.includes(value as BoardKey)
+  BOARD_ORDER.includes(value as BoardKey) && !PREPARING_BOARDS.includes(value as BoardKey)
 
 // Figma U-03 글쓰기 · U-16 쓰다가 나가기 · U-17 이용 제한 중. ?edit=글id면 고치기
 function WritePage() {
@@ -43,8 +46,7 @@ function WritePage() {
   )
   const savedDraft = useCommunityStore((state) => state.draft)
   const restrictedUntil = useCommunityStore((state) => state.restrictedUntil)
-  const addPost = useCommunityStore((state) => state.addPost)
-  const editPost = useCommunityStore((state) => state.editPost)
+  const cachePosts = useCommunityStore((state) => state.cachePosts)
   const saveDraft = useCommunityStore((state) => state.saveDraft)
   const clearDraft = useCommunityStore((state) => state.clearDraft)
 
@@ -56,7 +58,10 @@ function WritePage() {
       const anonymous = editing.author.nickname === ANONYMOUS_NICKNAME
       return { board, title, body, anonymous, poll: null }
     }
-    if (savedDraft) return { ...savedDraft, poll: savedDraft.poll ?? null }
+    if (savedDraft) {
+      const board = isBoardKey(savedDraft.board) ? savedDraft.board : null
+      return { ...savedDraft, board, poll: savedDraft.poll ?? null }
+    }
     const board = params.get('board')
     return {
       board: isBoardKey(board) ? board : null,
@@ -67,6 +72,7 @@ function WritePage() {
     }
   })
   const [boardOpen, setBoardOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [warning, setWarning] = useState<PostWarning | null>(null)
   const [leaving, setLeaving] = useState(false)
   const [restrictedOpen, setRestrictedOpen] = useState(
@@ -103,30 +109,41 @@ function WritePage() {
     else goBack()
   }
 
-  const publish = () => {
-    if (!draft.board || !canSubmit) return
-    if (editing) {
-      editPost(editing.id, { board: draft.board, title, body })
-      // 글 보기에서 들어왔으니 돌아가면 고친 글이 보임
-      goBack()
-      return
+  // 서버에 올린 뒤 기기 글로 맞춤. 실패하면 쓰던 글은 그대로 두고 안내
+  const publish = async () => {
+    if (!draft.board || !canSubmit || saving) return
+    setSaving(true)
+    try {
+      if (editing) {
+        cachePosts([await updatePost(editing.id, { board: draft.board, title, body })], true)
+        // 글 보기에서 들어왔으니 돌아가면 고친 글이 보임
+        goBack()
+        return
+      }
+      const post = await createPost({
+        board: draft.board,
+        title,
+        body,
+        anonymous: draft.anonymous,
+        poll: draft.poll ? pollOptions : undefined,
+      })
+      cachePosts([post], true)
+      clearDraft()
+      navigate(communityPostPath(post.id), { replace: true })
+    } catch (error) {
+      setSaving(false)
+      const code = getErrorCode(error)
+      if (code === 'COMMUNITY_40301') setRestrictedOpen(true)
+      else if (code === 'POST_40401') setToast('이미 지워진 글이에요')
+      else setToast('글을 올리지 못했어요. 잠시 후 다시 시도해 주세요')
     }
-    const author = draft.anonymous ? { ...me, nickname: ANONYMOUS_NICKNAME } : me
-    const id = addPost({
-      board: draft.board,
-      title,
-      body,
-      author,
-      poll: draft.poll ? pollOptions : undefined,
-    })
-    navigate(communityPostPath(id), { replace: true })
   }
 
   // 위급한 말·약 용량이 있으면 올리기 전에 한 번 더 확인
   const submit = () => {
     const found = checkPost(`${title}\n${body}`)
     if (found) setWarning(found)
-    else publish()
+    else void publish()
   }
 
   return (
@@ -145,7 +162,7 @@ function WritePage() {
         </button>
         <button
           type="button"
-          disabled={!canSubmit}
+          disabled={!canSubmit || saving}
           className="bg-primary text-grey-900 disabled:bg-grey-100 disabled:text-grey-400 rounded-full px-3.5 py-1.5 text-sm leading-snug font-bold"
           onClick={submit}
         >
@@ -244,7 +261,7 @@ function WritePage() {
         <BottomSheet label="게시판 선택" onClose={closeBoard}>
           <h2 className="text-t4 text-grey-900">어느 게시판에 올릴까요?</h2>
           <ul className="grid grid-cols-2 gap-2">
-            {BOARD_ORDER.map((board) => (
+            {BOARD_ORDER.filter((board) => !PREPARING_BOARDS.includes(board)).map((board) => (
               <li key={board}>
                 <button
                   type="button"
@@ -312,7 +329,7 @@ function WritePage() {
           onBack={() => setWarning(null)}
           onPostAnyway={() => {
             setWarning(null)
-            publish()
+            void publish()
           }}
         />
       )}
