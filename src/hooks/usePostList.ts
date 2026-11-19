@@ -66,7 +66,7 @@ export function usePostList(query: PostListQuery, enabled = true) {
     const blocked = new Set(blockedAuthors.map((author) => author.id))
     const byId = new Map(cached.map((post) => [post.id, post]))
     return (current?.posts ?? [])
-      .filter((post) => !blocked.has(post.author.id) && byId.has(post.id))
+      .filter((post) => !blocked.has(post.author.id))
       .map((post) => byId.get(post.id) ?? post)
   }, [current, blockedAuthors, cached])
 

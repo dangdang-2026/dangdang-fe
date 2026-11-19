@@ -4,9 +4,12 @@ import CommunityEmpty from '@/components/community/CommunityEmpty'
 import MorePostsButton from '@/components/community/MorePostsButton'
 import PostCard from '@/components/community/PostCard'
 import SortToggle from '@/components/community/SortToggle'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { usePostList } from '@/hooks/usePostList'
 import type { Post, PostSort } from '@/types/community'
 import { isMedicalQuery } from '@/utils/community'
+
+const SEARCH_DELAY_MS = 300
 
 type SearchResultsProps = {
   query: string
@@ -20,7 +23,9 @@ type SearchResultsProps = {
 // Figma U-06 검색 결과 · U-07 검색 결과 없음
 function SearchResults({ query, now, onOpen, onAsk, onWrite }: SearchResultsProps) {
   const [sort, setSort] = useState<PostSort>('popular')
-  const list = usePostList({ sort, q: query.trim() })
+  // 입력을 멈추면 찾음
+  const keyword = useDebouncedValue(query.trim(), SEARCH_DELAY_MS)
+  const list = usePostList({ sort, q: keyword })
   const results = list.posts
   const medical = isMedicalQuery(query)
 

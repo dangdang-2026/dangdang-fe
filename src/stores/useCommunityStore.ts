@@ -71,6 +71,23 @@ const renameMe = (posts: Post[], from: string | null, to: string) => {
 const toggle = (ids: string[], id: string) =>
   ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]
 
+// 목록 본문은 앞 100자. 그보다 짧으면 본문 전체
+const EXCERPT_LENGTH = 100
+// 기기에 둘 글 수. 넘으면 오래된 글부터 버리고 내 글은 남김
+const MAX_CACHED_POSTS = 300
+
+// 오래된 글부터 버림. 내 글은 커뮤니티 활동에서 보여서 남김
+function trimPosts(posts: Post[]) {
+  if (posts.length <= MAX_CACHED_POSTS) return posts
+  const keep = new Set(
+    [...posts]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, MAX_CACHED_POSTS)
+      .map((post) => post.id),
+  )
+  return posts.filter((post) => keep.has(post.id) || post.author.id === MY_AUTHOR_ID)
+}
+
 // 받은 글은 그대로 바꿔 끼움. 상세에서 받은 댓글 · 투표 항목은 목록 글로 덮지 않음
 const mergePosts = (posts: Post[], incoming: Post[], full: boolean) => {
   const byId = new Map(incoming.map((post) => [post.id, post]))
@@ -82,12 +99,15 @@ const mergePosts = (posts: Post[], incoming: Post[], full: boolean) => {
       ...post,
       ...next,
       // 목록은 본문 앞부분만 와서 상세에서 받은 본문을 남김
-      body: full || next.body.length >= post.body.length ? next.body : post.body,
+      body:
+        full || [...next.body].length < EXCERPT_LENGTH || next.body.length >= post.body.length
+          ? next.body
+          : post.body,
       comments: next.comments.length > 0 ? next.comments : post.comments,
       poll: next.poll?.length ? next.poll : (post.poll ?? next.poll),
     }
   })
-  return [...merged, ...byId.values()]
+  return trimPosts([...merged, ...byId.values()])
 }
 
 // 커뮤니티 글은 서버에서 받아 기기에도 둠
