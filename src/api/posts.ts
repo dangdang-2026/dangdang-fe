@@ -122,3 +122,70 @@ export async function getPosts(query: PostListQuery, cursor?: string) {
     nextCursor: data.data.hasNext ? data.data.nextCursor : null,
   }
 }
+
+// 백엔드 PollResponse. voteCount는 투표한 사람에게만 옴
+type PollResponse = {
+  options: { index: number; text: string; voteCount: number | null }[]
+  totalVotes: number
+  myOptionIndex: number | null
+}
+
+// 백엔드 PostDetailResponse. 가려진 글은 제목 · 본문 · 글쓴이 없이 hiddenReason만
+type PostDetailResponse = {
+  id: string
+  category: PostCategory
+  title: string | null
+  content: string | null
+  author: AuthorResponse | null
+  createdAt: string
+  updatedAt: string
+  viewCount: number
+  reactionCount: number
+  commentCount: number
+  reacted: boolean
+  isMine: boolean
+  visibility: 'VISIBLE' | 'HIDDEN'
+  hiddenReason: string | null
+  poll: PollResponse | null
+}
+
+// 저장 직후 updatedAt이 createdAt과 조금 달라도 고친 걸로 보지 않음
+const EDITED_GAP_MS = 1000
+
+// 서버 글 상세 → 화면 글. 투표 항목 id는 서버 항목 번호, 댓글은 댓글 API로 따로
+function toPostDetail(item: PostDetailResponse): Post {
+  const edited =
+    new Date(item.updatedAt).getTime() - new Date(item.createdAt).getTime() > EDITED_GAP_MS
+  return {
+    id: item.id,
+    board: BOARD[item.category] ?? 'free',
+    title: item.title ?? '',
+    body: item.content ?? '',
+    author: item.author
+      ? toAuthor(item.author, item.id)
+      : { id: `anon-${item.id}`, nickname: '', pregnancyWeek: null },
+    createdAt: item.createdAt,
+    editedAt: edited ? item.updatedAt : undefined,
+    views: item.viewCount,
+    likes: item.reactionCount,
+    liked: item.reacted,
+    commentCount: item.commentCount,
+    comments: [],
+    hidden: item.visibility === 'HIDDEN',
+    hiddenReason: item.hiddenReason ?? undefined,
+    poll: item.poll?.options.map((option) => ({
+      id: String(option.index),
+      label: option.text,
+      votes: option.voteCount ?? 0,
+    })),
+    pollTotal: item.poll?.totalVotes,
+    myVote: item.poll && item.poll.myOptionIndex !== null ? String(item.poll.myOptionIndex) : null,
+  }
+}
+
+// 글 상세. 서버가 조회수를 올림. 없거나 지운 글은 404 POST_40401
+export async function getPost(postId: string) {
+  const { data } = await apiClient.get<BaseResponse<PostDetailResponse>>(`/posts/${postId}`)
+  if (!data.data) throw new Error('글 상세 응답이 비어 있음')
+  return toPostDetail(data.data)
+}

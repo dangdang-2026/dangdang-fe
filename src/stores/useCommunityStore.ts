@@ -11,7 +11,8 @@ type CommunityState = {
   showWeek: boolean
   // 서버에서 받은 글. 목록 · 상세에서 받을 때마다 맞춤
   posts: Post[]
-  cachePosts: (posts: Post[]) => void
+  // full이면 상세 글이라 본문까지 그대로 바꿈
+  cachePosts: (posts: Post[], full?: boolean) => void
   likedPostIds: string[]
   likedCommentIds: string[]
   // 메인 안내 띠를 닫았는지
@@ -20,7 +21,6 @@ type CommunityState = {
   setNickname: (nickname: string, showWeek?: boolean) => void
   setShowWeek: (showWeek: boolean) => void
   dismissNotice: () => void
-  viewPost: (postId: string) => void
   toggleLikePost: (postId: string) => void
   toggleLikeComment: (postId: string, commentId: string) => void
   addComment: (postId: string, author: Author, body: string, parentId?: string) => void
@@ -80,7 +80,7 @@ const toggle = (ids: string[], id: string) =>
   ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]
 
 // 받은 글은 그대로 바꿔 끼움. 상세에서 받은 댓글 · 투표 항목은 목록 글로 덮지 않음
-const mergePosts = (posts: Post[], incoming: Post[]) => {
+const mergePosts = (posts: Post[], incoming: Post[], full: boolean) => {
   const byId = new Map(incoming.map((post) => [post.id, post]))
   const merged = posts.map((post) => {
     const next = byId.get(post.id)
@@ -89,7 +89,8 @@ const mergePosts = (posts: Post[], incoming: Post[]) => {
     return {
       ...post,
       ...next,
-      body: next.body.length >= post.body.length ? next.body : post.body,
+      // 목록은 본문 앞부분만 와서 상세에서 받은 본문을 남김
+      body: full || next.body.length >= post.body.length ? next.body : post.body,
       comments: next.comments.length > 0 ? next.comments : post.comments,
       poll: next.poll?.length ? next.poll : (post.poll ?? next.poll),
     }
@@ -104,7 +105,8 @@ export const useCommunityStore = create<CommunityState>()(
       nickname: null,
       showWeek: false,
       posts: [],
-      cachePosts: (posts) => set((state) => ({ posts: mergePosts(state.posts, posts) })),
+      cachePosts: (posts, full = false) =>
+        set((state) => ({ posts: mergePosts(state.posts, posts, full) })),
       likedPostIds: [],
       likedCommentIds: [],
       noticeDismissed: false,
@@ -124,10 +126,6 @@ export const useCommunityStore = create<CommunityState>()(
         })),
       setShowWeek: (showWeek) => set({ showWeek }),
       dismissNotice: () => set({ noticeDismissed: true }),
-      viewPost: (postId) =>
-        set((state) => ({
-          posts: updatePost(state.posts, postId, (post) => ({ ...post, views: post.views + 1 })),
-        })),
       toggleLikePost: (postId) =>
         set((state) => {
           const liked = state.likedPostIds.includes(postId)
