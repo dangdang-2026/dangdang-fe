@@ -52,12 +52,12 @@ type CommunityState = {
   unblockAuthor: (authorId: string) => void
   // 당당 소식 카드 공감·저장
   likedNewsIds: string[]
-  savedNewsIds: string[]
+
   toggleLikeNews: (newsId: string) => void
-  toggleSaveNews: (newsId: string) => void
-  // 메인 당당 소식 카드를 닫았는지
-  newsCardDismissed: boolean
-  dismissNewsCard: () => void
+
+  // 커뮤니티 메인에서 닫은 소식 카드. 새 카드가 걸리면 다시 보임
+  dismissedNewsId: number | null
+  dismissNewsCard: (id: number) => void
 }
 
 // 글 하나만 바꿔 끼움
@@ -94,8 +94,8 @@ export const useCommunityStore = create<CommunityState>()(
       blockedAuthors: [],
       likedNewsIds: [],
       votes: {},
-      savedNewsIds: [],
-      newsCardDismissed: false,
+
+      dismissedNewsId: null,
       setNickname: (nickname, showWeek) =>
         set((state) => ({
           nickname,
@@ -213,9 +213,7 @@ export const useCommunityStore = create<CommunityState>()(
         })),
       toggleLikeNews: (newsId) =>
         set((state) => ({ likedNewsIds: toggle(state.likedNewsIds, newsId) })),
-      toggleSaveNews: (newsId) =>
-        set((state) => ({ savedNewsIds: toggle(state.savedNewsIds, newsId) })),
-      dismissNewsCard: () => set({ newsCardDismissed: true }),
+      dismissNewsCard: (id) => set({ dismissedNewsId: id }),
       unblockAuthor: (authorId) =>
         set((state) => ({
           blockedAuthors: state.blockedAuthors.filter((item) => item.id !== authorId),

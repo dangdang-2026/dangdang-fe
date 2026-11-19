@@ -21,17 +21,12 @@ import PostCard from '@/components/community/PostCard'
 import SearchResults from '@/components/community/SearchResults'
 import SortToggle from '@/components/community/SortToggle'
 import { BOARD_ICON, BOARD_LABEL, BOARD_ORDER } from '@/constants/community'
-import {
-  ROUTES,
-  communityBoardPath,
-  communityNewsPath,
-  communityPostPath,
-} from '@/constants/routes'
+import { ROUTES, communityBoardPath, communityPostPath } from '@/constants/routes'
 import { useNow } from '@/hooks/useNow'
 import { useOnline } from '@/hooks/useOnline'
 import { useVisiblePosts } from '@/hooks/useVisiblePosts'
 import { syncCommunityProfile, useCommunityStore } from '@/stores/useCommunityStore'
-import { LATEST_NEWS } from '@/mocks/news'
+import { getAnnouncementLabel, useAnnouncement, useOpenAnnouncement } from '@/hooks/useAnnouncement'
 import type { PostSort } from '@/types/community'
 import { sortPosts } from '@/utils/community'
 
@@ -51,10 +46,11 @@ function CommunityPage() {
   const posts = useVisiblePosts()
   const noticeDismissed = useCommunityStore((state) => state.noticeDismissed)
   const dismissNotice = useCommunityStore((state) => state.dismissNotice)
-  const newsCardDismissed = useCommunityStore((state) => state.newsCardDismissed)
+  const dismissedNewsId = useCommunityStore((state) => state.dismissedNewsId)
   const dismissNewsCard = useCommunityStore((state) => state.dismissNewsCard)
-  // 메인에는 가장 최근 당당 소식 한 장
-  const latestNews = LATEST_NEWS
+  // 메인에는 서버에 걸린 소식 · 광고 카드 한 장. 닫은 카드만 숨김
+  const announcement = useAnnouncement('COMMUNITY')
+  const openAnnouncement = useOpenAnnouncement()
   const nickname = useCommunityStore((state) => state.nickname)
   const setNickname = useCommunityStore((state) => state.setNickname)
   const [sort, setSort] = useState<PostSort>('popular')
@@ -206,32 +202,32 @@ function CommunityPage() {
                 </div>
               )}
 
-              {!newsCardDismissed && (
+              {announcement && dismissedNewsId !== announcement.id && (
                 <div className="px-5 pb-2">
                   <div className="flex items-center gap-3 rounded-2xl bg-yellow-50 p-3">
                     <button
                       type="button"
                       className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                      onClick={() => navigate(communityNewsPath(latestNews.id))}
+                      onClick={() => openAnnouncement(announcement)}
                     >
                       <span className="rounded-tag text-caption text-grey-800 flex size-14 shrink-0 items-start bg-white p-2 font-bold">
-                        {latestNews.slides.length}장
+                        {announcement.kind === 'AD' ? 'AD' : '소식'}
                       </span>
                       <span className="flex min-w-0 flex-col gap-0.5">
                         <span className="text-caption text-grey-800 flex items-center gap-1 font-bold">
                           <img src={iconNewsCheck} alt="" width={12} height={12} />
-                          당당 공식 · {latestNews.series}
+                          {getAnnouncementLabel(announcement)}
                         </span>
                         <span className="text-grey-900 truncate text-sm leading-snug font-bold">
-                          {latestNews.title}
-                        </span>
-                        <span className="text-caption text-grey-500 font-normal">
-                          출처 {latestNews.sources.length} · 확인일{' '}
-                          {latestNews.checkedAt.slice(5).replace('-', '/')}
+                          {announcement.title}
                         </span>
                       </span>
                     </button>
-                    <button type="button" aria-label="당당 소식 닫기" onClick={dismissNewsCard}>
+                    <button
+                      type="button"
+                      aria-label="당당 소식 닫기"
+                      onClick={() => dismissNewsCard(announcement.id)}
+                    >
                       <img src={iconCardClose} alt="" width={16} height={16} />
                     </button>
                   </div>

@@ -1,12 +1,13 @@
-import { Navigate, Routes, Route, useLocation, useNavigate } from 'react-router'
+import { Navigate, Routes, Route, useLocation } from 'react-router'
 import SplashScreen from '@/components/onboarding/SplashScreen'
-import { ROUTES, communityNewsPath } from '@/constants/routes'
+import { ROUTES } from '@/constants/routes'
 import { SPLASH_TOTAL_MS } from '@/constants/splashMotion'
+import { getAnnouncementLabel, useAnnouncement, useOpenAnnouncement } from '@/hooks/useAnnouncement'
 import { useMeasureReminder } from '@/hooks/useMeasureReminder'
 import { useSessionCheck } from '@/hooks/useSessionCheck'
 import { useTimeout } from '@/hooks/useTimeout'
 import OnboardingGate from '@/layouts/OnboardingGate'
-import { LATEST_NEWS } from '@/mocks/news'
+import { useAuthStore } from '@/stores/useAuthStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
 import { useSplashStore } from '@/stores/useSplashStore'
 import TabLayout from '@/layouts/TabLayout'
@@ -83,7 +84,6 @@ function TodayLinkRedirect() {
 }
 
 function App() {
-  const navigate = useNavigate()
   // 앱이 열려 있는 동안 측정 알림 · 알림 누르면 혈당 입력
   useMeasureReminder()
   useSessionCheck()
@@ -92,19 +92,24 @@ function App() {
   const splash = useSplashStore((state) => state.visible)
   const hideSplash = useSplashStore((state) => state.hide)
   useTimeout(hideSplash, splash ? (completed ? SPLASH_MS : FIRST_SPLASH_MS) : null)
-  const latestNews = LATEST_NEWS
+  // 설정을 마치고 로그인했으면 서버에 걸린 스플래시 카드
+  const loggedIn = useAuthStore((state) => !!state.account)
+  const announcement = useAnnouncement('SPLASH', splash && completed && loggedIn)
+  const openAnnouncement = useOpenAnnouncement()
 
   return (
     <>
       {splash && (
         <SplashScreen
+          revisit={completed}
           news={
-            completed
+            announcement
               ? {
-                  title: latestNews.title,
+                  label: getAnnouncementLabel(announcement),
+                  title: announcement.title,
                   onOpen: () => {
                     hideSplash()
-                    navigate(communityNewsPath(latestNews.id))
+                    openAnnouncement(announcement)
                   },
                 }
               : undefined

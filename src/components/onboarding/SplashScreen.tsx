@@ -30,12 +30,14 @@ const POSES = [splashPose0, splashPose1, splashPose2, splashPose3, splashPose4, 
 
 type SplashScreenProps = {
   // 다시 열 때는 캐릭터를 줄이고 당당 소식 한 장
-  news?: { title: string; onOpen: () => void }
+  revisit: boolean
+  // 서버에 걸린 소식 · 광고 카드. 없으면 카드 없이
+  news?: { label: string; title: string; onOpen: () => void }
   onSkip: () => void
 }
 
 // Figma S-01 스플래시(v3 언덕을 통통 넘어오는 당당) · S-01b 재실행 스플래시(당당 소식 카드). 아무 데나 누르면 넘어감
-function SplashScreen({ news, onSkip }: SplashScreenProps) {
+function SplashScreen({ revisit, news, onSkip }: SplashScreenProps) {
   const screenRef = useRef<HTMLDivElement>(null)
   const hillCoverRef = useRef<HTMLImageElement>(null)
   const characterRef = useRef<HTMLDivElement>(null)
@@ -47,7 +49,7 @@ function SplashScreen({ news, onSkip }: SplashScreenProps) {
   // 첫 실행만 전체 모션. 재실행은 화면 페이드만
   // 첫 페인트 전에 K0 상태로 두려고 layout effect 사용
   useLayoutEffect(() => {
-    if (news) return
+    if (revisit) return
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const options: KeyframeAnimationOptions = { duration: SPLASH_MOTION_MS, fill: 'both' }
     const animations = reduced
@@ -72,25 +74,25 @@ function SplashScreen({ news, onSkip }: SplashScreenProps) {
           }),
         ]
     return () => animations.forEach((animation) => animation?.cancel())
-  }, [news])
+  }, [revisit])
 
   return (
     <div
       ref={screenRef}
       role="presentation"
       className={`fixed inset-0 z-70 mx-auto w-full max-w-107.5 overflow-hidden bg-white ${
-        news ? 'animate-fade-in motion-reduce:animate-none' : ''
+        revisit ? 'animate-fade-in motion-reduce:animate-none' : ''
       }`}
       onClick={onSkip}
     >
       <img
         src={splashHill}
         alt=""
-        className={`absolute -left-46 max-w-none ${news ? 'top-90' : 'top-130'}`}
+        className={`absolute -left-46 max-w-none ${revisit ? 'top-90' : 'top-130'}`}
       />
       {/* 언덕(타원) 가장 넓은 곳(360+280px)부터 아래를 같은 색으로 채워 긴 화면에서도 끝까지 노랑 */}
-      {news && <div aria-hidden className="absolute inset-x-0 top-160 bottom-0 bg-yellow-400" />}
-      {news ? (
+      {revisit && <div aria-hidden className="absolute inset-x-0 top-160 bottom-0 bg-yellow-400" />}
+      {revisit ? (
         <img
           src={splashCharacter}
           alt=""
@@ -117,7 +119,7 @@ function SplashScreen({ news, onSkip }: SplashScreenProps) {
         </div>
       )}
       <div
-        className={`absolute inset-x-0 flex flex-col items-center gap-3 text-center ${news ? 'top-107' : 'top-154.5'}`}
+        className={`absolute inset-x-0 flex flex-col items-center gap-3 text-center ${revisit ? 'top-107' : 'top-154.5'}`}
       >
         <img ref={wordmarkRef} src={wordmark} alt="당당" />
         <p
@@ -130,7 +132,7 @@ function SplashScreen({ news, onSkip }: SplashScreenProps) {
         </p>
       </div>
       {/* 올라올 때 캐릭터·글자까지 덮도록 맨 위에 같은 언덕 한 장 더. 올라오기 전엔 숨김 */}
-      {!news && (
+      {!revisit && (
         <img
           ref={hillCoverRef}
           src={splashHill}
@@ -151,7 +153,7 @@ function SplashScreen({ news, onSkip }: SplashScreenProps) {
             <img src={iconFile} alt="" width={40} height={40} />
           </span>
           <span className="flex flex-col gap-1 px-5 py-4">
-            <span className="text-grey-500 text-xs leading-snug">당당 소식</span>
+            <span className="text-grey-500 text-xs leading-snug">{news.label}</span>
             <span className="text-grey-900 text-base leading-snug font-bold">{news.title}</span>
           </span>
         </button>
