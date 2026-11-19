@@ -27,7 +27,7 @@ import { useOnline } from '@/hooks/useOnline'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useTodaySync } from '@/hooks/useTodaySync'
 import { saveHospitalized, useProfileStore } from '@/stores/useProfileStore'
-import { saveMealStart, useGlucoseStore } from '@/stores/useGlucoseStore'
+import { saveMealContent, saveMealStart, useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useInboxStore } from '@/stores/useInboxStore'
 import { saveNotificationSettings, useNotificationStore } from '@/stores/useNotificationStore'
 import { useVisitStore } from '@/stores/useVisitStore'
@@ -73,7 +73,6 @@ function TodayPage() {
   const records = useGlucoseStore((state) => state.records)
   const insulins = useGlucoseStore((state) => state.insulins)
   const skipMeal = useGlucoseStore((state) => state.skipMeal)
-  const setMealContent = useGlucoseStore((state) => state.setMealContent)
   const addInsulin = useGlucoseStore((state) => state.addInsulin)
   const foods = useFoods()
   const criteria = useCriteria()
@@ -269,7 +268,7 @@ function TodayPage() {
     nutritionEdits?: NutritionEdits,
   ) => {
     if (!writingMeal) return
-    setMealContent(writingMeal.id, mealFoods, portion, nutritionEdits)
+    void saveMealContent(writingMeal.id, mealFoods, portion, nutritionEdits)
     setToast(formatMealSavedMessage({ ...writingMeal, foods: mealFoods, portion }, foods))
     setWritingMeal(null)
   }

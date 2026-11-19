@@ -1,4 +1,5 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
+import type { MealItemSummary } from '@/api/mealItems'
 import type { Meal, MealType } from '@/types/glucose'
 import { toDateKey } from '@/utils/date'
 
@@ -12,6 +13,7 @@ export type MealResponse = {
   startedAt: string
   startedOffline: boolean
   note: string | null
+  items: MealItemSummary[]
   createdAt: string
   updatedAt: string
 }
@@ -28,14 +30,20 @@ const MEAL_FROM_SLOT: Partial<Record<ServerMealSlot, MealType>> = {
   DINNER: 'dinner',
 }
 
+// 서버 식사의 화면 칸 + 먹은 음식 항목(응답에 있을 때만)
+export type ServerMeal = Pick<Meal, 'id' | 'type' | 'startedAt'> & { items?: MealItemSummary[] }
+
 // 서버 식사 → 화면 식사의 서버 칸. 간식은 null
 export function fromServerMeal(item: {
   mealId: number
   mealSlot: ServerMealSlot
   startedAt: string
-}): Pick<Meal, 'id' | 'type' | 'startedAt'> | null {
+  items?: MealItemSummary[]
+}): ServerMeal | null {
   const type = MEAL_FROM_SLOT[item.mealSlot]
-  return type ? { id: String(item.mealId), type, startedAt: item.startedAt } : null
+  return type
+    ? { id: String(item.mealId), type, startedAt: item.startedAt, items: item.items }
+    : null
 }
 
 // 식사 시작 등록. 서버가 병원 기준 시간 뒤 측정 알림을 예약함. 늦게 보내는 건 offline
@@ -47,6 +55,13 @@ export async function createMeal(type: MealType, startedAt: Date, offline = fals
   })
   if (!data.data) throw new Error('식사 등록 응답이 비어 있음')
   return { id: String(data.data.mealId), startedAt: data.data.startedAt }
+}
+
+// 식사 하나. 항목을 맞추기 전에 서버 항목 · 수정 시각을 새로 받음. 없거나 지운 식사면 MEAL_40401
+export async function getMeal(mealId: string) {
+  const { data } = await apiClient.get<BaseResponse<MealResponse>>(`/meals/${mealId}`)
+  if (!data.data) throw new Error('식사 조회 응답이 비어 있음')
+  return data.data
 }
 
 // 백엔드 MealPageResponse
@@ -74,7 +89,7 @@ async function getMealPage(cursor: Cursor | null) {
 
 // 내 식사 전부. 서버는 최신순 → 화면은 오래된 순. 간식은 프론트 끼니에 없어 뺌
 export async function getAllMeals() {
-  const meals: Pick<Meal, 'id' | 'type' | 'startedAt'>[] = []
+  const meals: ServerMeal[] = []
   let cursor: Cursor | null = null
   do {
     const page = await getMealPage(cursor)
