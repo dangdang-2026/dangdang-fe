@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { getErrorCode } from '@/api/axios'
 import { findFoodInPhoto } from '@/api/foodPhoto'
 import BottomSheet from '@/components/common/BottomSheet'
 import MealContentSheet, { type PhotoAnalysis } from '@/components/meal/MealContentSheet'
@@ -11,7 +12,7 @@ import PhotoSearchScreen from '@/components/meal/photo/PhotoSearchScreen'
 import PhotoTableScreen, { type TableItem } from '@/components/meal/photo/PhotoTableScreen'
 import PhotoUnclearScreen from '@/components/meal/photo/PhotoUnclearScreen'
 import { MEAL_LABEL } from '@/constants/glucose'
-import { useAiStore } from '@/stores/useAiStore'
+import { savePhotoConsent, useAiStore } from '@/stores/useAiStore'
 import { useFoodStore } from '@/stores/useFoodStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import type { DetectedFood } from '@/types/foodPhoto'
@@ -150,10 +151,11 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
       // 1등 후보만 골라 둠. 애매하면 비워 두고 사용자가 고름
       setSelected(food.needsCheck ? [] : food.candidates.slice(0, 1))
       setStep('single')
-    } catch {
+    } catch (error) {
       if (request !== requestRef.current) return
       setAnalysis(null)
-      setStep('failed')
+      // 서버에 사진 동의가 없으면 동의부터 다시
+      setStep(getErrorCode(error) === 'FOOD_40301' && !handoffRef.current ? 'consent' : 'failed')
     }
   }
 
@@ -211,11 +213,14 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
       return (
         <PhotoConsentSheet
           onAgree={() => {
-            setConsent('photo', true)
+            // 찍는 동안 서버에 저장. 못 하면 분석 때 403으로 다시 물어봄
+            savePhotoConsent(true).catch(() => {})
             setStep('camera')
           }}
           onDecline={() => {
+            // 거절은 서버에 못 남겨도 다시 묻지 않음
             setConsent('photo', false)
+            savePhotoConsent(false).catch(() => {})
             setStep('name')
           }}
           onClose={onClose}

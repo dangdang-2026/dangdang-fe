@@ -3,7 +3,7 @@ import { getMe } from '@/api/me'
 import { syncPushSubscription } from '@/api/push'
 import { ROUTES } from '@/constants/routes'
 import type { AccountProfile } from '@/mocks/auth'
-import { syncChatConsent } from '@/stores/useAiStore'
+import { syncAiConsents } from '@/stores/useAiStore'
 import { useAuthStore, type LoginMethod } from '@/stores/useAuthStore'
 import { syncCommunityProfile } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
@@ -59,7 +59,7 @@ export function useFinishLogin() {
       // 산후 모드(출산일 · 다시 물어볼 날)도 이 계정 값으로
       syncPostpartum(me.pregnancyState).catch(() => {})
       // 당당이 기록 보기 동의도 이 계정 값으로
-      syncChatConsent().catch(() => {})
+      syncAiConsents().catch(() => {})
       // 알림 설정도 이 계정 값으로. 다른 계정 설정이 남지 않게
       const settingsSynced = syncNotificationSettings().catch(() => {})
       // 약관 전이면 새 계정이거나 설정을 안 마친 계정. 기기에 남은 다른 계정 설정은 비움
