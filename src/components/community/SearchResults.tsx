@@ -1,13 +1,15 @@
 import { useState } from 'react'
+import iconRefresh from '@/assets/icons/community/refresh.svg'
 import CommunityEmpty from '@/components/community/CommunityEmpty'
+import MorePostsButton from '@/components/community/MorePostsButton'
 import PostCard from '@/components/community/PostCard'
 import SortToggle from '@/components/community/SortToggle'
+import { usePostList } from '@/hooks/usePostList'
 import type { Post, PostSort } from '@/types/community'
-import { isMedicalQuery, searchPosts, sortPosts } from '@/utils/community'
+import { isMedicalQuery } from '@/utils/community'
 
 type SearchResultsProps = {
   query: string
-  posts: Post[]
   now: Date
   onOpen: (post: Post) => void
   // 진료와 관련된 검색어면 진료 때 물어볼 것으로
@@ -16,10 +18,25 @@ type SearchResultsProps = {
 }
 
 // Figma U-06 검색 결과 · U-07 검색 결과 없음
-function SearchResults({ query, posts, now, onOpen, onAsk, onWrite }: SearchResultsProps) {
+function SearchResults({ query, now, onOpen, onAsk, onWrite }: SearchResultsProps) {
   const [sort, setSort] = useState<PostSort>('popular')
-  const results = sortPosts(searchPosts(posts, query), sort)
+  const list = usePostList({ sort, q: query.trim() })
+  const results = list.posts
   const medical = isMedicalQuery(query)
+
+  if (list.status === 'loading') {
+    return <p className="text-grey-500 py-12 text-center text-sm leading-normal">찾는 중이에요</p>
+  }
+  if (list.status === 'error') {
+    return (
+      <CommunityEmpty
+        variant="sorry"
+        title="글을 찾지 못했어요"
+        description="인터넷 연결을 확인하고 다시 시도해 주세요."
+        action={{ icon: iconRefresh, label: '다시 찾기', onClick: list.reload }}
+      />
+    )
+  }
 
   if (results.length === 0) {
     return (
@@ -43,7 +60,9 @@ function SearchResults({ query, posts, now, onOpen, onAsk, onWrite }: SearchResu
   return (
     <>
       <div className="flex items-center justify-between px-5 pt-2.5 pb-1.5">
-        <p className="text-t7 text-grey-800 leading-snug font-bold">글 {results.length}개</p>
+        <p className="text-t7 text-grey-800 leading-snug font-bold">
+          글 {results.length}개{list.hasNext && '+'}
+        </p>
         <SortToggle value={sort} onChange={setSort} />
       </div>
       <ul>
@@ -53,6 +72,7 @@ function SearchResults({ query, posts, now, onOpen, onAsk, onWrite }: SearchResu
           </li>
         ))}
       </ul>
+      {list.hasNext && <MorePostsButton loading={list.loadingMore} onClick={list.loadMore} />}
     </>
   )
 }

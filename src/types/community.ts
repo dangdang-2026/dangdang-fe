@@ -39,6 +39,10 @@ export type Post = {
   editedAt?: string
   views: number
   likes: number
+  // 내가 공감했는지
+  liked?: boolean
+  // 서버 댓글 수. 목록에선 댓글 없이 수만 옴
+  commentCount: number
   comments: CommunityComment[]
   // 운영정책으로 가려진 글
   hidden?: boolean

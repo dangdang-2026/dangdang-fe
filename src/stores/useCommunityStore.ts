@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getMyCommunityProfile } from '@/api/communityProfile'
 import { MY_AUTHOR_ID } from '@/constants/community'
-import { MOCK_POSTS } from '@/mocks/community'
 import type { Author, BoardKey, Post, PostDraft, ReportReason } from '@/types/community'
 
 type CommunityState = {
@@ -10,7 +9,9 @@ type CommunityState = {
   nickname: string | null
   // 글·댓글 옆에 임신 주수 배지
   showWeek: boolean
+  // 서버에서 받은 글. 목록 · 상세에서 받을 때마다 맞춤
   posts: Post[]
+  cachePosts: (posts: Post[]) => void
   likedPostIds: string[]
   likedCommentIds: string[]
   // 메인 안내 띠를 닫았는지
@@ -78,13 +79,32 @@ const renameMe = (posts: Post[], from: string | null, to: string) => {
 const toggle = (ids: string[], id: string) =>
   ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]
 
-// API 연동 전까지 mock 글로 시작해 기기에 저장
+// 받은 글은 그대로 바꿔 끼움. 상세에서 받은 댓글 · 투표 항목은 목록 글로 덮지 않음
+const mergePosts = (posts: Post[], incoming: Post[]) => {
+  const byId = new Map(incoming.map((post) => [post.id, post]))
+  const merged = posts.map((post) => {
+    const next = byId.get(post.id)
+    if (!next) return post
+    byId.delete(post.id)
+    return {
+      ...post,
+      ...next,
+      body: next.body.length >= post.body.length ? next.body : post.body,
+      comments: next.comments.length > 0 ? next.comments : post.comments,
+      poll: next.poll?.length ? next.poll : (post.poll ?? next.poll),
+    }
+  })
+  return [...merged, ...byId.values()]
+}
+
+// 커뮤니티 글은 서버에서 받아 기기에도 둠
 export const useCommunityStore = create<CommunityState>()(
   persist(
     (set) => ({
       nickname: null,
       showWeek: false,
-      posts: MOCK_POSTS,
+      posts: [],
+      cachePosts: (posts) => set((state) => ({ posts: mergePosts(state.posts, posts) })),
       likedPostIds: [],
       likedCommentIds: [],
       noticeDismissed: false,
@@ -171,6 +191,7 @@ export const useCommunityStore = create<CommunityState>()(
           views: 0,
           likes: 0,
           comments: [],
+          commentCount: 0,
           poll: poll?.map((label, index) => ({ id: 'o' + (index + 1), label, votes: 0 })),
         }
         set((state) => ({ posts: [post, ...state.posts], draft: null }))
@@ -219,7 +240,12 @@ export const useCommunityStore = create<CommunityState>()(
           blockedAuthors: state.blockedAuthors.filter((item) => item.id !== authorId),
         })),
     }),
-    { name: 'dangdang-community' },
+    {
+      name: 'dangdang-community',
+      // 1: 연동 전 가짜 글을 지움
+      version: 1,
+      migrate: (persisted) => ({ ...(persisted as CommunityState), posts: [] }),
+    },
   ),
 )
 
