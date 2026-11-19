@@ -1,7 +1,7 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router'
-import { getErrorCode } from '@/api/axios'
-import { createPost, updatePost } from '@/api/posts'
+import { getErrorCode, getErrorMessage } from '@/api/axios'
+import { createPost, getPostDraft, updatePost } from '@/api/posts'
 import iconCaret from '@/assets/icons/community/caret.svg'
 import iconCheckCircle from '@/assets/icons/community/check-circle.svg'
 import iconPhoto from '@/assets/icons/community/photo.svg'
@@ -17,7 +17,7 @@ import { BOARD_LABEL, BOARD_ORDER, POLL_MIN_OPTIONS, PREPARING_BOARDS } from '@/
 import { ROUTES, communityPostPath } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useMyAuthor } from '@/hooks/useMyAuthor'
-import { useCommunityStore } from '@/stores/useCommunityStore'
+import { dropPostDraft, keepPostDraft, useCommunityStore } from '@/stores/useCommunityStore'
 import type { BoardKey, PostDraft } from '@/types/community'
 import { checkPost, type PostWarning } from '@/utils/postCheck'
 
@@ -47,7 +47,6 @@ function WritePage() {
   const savedDraft = useCommunityStore((state) => state.draft)
   const restrictedUntil = useCommunityStore((state) => state.restrictedUntil)
   const cachePosts = useCommunityStore((state) => state.cachePosts)
-  const saveDraft = useCommunityStore((state) => state.saveDraft)
   const clearDraft = useCommunityStore((state) => state.clearDraft)
 
   // 고치기 > 임시 저장 > 게시판 쿼리 순으로 처음 값
@@ -73,6 +72,7 @@ function WritePage() {
   })
   const [boardOpen, setBoardOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+
   const [warning, setWarning] = useState<PostWarning | null>(null)
   const [leaving, setLeaving] = useState(false)
   const [restrictedOpen, setRestrictedOpen] = useState(
@@ -89,6 +89,24 @@ function WritePage() {
     goBack()
   }, [goBack])
 
+  // 기기에 임시 글이 없으면 서버 임시 글(다른 기기에서 저장)을 불러옴. 그사이 쓰기 시작했으면 덮지 않음
+  const typedRef = useRef(false)
+  const loadServerDraft = !editing && !savedDraft
+  useEffect(() => {
+    if (!loadServerDraft) return
+    let stale = false
+    getPostDraft()
+      .then((server) => {
+        if (stale || !server || typedRef.current) return
+        setDraft({ ...server, board: isBoardKey(server.board) ? server.board : null })
+        setToast('임시 저장한 글을 불러왔어요')
+      })
+      .catch(() => {})
+    return () => {
+      stale = true
+    }
+  }, [loadServerDraft])
+
   // 닉네임은 커뮤니티 첫 화면에서 정함
   if (!me) return <Navigate to={ROUTES.COMMUNITY} replace />
 
@@ -102,7 +120,10 @@ function WritePage() {
     ? title !== editing.title || body !== editing.body || draft.board !== editing.board
     : !!title || !!body || pollOptions.length > 0
 
-  const update = (changes: Partial<PostDraft>) => setDraft((prev) => ({ ...prev, ...changes }))
+  const update = (changes: Partial<PostDraft>) => {
+    typedRef.current = true
+    setDraft((prev) => ({ ...prev, ...changes }))
+  }
 
   const cancel = () => {
     if (dirty) setLeaving(true)
@@ -133,7 +154,8 @@ function WritePage() {
     } catch (error) {
       setSaving(false)
       const code = getErrorCode(error)
-      if (code === 'COMMUNITY_40301') setRestrictedOpen(true)
+      // 이용 제한은 서버 문구로. 기한은 이용 제한 API 연동 때 시트로
+      if (code === 'COMMUNITY_40301') setToast(getErrorMessage(error) ?? '지금은 글을 쓸 수 없어요')
       else if (code === 'POST_40401') setToast('이미 지워진 글이에요')
       else setToast('글을 올리지 못했어요. 잠시 후 다시 시도해 주세요')
     }
@@ -302,13 +324,14 @@ function WritePage() {
             cancel={{
               label: '저장 안 함',
               onClick: () => {
-                clearDraft()
+                dropPostDraft().catch(() => {})
                 goBack()
               },
             }}
             link={{ label: '계속 쓰기', onClick: closeLeaving }}
             onConfirm={() => {
-              saveDraft(draft)
+              // 기기엔 바로 남고 서버 저장은 뒤에서
+              keepPostDraft(draft).catch(() => {})
               goBack()
             }}
             onClose={closeLeaving}

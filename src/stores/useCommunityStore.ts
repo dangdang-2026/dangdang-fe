@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getMyCommunityProfile } from '@/api/communityProfile'
+import { savePostDraft } from '@/api/posts'
 import { MY_AUTHOR_ID } from '@/constants/community'
 import type { Author, Post, PostDraft, ReportReason } from '@/types/community'
 
@@ -217,4 +218,16 @@ export async function syncCommunityProfile() {
   const profile = await getMyCommunityProfile()
   if (profile) useCommunityStore.getState().setNickname(profile.nickname, profile.showWeek)
   else useCommunityStore.setState({ nickname: null, showWeek: false })
+}
+
+// 임시 저장. 기기에 먼저 두고 서버에도 남겨 다른 기기에서 이어 씀
+export function keepPostDraft(draft: PostDraft) {
+  useCommunityStore.getState().saveDraft(draft)
+  return savePostDraft(draft)
+}
+
+// 임시 글 버리기. 서버엔 지우기 API가 없어 빈 글로 덮어씀
+export function dropPostDraft() {
+  useCommunityStore.getState().clearDraft()
+  return savePostDraft(null)
 }

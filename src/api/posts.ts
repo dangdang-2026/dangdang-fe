@@ -1,6 +1,6 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
 import { MY_AUTHOR_ID } from '@/constants/community'
-import type { BoardKey, Post, PostSort } from '@/types/community'
+import type { BoardKey, Post, PostDraft, PostSort } from '@/types/community'
 
 // 백엔드 PostCategory. NEWS는 당당 소식 공식 계정만
 export type PostCategory =
@@ -229,4 +229,41 @@ export async function updatePost(
 // 글 지우기
 export async function deletePost(postId: string) {
   await apiClient.delete(`/posts/${postId}`)
+}
+
+// 백엔드 PostDraftResponse. 쓰다 만 글이라 칸이 비어 있을 수 있음
+type PostDraftResponse = {
+  id: string
+  category: PostCategory | null
+  title: string | null
+  content: string | null
+  isAnonymous: boolean
+  poll: string[] | null
+  updatedAt: string
+}
+
+// 내 임시 글. 한 사람에 하나, 비어 있으면 없는 걸로
+export async function getPostDraft(): Promise<PostDraft | null> {
+  const { data } =
+    await apiClient.get<BaseResponse<{ items: PostDraftResponse[] }>>('/posts/drafts')
+  const item = data.data?.items[0]
+  if (!item || (!item.title && !item.content && !item.poll?.length)) return null
+  return {
+    board: (item.category && BOARD[item.category]) || null,
+    title: item.title ?? '',
+    body: item.content ?? '',
+    anonymous: item.isAnonymous,
+    poll: item.poll?.length ? item.poll : null,
+  }
+}
+
+// 임시 저장. 있으면 덮어씀. 비운 글을 보내면 지운 것과 같음(지우기 API 없음)
+export async function savePostDraft(draft: PostDraft | null) {
+  await apiClient.put('/posts/drafts', {
+    category: draft?.board ? CATEGORY[draft.board] : undefined,
+    title: draft?.title || undefined,
+    content: draft?.body || undefined,
+    isAnonymous: draft?.anonymous ?? false,
+    poll: draft?.poll?.length ? draft.poll : undefined,
+  })
 }
