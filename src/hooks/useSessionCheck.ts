@@ -8,6 +8,7 @@ import { syncCommunityProfile } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
 import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
+import { syncMealGuide } from '@/stores/useMealGuideStore'
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
 import { syncPostpartum, useProfileStore } from '@/stores/useProfileStore'
@@ -37,7 +38,8 @@ export function useSessionCheck() {
           syncMyFoods(),
           syncRecords(),
           syncInbox(),
-          syncHospitals(),
+          // 식사 안내의 받은 곳은 병원 이름으로 바꿔서 병원 다음에
+          syncHospitals().finally(() => syncMealGuide().catch(() => {})),
           syncCommunityProfile(),
           syncPostpartum(me.pregnancyState),
           syncAiConsents(),
