@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { deleteAccount, type CommunityPostsOnLeave } from '@/api/auth'
+import { getErrorCode } from '@/api/axios'
 import iconDownload from '@/assets/icons/download.svg'
 import iconFileGrey from '@/assets/icons/file-grey.svg'
 import iconCamera from '@/assets/icons/my/data-camera.svg'
@@ -32,9 +33,12 @@ type DataRow = {
 function DataPage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.MY)
-  const email = useAuthStore((state) => state.account?.email ?? null)
+  // 이메일 가입자만 탈퇴할 때 비밀번호를 받음
+  const needsPassword = useAuthStore((state) => state.account?.method === 'email')
   const [withdrawSheet, setWithdrawSheet] = useState(false)
   const [withdrawing, setWithdrawing] = useState(false)
+  const [wrongPassword, setWrongPassword] = useState(false)
+  const clearWrongPassword = useCallback(() => setWrongPassword(false), [])
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
 
@@ -94,13 +98,20 @@ function DataPage() {
     { icon: iconInfo, tone: 'grey', title: '의료기기 아님 고지', onClick: openTerms },
   ]
 
-  const withdraw = async (posts: CommunityPostsOnLeave) => {
+  const withdraw = async (posts: CommunityPostsOnLeave, password: string | null) => {
     if (!navigator.onLine) {
       setToast('인터넷 연결을 확인하고 다시 시도해 주세요')
       return
     }
     setWithdrawing(true)
-    await deleteAccount(email, posts)
+    try {
+      await deleteAccount(password, posts)
+    } catch (error) {
+      setWithdrawing(false)
+      if (getErrorCode(error) === 'USER_40003') setWrongPassword(true)
+      else setToast('탈퇴하지 못했어요. 잠시 후 다시 시도해 주세요')
+      return
+    }
     // 탈퇴 즉시 기기에 남은 기록도 모두 지우고 처음 화면으로 새로 열기
     Object.keys(localStorage)
       .filter((key) => key.startsWith('dangdang-'))
@@ -171,8 +182,14 @@ function DataPage() {
         {withdrawSheet && (
           <WithdrawSheet
             loading={withdrawing}
+            needsPassword={needsPassword}
+            wrongPassword={wrongPassword}
+            onPasswordChange={clearWrongPassword}
             onWithdraw={withdraw}
-            onClose={() => setWithdrawSheet(false)}
+            onClose={() => {
+              setWithdrawSheet(false)
+              setWrongPassword(false)
+            }}
           />
         )}
         {toast && <Toast message={toast} onClose={closeToast} />}

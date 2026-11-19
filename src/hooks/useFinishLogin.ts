@@ -4,11 +4,13 @@ import { syncPushSubscription } from '@/api/push'
 import { ROUTES } from '@/constants/routes'
 import type { AccountProfile } from '@/mocks/auth'
 import { syncAiConsents } from '@/stores/useAiStore'
+import { syncMyFoods } from '@/stores/useFoodStore'
 import { useAuthStore, type LoginMethod } from '@/stores/useAuthStore'
 import { syncCommunityProfile } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
 import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
+import { syncMealGuide } from '@/stores/useMealGuideStore'
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
@@ -50,10 +52,16 @@ export function useFinishLogin() {
       // 식사·혈당 기록은 서버 값으로. 새 계정이면 기기에 남은 다른 계정 기록도 비워짐
       syncMeals().catch(() => {})
       syncRecords().catch(() => {})
+      // 내 음식도 이 계정 것으로. 기기에 남은 다른 계정 음식은 보내지 않음
+      syncMyFoods(false).catch(() => {})
       // 알림함도 이 계정 알림으로. 다른 계정 알림이 남지 않게
       syncInbox().catch(() => {})
       // 다니는 병원도 이 계정 병원으로
-      syncHospitals().catch(() => {})
+      // 식사 안내도 이 계정 것으로. 받은 곳을 병원 이름으로 바꿔서 병원 다음에
+      syncHospitals()
+        .catch(() => {})
+        .then(() => syncMealGuide(false))
+        .catch(() => {})
       // 커뮤니티 닉네임도 이 계정 닉네임으로
       syncCommunityProfile().catch(() => {})
       // 산후 모드(출산일 · 다시 물어볼 날)도 이 계정 값으로

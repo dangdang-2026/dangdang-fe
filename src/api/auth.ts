@@ -1,10 +1,9 @@
 import { apiClient, getErrorCode, getErrorMessage, type BaseResponse } from '@/api/axios'
-import { MOCK_ACCOUNTS, type AccountProfile } from '@/mocks/auth'
+import type { AccountProfile } from '@/mocks/auth'
 
 // 연속으로 틀리면 잠깐 잠금. 횟수·시간은 서버 정책 값
 export const LOGIN_MAX_FAILURES = 5
 const LOCK_MINUTES = 5
-const MOCK_DELAY_MS = 800
 
 export type EmailLoginResult =
   // 데모 계정이면 계정 정보도 함께
@@ -14,8 +13,6 @@ export type EmailLoginResult =
   | { status: 'locked'; minutes: number }
   // 카카오로 가입한 이메일이라 비밀번호 없음
   | { status: 'kakao' }
-
-const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms))
 
 // 남은 횟수가 data가 아니라 문구에만 옴: "... (남은 횟수 3번)". 형식 바뀌면 null
 function parseLoginFailures(message: string | undefined) {
@@ -237,13 +234,13 @@ export async function changePassword(current: string, next: string): Promise<Cha
 // 탈퇴할 때 커뮤니티 글·댓글을 지울지, '탈퇴한 회원'으로 남길지
 export type CommunityPostsOnLeave = 'delete' | 'keep'
 
+// 회원 탈퇴(M-08). 이메일 가입자만 비밀번호, 틀리면 400 USER_40003. 성공하면 서버가 쿠키를 지움
 export async function deleteAccount(
-  email: string | null,
+  password: string | null,
   posts: CommunityPostsOnLeave,
 ): Promise<void> {
-  await wait(MOCK_DELAY_MS)
-  // 서버 연동 전이라 글 처리 방식은 받기만 함
-  void posts
-  const index = MOCK_ACCOUNTS.findIndex((item) => item.email === email)
-  if (index >= 0) MOCK_ACCOUNTS.splice(index, 1)
+  await apiClient.post('/me/withdrawal', {
+    password: password ?? undefined,
+    keepPosts: posts === 'keep',
+  })
 }
