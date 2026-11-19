@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router'
+import { getCard } from '@/api/cards'
 import iconAskPencil from '@/assets/icons/community/ask-pencil.svg'
 import iconCorrection from '@/assets/icons/community/correction.svg'
 import iconNewsCheck from '@/assets/icons/community/news-check.svg'
@@ -15,9 +16,9 @@ import Toast from '@/components/common/Toast'
 import NewsAskSheet from '@/components/community/NewsAskSheet'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { MOCK_NEWS } from '@/mocks/news'
 import { useCommunityStore } from '@/stores/useCommunityStore'
 import { saveQuestion } from '@/stores/useVisitStore'
+import type { NewsCard } from '@/types/news'
 import { parseDateKey } from '@/utils/date'
 
 // 예: 10/19
@@ -26,12 +27,32 @@ const formatShortDate = (key: string) => {
   return date ? `${date.getMonth() + 1}/${date.getDate()}` : ''
 }
 
+// 서버 카드 하나. 받기 전 undefined, 실패하면 null
+function useCard(id: string | undefined) {
+  const [result, setResult] = useState<{ id: string; card: NewsCard | null } | null>(null)
+  useEffect(() => {
+    if (!id) return
+    let stale = false
+    getCard(id)
+      .then((card) => {
+        if (!stale) setResult({ id, card })
+      })
+      .catch(() => {
+        if (!stale) setResult({ id, card: null })
+      })
+    return () => {
+      stale = true
+    }
+  }, [id])
+  return id && result?.id === id ? result.card : id ? undefined : null
+}
+
 // Figma U-26 당당 소식 카드뉴스 상세 · U-26b 정정된 카드 · U-26c 내려간 카드 · U-28 물어볼 것에 적기
 function NewsDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.COMMUNITY_NEWS)
-  const card = MOCK_NEWS.find((item) => item.id === id)
+  const card = useCard(id)
   const likedNewsIds = useCommunityStore((state) => state.likedNewsIds)
   const savedNewsIds = useCommunityStore((state) => state.savedNewsIds)
   const toggleLikeNews = useCommunityStore((state) => state.toggleLikeNews)
@@ -45,7 +66,19 @@ function NewsDetailPage() {
   const closeSources = () => setSourcesOpen(false)
   const closeAsk = () => setAskOpen(false)
 
-  if (!card) return <Navigate to={ROUTES.COMMUNITY_NEWS} replace />
+  // 받는 중이거나 못 받았으면 안내만
+  if (!card) {
+    return (
+      <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-32">
+        <SubPageHeader title="당당 소식" onBack={goBack} />
+        <p className="text-grey-500 py-16 text-center text-sm leading-normal">
+          {card === undefined
+            ? '소식을 불러오는 중이에요'
+            : '소식을 불러오지 못했어요. 잠시 후 다시 열어 주세요'}
+        </p>
+      </main>
+    )
+  }
 
   // 출처를 다시 확인하느라 내린 카드
   if (card.withdrawn) {

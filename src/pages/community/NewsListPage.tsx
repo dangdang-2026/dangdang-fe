@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import { ROUTES, communityNewsPath } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { MOCK_NEWS } from '@/mocks/news'
-import { useCommunityStore } from '@/stores/useCommunityStore'
+import { getCards } from '@/api/cards'
+import type { NewsSummary } from '@/types/news'
 
 type Tab = 'all' | 'saved'
 
@@ -13,16 +13,35 @@ const TABS: { value: Tab; label: string }[] = [
   { value: 'saved', label: '저장한 카드' },
 ]
 
+// 예: 10/19
+const formatShortDate = (date: string) => `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`
+
+// 서버 카드 목록. 받기 전 undefined, 실패하면 null
+function useCards() {
+  const [cards, setCards] = useState<NewsSummary[] | null | undefined>(undefined)
+  useEffect(() => {
+    let stale = false
+    getCards()
+      .then((items) => {
+        if (!stale) setCards(items)
+      })
+      .catch(() => {
+        if (!stale) setCards(null)
+      })
+    return () => {
+      stale = true
+    }
+  }, [])
+  return cards
+}
+
 // Figma U-27 당당 소식 모아보기
 function NewsListPage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.COMMUNITY)
-  const savedNewsIds = useCommunityStore((state) => state.savedNewsIds)
   const [tab, setTab] = useState<Tab>('all')
-  const cards =
-    tab === 'all'
-      ? MOCK_NEWS.filter((card) => !card.withdrawn)
-      : MOCK_NEWS.filter((card) => savedNewsIds.includes(card.id))
+  const all = useCards()
+  const cards = (all ?? []).filter((card) => (tab === 'all' ? !card.withdrawn : card.saved))
   const seriesTitle = [...new Set(cards.map((card) => card.series))].join(' · ')
 
   return (
@@ -52,7 +71,13 @@ function NewsListPage() {
 
         {cards.length === 0 ? (
           <p className="text-grey-500 py-16 text-center text-sm leading-normal">
-            카드에서 저장을 누르면 여기에 모여요
+            {all === undefined
+              ? '소식을 불러오는 중이에요'
+              : all === null
+                ? '소식을 불러오지 못했어요. 잠시 후 다시 열어 주세요'
+                : tab === 'all'
+                  ? '아직 올라온 소식이 없어요'
+                  : '카드에서 저장을 누르면 여기에 모여요'}
           </p>
         ) : (
           <section className="flex flex-col gap-2.5">
@@ -70,7 +95,7 @@ function NewsListPage() {
                       <span className="text-grey-900 text-base leading-snug">{card.title}</span>
                     </span>
                     <span className="text-grey-500 text-xs leading-snug">
-                      출처 {card.sources.length} · {card.slides.length}장
+                      확인일 {formatShortDate(card.checkedAt)}
                     </span>
                   </button>
                 </li>
