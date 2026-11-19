@@ -14,7 +14,7 @@ import QuestionsCard from '@/components/visit/QuestionsCard'
 import VisitDateSheet from '@/components/visit/VisitDateSheet'
 import { ROUTES } from '@/constants/routes'
 import { useNow } from '@/hooks/useNow'
-import { useVisitStore } from '@/stores/useVisitStore'
+import { saveNextVisit, useVisitStore } from '@/stores/useVisitStore'
 import type { Question } from '@/types/visit'
 import { formatMonthDay, startOfDay } from '@/utils/date'
 import { getVisitStatus, getVisitedDay } from '@/utils/visit'
@@ -26,7 +26,6 @@ function VisitPage() {
   const navigate = useNavigate()
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
   const asked = useVisitStore((state) => state.asked)
-  const setNextVisit = useVisitStore((state) => state.setNextVisit)
   // 첫 진입이면 다음 진료일부터 물어봄
   const [dateSheet, setDateSheet] = useState<DateSheet>(() => (asked ? null : 'first'))
   const questions = useVisitStore((state) => state.questions)
@@ -44,19 +43,26 @@ function VisitPage() {
   const status = getVisitStatus(nextVisitAt, now)
   const visitedDay = getVisitedDay(nextVisitAt, now)
 
+  // 화면엔 바로 바꾸고, 서버에 못 남기면 되돌린 뒤 안내
+  const saveVisit = useCallback((at: string | null) => {
+    saveNextVisit(at).catch(() =>
+      setToast({ message: '다음 진료일을 저장하지 못했어요. 잠시 후 다시 시도해 주세요' }),
+    )
+  }, [])
+
   const closeDateSheet = useCallback(() => {
     // 처음 묻기를 그냥 닫아도 다시 묻지 않음
-    if (!asked) setNextVisit(null)
+    if (!asked) saveVisit(null)
     setDateSheet(null)
-  }, [asked, setNextVisit])
+  }, [asked, saveVisit])
 
   const handleSave = (at: Date) => {
-    setNextVisit(at.toISOString())
+    saveVisit(at.toISOString())
     setDateSheet(null)
   }
 
   const handleUnknown = () => {
-    setNextVisit(null)
+    saveVisit(null)
     setDateSheet(null)
   }
 

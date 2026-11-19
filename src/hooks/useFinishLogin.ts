@@ -11,6 +11,7 @@ import { syncCriteria } from '@/stores/useCriteriaStore'
 import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncMealGuide } from '@/stores/useMealGuideStore'
+import { syncVisits } from '@/stores/useVisitStore'
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
@@ -57,11 +58,12 @@ export function useFinishLogin() {
       // 알림함도 이 계정 알림으로. 다른 계정 알림이 남지 않게
       syncInbox().catch(() => {})
       // 다니는 병원도 이 계정 병원으로
-      // 식사 안내도 이 계정 것으로. 받은 곳을 병원 이름으로 바꿔서 병원 다음에
+      // 식사 안내 · 진료 일정도 이 계정 것으로. 병원 번호를 써서 병원 다음에
       syncHospitals()
         .catch(() => {})
-        .then(() => syncMealGuide(false))
-        .catch(() => {})
+        .then(() =>
+          Promise.all([syncMealGuide(false), syncVisits(false)].map((job) => job.catch(() => {}))),
+        )
       // 커뮤니티 닉네임도 이 계정 닉네임으로
       syncCommunityProfile().catch(() => {})
       // 산후 모드(출산일 · 다시 물어볼 날)도 이 계정 값으로
