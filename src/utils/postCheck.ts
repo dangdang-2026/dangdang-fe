@@ -1,4 +1,4 @@
-// 올리기 전 확인. 서버 검수 전까지 낱말로만 걸러냄
+// 올리기 전 확인. 서버 AI 확인이 안 될 때만 낱말로 걸러냄
 
 export type PostWarning = { kind: 'urgent' | 'dose'; quote: string }
 

@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import iconCommentChevron from '@/assets/icons/chevron-right.svg'
-import { Navigate, useNavigate, useParams } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
+import { getErrorCode } from '@/api/axios'
+import { deletePost, getPost } from '@/api/posts'
 import iconBack from '@/assets/icons/back.svg'
 import iconAvatar from '@/assets/icons/community/avatar-lg.svg'
 import iconCommentBar from '@/assets/icons/community/comment-bar.svg'
@@ -37,6 +39,33 @@ import {
 
 const COMING_SOON = '다음 업데이트에서 열려요'
 
+type LoadState = 'loading' | 'done' | 'gone' | 'error'
+
+// 서버 글을 받아 기기 글로 맞춤. 서버가 조회수를 올림
+function usePostDetail(id: string) {
+  const cachePosts = useCommunityStore((state) => state.cachePosts)
+  const [result, setResult] = useState<{ id: string; state: LoadState } | null>(null)
+  const [retry, setRetry] = useState(0)
+  useEffect(() => {
+    let stale = false
+    getPost(id)
+      .then((post) => {
+        if (stale) return
+        cachePosts([post], true)
+        setResult({ id, state: 'done' })
+      })
+      .catch((error) => {
+        if (stale) return
+        setResult({ id, state: getErrorCode(error) === 'POST_40401' ? 'gone' : 'error' })
+      })
+    return () => {
+      stale = true
+    }
+  }, [id, retry, cachePosts])
+  const reload = useCallback(() => setRetry((count) => count + 1), [])
+  return { state: result?.id === id ? result.state : 'loading', reload }
+}
+
 // 원 댓글 시간순, 답글은 원 댓글 바로 아래
 function orderComments(comments: CommunityComment[]) {
   const byTime = [...comments].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
@@ -62,7 +91,6 @@ function PostDetailPage() {
   const post = useCommunityStore((state) => state.posts.find((item) => item.id === id))
   const likedPostIds = useCommunityStore((state) => state.likedPostIds)
   const likedCommentIds = useCommunityStore((state) => state.likedCommentIds)
-  const viewPost = useCommunityStore((state) => state.viewPost)
   const toggleLikePost = useCommunityStore((state) => state.toggleLikePost)
   const toggleLikeComment = useCommunityStore((state) => state.toggleLikeComment)
   const addComment = useCommunityStore((state) => state.addComment)
@@ -89,15 +117,38 @@ function PostDetailPage() {
   const closeReport = useCallback(() => setReportOpen(false), [])
   const closeConfirming = useCallback(() => setConfirming(null), [])
 
-  // 들어올 때 조회수 1 올림. 개발 모드 이중 실행에도 한 번만
-  const viewedId = useRef<string | null>(null)
-  useEffect(() => {
-    if (viewedId.current === id) return
-    viewedId.current = id
-    viewPost(id)
-  }, [id, viewPost])
+  const detail = usePostDetail(id)
 
-  if (!post) return <Navigate to={ROUTES.COMMUNITY} replace />
+  // 처음 여는 글을 받는 중 · 없는 글 · 못 받음. 목록에서 본 글은 받는 동안 먼저 보여 줌
+  if (!post || detail.state === 'gone') {
+    const message =
+      detail.state === 'gone'
+        ? '지워졌거나 없는 글이에요'
+        : detail.state === 'error'
+          ? '글을 불러오지 못했어요. 잠시 후 다시 시도해 주세요'
+          : '글을 불러오는 중이에요'
+    return (
+      <main className="pt-12.5">
+        <header className="flex h-14 items-center px-4">
+          <button type="button" aria-label="뒤로" onClick={goBack}>
+            <img src={iconBack} alt="" width={24} height={24} />
+          </button>
+        </header>
+        <p className="text-grey-500 px-5 py-20 text-center text-sm leading-normal">{message}</p>
+        {detail.state === 'error' && (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              className="text-t7 border-grey-200 text-grey-700 rounded-full border px-4 py-2 font-medium"
+              onClick={detail.reload}
+            >
+              다시 불러오기
+            </button>
+          </div>
+        )}
+      </main>
+    )
+  }
 
   const liked = likedPostIds.includes(post.id)
   const best = getBestComment(post)
@@ -168,10 +219,9 @@ function PostDetailPage() {
           <h2 className="text-subtitle-1 text-grey-900 tracking-normal">
             운영정책에 따라 가려진 글이에요
           </h2>
-          <p className="text-grey-600 text-sm leading-relaxed">
-            약 이름·용량을 권하는 내용이 있었어요.
-            <br />
-            약은 꼭 병원에 물어봐 주세요.
+          <p className="text-grey-600 text-sm leading-relaxed whitespace-pre-line">
+            {post.hiddenReason ??
+              '약 이름·용량을 권하는 내용이 있었어요.\n약은 꼭 병원에 물어봐 주세요.'}
           </p>
           <button
             type="button"
@@ -212,7 +262,8 @@ function PostDetailPage() {
             {post.poll && (
               <PollCard
                 options={post.poll}
-                votedId={votes[post.id] ?? null}
+                total={post.pollTotal}
+                votedId={votes[post.id] ?? post.myVote ?? null}
                 onVote={(optionId) => vote(post.id, optionId)}
               />
             )}
@@ -241,7 +292,7 @@ function PostDetailPage() {
 
           <section className="border-grey-50 flex flex-col gap-5 border-t-8 px-5 pt-5">
             <h2 className="text-subtitle-1 text-grey-900 flex items-center gap-0.5 tracking-normal">
-              댓글 {formatCount(post.comments.length)}개
+              댓글 {formatCount(Math.max(post.commentCount, post.comments.length))}개
               <img src={iconCommentChevron} alt="" width={18} height={18} />
             </h2>
             {post.comments.length === 0 ? (
@@ -312,7 +363,7 @@ function PostDetailPage() {
                   onClick={() => startComment({ replyTo: null })}
                 >
                   <img src={iconCommentBar} alt="" width={20} height={20} />
-                  댓글 {formatCount(post.comments.length)}
+                  댓글 {formatCount(Math.max(post.commentCount, post.comments.length))}
                 </button>
               </div>
             </nav>
@@ -370,8 +421,19 @@ function PostDetailPage() {
           confirmLabel="삭제"
           danger
           onConfirm={() => {
-            removePost(post.id)
-            navigate(ROUTES.COMMUNITY, { replace: true })
+            setConfirming(null)
+            // 서버에서 지운 뒤 기기에서도 빼고 나감. 이미 없는 글이어도 지운 걸로
+            deletePost(post.id)
+              .catch((error) => {
+                if (getErrorCode(error) !== 'POST_40401') throw error
+              })
+              .then(
+                () => {
+                  removePost(post.id)
+                  navigate(ROUTES.COMMUNITY, { replace: true })
+                },
+                () => setToast('글을 지우지 못했어요. 잠시 후 다시 시도해 주세요'),
+              )
           }}
           onClose={closeConfirming}
         />

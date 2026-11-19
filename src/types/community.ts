@@ -39,11 +39,21 @@ export type Post = {
   editedAt?: string
   views: number
   likes: number
+  // 내가 공감했는지
+  liked?: boolean
+  // 서버 댓글 수. 목록에선 댓글 없이 수만 옴
+  commentCount: number
   comments: CommunityComment[]
   // 운영정책으로 가려진 글
   hidden?: boolean
-  // 투표. 올린 뒤에는 고칠 수 없음
+  // 가린 이유. 서버가 정한 문구
+  hiddenReason?: string
+  // 투표. 올린 뒤에는 고칠 수 없음. 목록에선 있다는 표시만(빈 목록)
   poll?: PollOption[]
+  // 투표한 사람 수. 투표 전엔 항목별 수 없이 이것만 옴
+  pollTotal?: number
+  // 내가 고른 항목 id. 안 골랐으면 null
+  myVote?: string | null
 }
 
 // 글쓰기 임시 저장. 게시판을 안 골랐으면 null

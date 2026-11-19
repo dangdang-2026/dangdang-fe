@@ -33,7 +33,7 @@ function PostRow({ post, now, showBody, variant = 'default', onClick }: PostRowP
         className={`text-grey-900 w-full text-base leading-normal font-medium ${popular ? 'line-clamp-2' : 'truncate'}`}
       >
         {post.hidden ? '운영정책에 따라 가려진 글이에요' : post.title}
-        {popular && <span className="text-grey-500 ml-2 font-bold">({post.comments.length})</span>}
+        {popular && <span className="text-grey-500 ml-2 font-bold">({post.commentCount})</span>}
       </span>
       <span className="text-t7 text-grey-600 w-full truncate leading-snug">
         {showBody ? post.body : author}
@@ -48,7 +48,7 @@ function PostRow({ post, now, showBody, variant = 'default', onClick }: PostRowP
         {!popular && (
           <>
             <img src={iconCommentSm} alt="댓글" width={14} height={14} />
-            {formatCount(post.comments.length)}
+            {formatCount(post.commentCount)}
           </>
         )}
       </span>
