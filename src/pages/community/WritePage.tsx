@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router'
 import { getErrorCode, getErrorMessage } from '@/api/axios'
-import { createPost, getPostDraft, updatePost } from '@/api/posts'
+import { createPost, getPostDraft, precheckPost, updatePost } from '@/api/posts'
 import iconCaret from '@/assets/icons/community/caret.svg'
 import iconCheckCircle from '@/assets/icons/community/check-circle.svg'
 import iconPhoto from '@/assets/icons/community/photo.svg'
@@ -162,9 +162,14 @@ function WritePage() {
   }
 
   // 위급한 말·약 용량이 있으면 올리기 전에 한 번 더 확인
-  const submit = () => {
-    const found = checkPost(`${title}\n${body}`)
-    if (found) setWarning(found)
+  // 서버 AI가 확인하고, 꺼져 있거나 못 닿으면 앱 안 낱말 규칙으로
+  const submit = async () => {
+    if (saving) return
+    setSaving(true)
+    const found = await precheckPost(title, body).catch(() => undefined)
+    setSaving(false)
+    const warning = found === undefined ? checkPost(`${title}\n${body}`) : found
+    if (warning) setWarning(warning)
     else void publish()
   }
 

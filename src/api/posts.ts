@@ -267,3 +267,20 @@ export async function savePostDraft(draft: PostDraft | null) {
     poll: draft?.poll?.length ? draft.poll : undefined,
   })
 }
+
+type PrecheckIssue = { kind: 'DOSE' | 'URGENT_MEDICAL' | 'MIND'; quote: string }
+
+// 올리기 전 문장 확인(AI). 위급 · 마음 위기가 먼저(U-30), 그다음 약 · 용량(U-15)
+// AI 서버가 꺼졌거나 늦으면 checked=false로 와서 undefined를 돌려줌
+export async function precheckPost(title: string, body: string) {
+  const { data } = await apiClient.post<
+    BaseResponse<{ issues: PrecheckIssue[]; checked: boolean }>
+  >('/posts/precheck', { title, content: body })
+  if (!data.data?.checked) return undefined
+  const { issues } = data.data
+  const urgent = issues.find((issue) => issue.kind !== 'DOSE')
+  const dose = issues.find((issue) => issue.kind === 'DOSE')
+  if (urgent) return { kind: 'urgent' as const, quote: urgent.quote }
+  if (dose) return { kind: 'dose' as const, quote: dose.quote }
+  return null
+}
