@@ -254,8 +254,25 @@ export async function eraseComment(postId: string, commentId: string) {
   useCommunityStore.getState().removeComment(postId, commentId)
 }
 
+// 서버에 보내는 중인 공감 · 투표. 빠르게 두 번 눌러 요청이 엇갈리지 않게 끝날 때까지 무시
+const sending = new Set<string>()
+
+async function once(key: string, job: () => Promise<void>) {
+  if (sending.has(key)) return
+  sending.add(key)
+  try {
+    await job()
+  } finally {
+    sending.delete(key)
+  }
+}
+
 // 글 공감 누르기 · 취소. 바로 보여 주고 서버 수로 맞춤, 못 남기면 되돌림
-export async function toggleLikePost(postId: string) {
+export function toggleLikePost(postId: string) {
+  return once(`post:${postId}`, () => likePost(postId))
+}
+
+async function likePost(postId: string) {
   const post = useCommunityStore.getState().posts.find((item) => item.id === postId)
   if (!post) return
   const { setPostLike } = useCommunityStore.getState()
@@ -271,7 +288,11 @@ export async function toggleLikePost(postId: string) {
 }
 
 // 댓글 공감 누르기 · 취소
-export async function toggleLikeComment(postId: string, commentId: string) {
+export function toggleLikeComment(postId: string, commentId: string) {
+  return once(`comment:${commentId}`, () => likeComment(postId, commentId))
+}
+
+async function likeComment(postId: string, commentId: string) {
   const post = useCommunityStore.getState().posts.find((item) => item.id === postId)
   const comment = post?.comments.find((item) => item.id === commentId)
   if (!comment) return
@@ -288,7 +309,9 @@ export async function toggleLikeComment(postId: string, commentId: string) {
 }
 
 // 투표. 고르면 서버 결과(항목별 수 · 참여 인원)로 바꿈. 한 번 고르면 바꿀 수 없음
-export async function voteOnPost(postId: string, optionId: string) {
-  const poll = await votePoll(postId, optionId)
-  useCommunityStore.getState().setPoll(postId, poll)
+export function voteOnPost(postId: string, optionId: string) {
+  return once(`vote:${postId}`, async () => {
+    const poll = await votePoll(postId, optionId)
+    useCommunityStore.getState().setPoll(postId, poll)
+  })
 }
