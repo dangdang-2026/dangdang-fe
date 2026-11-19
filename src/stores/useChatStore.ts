@@ -1,8 +1,9 @@
 import { create } from 'zustand'
+import { getChatMessages } from '@/api/chat'
 import type { BotMessage, ChatMessage } from '@/types/chat'
 
 type ChatState = {
-  // 대화는 앱을 닫으면 사라짐. 화면을 오가는 동안만 유지
+  // 서버 대화 + 서버에 안 남는 안내(403 · 429 · 연결 실패). 앱을 닫으면 들어올 때 서버에서 다시 받음
   messages: ChatMessage[]
   addMessage: (message: ChatMessage) => void
   updateMessage: (id: string, changes: Partial<BotMessage>) => void
@@ -22,3 +23,45 @@ export const useChatStore = create<ChatState>()((set) => ({
   removeMessage: (id) =>
     set((state) => ({ messages: state.messages.filter((message) => message.id !== id) })),
 }))
+
+// 서버에 없는 기기 값(진료 탭에 추가함 · 도움 됐나요)은 같은 대화면 유지
+function keepLocal(server: ChatMessage, local?: ChatMessage): ChatMessage {
+  if (server.from === 'user' || local?.from !== 'bot') return server
+  if (server.kind === 'draft' && local.kind === 'draft') return { ...server, added: local.added }
+  if (server.kind === 'info' && local.kind === 'info') {
+    return { ...server, feedback: server.feedback ?? local.feedback }
+  }
+  return server
+}
+
+// 들어올 때 최근 대화 한 장으로 맞춤. 요청하는 사이 새로 생긴 말풍선은 뒤에 남김
+export async function syncChatMessages() {
+  const before = new Set(useChatStore.getState().messages.map((message) => message.id))
+  const page = await getChatMessages()
+  useChatStore.setState((state) => {
+    const local = new Map(state.messages.map((message) => [message.id, message]))
+    const serverIds = new Set(page.messages.map((message) => message.id))
+    const added = state.messages.filter(
+      (message) => !before.has(message.id) && !serverIds.has(message.id),
+    )
+    return {
+      messages: [
+        ...page.messages.map((message) => keepLocal(message, local.get(message.id))),
+        ...added,
+      ],
+    }
+  })
+  return page
+}
+
+// 이전 대화 한 장을 앞에 붙임
+export async function loadOlderChatMessages(cursorId: number) {
+  const page = await getChatMessages(cursorId)
+  useChatStore.setState((state) => {
+    const ids = new Set(state.messages.map((message) => message.id))
+    return {
+      messages: [...page.messages.filter((message) => !ids.has(message.id)), ...state.messages],
+    }
+  })
+  return page
+}

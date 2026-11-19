@@ -23,7 +23,7 @@ import ContactMemoSheet from '@/components/my/ContactMemoSheet'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { saveChatConsent, useAiStore } from '@/stores/useAiStore'
-import { useChatStore } from '@/stores/useChatStore'
+import { loadOlderChatMessages, syncChatMessages, useChatStore } from '@/stores/useChatStore'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import type { ChatMessage } from '@/types/chat'
@@ -57,10 +57,34 @@ function ChatPage() {
     action?: { label: string; onClick: () => void }
   } | null>(null)
 
+  // 들어올 때 지난 대화를 받음. 받기 전엔 첫 화면(추천 질문)을 숨김
+  const [loaded, setLoaded] = useState(false)
+  // 이전 대화를 더 부를 커서. 더 없으면 null
+  const [olderCursor, setOlderCursor] = useState<number | null>(null)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+
   useEffect(() => {
-    // 새 말풍선이 입력 바 위로 보이게 맨 아래로
+    syncChatMessages()
+      .then((page) => setOlderCursor(page.hasNext ? page.nextCursorId : null))
+      // 못 받으면 지금 화면 그대로
+      .catch(() => {})
+      .finally(() => setLoaded(true))
+  }, [])
+
+  const loadOlder = () => {
+    if (olderCursor === null || loadingOlder) return
+    setLoadingOlder(true)
+    loadOlderChatMessages(olderCursor)
+      .then((page) => setOlderCursor(page.hasNext ? page.nextCursorId : null))
+      .catch(() => setToast({ message: '이전 대화를 불러오지 못했어요' }))
+      .finally(() => setLoadingOlder(false))
+  }
+
+  // 새 말풍선이 입력 바 위로 보이게 맨 아래로. 이전 대화를 앞에 붙일 땐 그대로
+  const lastId = messages.at(-1)?.id
+  useEffect(() => {
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
-  }, [messages.length, thinking])
+  }, [lastId, thinking])
 
   // 서버에 묻고 답을 붙임. 서버에 안 남는 실패(403 · 429 · 연결)는 기기에만 안내
   // userId는 방금 보낸 말풍선. 없으면 이미 화면에 있는 질문을 다시 묻는 것
@@ -301,7 +325,17 @@ function ChatPage() {
     <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white break-keep">
       <ChatHeader onBack={() => navigate(-1)} onHelp={() => setConsentSheet(true)} />
       <div className="flex flex-1 flex-col gap-4 p-5">
-        {messages.length === 0 && <ChatIntro onAsk={ask} />}
+        {olderCursor !== null && (
+          <button
+            type="button"
+            disabled={loadingOlder}
+            className="text-grey-600 self-center text-sm leading-normal underline"
+            onClick={loadOlder}
+          >
+            {loadingOlder ? '불러오는 중…' : '이전 대화 더 보기'}
+          </button>
+        )}
+        {loaded && messages.length === 0 && <ChatIntro onAsk={ask} />}
         {messages.map(renderMessage)}
         {thinking && <ThinkingBubble label={thinking} />}
       </div>

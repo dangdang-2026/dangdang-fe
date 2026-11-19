@@ -92,3 +92,27 @@ export async function askChat(content: string) {
     answer: toChatMessage(data.data.answer, content),
   }
 }
+
+// 백엔드 ChatPageResponse. items는 최신이 먼저
+type ChatPageResponse = {
+  items: ChatMessageResponse[]
+  size: number
+  hasNext: boolean
+  nextCursorId: number | null
+}
+
+// 대화 한 장(20개). 첫 장은 cursorId 없이, 다음 장은 받은 nextCursorId로. 화면용으로 오래된 순으로 뒤집음
+export async function getChatMessages(cursorId?: number) {
+  const { data } = await apiClient.get<BaseResponse<ChatPageResponse>>('/chat/messages', {
+    params: { cursorId, size: 20 },
+  })
+  if (!data.data) throw new Error('대화 목록 응답이 비어 있음')
+  const items = [...data.data.items].reverse()
+  // 답마다 바로 앞 질문을 붙임. 장 경계에서 앞 질문이 없으면 빈 글
+  let question = ''
+  const messages = items.map((item) => {
+    if (item.kind === 'QUESTION') question = item.content
+    return toChatMessage(item, question)
+  })
+  return { messages, hasNext: data.data.hasNext, nextCursorId: data.data.nextCursorId }
+}
