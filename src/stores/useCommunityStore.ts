@@ -7,7 +7,7 @@ import { createComment, deleteComment, getComments } from '@/api/comments'
 import { savePostDraft, votePoll } from '@/api/posts'
 import { reactComment, reactPost } from '@/api/reactions'
 import { MY_AUTHOR_ID } from '@/constants/community'
-import type { Author, CommunityComment, Post, PostDraft, ReportReason } from '@/types/community'
+import type { Author, CommunityComment, Post, PostDraft } from '@/types/community'
 
 type CommunityState = {
   // 커뮤니티 첫 진입에 정함. 안 정했으면 null
@@ -41,9 +41,6 @@ type CommunityState = {
   // 신고 누적으로 글·댓글 막힌 기한. 서버 연동 전엔 직접 넣어 재현
   restrictedUntil: string | null
   removePost: (postId: string) => void
-  // 신고한 글 id와 이유. 서버 연동 전엔 기록만
-  reports: { postId: string; reason: ReportReason }[]
-  reportPost: (postId: string, reason: ReportReason) => void
   // 이 사람 글 안 보기
   blockedAuthors: Pick<Author, 'id' | 'nickname'>[]
   blockAuthor: (author: Author) => void
@@ -127,7 +124,6 @@ export const useCommunityStore = create<CommunityState>()(
       noticeDismissed: false,
       draft: null,
       restrictedUntil: null,
-      reports: [],
       blockedAuthors: [],
       likedNewsIds: [],
 
@@ -188,8 +184,6 @@ export const useCommunityStore = create<CommunityState>()(
       clearDraft: () => set({ draft: null }),
       removePost: (postId) =>
         set((state) => ({ posts: state.posts.filter((post) => post.id !== postId) })),
-      reportPost: (postId, reason) =>
-        set((state) => ({ reports: [...state.reports, { postId, reason }] })),
       blockAuthor: ({ id, nickname }) =>
         set((state) => ({
           blockedAuthors: [

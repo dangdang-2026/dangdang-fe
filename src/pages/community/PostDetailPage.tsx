@@ -3,6 +3,7 @@ import iconCommentChevron from '@/assets/icons/chevron-right.svg'
 import { useNavigate, useParams } from 'react-router'
 import { getErrorCode, getErrorMessage } from '@/api/axios'
 import { deletePost, getPost } from '@/api/posts'
+import { report } from '@/api/reports'
 import iconBack from '@/assets/icons/back.svg'
 import iconAvatar from '@/assets/icons/community/avatar-lg.svg'
 import iconCommentBar from '@/assets/icons/community/comment-bar.svg'
@@ -104,7 +105,6 @@ function PostDetailPage() {
   const restrictedUntil = useCommunityStore((state) => state.restrictedUntil)
   const blockedAuthors = useCommunityStore((state) => state.blockedAuthors)
   const removePost = useCommunityStore((state) => state.removePost)
-  const reportPost = useCommunityStore((state) => state.reportPost)
   const [moreOpen, setMoreOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
   const [confirming, setConfirming] = useState<Confirming | null>(null)
@@ -443,9 +443,20 @@ function PostDetailPage() {
       {reportOpen && (
         <ReportSheet
           onSubmit={(reason) => {
-            reportPost(post.id, reason)
             setReportOpen(false)
-            setToast('신고했어요. 운영정책에 따라 확인할게요.')
+            report('POST', post.id, reason).then(
+              () => setToast('신고했어요. 운영정책에 따라 확인할게요.'),
+              (error) => {
+                const code = getErrorCode(error)
+                setToast(
+                  code === 'REPORT_40001'
+                    ? '내 글은 신고할 수 없어요'
+                    : code === 'POST_40401'
+                      ? '이미 지워진 글이에요'
+                      : '신고하지 못했어요. 잠시 후 다시 시도해 주세요',
+                )
+              },
+            )
           }}
           onClose={closeReport}
         />
