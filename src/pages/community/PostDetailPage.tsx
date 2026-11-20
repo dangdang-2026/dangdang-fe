@@ -187,8 +187,13 @@ function PostDetailPage() {
   // 닉네임을 정해야 댓글을 남길 수 있음
   const startComment = (target: Composing) => {
     if (!me) setToast('커뮤니티 첫 화면에서 닉네임을 먼저 정해 주세요')
-    else if (isRestricted(restriction)) setRestrictedOpen(true)
-    else setComposing(target)
+    // 기기에 제한이 남아 있으면 서버에서 풀렸는지 다시 확인
+    else if (isRestricted(restriction)) {
+      syncRestriction().then(
+        (next) => (isRestricted(next) ? setRestrictedOpen(true) : setComposing(target)),
+        () => setRestrictedOpen(true),
+      )
+    } else setComposing(target)
   }
 
   const share = async () => {
