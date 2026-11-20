@@ -8,7 +8,7 @@ import Switch from '@/components/common/Switch'
 import Toast from '@/components/common/Toast'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { useCommunityStore } from '@/stores/useCommunityStore'
+import { unblockOnServer, useCommunityStore } from '@/stores/useCommunityStore'
 import { ACTIVITY_LABEL, filterActivity, type ActivityType } from '@/utils/community'
 
 const ACTIVITY_TYPES: ActivityType[] = ['posts', 'comments', 'liked']
@@ -53,7 +53,6 @@ function CommunitySettingsPage() {
   const setShowWeek = useCommunityStore((state) => state.setShowWeek)
   const posts = useCommunityStore((state) => state.posts)
   const blockedAuthors = useCommunityStore((state) => state.blockedAuthors)
-  const unblockAuthor = useCommunityStore((state) => state.unblockAuthor)
   const [blockedOpen, setBlockedOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
@@ -139,10 +138,12 @@ function CommunitySettingsPage() {
                   <button
                     type="button"
                     className="bg-grey-100 text-grey-800 rounded-full px-3.5 py-1.5 text-sm leading-snug font-bold"
-                    onClick={() => {
-                      unblockAuthor(author.id)
-                      setToast(`${author.nickname}님 글이 다시 보여요`)
-                    }}
+                    onClick={() =>
+                      unblockOnServer(author.id).then(
+                        () => setToast(`${author.nickname}님 글이 다시 보여요`),
+                        () => setToast('다시 보기를 하지 못했어요. 잠시 후 다시 시도해 주세요'),
+                      )
+                    }
                   >
                     다시 보기
                   </button>

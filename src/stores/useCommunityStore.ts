@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getErrorCode } from '@/api/axios'
+import { blockProfile, getBlockedProfiles, unblockProfile } from '@/api/blocks'
 import { getMyCommunityProfile } from '@/api/communityProfile'
 import { createComment, deleteComment, getComments } from '@/api/comments'
 import { savePostDraft, votePoll } from '@/api/posts'
@@ -314,4 +315,25 @@ export function voteOnPost(postId: string, optionId: string) {
     const poll = await votePoll(postId, optionId)
     useCommunityStore.getState().setPoll(postId, poll)
   })
+}
+
+// 서버 프로필 id가 있는 글쓴이만 차단할 수 있음. 익명 · 탈퇴한 회원 · 나는 안 됨
+export const canBlock = (author: Author) => /^\d+$/.test(author.id)
+
+// 서버에 차단한 뒤 기기에서도 숨김
+export async function blockOnServer(author: Author) {
+  await blockProfile(author.id)
+  useCommunityStore.getState().blockAuthor(author)
+}
+
+// 서버에서 풀고 기기에서도 다시 보이게
+export async function unblockOnServer(authorId: string) {
+  await unblockProfile(authorId)
+  useCommunityStore.getState().unblockAuthor(authorId)
+}
+
+// 서버 차단 목록으로 맞춤. 연동 전 기기 차단은 가짜 글쓴이라 버림
+export async function syncBlocks() {
+  const blocked = await getBlockedProfiles()
+  useCommunityStore.setState({ blockedAuthors: blocked })
 }
