@@ -4,7 +4,7 @@ import { syncPushSubscription } from '@/api/push'
 import { syncAiConsents } from '@/stores/useAiStore'
 import { syncMyFoods } from '@/stores/useFoodStore'
 import { useAuthStore } from '@/stores/useAuthStore'
-import { syncCommunityProfile } from '@/stores/useCommunityStore'
+import { syncBlocks, syncCommunityProfile, syncRestriction } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
 import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
@@ -49,6 +49,8 @@ export function useSessionCheck() {
             ]),
           ),
           syncCommunityProfile(),
+          syncBlocks(),
+          syncRestriction(),
           syncPostpartum(me.pregnancyState),
           syncAiConsents(),
         ])
