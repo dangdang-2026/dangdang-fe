@@ -29,6 +29,8 @@ import { useGoBack } from '@/hooks/useGoBack'
 import { useMyAuthor } from '@/hooks/useMyAuthor'
 import { useNow } from '@/hooks/useNow'
 import {
+  blockOnServer,
+  canBlock,
   eraseComment,
   loadComments,
   toggleLikeComment,
@@ -103,7 +105,6 @@ function PostDetailPage() {
   const blockedAuthors = useCommunityStore((state) => state.blockedAuthors)
   const removePost = useCommunityStore((state) => state.removePost)
   const reportPost = useCommunityStore((state) => state.reportPost)
-  const blockAuthor = useCommunityStore((state) => state.blockAuthor)
   const [moreOpen, setMoreOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
   const [confirming, setConfirming] = useState<Confirming | null>(null)
@@ -430,7 +431,11 @@ function PostDetailPage() {
           onEdit={fromMore(() => navigate(`${ROUTES.COMMUNITY_WRITE}?edit=${post.id}`))}
           onDelete={fromMore(() => setConfirming('delete'))}
           onReport={fromMore(() => setReportOpen(true))}
-          onBlock={fromMore(() => setConfirming('block'))}
+          onBlock={fromMore(() =>
+            canBlock(post.author)
+              ? setConfirming('block')
+              : setToast('익명이나 탈퇴한 회원의 글은 안 보기로 할 수 없어요'),
+          )}
           onCopyLink={fromMore(copyLink)}
           onClose={closeMore}
         />
@@ -475,8 +480,11 @@ function PostDetailPage() {
           description="이 사람의 글과 댓글이 보이지 않아요. 마이 › 커뮤니티 설정에서 다시 볼 수 있어요."
           confirmLabel="안 보기"
           onConfirm={() => {
-            blockAuthor(post.author)
-            goBack()
+            setConfirming(null)
+            // 서버에 차단한 뒤 나감. 못 하면 글에 남아 안내
+            blockOnServer(post.author).then(goBack, () =>
+              setToast('안 보기로 하지 못했어요. 잠시 후 다시 시도해 주세요'),
+            )
           }}
           onClose={closeConfirming}
         />
