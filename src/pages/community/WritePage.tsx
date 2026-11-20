@@ -98,7 +98,8 @@ function WritePage() {
     let stale = false
     syncRestriction()
       .then((next) => {
-        if (!stale && isRestricted(next)) setRestrictedOpen(true)
+        // 기기 값으로 띄웠는데 풀렸으면 닫음
+        if (!stale) setRestrictedOpen(isRestricted(next))
       })
       .catch(() => {})
     return () => {
