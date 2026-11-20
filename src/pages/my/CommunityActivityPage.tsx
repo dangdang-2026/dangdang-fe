@@ -14,12 +14,11 @@ function CommunityActivityPage() {
   const now = useNow()
   const [params] = useSearchParams()
   const posts = useCommunityStore((state) => state.posts)
-  const likedPostIds = useCommunityStore((state) => state.likedPostIds)
   const type = params.get('type')
 
   if (!isActivityType(type)) return <Navigate to={ROUTES.MY_COMMUNITY} replace />
 
-  const items = sortPosts(filterActivity(posts, type, likedPostIds), 'latest')
+  const items = sortPosts(filterActivity(posts, type), 'latest')
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-10">

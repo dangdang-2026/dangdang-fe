@@ -7,14 +7,22 @@ type CommentComposerProps = {
   // 예: 익명 산모님께 답글. 없으면 글에 댓글
   replyTo: string | null
   nickname: string
-  onSubmit: (body: string) => void
+  // 서버에 남기는 동안 버튼을 잠금
+  onSubmit: (body: string) => Promise<void>
   onClose: () => void
 }
 
 // Figma U-18 댓글 쓰는 중. 하단 바 자리에 고정
 function CommentComposer({ replyTo, nickname, onSubmit, onClose }: CommentComposerProps) {
   const [body, setBody] = useState('')
+  const [sending, setSending] = useState(false)
   const trimmed = body.trim()
+
+  const submit = () => {
+    if (sending) return
+    setSending(true)
+    void onSubmit(trimmed).finally(() => setSending(false))
+  }
 
   return (
     <div className="border-grey-100 fixed bottom-0 left-1/2 z-40 w-full max-w-107.5 -translate-x-1/2 border-t bg-white px-4 pt-2.5 pb-[max(--spacing(4),env(safe-area-inset-bottom))]">
@@ -40,9 +48,9 @@ function CommentComposer({ replyTo, nickname, onSubmit, onClose }: CommentCompos
         />
         <button
           type="button"
-          disabled={!trimmed}
+          disabled={!trimmed || sending}
           className="bg-primary text-grey-900 disabled:bg-grey-100 disabled:text-grey-400 shrink-0 rounded-full px-3.5 py-2 text-sm leading-snug font-bold"
-          onClick={() => onSubmit(trimmed)}
+          onClick={submit}
         >
           등록
         </button>

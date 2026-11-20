@@ -149,6 +149,19 @@ type PostDetailResponse = {
   poll: PollResponse | null
 }
 
+// 서버 투표 → 화면 투표. 항목 id는 서버 항목 번호
+function toPoll(poll: PollResponse) {
+  return {
+    poll: poll.options.map((option) => ({
+      id: String(option.index),
+      label: option.text,
+      votes: option.voteCount ?? 0,
+    })),
+    pollTotal: poll.totalVotes,
+    myVote: poll.myOptionIndex !== null ? String(poll.myOptionIndex) : null,
+  }
+}
+
 // 저장 직후 updatedAt이 createdAt과 조금 달라도 고친 걸로 보지 않음
 const EDITED_GAP_MS = 1000
 
@@ -173,13 +186,7 @@ function toPostDetail(item: PostDetailResponse): Post {
     comments: [],
     hidden: item.visibility === 'HIDDEN',
     hiddenReason: item.hiddenReason ?? undefined,
-    poll: item.poll?.options.map((option) => ({
-      id: String(option.index),
-      label: option.text,
-      votes: option.voteCount ?? 0,
-    })),
-    pollTotal: item.poll?.totalVotes,
-    myVote: item.poll && item.poll.myOptionIndex !== null ? String(item.poll.myOptionIndex) : null,
+    ...(item.poll ? toPoll(item.poll) : { poll: undefined, pollTotal: undefined, myVote: null }),
   }
 }
 
@@ -283,4 +290,13 @@ export async function precheckPost(title: string, body: string) {
   if (urgent) return { kind: 'urgent' as const, quote: urgent.quote }
   if (dose) return { kind: 'dose' as const, quote: dose.quote }
   return null
+}
+
+// 투표. 고른 뒤 항목별 수가 옴. 같은 항목 다시 200, 다른 항목 409 POST_40901
+export async function votePoll(postId: string, optionId: string) {
+  const { data } = await apiClient.post<BaseResponse<PollResponse>>(`/posts/${postId}/poll/votes`, {
+    optionIndex: Number(optionId),
+  })
+  if (!data.data) throw new Error('투표 응답이 비어 있음')
+  return toPoll(data.data)
 }
