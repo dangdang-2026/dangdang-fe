@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import iconCommentChevron from '@/assets/icons/chevron-right.svg'
 import { useNavigate, useParams } from 'react-router'
-import { getErrorCode, getErrorMessage } from '@/api/axios'
+import { getErrorCode } from '@/api/axios'
 import { deletePost, getPost } from '@/api/posts'
 import { report } from '@/api/reports'
 import iconBack from '@/assets/icons/back.svg'
@@ -33,7 +33,9 @@ import {
   blockOnServer,
   canBlock,
   eraseComment,
+  isRestricted,
   loadComments,
+  syncRestriction,
   toggleLikeComment,
   toggleLikePost,
   useCommunityStore,
@@ -102,7 +104,7 @@ function PostDetailPage() {
   const now = useNow()
   const me = useMyAuthor()
   const post = useCommunityStore((state) => state.posts.find((item) => item.id === id))
-  const restrictedUntil = useCommunityStore((state) => state.restrictedUntil)
+  const restriction = useCommunityStore((state) => state.restriction)
   const blockedAuthors = useCommunityStore((state) => state.blockedAuthors)
   const removePost = useCommunityStore((state) => state.removePost)
   const [moreOpen, setMoreOpen] = useState(false)
@@ -185,7 +187,7 @@ function PostDetailPage() {
   // 닉네임을 정해야 댓글을 남길 수 있음
   const startComment = (target: Composing) => {
     if (!me) setToast('커뮤니티 첫 화면에서 닉네임을 먼저 정해 주세요')
-    else if (restrictedUntil && new Date(restrictedUntil) > new Date()) setRestrictedOpen(true)
+    else if (isRestricted(restriction)) setRestrictedOpen(true)
     else setComposing(target)
   }
 
@@ -353,12 +355,18 @@ function PostDetailPage() {
                   setToast(composing.parentId ? '답글을 남겼어요' : '댓글을 남겼어요')
                 } catch (error) {
                   const code = getErrorCode(error)
+                  // 그사이 이용 제한이 걸렸으면 서버 기한 · 사유를 받아 시트로
+                  if (code === 'COMMUNITY_40301') {
+                    setComposing(null)
+                    void syncRestriction()
+                      .catch(() => null)
+                      .finally(() => setRestrictedOpen(true))
+                    return
+                  }
                   setToast(
-                    code === 'COMMUNITY_40301'
-                      ? (getErrorMessage(error) ?? '지금은 댓글을 쓸 수 없어요')
-                      : code === 'COMMENT_40401' || code === 'POST_40401'
-                        ? '지워진 글이나 댓글이에요'
-                        : '댓글을 남기지 못했어요. 잠시 후 다시 시도해 주세요',
+                    code === 'COMMENT_40401' || code === 'POST_40401'
+                      ? '지워진 글이나 댓글이에요'
+                      : '댓글을 남기지 못했어요. 잠시 후 다시 시도해 주세요',
                   )
                 }
               }}
@@ -417,9 +425,10 @@ function PostDetailPage() {
           onClose={closeDelete}
         />
       )}
-      {restrictedOpen && restrictedUntil && (
+      {restrictedOpen && (
         <RestrictedSheet
-          until={new Date(restrictedUntil)}
+          until={restriction?.until ? new Date(restriction.until) : null}
+          reason={restriction?.reason ?? null}
           onPolicy={() => navigate(ROUTES.COMMUNITY_POLICY)}
           onAppeal={() => setToast(COMING_SOON)}
           onClose={closeRestricted}

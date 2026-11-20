@@ -6,7 +6,7 @@ import type { AccountProfile } from '@/mocks/auth'
 import { syncAiConsents } from '@/stores/useAiStore'
 import { syncMyFoods } from '@/stores/useFoodStore'
 import { useAuthStore, type LoginMethod } from '@/stores/useAuthStore'
-import { syncBlocks, syncCommunityProfile } from '@/stores/useCommunityStore'
+import { syncBlocks, syncCommunityProfile, syncRestriction } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
 import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
@@ -75,6 +75,8 @@ export function useFinishLogin() {
       syncCommunityProfile().catch(() => {})
       // 안 보기로 한 사람도 이 계정 목록으로
       syncBlocks().catch(() => {})
+      // 이용 제한도 이 계정 값으로
+      syncRestriction().catch(() => {})
       // 산후 모드(출산일 · 다시 물어볼 날)도 이 계정 값으로
       syncPostpartum(me.pregnancyState).catch(() => {})
       // 당당이 기록 보기 동의도 이 계정 값으로

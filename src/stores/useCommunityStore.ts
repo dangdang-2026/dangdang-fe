@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { getErrorCode } from '@/api/axios'
 import { blockProfile, getBlockedProfiles, unblockProfile } from '@/api/blocks'
 import { getMyCommunityProfile } from '@/api/communityProfile'
+import { getRestriction, type Restriction } from '@/api/restriction'
 import { createComment, deleteComment, getComments } from '@/api/comments'
 import { savePostDraft, votePoll } from '@/api/posts'
 import { reactComment, reactPost } from '@/api/reactions'
@@ -38,8 +39,8 @@ type CommunityState = {
   draft: PostDraft | null
   saveDraft: (draft: PostDraft) => void
   clearDraft: () => void
-  // 신고 누적으로 글·댓글 막힌 기한. 서버 연동 전엔 직접 넣어 재현
-  restrictedUntil: string | null
+  // 이용 제한. 서버에서 받아 둠, 제한 중이 아니면 null
+  restriction: Restriction | null
   removePost: (postId: string) => void
   // 이 사람 글 안 보기
   blockedAuthors: Pick<Author, 'id' | 'nickname'>[]
@@ -123,7 +124,7 @@ export const useCommunityStore = create<CommunityState>()(
         set((state) => ({ posts: mergePosts(state.posts, posts, full) })),
       noticeDismissed: false,
       draft: null,
-      restrictedUntil: null,
+      restriction: null,
       blockedAuthors: [],
       likedNewsIds: [],
 
@@ -330,4 +331,15 @@ export async function unblockOnServer(authorId: string) {
 export async function syncBlocks() {
   const blocked = await getBlockedProfiles()
   useCommunityStore.setState({ blockedAuthors: blocked })
+}
+
+// 지금 글 · 댓글을 못 쓰는지. 끝나는 날이 없으면 운영자가 풀 때까지
+export const isRestricted = (restriction: Restriction | null, now = new Date()) =>
+  !!restriction && (restriction.until === null || new Date(restriction.until) > now)
+
+// 서버 이용 제한으로 맞춤. 글쓰기 · 댓글 전, 서버가 막았을 때 다시 받음
+export async function syncRestriction() {
+  const restriction = await getRestriction()
+  useCommunityStore.setState({ restriction })
+  return restriction
 }
