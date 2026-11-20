@@ -1,9 +1,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { getErrorCode } from '@/api/axios'
 import { getMyCommunityProfile } from '@/api/communityProfile'
-import { savePostDraft } from '@/api/posts'
+import { createComment, deleteComment, getComments } from '@/api/comments'
+import { savePostDraft, votePoll } from '@/api/posts'
+import { reactComment, reactPost } from '@/api/reactions'
 import { MY_AUTHOR_ID } from '@/constants/community'
-import type { Author, Post, PostDraft, ReportReason } from '@/types/community'
+import type { Author, CommunityComment, Post, PostDraft, ReportReason } from '@/types/community'
 
 type CommunityState = {
   // 커뮤니티 첫 진입에 정함. 안 정했으면 null
@@ -14,21 +17,22 @@ type CommunityState = {
   posts: Post[]
   // full이면 상세 글이라 본문까지 그대로 바꿈
   cachePosts: (posts: Post[], full?: boolean) => void
-  likedPostIds: string[]
-  likedCommentIds: string[]
   // 메인 안내 띠를 닫았는지
   noticeDismissed: boolean
   // 바꾸면 내가 쓴 글·댓글 이름도 함께 바뀜(익명 글 빼고)
   setNickname: (nickname: string, showWeek?: boolean) => void
   setShowWeek: (showWeek: boolean) => void
   dismissNotice: () => void
-  toggleLikePost: (postId: string) => void
-  toggleLikeComment: (postId: string, commentId: string) => void
-  addComment: (postId: string, author: Author, body: string, parentId?: string) => void
+  // 공감 여부 · 수를 바꿈. 서버 응답이나 누르자마자 보여 줄 값
+  setPostLike: (postId: string, liked: boolean, likes: number) => void
+  setCommentLike: (postId: string, commentId: string, liked: boolean, likes: number) => void
+  // 서버 댓글 목록 · 전체 수로 바꿈
+  setComments: (postId: string, comments: CommunityComment[], total: number) => void
+  // 서버에 남긴 댓글을 붙임
+  addComment: (postId: string, comment: CommunityComment) => void
   removeComment: (postId: string, commentId: string) => void
-  // 글 id → 내가 고른 투표 항목 id
-  votes: Record<string, string>
-  vote: (postId: string, optionId: string) => void
+  // 서버 투표 결과로 바꿈
+  setPoll: (postId: string, poll: Pick<Post, 'poll' | 'pollTotal' | 'myVote'>) => void
   // 쓰다 나갈 때 임시 저장
   draft: PostDraft | null
   saveDraft: (draft: PostDraft) => void
@@ -119,15 +123,12 @@ export const useCommunityStore = create<CommunityState>()(
       posts: [],
       cachePosts: (posts, full = false) =>
         set((state) => ({ posts: mergePosts(state.posts, posts, full) })),
-      likedPostIds: [],
-      likedCommentIds: [],
       noticeDismissed: false,
       draft: null,
       restrictedUntil: null,
       reports: [],
       blockedAuthors: [],
       likedNewsIds: [],
-      votes: {},
 
       dismissedNewsId: null,
       setNickname: (nickname, showWeek) =>
@@ -138,71 +139,50 @@ export const useCommunityStore = create<CommunityState>()(
         })),
       setShowWeek: (showWeek) => set({ showWeek }),
       dismissNotice: () => set({ noticeDismissed: true }),
-      toggleLikePost: (postId) =>
-        set((state) => {
-          const liked = state.likedPostIds.includes(postId)
-          return {
-            likedPostIds: toggle(state.likedPostIds, postId),
-            posts: updatePost(state.posts, postId, (post) => ({
-              ...post,
-              likes: post.likes + (liked ? -1 : 1),
-            })),
-          }
-        }),
-      toggleLikeComment: (postId, commentId) =>
-        set((state) => {
-          const liked = state.likedCommentIds.includes(commentId)
-          return {
-            likedCommentIds: toggle(state.likedCommentIds, commentId),
-            posts: updatePost(state.posts, postId, (post) => ({
-              ...post,
-              comments: post.comments.map((item) =>
-                item.id === commentId ? { ...item, likes: item.likes + (liked ? -1 : 1) } : item,
-              ),
-            })),
-          }
-        }),
-      addComment: (postId, author, body, parentId) =>
+      setPostLike: (postId, liked, likes) =>
+        set((state) => ({
+          posts: updatePost(state.posts, postId, (post) => ({ ...post, liked, likes })),
+        })),
+      setCommentLike: (postId, commentId, liked, likes) =>
         set((state) => ({
           posts: updatePost(state.posts, postId, (post) => ({
             ...post,
-            comments: [
-              ...post.comments,
-              {
-                id: crypto.randomUUID(),
-                author,
-                body,
-                createdAt: new Date().toISOString(),
-                likes: 0,
-                parentId,
-              },
-            ],
+            comments: post.comments.map((item) =>
+              item.id === commentId ? { ...item, liked, likes } : item,
+            ),
+          })),
+        })),
+      setComments: (postId, comments, total) =>
+        set((state) => ({
+          posts: updatePost(state.posts, postId, (post) => ({
+            ...post,
+            comments,
+            commentCount: total,
+          })),
+        })),
+      addComment: (postId, comment) =>
+        set((state) => ({
+          posts: updatePost(state.posts, postId, (post) => ({
+            ...post,
+            comments: [...post.comments, comment],
+            commentCount: post.commentCount + 1,
           })),
         })),
       // 답글이 달린 댓글을 지우면 답글도 함께
       removeComment: (postId, commentId) =>
         set((state) => ({
-          posts: updatePost(state.posts, postId, (post) => ({
-            ...post,
-            comments: post.comments.filter(
+          posts: updatePost(state.posts, postId, (post) => {
+            const comments = post.comments.filter(
               (item) => item.id !== commentId && item.parentId !== commentId,
-            ),
-          })),
+            )
+            const removed = post.comments.length - comments.length
+            return { ...post, comments, commentCount: Math.max(0, post.commentCount - removed) }
+          }),
         })),
-      // 한 번 고르면 바꿀 수 없음
-      vote: (postId, optionId) =>
-        set((state) => {
-          if (state.votes[postId]) return state
-          return {
-            votes: { ...state.votes, [postId]: optionId },
-            posts: updatePost(state.posts, postId, (post) => ({
-              ...post,
-              poll: post.poll?.map((option) =>
-                option.id === optionId ? { ...option, votes: option.votes + 1 } : option,
-              ),
-            })),
-          }
-        }),
+      setPoll: (postId, poll) =>
+        set((state) => ({
+          posts: updatePost(state.posts, postId, (post) => ({ ...post, ...poll })),
+        })),
       saveDraft: (draft) => set({ draft }),
       clearDraft: () => set({ draft: null }),
       removePost: (postId) =>
@@ -250,4 +230,88 @@ export function keepPostDraft(draft: PostDraft) {
 export function dropPostDraft() {
   useCommunityStore.getState().clearDraft()
   return savePostDraft(null)
+}
+
+// 서버 댓글로 글 화면을 맞춤
+export async function loadComments(postId: string) {
+  const { comments, total } = await getComments(postId)
+  useCommunityStore.getState().setComments(postId, comments, total)
+}
+
+// 서버에 댓글 · 답글을 남긴 뒤 글에 붙임
+export async function writeComment(postId: string, body: string, parentId?: string) {
+  const comment = await createComment(postId, body, parentId)
+  useCommunityStore.getState().addComment(postId, comment)
+}
+
+// 서버에서 지운 뒤 글에서 뺌. 이미 없는 댓글이어도 지운 걸로
+export async function eraseComment(postId: string, commentId: string) {
+  try {
+    await deleteComment(commentId)
+  } catch (error) {
+    if (getErrorCode(error) !== 'COMMENT_40401') throw error
+  }
+  useCommunityStore.getState().removeComment(postId, commentId)
+}
+
+// 서버에 보내는 중인 공감 · 투표. 빠르게 두 번 눌러 요청이 엇갈리지 않게 끝날 때까지 무시
+const sending = new Set<string>()
+
+async function once(key: string, job: () => Promise<void>) {
+  if (sending.has(key)) return
+  sending.add(key)
+  try {
+    await job()
+  } finally {
+    sending.delete(key)
+  }
+}
+
+// 글 공감 누르기 · 취소. 바로 보여 주고 서버 수로 맞춤, 못 남기면 되돌림
+export function toggleLikePost(postId: string) {
+  return once(`post:${postId}`, () => likePost(postId))
+}
+
+async function likePost(postId: string) {
+  const post = useCommunityStore.getState().posts.find((item) => item.id === postId)
+  if (!post) return
+  const { setPostLike } = useCommunityStore.getState()
+  const on = !post.liked
+  setPostLike(postId, on, Math.max(0, post.likes + (on ? 1 : -1)))
+  try {
+    const result = await reactPost(postId, on)
+    setPostLike(postId, result.liked, result.likes)
+  } catch (error) {
+    setPostLike(postId, !!post.liked, post.likes)
+    throw error
+  }
+}
+
+// 댓글 공감 누르기 · 취소
+export function toggleLikeComment(postId: string, commentId: string) {
+  return once(`comment:${commentId}`, () => likeComment(postId, commentId))
+}
+
+async function likeComment(postId: string, commentId: string) {
+  const post = useCommunityStore.getState().posts.find((item) => item.id === postId)
+  const comment = post?.comments.find((item) => item.id === commentId)
+  if (!comment) return
+  const { setCommentLike } = useCommunityStore.getState()
+  const on = !comment.liked
+  setCommentLike(postId, commentId, on, Math.max(0, comment.likes + (on ? 1 : -1)))
+  try {
+    const result = await reactComment(commentId, on)
+    setCommentLike(postId, commentId, result.liked, result.likes)
+  } catch (error) {
+    setCommentLike(postId, commentId, !!comment.liked, comment.likes)
+    throw error
+  }
+}
+
+// 투표. 고르면 서버 결과(항목별 수 · 참여 인원)로 바꿈. 한 번 고르면 바꿀 수 없음
+export function voteOnPost(postId: string, optionId: string) {
+  return once(`vote:${postId}`, async () => {
+    const poll = await votePoll(postId, optionId)
+    useCommunityStore.getState().setPoll(postId, poll)
+  })
 }

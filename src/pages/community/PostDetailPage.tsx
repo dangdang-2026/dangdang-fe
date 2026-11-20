@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import iconCommentChevron from '@/assets/icons/chevron-right.svg'
 import { useNavigate, useParams } from 'react-router'
-import { getErrorCode } from '@/api/axios'
+import { getErrorCode, getErrorMessage } from '@/api/axios'
 import { deletePost, getPost } from '@/api/posts'
 import iconBack from '@/assets/icons/back.svg'
 import iconAvatar from '@/assets/icons/community/avatar-lg.svg'
@@ -28,7 +28,15 @@ import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useMyAuthor } from '@/hooks/useMyAuthor'
 import { useNow } from '@/hooks/useNow'
-import { useCommunityStore } from '@/stores/useCommunityStore'
+import {
+  eraseComment,
+  loadComments,
+  toggleLikeComment,
+  toggleLikePost,
+  useCommunityStore,
+  voteOnPost,
+  writeComment,
+} from '@/stores/useCommunityStore'
 import type { CommunityComment } from '@/types/community'
 import {
   formatAuthorWeek,
@@ -53,6 +61,8 @@ function usePostDetail(id: string) {
         if (stale) return
         cachePosts([post], true)
         setResult({ id, state: 'done' })
+        // 댓글은 따로 받음. 못 받으면 기기 댓글 그대로
+        if (!post.hidden) loadComments(id).catch(() => {})
       })
       .catch((error) => {
         if (stale) return
@@ -89,19 +99,11 @@ function PostDetailPage() {
   const now = useNow()
   const me = useMyAuthor()
   const post = useCommunityStore((state) => state.posts.find((item) => item.id === id))
-  const likedPostIds = useCommunityStore((state) => state.likedPostIds)
-  const likedCommentIds = useCommunityStore((state) => state.likedCommentIds)
-  const toggleLikePost = useCommunityStore((state) => state.toggleLikePost)
-  const toggleLikeComment = useCommunityStore((state) => state.toggleLikeComment)
-  const addComment = useCommunityStore((state) => state.addComment)
-  const removeComment = useCommunityStore((state) => state.removeComment)
   const restrictedUntil = useCommunityStore((state) => state.restrictedUntil)
   const blockedAuthors = useCommunityStore((state) => state.blockedAuthors)
   const removePost = useCommunityStore((state) => state.removePost)
   const reportPost = useCommunityStore((state) => state.reportPost)
   const blockAuthor = useCommunityStore((state) => state.blockAuthor)
-  const votes = useCommunityStore((state) => state.votes)
-  const vote = useCommunityStore((state) => state.vote)
   const [moreOpen, setMoreOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
   const [confirming, setConfirming] = useState<Confirming | null>(null)
@@ -150,7 +152,14 @@ function PostDetailPage() {
     )
   }
 
-  const liked = likedPostIds.includes(post.id)
+  const liked = !!post.liked
+  // 공감은 바로 보여 주고 서버에 못 남기면 되돌린 뒤 안내
+  const likePost = () =>
+    toggleLikePost(post.id).catch(() => setToast('공감하지 못했어요. 잠시 후 다시 시도해 주세요'))
+  const likeComment = (commentId: string) =>
+    toggleLikeComment(post.id, commentId).catch(() =>
+      setToast('공감하지 못했어요. 잠시 후 다시 시도해 주세요'),
+    )
   const best = getBestComment(post)
   const week = formatAuthorWeek(post.author)
   const mine = post.author.id === MY_AUTHOR_ID
@@ -263,8 +272,16 @@ function PostDetailPage() {
               <PollCard
                 options={post.poll}
                 total={post.pollTotal}
-                votedId={votes[post.id] ?? post.myVote ?? null}
-                onVote={(optionId) => vote(post.id, optionId)}
+                votedId={post.myVote ?? null}
+                onVote={(optionId) =>
+                  voteOnPost(post.id, optionId).catch((error) =>
+                    setToast(
+                      getErrorCode(error) === 'POST_40901'
+                        ? '이미 다른 항목에 투표했어요'
+                        : '투표하지 못했어요. 잠시 후 다시 시도해 주세요',
+                    ),
+                  )
+                }
               />
             )}
             <div className="flex justify-center gap-2 pt-1.5">
@@ -274,7 +291,7 @@ function PostDetailPage() {
                 className={`border-grey-200 flex items-center gap-1.5 rounded-full border px-4.5 py-2.5 text-sm leading-snug font-medium ${
                   liked ? 'border-red-500 font-bold text-red-500' : 'text-grey-700'
                 }`}
-                onClick={() => toggleLikePost(post.id)}
+                onClick={likePost}
               >
                 공감 {formatCount(post.likes)}
                 <img src={iconHeart} alt="" width={18} height={18} />
@@ -307,8 +324,8 @@ function PostDetailPage() {
                     comment={comment}
                     now={now}
                     best={comment.id === best?.id}
-                    liked={likedCommentIds.includes(comment.id)}
-                    onLike={() => toggleLikeComment(post.id, comment.id)}
+                    liked={!!comment.liked}
+                    onLike={() => likeComment(comment.id)}
                     onReply={
                       comment.parentId
                         ? undefined
@@ -327,10 +344,22 @@ function PostDetailPage() {
               key={composing.parentId ?? 'post'}
               replyTo={composing.replyTo}
               nickname={me.nickname}
-              onSubmit={(body) => {
-                addComment(post.id, me, body, composing.parentId)
-                setComposing(null)
-                setToast(composing.parentId ? '답글을 남겼어요' : '댓글을 남겼어요')
+              onSubmit={async (body) => {
+                // 서버에 남기면 닫고, 못 남기면 쓰던 댓글을 두고 안내
+                try {
+                  await writeComment(post.id, body, composing.parentId)
+                  setComposing(null)
+                  setToast(composing.parentId ? '답글을 남겼어요' : '댓글을 남겼어요')
+                } catch (error) {
+                  const code = getErrorCode(error)
+                  setToast(
+                    code === 'COMMUNITY_40301'
+                      ? (getErrorMessage(error) ?? '지금은 댓글을 쓸 수 없어요')
+                      : code === 'COMMENT_40401' || code === 'POST_40401'
+                        ? '지워진 글이나 댓글이에요'
+                        : '댓글을 남기지 못했어요. 잠시 후 다시 시도해 주세요',
+                  )
+                }
               }}
               onClose={closeComposer}
             />
@@ -352,7 +381,7 @@ function PostDetailPage() {
                   type="button"
                   aria-pressed={liked}
                   className={`flex items-center gap-1 ${liked ? 'font-bold text-red-500' : 'text-grey-600'}`}
-                  onClick={() => toggleLikePost(post.id)}
+                  onClick={likePost}
                 >
                   <img src={iconHeartBar} alt="" width={20} height={20} />
                   공감 {formatCount(post.likes)}
@@ -378,9 +407,11 @@ function PostDetailPage() {
           confirmLabel="삭제"
           danger
           onConfirm={() => {
-            removeComment(post.id, deletingId)
             setDeletingId(null)
-            setToast('댓글을 지웠어요')
+            eraseComment(post.id, deletingId).then(
+              () => setToast('댓글을 지웠어요'),
+              () => setToast('댓글을 지우지 못했어요. 잠시 후 다시 시도해 주세요'),
+            )
           }}
           onClose={closeDelete}
         />
