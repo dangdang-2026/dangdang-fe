@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { canServerPush, subscribePush } from '@/api/push'
-import { openReminder } from '@/api/reminders'
+import { openReminder, snoozeReminder } from '@/api/reminders'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
@@ -25,6 +25,7 @@ import { useFoods } from '@/hooks/useFoods'
 import { useNow } from '@/hooks/useNow'
 import { useOnline } from '@/hooks/useOnline'
 import { useCriteria } from '@/hooks/useCriteria'
+import { snoozeOnDevice } from '@/hooks/useMeasureReminder'
 import { useTodaySync } from '@/hooks/useTodaySync'
 import { saveHospitalized, useProfileStore } from '@/stores/useProfileStore'
 import { saveMealContent, saveMealStart, useGlucoseStore } from '@/stores/useGlucoseStore'
@@ -67,6 +68,9 @@ const PERMISSION_DENIED_TOAST = '알림 권한이 꺼져 있어요. 설정에서
 
 // 측정을 기다리는 동안엔 히어로와 기다리는 측정만
 const WAITING_KINDS: HeroState['kind'][] = ['eating', 'measure-time', 'overdue']
+
+// 10분 뒤 다시를 맡겼을 때
+const SNOOZED_TOAST = '10분 뒤에 한 번 더 알려 드릴게요'
 
 function TodayPage() {
   const meals = useGlucoseStore((state) => state.meals)
@@ -247,6 +251,18 @@ function TodayPage() {
     setSheetTarget(null)
     if (fromMeasureAlert) navigate(ROUTES.TODAY, { replace: true })
   }, [fromMeasureAlert, navigate])
+  // 10분 뒤 다시. 서버 알림으로 열었으면 서버가, 아니면 이 기기가 다시 알림
+  const snoozeMeasure = (mealId?: string) => {
+    if (reminderId) {
+      snoozeReminder(reminderId).catch(() => {
+        if (mealId) snoozeOnDevice(mealId)
+      })
+      setToast(SNOOZED_TOAST)
+      return
+    }
+    const scheduled = !!mealId && snoozeOnDevice(mealId)
+    setToast(scheduled ? SNOOZED_TOAST : '알림이 꺼져 있어 다시 알려 드릴 수 없어요')
+  }
   const closeMealSheet = useCallback(() => setWritingMeal(null), [])
   const closeToast = useCallback(() => setToast(null), [])
 
@@ -323,6 +339,7 @@ function TodayPage() {
             onSkipMeal={skipMeal}
             onWriteMeal={setWritingMeal}
             onFillMissed={fillMissed}
+            onSnooze={snoozeMeasure}
           />
         )}
       </div>
@@ -371,7 +388,20 @@ function TodayPage() {
       )}
 
       {sheetTarget && (
-        <GlucoseInputSheet target={sheetTarget} onClose={closeGlucoseSheet} onSaved={handleSaved} />
+        <GlucoseInputSheet
+          target={sheetTarget}
+          onClose={closeGlucoseSheet}
+          onSaved={handleSaved}
+          // 서버 알림이 있거나, 측정 시점을 아는 끼니일 때만
+          onSnooze={
+            reminderId || (sheetTarget.mealId && criteria.postMealHours)
+              ? () => {
+                  snoozeMeasure(sheetTarget.mealId)
+                  closeGlucoseSheet()
+                }
+              : undefined
+          }
+        />
       )}
       {writingMeal && (
         <MealWriteFlow meal={writingMeal} onClose={closeMealSheet} onSaved={handleMealSaved} />

@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 
 type BottomSheetProps = {
   label: string
@@ -6,15 +6,29 @@ type BottomSheetProps = {
   children: ReactNode
 }
 
+// 열린 시트 순서. Esc는 맨 위 시트만 닫음
+const openSheets: symbol[] = []
+
 // Figma 바텀시트 공통 틀: 딤 + 위 모서리 둥근 시트 + 손잡이. 딤·Esc로 닫힘
 function BottomSheet({ label, onClose, children }: BottomSheetProps) {
+  const onCloseRef = useRef(onClose)
   useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
+  // 열릴 때 한 번 등록. onClose가 바뀌어도 순서가 안 바뀌게
+  useEffect(() => {
+    const id = Symbol('sheet')
+    openSheets.push(id)
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape' && openSheets.at(-1) === id) onCloseRef.current()
     }
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+    return () => {
+      openSheets.splice(openSheets.indexOf(id), 1)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [])
 
   return (
     <div className="fixed inset-0 z-60">

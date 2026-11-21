@@ -51,11 +51,24 @@ export function HeroButton({ icon, children, light, onClick }: HeroButtonProps) 
 }
 
 // 카드 안 흰 칩(최근 기록·기록했어요 등)
-export function HeroChip({ icon, children }: { icon: string; children: ReactNode }) {
-  return (
-    <p className="text-grey-800 flex w-fit items-center gap-1 rounded-full bg-white py-1.5 pr-3 pl-2.5 text-xs leading-normal font-semibold">
+type HeroChipProps = { icon: string; children: ReactNode; onClick?: () => void }
+
+export function HeroChip({ icon, children, onClick }: HeroChipProps) {
+  const className =
+    'text-grey-800 flex w-fit items-center gap-1 rounded-full bg-white py-1.5 pr-3 pl-2.5 text-xs leading-normal font-semibold'
+  const content = (
+    <>
       <img src={icon} alt="" width={14} height={14} />
       {children}
-    </p>
+    </>
   )
+  // 누를 수 있는 칩은 버튼으로
+  if (onClick) {
+    return (
+      <button type="button" className={className} onClick={onClick}>
+        {content}
+      </button>
+    )
+  }
+  return <p className={className}>{content}</p>
 }

@@ -19,6 +19,8 @@ type HeroCardProps = {
   onWriteMeal: (meal: Meal) => void
   // 하루 정리에서 비어 있는 식후 측정 채우기
   onFillMissed: (meal: Meal, dueAt: Date) => void
+  // 측정 알림 10분 뒤 다시
+  onSnooze: (mealId: string) => void
 }
 
 // 기록·식사 상태에 따라 히어로 카드 한 장만 표시
@@ -31,6 +33,7 @@ function HeroCard({
   onSkipMeal,
   onWriteMeal,
   onFillMissed,
+  onSnooze,
 }: HeroCardProps) {
   switch (state.kind) {
     case 'first-day':
@@ -70,6 +73,7 @@ function HeroCard({
           meal={state.meal}
           dueAt={state.dueAt}
           onInputGlucose={onInputGlucose}
+          onSnooze={() => onSnooze(state.meal.id)}
         />
       )
     case 'overdue':
