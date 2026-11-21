@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
+import { useNavigate } from 'react-router'
 import iconPencil from '@/assets/icons/pencil.svg'
+import { ROUTES } from '@/constants/routes'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { formatDuration } from '@/utils/criteria'
 
@@ -29,6 +31,7 @@ function HeroShell({
 }: HeroShellProps) {
   // Figma H-13 인슐린 모드면 기준 칩 앞에 붙임
   const insulinMode = useProfileStore((state) => state.careMode === 'insulin')
+  const navigate = useNavigate()
   const criteriaLabel = postMealHours ? `식후 ${formatDuration(postMealHours)}` : '측정 시점 모름'
 
   return (
@@ -47,6 +50,7 @@ function HeroShell({
           <button
             type="button"
             className="text-grey-800 flex items-center gap-1 rounded-full bg-white py-1 pr-2 pl-2.5 text-xs leading-normal font-semibold"
+            onClick={() => navigate(ROUTES.MY_CRITERIA)}
           >
             {insulinMode ? `인슐린 모드 · ${criteriaLabel}` : criteriaLabel}
             <img src={iconPencil} alt="" width={12} height={12} />

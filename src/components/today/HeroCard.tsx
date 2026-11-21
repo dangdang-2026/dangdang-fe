@@ -1,3 +1,4 @@
+import AllDoneHero from '@/components/today/hero/AllDoneHero'
 import BeforeMealHero from '@/components/today/hero/BeforeMealHero'
 import DayEndHero from '@/components/today/hero/DayEndHero'
 import EatingHero from '@/components/today/hero/EatingHero'
@@ -59,9 +60,12 @@ function HeroCard({
         />
       )
     case 'eating-open':
+    case 'eating-free':
       return (
         <EatingOpenHero
           meal={state.meal}
+          free={state.kind === 'eating-free'}
+          postMealHours={postMealHours}
           onInputGlucose={onInputGlucose}
           onWriteMeal={() => onWriteMeal(state.meal)}
         />
@@ -86,6 +90,8 @@ function HeroCard({
           onSkipMeal={() => onSkipMeal(state.meal.id)}
         />
       )
+    case 'all-done':
+      return <AllDoneHero postMealHours={postMealHours} count={state.count} />
     case 'day-end':
       return (
         <DayEndHero

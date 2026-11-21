@@ -71,7 +71,13 @@ function RecordsPage() {
 
   const openInputSheet = () => {
     if (isToday) {
-      const target = getMeasureTarget(meals, records, criteria.postMealHours, new Date())
+      const target = getMeasureTarget(
+        meals,
+        records,
+        criteria.postMealHours,
+        new Date(),
+        criteria.measureSlots,
+      )
       setInputSheet({ target })
       return
     }

@@ -7,6 +7,8 @@ import WarmBackground from '@/components/common/WarmBackground'
 import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
 import InsulinSheet from '@/components/insulin/InsulinSheet'
 import ContactMemoSheet from '@/components/my/ContactMemoSheet'
+import BirthOrHospitalSheet from '@/components/postpartum/BirthOrHospitalSheet'
+import BirthEntryCard from '@/components/today/BirthEntryCard'
 import TodayHeader from '@/components/today/TodayHeader'
 import HeroCard from '@/components/today/HeroCard'
 import HospitalHero from '@/components/today/hero/HospitalHero'
@@ -41,7 +43,7 @@ import type {
   Portion,
 } from '@/types/glucose'
 import { formatTime, isSameDay, startOfDay } from '@/utils/date'
-import { formatPregnancyAge } from '@/utils/pregnancy'
+import { formatPregnancyAge, getPregnancyAge } from '@/utils/pregnancy'
 import { formatVisitDay, getHomeVisitCard } from '@/utils/visit'
 import {
   getHeroState,
@@ -50,6 +52,7 @@ import {
   getNextMealType,
   getSlotLabel,
   isDayEnd,
+  measuresAfter,
   type HeroState,
 } from '@/utils/glucose'
 import { formatMealSavedMessage } from '@/utils/meal'
@@ -58,13 +61,18 @@ import { formatMealSavedMessage } from '@/utils/meal'
 const HEADER_TITLE: Partial<Record<HeroState['kind'], string>> = {
   eating: '식사 시작했어요',
   'eating-open': '식사 시작했어요',
+  'eating-free': '식사 시작했어요',
   'measure-time': '지금 재 주세요',
   overdue: '측정이 조금 늦었어요',
   'day-end': '오늘 하루 수고했어요',
+  'all-done': '오늘 하루 수고했어요',
 }
 
 // 이미 거절한 알림 권한은 브라우저가 다시 안 물어봐서 설정 안내
 const PERMISSION_DENIED_TOAST = '알림 권한이 꺼져 있어요. 설정에서 켜 주세요'
+
+// 이 주수부터 입원·출산 입구(H-14)
+const BIRTH_ENTRY_WEEKS = 37
 
 // 측정을 기다리는 동안엔 히어로와 기다리는 측정만
 const WAITING_KINDS: HeroState['kind'][] = ['eating', 'measure-time', 'overdue']
@@ -88,14 +96,18 @@ function TodayPage() {
     !!(location.state as { openGlucose?: boolean } | null)?.openGlucose ||
     searchParams.get('sheet') === 'glucose'
   const [sheetTarget, setSheetTarget] = useState<MeasureTarget | null>(() =>
-    fromMeasureAlert ? getMeasureTarget(meals, records, criteria.postMealHours, new Date()) : null,
+    fromMeasureAlert
+      ? getMeasureTarget(meals, records, criteria.postMealHours, new Date(), criteria.measureSlots)
+      : null,
   )
   // 오늘 탭이 열려 있을 때 알림을 눌러도 시트를 엶
   const [seenAlert, setSeenAlert] = useState(fromMeasureAlert)
   if (fromMeasureAlert !== seenAlert) {
     setSeenAlert(fromMeasureAlert)
     if (fromMeasureAlert) {
-      setSheetTarget(getMeasureTarget(meals, records, criteria.postMealHours, new Date()))
+      setSheetTarget(
+        getMeasureTarget(meals, records, criteria.postMealHours, new Date(), criteria.measureSlots),
+      )
     }
   }
   // 서버 알림을 눌러 들어오면 열람 처리. 실패해도 입력은 그대로
@@ -108,6 +120,7 @@ function TodayPage() {
   const [toast, setToast] = useState<string | null>(null)
   const [insulinSheet, setInsulinSheet] = useState(false)
   const [memoSheet, setMemoSheet] = useState(false)
+  const [birthSheet, setBirthSheet] = useState(false)
   const [permissionSheet, setPermissionSheet] = useState(false)
   const permissionAsked = useNotificationStore((state) => state.permissionAsked)
   const measureNotification = useNotificationStore((state) => state.measure)
@@ -126,12 +139,14 @@ function TodayPage() {
   const todayMeals = meals.filter((meal) => isSameDay(new Date(meal.startedAt), now))
   const todayRecords = records.filter((record) => isSameDay(new Date(record.measuredAt), now))
   const todayInsulins = insulins.filter((insulin) => isSameDay(new Date(insulin.takenAt), now))
-  const heroState = getHeroState(meals, records, criteria.postMealHours, now)
+  const heroState = getHeroState(meals, records, criteria.postMealHours, now, criteria.measureSlots)
   const waitingMeasure = !hospitalized && WAITING_KINDS.includes(heroState.kind)
   const firstDay = heroState.kind === 'first-day'
+  // 출산 예정일이 가까우면 입원·출산 입구. 입원 중이면 안 보임
+  const nearDue = !hospitalized && (getPregnancyAge(dueDate, now)?.weeks ?? 0) >= BIRTH_ENTRY_WEEKS
   // 저녁 이후 놓친 식후 측정은 오늘 기록에 나중에 채우기 줄로
   const missedMeals = isDayEnd(now)
-    ? getMissedMeals(meals, records, criteria.postMealHours, now)
+    ? getMissedMeals(meals, records, criteria.postMealHours, now, criteria.measureSlots)
     : []
   // 측정 알림을 껐거나 브라우저 권한이 없거나, 푸시를 쓸 수 있는데 서버에 구독이 없으면 알림 꺼짐 배너
   const notificationsOff =
@@ -155,14 +170,16 @@ function TodayPage() {
   const handleStartMeal = async () => {
     const current = new Date()
     // 기기엔 바로 적혀 화면은 기다리지 않음
-    const saving = saveMealStart(getNextMealType(meals, current), current)
+    const mealType = getNextMealType(meals, current)
+    const saving = saveMealStart(mealType, current)
     // 첫 식사 시작 때 한 번만 알림 허용 안내
     if (!permissionAsked) {
       setPermissionSheet(true)
       return
     }
     const saved = await saving
-    const hours = criteria.postMealHours
+    // 병원 기준에 없는 끼니는 식후 알림 없음
+    const hours = measuresAfter(mealType, criteria.measureSlots) ? criteria.postMealHours : null
     setToast(
       !saved
         ? '식사 시작을 적었어요 · 연결이 안 돼 알림 예약은 못 했어요'
@@ -244,7 +261,9 @@ function TodayPage() {
   }
 
   const openGlucoseSheet = () => {
-    setSheetTarget(getMeasureTarget(meals, records, criteria.postMealHours, new Date()))
+    setSheetTarget(
+      getMeasureTarget(meals, records, criteria.postMealHours, new Date(), criteria.measureSlots),
+    )
   }
   // 알림에서 연 시트를 닫으면 기록에서 지워 뒤로 와도 다시 안 열리게
   const closeGlucoseSheet = useCallback(() => {
@@ -343,6 +362,11 @@ function TodayPage() {
           />
         )}
       </div>
+      {nearDue && (
+        <div className="mt-5">
+          <BirthEntryCard onOpen={() => setBirthSheet(true)} />
+        </div>
+      )}
       {waitingMeasure && 'dueAt' in heroState ? (
         <div className="mt-5">
           <WaitingMeasureCard
@@ -415,6 +439,22 @@ function TodayPage() {
             setToast(`인슐린 ${input.units}단위 기록했어요`)
           }}
           onClose={() => setInsulinSheet(false)}
+        />
+      )}
+      {birthSheet && (
+        <BirthOrHospitalSheet
+          onNext={(choice) => {
+            if (choice === 'birth') {
+              navigate(ROUTES.POSTPARTUM_DELIVERY)
+              return
+            }
+            // 입원은 서버가 알림만 멈추고 홈에서 바로 보여 줌. 두 번 보내지 않게 시트 먼저 닫음
+            setBirthSheet(false)
+            saveHospitalized(true)
+              .then(() => setToast('측정 알림을 멈췄어요'))
+              .catch(() => setToast('입원 상태를 저장하지 못했어요. 잠시 후 다시 시도해 주세요'))
+          }}
+          onClose={() => setBirthSheet(false)}
         />
       )}
       {memoSheet && (
