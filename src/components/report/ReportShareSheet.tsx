@@ -9,7 +9,8 @@ import VisitMenuRow from '@/components/visit/VisitMenuRow'
 type ReportShareSheetProps = {
   hideName: boolean
   onToggleHideName: () => void
-  onSavePdf: () => void
+  onSavePhoto: () => void
+  // PDF · 인쇄는 브라우저 인쇄 창 하나로
   onPrint: () => void
   onShare: () => void
   onClose: () => void
@@ -19,31 +20,31 @@ type ReportShareSheetProps = {
 function ReportShareSheet({
   hideName,
   onToggleHideName,
-  onSavePdf,
+  onSavePhoto,
   onPrint,
   onShare,
   onClose,
 }: ReportShareSheetProps) {
   return (
     <BottomSheet label="리포트 전하기" onClose={onClose}>
-      <h2 className="text-t4 text-grey-900">리포트를 어떻게 전달할까요?</h2>
+      <h2 className="text-t4 text-grey-900">리포트를 어떻게 전할까요?</h2>
 
       <div className="-my-2 flex flex-col">
         <div className="px-1 py-3.5">
           <VisitMenuRow
             icon={iconDownload}
             primary
-            title="PDF로 저장"
-            description="이 기기에서 바로 만들어요"
-            onClick={onSavePdf}
+            title="사진으로 저장"
+            description="사진첩에서 바로 꺼내 보여 줄 수 있어요"
+            onClick={onSavePhoto}
           />
         </div>
         <div className="px-1 py-3.5">
           <VisitMenuRow
             icon={iconPrinter}
             primary
-            title="인쇄"
-            description="진료실에 종이로 가져가요"
+            title="PDF · 인쇄"
+            description="종이나 파일을 받는 병원에 내요"
             onClick={onPrint}
           />
         </div>
@@ -88,7 +89,9 @@ function ReportShareSheet({
       <p className="bg-grey-50 rounded-key flex items-center gap-2 px-3.5 py-3">
         <img src={iconShield} alt="" width={16} height={16} />
         <span className="text-body-3 text-grey-700">
-          리포트는 서버에 올리지 않고 기기에서 만들어요
+          리포트는 서버에 올리지 않고 기기에서 만들어요.
+          <br />
+          사진첩에 저장하면 휴대폰 백업에 함께 올라갈 수 있어요.
         </span>
       </p>
 

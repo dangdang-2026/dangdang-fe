@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import iconBack from '@/assets/icons/back.svg'
 import iconShare from '@/assets/icons/share.svg'
@@ -16,6 +16,7 @@ import { useReportStore } from '@/stores/useReportStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import { addDays, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 import { formatReportText } from '@/utils/report'
+import { saveReportImage } from '@/utils/reportImage'
 
 // Figma C-06 진료 리포트. 최근 2주 기록을 A4 1쪽으로
 function ReportPage() {
@@ -25,6 +26,9 @@ function ReportPage() {
   // 병원 밖으로 보낼 때 이름 빼기
   const [hideName, setHideName] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  // 사진으로 저장할 리포트 카드
+  const receiptRef = useRef<HTMLDivElement>(null)
+  const [savingPhoto, setSavingPhoto] = useState(false)
 
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
   const saveReport = useReportStore((state) => state.saveReport)
@@ -74,6 +78,31 @@ function ReportPage() {
     window.setTimeout(() => window.print(), 0)
   }
 
+  // 사진으로 저장: 휴대폰은 공유 창에서 이미지 저장, 컴퓨터는 파일 내려받기
+  const savePhoto = async () => {
+    setShareOpen(false)
+    const node = receiptRef.current
+    if (!node || savingPhoto) return
+    setSavingPhoto(true)
+    try {
+      const result = await saveReportImage(
+        node,
+        `당당-혈당기록-${toDateKey(from)}-${toDateKey(to)}.png`,
+      )
+      if (result === 'canceled') return
+      keepReport()
+      setToast(
+        result === 'shared'
+          ? '사진으로 저장했어요 · 사진첩에서 볼 수 있어요'
+          : '사진으로 저장했어요 · 다운로드 폴더에서 볼 수 있어요',
+      )
+    } catch {
+      setToast('사진으로 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+    } finally {
+      setSavingPhoto(false)
+    }
+  }
+
   const shareReport = async () => {
     const text = formatReportText({ report, title, periodLabel, criteriaLines, questions })
     keepReport()
@@ -119,7 +148,7 @@ function ReportPage() {
           </button>
         </header>
 
-        <div className="relative mt-3">
+        <div ref={receiptRef} className="relative mt-3">
           <ReportReceipt
             report={report}
             periodLabel={periodLabel}
@@ -130,14 +159,14 @@ function ReportPage() {
         </div>
 
         <div className="fixed bottom-[max(--spacing(10),env(safe-area-inset-bottom))] left-1/2 w-full max-w-107.5 -translate-x-1/2 px-5">
-          <SlideToSave label="밀어서 PDF로 저장" onComplete={printReport} />
+          <SlideToSave label="밀어서 사진으로 저장" onComplete={() => void savePhoto()} />
         </div>
 
         {shareOpen && (
           <ReportShareSheet
             hideName={hideName}
             onToggleHideName={() => setHideName((prev) => !prev)}
-            onSavePdf={printReport}
+            onSavePhoto={() => void savePhoto()}
             onPrint={printReport}
             onShare={shareReport}
             onClose={closeShare}
