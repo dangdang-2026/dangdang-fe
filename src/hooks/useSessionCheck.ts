@@ -9,6 +9,7 @@ import { syncCriteria } from '@/stores/useCriteriaStore'
 import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncMealGuide } from '@/stores/useMealGuideStore'
+import { syncMealSettings } from '@/stores/useMealSettingsStore'
 import { syncQuestions, syncVisitNote, syncVisits } from '@/stores/useVisitStore'
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
@@ -60,6 +61,7 @@ export function useSessionCheck() {
           syncRestriction(),
           syncPostpartum(me.pregnancyState),
           syncAiConsents(),
+          syncMealSettings(),
         ])
       })
       .catch(() => {

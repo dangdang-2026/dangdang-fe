@@ -49,6 +49,7 @@ import DataPage from '@/pages/my/DataPage'
 import MyCriteriaPage from '@/pages/my/MyCriteriaPage'
 import MealGuidePage from '@/pages/my/MealGuidePage'
 import MyFoodsPage from '@/pages/my/MyFoodsPage'
+import MealSettingsPage from '@/pages/my/MealSettingsPage'
 import MyPage from '@/pages/my/MyPage'
 import NicknamePage from '@/pages/my/NicknamePage'
 import NotificationsPage from '@/pages/my/NotificationsPage'
@@ -164,6 +165,7 @@ function App() {
           <Route path={ROUTES.MY_MEAL_GUIDE} element={<MealGuidePage />} />
           <Route path={ROUTES.MY_NOTIFICATIONS} element={<NotificationsPage />} />
           <Route path={ROUTES.MY_FOODS} element={<MyFoodsPage />} />
+          <Route path={ROUTES.MY_MEAL_SETTINGS} element={<MealSettingsPage />} />
           <Route path={ROUTES.MY_TERMS} element={<TermsPage />} />
           <Route path={ROUTES.MY_PASSWORD} element={<PasswordChangePage />} />
           <Route path={ROUTES.MY_DATA} element={<DataPage />} />

@@ -42,6 +42,7 @@ export const ROUTES = {
   MY_MEAL_GUIDE: '/my/criteria/meal-guide',
   MY_NOTIFICATIONS: '/my/notifications',
   MY_FOODS: '/my/foods',
+  MY_MEAL_SETTINGS: '/my/meal-settings',
   MY_TERMS: '/my/terms',
   MY_PASSWORD: '/my/password',
   MY_DATA: '/my/data',
