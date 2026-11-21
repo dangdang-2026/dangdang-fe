@@ -35,8 +35,9 @@ function ReportPage() {
   // ?from=&to= 로 기간 지정(지난 리포트·기간 고르기). 없으면 최근 2주
   const to = parseDateKey(searchParams.get('to')) ?? today
   const from = parseDateKey(searchParams.get('from')) ?? addDays(to, -(REPORT_DAYS - 1))
-  // ?hospital= 보여 줄 병원, ?custom=1 기간을 직접 골라 만든 리포트(진료일 없음)
+  // ?hospital= 보여 줄 병원, ?custom=1 기간을 직접 골라 만든 리포트, ?visitAt= 지난 리포트의 원래 진료일
   const custom = searchParams.get('custom') === '1'
+  const savedVisitAt = searchParams.get('visitAt')
   const { report, title, periodLabel, criteriaLines, hospital } = useReportContent({
     from,
     to,
@@ -58,7 +59,8 @@ function ReportPage() {
       from: toDateKey(from),
       to: toDateKey(to),
       hospital: hospital.name,
-      visitAt: custom ? undefined : (nextVisitAt ?? undefined),
+      visitAt: custom ? undefined : (savedVisitAt ?? nextVisitAt ?? undefined),
+      custom,
     })
   }
 

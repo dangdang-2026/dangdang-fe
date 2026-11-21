@@ -24,6 +24,8 @@ const PRESETS: { key: Preset; label: string }[] = [
   { key: 'custom', label: '직접 고르기' },
 ]
 
+const DAYS_IN_YEAR = 365
+
 type ReportPeriodSheetProps = {
   today: Date
   onCreate: (range: DateRange, hospital: string) => void
@@ -40,9 +42,13 @@ function ReportPeriodSheet({ today, onCreate, onClose }: ReportPeriodSheetProps)
   const [preset, setPreset] = useState<Preset>('recent')
   const [custom, setCustom] = useState<DateRange | null>(null)
   const [rangeOpen, setRangeOpen] = useState(false)
-  // 다니는 병원 이름. 하나도 없으면 대표 병원 이름
-  const hospitalNames = hospitals.length ? hospitals.map((item) => item.name) : [primary.name]
-  const [hospital, setHospital] = useState(hospitalNames[0])
+  // 다니는 병원 이름(겹치는 이름은 하나로). 하나도 없으면 대표 병원 이름
+  const hospitalNames = hospitals.length
+    ? [...new Set(hospitals.map((item) => item.name))]
+    : [primary.name]
+  // 고른 병원이 목록에 없으면(늦게 받아 옴 · 지움) 첫 병원
+  const [picked, setHospital] = useState<string | null>(null)
+  const hospital = picked && hospitalNames.includes(picked) ? picked : hospitalNames[0]
 
   // 가장 오래된 기록 날짜. 없으면 오늘
   const firstRecordDay = records.reduce((earliest, record) => {
@@ -54,6 +60,10 @@ function ReportPeriodSheet({ today, onCreate, onClose }: ReportPeriodSheetProps)
   const pregnancyStart = due ? addDays(due, -FULL_TERM_DAYS) : null
   const pregnancyFrom =
     pregnancyStart && pregnancyStart > firstRecordDay ? pregnancyStart : firstRecordDay
+  // 직접 고르기는 임신 시작일 · 첫 기록 중 이른 날부터. 둘 다 없으면 1년 전부터
+  const earliest =
+    pregnancyStart && pregnancyStart < firstRecordDay ? pregnancyStart : firstRecordDay
+  const pickStart = earliest < today ? earliest : addDays(today, -DAYS_IN_YEAR)
 
   const range: DateRange | null = (() => {
     if (preset === 'month')
@@ -149,7 +159,7 @@ function ReportPeriodSheet({ today, onCreate, onClose }: ReportPeriodSheetProps)
               `${formatRangeLabel(picked)} · ${diffInDays(picked.from, picked.to) + 1}일 동안`
             }
             today={today}
-            start={firstRecordDay}
+            start={pickStart}
             initial={custom}
             onApply={(picked) => {
               setCustom(picked)

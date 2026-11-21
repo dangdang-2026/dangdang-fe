@@ -180,3 +180,30 @@ export function formatReportText({
 
 export const REPORT_SLOT_KEYS = SLOT_KEYS
 export type { SlotKey }
+
+// 기간 기록을 기록마다 그때 기준으로 비교. compared는 목표가 있던 기록 수, inRange는 그중 목표 안
+export function countTargetRate(
+  records: GlucoseRecord[],
+  versions: Criteria[],
+  from: Date,
+  to: Date,
+) {
+  const start = startOfDay(from)
+  const end = addDays(startOfDay(to), 1)
+  const inPeriod = records.filter((record) => {
+    const at = new Date(record.measuredAt)
+    return at >= start && at < end
+  })
+  let compared = 0
+  let inRange = 0
+  for (const record of inPeriod) {
+    const criteria = getCriteriaAt(versions, new Date(record.measuredAt))
+    const result = compareToTarget(
+      record.value,
+      getTarget(record.slot, criteria.targets, criteria.postMealHours),
+    )
+    if (result === 'in-range') inRange += 1
+    if (result === 'in-range' || result === 'high') compared += 1
+  }
+  return { measured: inPeriod.length, compared, inRange }
+}

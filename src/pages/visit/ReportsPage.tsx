@@ -16,7 +16,7 @@ import { useProfileStore } from '@/stores/useProfileStore'
 import { useReportStore, type SavedReport } from '@/stores/useReportStore'
 import { formatMonthDay, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 import { formatPregnancyRange } from '@/utils/pregnancy'
-import { buildReport } from '@/utils/report'
+import { countTargetRate } from '@/utils/report'
 
 const formatShortDate = (date: Date) => `${date.getMonth() + 1}/${date.getDate()}`
 
@@ -33,7 +33,6 @@ function ReportsPage() {
   const goBack = useGoBack(ROUTES.VISIT)
   const reports = useReportStore((state) => state.reports)
   const records = useGlucoseStore((state) => state.records)
-  const meals = useGlucoseStore((state) => state.meals)
   const versions = useCriteriaStore((state) => state.versions)
   const hospitals = useHospitalStore((state) => state.hospitals)
   const dueDate = useProfileStore((state) => state.dueDate)
@@ -50,29 +49,35 @@ function ReportsPage() {
     .reverse()
     .filter((saved) => !hospitalFilter || saved.hospital === hospitalFilter)
 
-  // 기간을 직접 골라 만든 리포트는 진료일 없이 남기려고 custom을 붙임
-  const openReport = (from: Date, to: Date, hospital: string, custom: boolean) => {
+  // 직접 고른 기간은 custom, 지난 진료 리포트는 원래 진료일을 넘겨 다시 저장해도 그대로
+  const openReport = (
+    from: Date,
+    to: Date,
+    hospital: string,
+    custom: boolean,
+    visitAt?: string,
+  ) => {
     const params = new URLSearchParams({ from: toDateKey(from), to: toDateKey(to), hospital })
     if (custom) params.set('custom', '1')
+    if (visitAt) params.set('visitAt', visitAt)
     navigate(`${ROUTES.VISIT_REPORT}?${params}`)
   }
 
-  // 상태: 진료 리포트는 기준 안 비율(목표가 없던 기간이면 기준 받기 전), 직접 고른 기간은 그대로
+  // 상태: 직접 고른 기간 > 기록 없음 > 기준 받기 전(목표 있던 기록 없음) > 기록마다 그때 기준으로 센 비율
   const summarize = (saved: SavedReport) => {
     const from = parseDateKey(saved.from) ?? today
     const to = parseDateKey(saved.to) ?? today
-    const report = buildReport({ records, meals, from, to, versions })
-    const compared = report.slots.filter((slot) => slot.outOfTarget !== null)
-    const total = compared.reduce((sum, slot) => sum + slot.total, 0)
-    const outOfTarget = compared.reduce((sum, slot) => sum + (slot.outOfTarget ?? 0), 0)
-    const status = !saved.visitAt
+    const { measured, compared, inRange } = countTargetRate(records, versions, from, to)
+    const status = saved.custom
       ? { text: '직접 고른 기간', tone: 'custom' as const }
-      : total === 0
-        ? { text: '기준 받기 전', tone: 'none' as const }
-        : {
-            text: `내 기준 안 ${Math.round(((total - outOfTarget) / total) * 100)}%`,
-            tone: 'rate' as const,
-          }
+      : measured === 0
+        ? { text: '기록 없음', tone: 'none' as const }
+        : compared === 0
+          ? { text: '기준 받기 전', tone: 'none' as const }
+          : {
+              text: `내 기준 안 ${Math.round((inRange / compared) * 100)}%`,
+              tone: 'rate' as const,
+            }
     const visitAt = saved.visitAt ? new Date(saved.visitAt) : null
     const pregnancy = formatPregnancyRange(dueDate, from, to)
     const detail = [
@@ -81,11 +86,11 @@ function ReportsPage() {
         ? `${formatShortDate(visitAt)} 진료`
         : `${formatShortDate(new Date(saved.createdAt))} 만듦`,
       // 직접 고른 기간은 피그마처럼 만든 날까지만
-      visitAt ? pregnancy : null,
+      saved.custom ? null : pregnancy,
     ]
       .filter(Boolean)
       .join(' · ')
-    return { from, to, status, measured: report.measured, detail }
+    return { from, to, status, measured, detail }
   }
 
   return (
@@ -128,7 +133,9 @@ function ReportsPage() {
           <h2 className="text-grey-900 text-lg leading-snug font-bold">지난 리포트</h2>
           {shown.length === 0 ? (
             <p className="text-grey-500 border-grey-200 rounded-2xl border px-4.5 py-6 text-center text-sm leading-normal">
-              리포트를 저장하거나 공유하면 여기에 남아요
+              {reports.length > 0
+                ? '이 병원 리포트는 아직 없어요'
+                : '리포트를 저장하거나 공유하면 여기에 남아요'}
             </p>
           ) : (
             <ul className="flex flex-col gap-7">
@@ -139,7 +146,9 @@ function ReportsPage() {
                     <button
                       type="button"
                       className="flex w-full items-center gap-4 text-left"
-                      onClick={() => openReport(from, to, saved.hospital, !saved.visitAt)}
+                      onClick={() =>
+                        openReport(from, to, saved.hospital, !!saved.custom, saved.visitAt)
+                      }
                     >
                       <span className="flex min-w-0 flex-1 flex-col gap-1 leading-snug">
                         <span className="flex gap-2 text-sm leading-snug font-bold">
