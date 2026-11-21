@@ -14,7 +14,7 @@ import { useNow } from '@/hooks/useNow'
 import { useReportContent } from '@/hooks/useReportContent'
 import { getVisitReportPeriod, saveVisitReport, type VisitReportSave } from '@/api/visitReports'
 import { useHospitalStore } from '@/stores/useHospitalStore'
-import { useReportStore } from '@/stores/useReportStore'
+import { syncReports } from '@/stores/useReportStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import { addDays, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 import { formatReportText } from '@/utils/report'
@@ -35,16 +35,13 @@ function ReportPage() {
   const receiptRef = useRef<HTMLDivElement>(null)
   const [savingPhoto, setSavingPhoto] = useState(false)
 
-  const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
   const currentVisitId = useVisitStore((state) => state.visitId)
   const hospitals = useHospitalStore((state) => state.hospitals)
-  const saveReport = useReportStore((state) => state.saveReport)
   const [searchParams] = useSearchParams()
 
   const now = useNow()
   const today = startOfDay(now)
   // ?hospital= 보여 줄 병원, ?custom=1 기간을 직접 골라 만든 리포트, ?visitId= 진료용 리포트의 진료 일정
-  // ?saved=1 지난 리포트를 다시 엶(?visitAt= 원래 진료일, 없으면 진료일 없던 리포트)
   const custom = searchParams.get('custom') === '1'
   // 진료용 리포트: 기간을 안 줬으면 지금 진료 일정, 다시 열면 그 리포트의 진료 일정
   const reportVisitId = custom
@@ -72,8 +69,6 @@ function ReportPage() {
   const to = servedPeriod?.to ?? parseDateKey(searchParams.get('to')) ?? today
   const from =
     servedPeriod?.from ?? parseDateKey(searchParams.get('from')) ?? addDays(to, -(REPORT_DAYS - 1))
-  const reopened = searchParams.get('saved') === '1'
-  const savedVisitAt = searchParams.get('visitAt') ?? undefined
   const { report, title, periodLabel, criteriaLines, hospital } = useReportContent({
     from,
     to,
@@ -101,16 +96,10 @@ function ReportPage() {
           to: toDateKey(to),
           careSiteId: Number.isFinite(careSiteId) ? careSiteId : undefined,
         }
-    // 못 남겨도 리포트 전하기는 그대로. 기기 목록엔 남김
-    saveVisitReport(body).catch(() => {})
-    saveReport({
-      from: toDateKey(from),
-      to: toDateKey(to),
-      hospital: hospital.name,
-      // 다음 진료일은 새 진료 리포트를 처음 저장할 때만
-      visitAt: custom ? undefined : reopened ? savedVisitAt : (nextVisitAt ?? undefined),
-      custom,
-    })
+    // 남긴 뒤 지난 리포트 목록을 다시 받음. 못 남겨도 리포트 전하기는 그대로
+    saveVisitReport(body)
+      .then(() => syncReports())
+      .catch(() => {})
   }
 
   const printReport = () => {
