@@ -38,7 +38,7 @@ export type MealItemSummary = {
 type MealItemResponse = MealItemSummary & { mealUpdatedAt: string }
 
 type MealItemCreate =
-  | { foodCode: string; servings: number }
+  | { foodCode: string; servings: number; weightG?: number }
   | { name: string; servings: number; weightG?: number; nutrition?: MealNutrition }
 
 // 식사에 음식 추가. foodCode · name 중 하나만, 직접 적은 음식만 nutrition
@@ -51,11 +51,15 @@ async function addMealItem(mealId: string, body: MealItemCreate) {
   return data.data
 }
 
-// 먹은 양(인분) 바꾸기
-async function updateMealItem(mealId: string, itemId: number, servings: number) {
+// 먹은 양 바꾸기. 보낸 칸만 바뀌고, weightG를 null로 보내면 무게를 지우고 인분으로 계산
+async function updateMealItem(
+  mealId: string,
+  itemId: number,
+  changes: { servings?: number; weightG?: number | null },
+) {
   const { data } = await apiClient.patch<BaseResponse<MealItemResponse>>(
     `/meals/${mealId}/items/${itemId}`,
-    { servings },
+    changes,
   )
   if (!data.data) throw new Error('식사 항목 수정 응답이 비어 있음')
   return data.data
@@ -106,13 +110,6 @@ function toNutrition(values: Omit<NutritionEdit, 'grams' | 'editedAt'>): MealNut
 // 서버 인분 → 화면 양(반 · 1 · 1.5)
 const toPortion = (servings: number): Portion => toNearestPortion(servings)
 
-// 반 · 1 · 1.5인분이 아니면 그램으로 적은 양. 1인분 무게를 알 때만 그램으로 되돌림
-function toStapleGrams(item: MealItemSummary, known: Food[]) {
-  const servingGrams = findFood(item.name, known)?.nutrition?.grams
-  const standard = [0.5, 1, 1.5].some((value) => Math.abs(item.servings - value) < 0.01)
-  return standard || !servingGrams ? undefined : Math.round(item.servings * servingGrams)
-}
-
 const isStaple = (name: string, known: Food[]) =>
   findFood(name, known)?.staple ?? looksLikeStaple(name)
 
@@ -128,13 +125,14 @@ export function toMealContent(
     items.map((item) => item.name),
     known,
   )
-  const gramItem = items.find((item) => item.name === gramStaple?.name)
+  // 서버에 적은 무게 그대로. 이 기기가 모르는 음식이면 처음 나오는 주식 무게로
+  const gramSource = items.find((item) => item.name === gramStaple?.name) ?? staple
   const portions = items.filter((item) => item !== staple && toPortion(item.servings) !== 'one')
   const edited = items.filter((item) => isEdited(item, known))
   return {
     foods: [...new Set(items.map((item) => item.name))],
     portion: staple ? toPortion(staple.servings) : undefined,
-    stapleGrams: gramItem ? toStapleGrams(gramItem, known) : undefined,
+    stapleGrams: gramSource?.weightG ? Math.round(gramSource.weightG) : undefined,
     portions: portions.length
       ? Object.fromEntries(portions.map((item) => [item.name, toPortion(item.servings)]))
       : undefined,
@@ -157,12 +155,15 @@ export function toMealContent(
   }
 }
 
+const MIN_SERVINGS = 0.01
+
 // 주식은 끼니 양(그램이면 1인분 무게로 나눔), 한상 사진은 음식별 양, 나머지는 1인분
 function getServings(meal: Meal, name: string, known: Food[]) {
   const servingGrams = findFood(name, known)?.nutrition?.grams
   const gramStaple = findStaple(meal.foods ?? [], known)
   if (meal.stapleGrams && servingGrams && gramStaple?.name === name) {
-    return gramsToServings(meal.stapleGrams, servingGrams)
+    // 서버는 0인분을 안 받아서 아주 적은 무게도 0.01인분부터
+    return Math.max(MIN_SERVINGS, gramsToServings(meal.stapleGrams, servingGrams))
   }
   const portion = (isStaple(name, known) && meal.portion) || meal.portions?.[name]
   return getPortionFactor(portion || undefined)
@@ -218,12 +219,16 @@ export async function applyMealItems(meal: Meal, known: Food[]) {
   let updatedAt = server.updatedAt
   const remaining = [...server.items]
   const edits: NutritionEdits = meal.nutritionEdits ?? {}
+  // 그램은 이 기기가 아는 주식에만 보냄. 모르면 서버 무게를 건드리지 않음
+  const gramStapleName = findStaple(meal.foods ?? [], known)?.name
 
   for (const name of meal.foods ?? []) {
     const food = findFood(name, known)
     const code = food?.code
     const servings = getServings(meal, name, known)
     const edit = edits[name]
+    // 영양값을 직접 고친 음식은 영양값 저장이 무게를 맡음
+    const sendsGrams = name === gramStapleName && !edit
     const index = remaining.findIndex(
       (item) => item.name === name && (code === undefined || item.foodCode === code),
     )
@@ -232,11 +237,11 @@ export async function applyMealItems(meal: Meal, known: Food[]) {
       const added = await addMealItem(
         meal.id,
         code
-          ? { foodCode: code, servings }
+          ? { foodCode: code, servings, weightG: sendsGrams ? meal.stapleGrams : undefined }
           : {
               name,
               servings,
-              weightG: edit?.grams,
+              weightG: edit?.grams ?? (sendsGrams ? meal.stapleGrams : undefined),
               nutrition: edit ? toNutrition(edit) : myFoodNutrition(food, servings),
             },
       )
@@ -246,8 +251,13 @@ export async function applyMealItems(meal: Meal, known: Food[]) {
       if (!code) continue
     } else {
       item = remaining.splice(index, 1)[0]
-      if (item.servings !== servings) {
-        const updated = await updateMealItem(meal.id, item.itemId, servings)
+      const changes: { servings?: number; weightG?: number | null } = {}
+      if (item.servings !== servings) changes.servings = servings
+      if (sendsGrams && (item.weightG ?? undefined) !== meal.stapleGrams) {
+        changes.weightG = meal.stapleGrams ?? null
+      }
+      if (Object.keys(changes).length > 0) {
+        const updated = await updateMealItem(meal.id, item.itemId, changes)
         updatedAt = updated.mealUpdatedAt
         item = updated
       }
