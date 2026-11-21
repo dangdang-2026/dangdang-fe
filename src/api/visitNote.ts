@@ -1,8 +1,9 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
 import type { Criteria, MeasureSlotKey } from '@/types/criteria'
 import type { NoteExtraction, NoteFinding } from '@/types/visit'
+import { GLUCOSE_MAX, GLUCOSE_MIN } from '@/constants/glucose'
 import { formatDuration, formatMeasureSlots, MEASURE_SLOT_ORDER } from '@/utils/criteria'
-import { isSameDay, startOfDay } from '@/utils/date'
+import { isSameDay } from '@/utils/date'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 // 메모엔 날짜만 있어서 새 진료 시각은 오전 9시로 두고 진료 탭에서 고침
@@ -12,6 +13,7 @@ const UNCLEAR = '메모만으로는 분명하지 않아요'
 const PAST_DATE = '지난 날짜예요'
 const OUT_OF_RANGE = '앱에서 고를 수 없는 시간이에요'
 const UNKNOWN_SLOT = '알 수 없는 잴 때가 섞여 있어요'
+const TARGET_OUT_OF_RANGE = '목표로 쓸 수 없는 숫자예요'
 // AI 정리는 오래 걸릴 수 있어 기본(10초)보다 길게
 const ORGANIZE_TIMEOUT_MS = 30000
 // 식후 측정 시간은 30분~3시간, 10분 단위만(식후 측정 시간 시트와 같음)
@@ -55,18 +57,19 @@ type OrganizeResponse = { noteId: number; aiExtract: ServerExtract }
 // 화면에 보일 값. unchanged면 지금과 같음, problem이면 체크 안 한 채로 그 이유를 보여 줌
 type Converted = { value: number | string; text: string; unchanged?: boolean; problem?: string }
 
-// 서버 칸 하나 → 결과 화면 한 줄. 값을 못 읽으면 그 칸만 뺌
+// 서버 칸 하나 → 결과 화면 한 줄. 값을 못 읽으면 그 칸만 빼고, 그대로 쓰면 안 되는 값은 고를 수 없게
 function toFinding<T>(
   key: NoteFinding['key'],
   field: ServerField<T>,
   convert: (value: T) => Converted | null,
 ): NoteFinding | null {
-  if (!field || field.value === null) return null
+  // 서버가 값 칸을 아예 빼고 보내도(undefined) 메모에 없는 것으로
+  if (!field || field.value == null) return null
   const converted = convert(field.value)
   if (!converted) return null
   const { value, text, unchanged, problem } = converted
   const needsCheck = problem ?? (field.status !== 'FOUND' ? UNCLEAR : unchanged ? UNCHANGED : null)
-  return { key, value, text, quote: field.evidence ?? '', needsCheck }
+  return { key, value, text, quote: field.evidence ?? '', needsCheck, blocked: !!problem }
 }
 
 // 'yyyy-MM-dd' → 그날 0시. 형식이 다르면 null
@@ -90,7 +93,19 @@ function toNextVisit(date: string, nextVisitAt: string | null, now: Date): Conve
     value: sameDay && nextVisitAt ? nextVisitAt : at.toISOString(),
     text: `${at.getMonth() + 1}월 ${at.getDate()}일 (${WEEKDAYS[at.getDay()]})`,
     unchanged: sameDay,
-    problem: startOfDay(at) < startOfDay(now) ? PAST_DATE : undefined,
+    // 오늘이라도 시각이 지났으면 방금 다녀온 진료일 수 있어 지난 날짜로
+    problem: at < now ? PAST_DATE : undefined,
+  }
+}
+
+// 목표(미만). 앱에서 적을 수 있는 정수 범위가 아니면 고를 수 없게
+function toTarget(target: number, current: number | null): Converted {
+  const valid = Number.isInteger(target) && target >= GLUCOSE_MIN && target <= GLUCOSE_MAX
+  return {
+    value: target,
+    text: `${target} 미만`,
+    unchanged: target === current,
+    problem: valid ? undefined : TARGET_OUT_OF_RANGE,
   }
 }
 
@@ -141,16 +156,12 @@ export async function organizeVisitNote(
           ? OUT_OF_RANGE
           : undefined,
     })),
-    toFinding('postMeal', extract.postMealTarget, (target) => ({
-      value: target,
-      text: `${target} 미만`,
-      unchanged: target === current.targets.postMeal,
-    })),
-    toFinding('fasting', extract.fastingTarget, (target) => ({
-      value: target,
-      text: `${target} 미만`,
-      unchanged: target === current.targets.fasting,
-    })),
+    toFinding('postMeal', extract.postMealTarget, (target) =>
+      toTarget(target, current.targets.postMeal),
+    ),
+    toFinding('fasting', extract.fastingTarget, (target) =>
+      toTarget(target, current.targets.fasting),
+    ),
     toFinding('nextVisit', extract.nextVisitDate, (date) => toNextVisit(date, nextVisitAt, now)),
   ].filter((item): item is NoteFinding => item !== null)
 

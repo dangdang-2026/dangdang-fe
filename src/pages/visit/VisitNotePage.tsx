@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { isAxiosError } from 'axios'
 import { useNavigate } from 'react-router'
 import { getErrorCode } from '@/api/axios'
 import { organizeVisitNote } from '@/api/visitNote'
@@ -22,6 +23,8 @@ const ORGANIZE_ERROR: Record<string, string> = {
   VISIT_50201: '정리하지 못했어요. 다시 해 볼까요?',
 }
 const ORGANIZE_FAILED = '메모를 정리하지 못했어요. 잠시 후 다시 시도해 주세요'
+// 기다리다 끊김. 서버는 끝냈을 수 있어 바로 다시 누르지 않게
+const ORGANIZE_TIMEOUT = '응답이 늦어요. 잠시 뒤 다시 정리해 주세요'
 
 // Figma C-11 진료 후 메모 쓰기. AI는 잴 때 · 측정 시점 · 목표 · 다음 진료일만 찾고 고르는 건 사용자
 function VisitNotePage() {
@@ -36,6 +39,14 @@ function VisitNotePage() {
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
   const [loading, setLoading] = useState(false)
+  // 정리가 끝났을 때 이 화면을 떠났으면(뒤로 밀기 등) 결과 화면으로 끌고 가지 않음
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
 
   // 메모는 화면을 떠날 때 서버에 남김. 못 남기면 기기에 두고 다음 동기화 때 다시
   const keepNote = () => void saveVisitNote().catch(() => {})
@@ -54,10 +65,11 @@ function VisitNotePage() {
       const { noteVisitId, noteId, nextVisitAt } = useVisitStore.getState()
       if (!noteVisitId || !noteId) throw new Error('저장된 진료 메모가 없음')
       const result = await organizeVisitNote(noteVisitId, noteId, criteria, nextVisitAt)
-      navigate(ROUTES.VISIT_NOTE_RESULT, { state: { result } })
+      if (mounted.current) navigate(ROUTES.VISIT_NOTE_RESULT, { state: { result } })
     } catch (error) {
       const code = getErrorCode(error)
       if (code === 'AI_40301') setConsentOpen(true)
+      else if (isAxiosError(error) && error.code === 'ECONNABORTED') setToast(ORGANIZE_TIMEOUT)
       else setToast((code && ORGANIZE_ERROR[code]) || ORGANIZE_FAILED)
     } finally {
       setLoading(false)

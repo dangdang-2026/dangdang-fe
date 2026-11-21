@@ -20,6 +20,8 @@ export type NoteFinding = {
   quote: string
   // 애매하면 이유를 적고 체크 안 한 채로 보여 줌
   needsCheck: string | null
+  // 범위 밖 · 지난 날짜처럼 그대로 쓰면 안 되는 값. 체크할 수 없음
+  blocked?: boolean
 }
 
 export type NoteExtraction = {

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router'
 import iconCheckDark from '@/assets/icons/check-dark.svg'
 import iconEye from '@/assets/icons/eye.svg'
 import SubPageHeader from '@/components/common/SubPageHeader'
+import Toast from '@/components/common/Toast'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
@@ -37,7 +38,8 @@ function FindingItem({ finding, from, checked, onToggle }: FindingItemProps) {
       type="button"
       role="checkbox"
       aria-checked={checked}
-      className={`rounded-key flex w-full items-start gap-3 border-2 px-4 py-3.5 text-left ${
+      disabled={finding.blocked}
+      className={`rounded-key flex w-full items-start gap-3 border-2 px-4 py-3.5 text-left disabled:opacity-50 ${
         checked ? 'border-primary' : 'border-grey-200'
       }`}
       onClick={onToggle}
@@ -80,6 +82,8 @@ function VisitNoteResultPage() {
   const result = (location.state as { result?: NoteExtraction } | null)?.result
   const criteria = useCriteria()
   // 애매한 항목은 체크 안 한 채로 시작
+  const [toast, setToast] = useState<string | null>(null)
+  const closeToast = useCallback(() => setToast(null), [])
   const [checked, setChecked] = useState<NoteFindingKey[]>(
     () => result?.findings.filter((item) => !item.needsCheck).map((item) => item.key) ?? [],
   )
@@ -102,7 +106,7 @@ function VisitNoteResultPage() {
     )
   }
 
-  const handleApply = () => {
+  const handleApply = async () => {
     const selected = findings.filter((item) => checked.includes(item.key))
     const prefill: CriteriaPrefill = {}
     let visitChanged = false
@@ -110,8 +114,14 @@ function VisitNoteResultPage() {
       // 지금 진료일과 같으면 보내지 않음. 못 남기면 원래 날짜로 돌아가 진료 탭에서 다시 정함
       if (key === 'nextVisit') {
         if (String(value) === useVisitStore.getState().nextVisitAt) continue
+        // 진료 후 메모라 지금 진료는 다녀온 것. 못 남기면 여기서 알리고 멈춤
+        try {
+          await saveNextVisit(String(value), { visited: true })
+        } catch {
+          setToast('다음 진료일을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+          return
+        }
         visitChanged = true
-        saveNextVisit(String(value)).catch(() => {})
       } else if (key === 'measureSlots')
         prefill.measureSlots = String(value).split(',') as MeasureSlotKey[]
       else prefill[key] = Number(value)
@@ -164,7 +174,7 @@ function VisitNoteResultPage() {
           type="button"
           disabled={checked.length === 0}
           className="bg-primary disabled:bg-grey-100 disabled:text-grey-400 rounded-key mt-auto py-4 text-base leading-snug font-bold text-white"
-          onClick={handleApply}
+          onClick={() => void handleApply()}
         >
           {checked.length > 0 ? `체크한 ${checked.length}개 바꾸기` : '바꿀 것을 체크해 주세요'}
         </button>
@@ -177,6 +187,7 @@ function VisitNoteResultPage() {
           직접 바꾸기
         </button>
       )}
+      {toast && <Toast message={toast} onClose={closeToast} />}
     </main>
   )
 }
