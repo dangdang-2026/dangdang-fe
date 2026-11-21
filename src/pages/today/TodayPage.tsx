@@ -61,6 +61,7 @@ const HEADER_TITLE: Partial<Record<HeroState['kind'], string>> = {
   'measure-time': '지금 재 주세요',
   overdue: '측정이 조금 늦었어요',
   'day-end': '오늘 하루 수고했어요',
+  'all-done': '오늘 하루 수고했어요',
 }
 
 // 이미 거절한 알림 권한은 브라우저가 다시 안 물어봐서 설정 안내

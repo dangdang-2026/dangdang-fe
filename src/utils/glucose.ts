@@ -169,6 +169,8 @@ export type HeroState =
   // 측정 시점을 몰라 남은 시간 없이 식사 중만
   | { kind: 'eating-open'; meal: Meal }
   | { kind: 'saved'; record: GlucoseRecord; nextMeal: MealType }
+  // 병원 기준에 있는 측정을 오늘 다 함
+  | { kind: 'all-done'; count: number }
 
 // 오늘 식후 측정을 놓친 끼니(건너뜀·기록함 · 병원 기준에 없는 끼니 제외, 측정할 시간이 지남)
 export function getMissedMeals(
@@ -187,12 +189,34 @@ export function getMissedMeals(
     .filter(({ dueAt }) => now.getTime() - dueAt.getTime() >= MEASURE_WINDOW_MS)
 }
 
+// 오늘 병원 기준 측정을 다 했으면 기록한 수. 남았으면 null. 건너뛴 끼니는 한 것으로 봄
+export function getAllDoneCount(
+  meals: Meal[],
+  records: GlucoseRecord[],
+  now: Date,
+  slots: MeasureSlotKey[],
+) {
+  if (slots.length === 0) return null
+  const today = records.filter((record) => isSameDay(new Date(record.measuredAt), now))
+  const skipped = meals.filter((meal) => meal.skipped && isSameDay(new Date(meal.startedAt), now))
+  let count = 0
+  for (const slot of slots) {
+    const done =
+      slot === 'fasting' || slot === 'bedtime'
+        ? today.some((record) => record.slot === slot)
+        : today.some((record) => record.slot === 'post-meal' && record.mealType === slot)
+    if (done) count += 1
+    else if (!skipped.some((meal) => meal.type === slot)) return null
+  }
+  return count > 0 ? count : null
+}
+
 // 저녁 이후(21시~)인지. 놓친 측정은 빨강 없이 나중에 채우기
 export function isDayEnd(now: Date) {
   return now.getHours() >= DAY_END_HOUR
 }
 
-// 히어로 카드 상태 우선순위: 측정 대기 > 저장 직후 > 하루 정리 > 식사 전 > 첫날
+// 히어로 카드 상태 우선순위: 측정 대기 > 저장 직후 > 모두 완료 > 하루 정리 > 식사 전 > 첫날
 export function getHeroState(
   meals: Meal[],
   records: GlucoseRecord[],
@@ -217,6 +241,8 @@ export function getHeroState(
     return { kind: 'saved', record: lastRecord, nextMeal }
   }
 
+  const doneCount = getAllDoneCount(meals, records, now, slots)
+  if (doneCount !== null) return { kind: 'all-done', count: doneCount }
   if (missed.length > 0) return { kind: 'day-end', ...missed[missed.length - 1] }
   if (meals.length === 0 && records.length === 0) return { kind: 'first-day' }
 

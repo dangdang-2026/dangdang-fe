@@ -1,3 +1,4 @@
+import AllDoneHero from '@/components/today/hero/AllDoneHero'
 import BeforeMealHero from '@/components/today/hero/BeforeMealHero'
 import DayEndHero from '@/components/today/hero/DayEndHero'
 import EatingHero from '@/components/today/hero/EatingHero'
@@ -86,6 +87,8 @@ function HeroCard({
           onSkipMeal={() => onSkipMeal(state.meal.id)}
         />
       )
+    case 'all-done':
+      return <AllDoneHero postMealHours={postMealHours} count={state.count} />
     case 'day-end':
       return (
         <DayEndHero
