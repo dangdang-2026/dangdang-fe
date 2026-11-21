@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import iconBack from '@/assets/icons/back.svg'
 import iconShare from '@/assets/icons/share.svg'
@@ -16,6 +16,10 @@ import { useReportStore } from '@/stores/useReportStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import { addDays, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 import { formatReportText } from '@/utils/report'
+import { createReportImage, saveReportImage } from '@/utils/reportImage'
+
+// 화면이 그려진 뒤 사진을 미리 만들기까지 기다리는 시간
+const PHOTO_DELAY_MS = 500
 
 // Figma C-06 진료 리포트. 최근 2주 기록을 A4 1쪽으로
 function ReportPage() {
@@ -25,6 +29,9 @@ function ReportPage() {
   // 병원 밖으로 보낼 때 이름 빼기
   const [hideName, setHideName] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  // 사진으로 저장할 리포트 카드
+  const receiptRef = useRef<HTMLDivElement>(null)
+  const [savingPhoto, setSavingPhoto] = useState(false)
 
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
   const saveReport = useReportStore((state) => state.saveReport)
@@ -74,6 +81,67 @@ function ReportPage() {
     window.setTimeout(() => window.print(), 0)
   }
 
+  // 누르는 순간 공유 창을 띄워야 해서 리포트 사진을 미리 만들어 둠. 내용이 바뀌면 다시
+  const photo = useRef<{ key: string; blob: Blob } | null>(null)
+  // 리포트 카드에 그리는 값 전부. 기준 · 병원이 늦게 들어와도 옛 사진을 쓰지 않게
+  const photoKey = JSON.stringify({
+    hideName,
+    title,
+    periodLabel,
+    criteriaLines,
+    measured: report.measured,
+    blanks: report.blanks,
+    lateEntries: report.lateEntries,
+    slots: report.slots.map(({ label, outOfTarget, total }) => [label, outOfTarget, total]),
+    lows: report.lows.length,
+    questions: questions.length,
+  })
+  useEffect(() => {
+    let canceled = false
+    const timer = window.setTimeout(() => {
+      const node = receiptRef.current
+      if (!node) return
+      createReportImage(node)
+        .then((blob) => {
+          if (!canceled) photo.current = { key: photoKey, blob }
+        })
+        .catch(() => {})
+    }, PHOTO_DELAY_MS)
+    return () => {
+      canceled = true
+      window.clearTimeout(timer)
+    }
+  }, [photoKey])
+
+  // 사진으로 저장: 휴대폰은 공유 창에서 이미지 저장, 컴퓨터는 파일 내려받기
+  const savePhoto = async () => {
+    setShareOpen(false)
+    const node = receiptRef.current
+    if (!node || savingPhoto) return
+    setSavingPhoto(true)
+    try {
+      // 미리 만든 게 없거나 낡았으면 지금 만듦(이때는 아이폰이 공유 창을 막으면 내려받기로)
+      const blob =
+        photo.current?.key === photoKey ? photo.current.blob : await createReportImage(node)
+      const result = await saveReportImage(
+        blob,
+        `당당-혈당기록-${toDateKey(from)}-${toDateKey(to)}.png`,
+      )
+      if (result === 'canceled') return
+      keepReport()
+      // 공유 창에서는 저장 대신 다른 앱으로 보낼 수도 있어 둘 다 맞는 말로
+      setToast(
+        result === 'shared'
+          ? '사진을 저장하거나 보냈어요'
+          : '사진으로 저장했어요 · 다운로드 폴더에서 볼 수 있어요',
+      )
+    } catch {
+      setToast('사진으로 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+    } finally {
+      setSavingPhoto(false)
+    }
+  }
+
   const shareReport = async () => {
     const text = formatReportText({ report, title, periodLabel, criteriaLines, questions })
     keepReport()
@@ -119,7 +187,7 @@ function ReportPage() {
           </button>
         </header>
 
-        <div className="relative mt-3">
+        <div ref={receiptRef} className="relative mt-3">
           <ReportReceipt
             report={report}
             periodLabel={periodLabel}
@@ -130,14 +198,17 @@ function ReportPage() {
         </div>
 
         <div className="fixed bottom-[max(--spacing(10),env(safe-area-inset-bottom))] left-1/2 w-full max-w-107.5 -translate-x-1/2 px-5">
-          <SlideToSave label="밀어서 PDF로 저장" onComplete={printReport} />
+          <SlideToSave
+            label={savingPhoto ? '사진 만드는 중이에요' : '밀어서 사진으로 저장'}
+            onComplete={() => void savePhoto()}
+          />
         </div>
 
         {shareOpen && (
           <ReportShareSheet
             hideName={hideName}
             onToggleHideName={() => setHideName((prev) => !prev)}
-            onSavePdf={printReport}
+            onSavePhoto={() => void savePhoto()}
             onPrint={printReport}
             onShare={shareReport}
             onClose={closeShare}
