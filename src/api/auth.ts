@@ -70,8 +70,15 @@ export function consumeKakaoState(state: string | null) {
 }
 
 // 인가 코드를 서버가 카카오 토큰으로 바꾸고 ACCESS_TOKEN·REFRESH_TOKEN 쿠키를 심음
-export async function loginWithKakao(code: string) {
-  await apiClient.post('/auth/kakao', { code, redirectUri: KAKAO_REDIRECT_URI })
+// 같은 이메일로 가입한 이메일 계정이 있으면 서버가 합치지 않음(AUTH_40902) → K-07 안내
+export async function loginWithKakao(code: string): Promise<'ok' | 'emailAccount'> {
+  try {
+    await apiClient.post('/auth/kakao', { code, redirectUri: KAKAO_REDIRECT_URI })
+  } catch (error) {
+    if (getErrorCode(error) === 'AUTH_40902') return 'emailAccount'
+    throw error
+  }
+  return 'ok'
 }
 
 export type EmailOwner = 'none' | 'email' | 'kakao'

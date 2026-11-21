@@ -107,12 +107,13 @@ function LoginPage() {
   const signUp = () => navigate(ROUTES.SIGNUP)
 
   const loginKakao = (selectAccount = false) => {
-    setKakaoSheet(false)
-    setEmailAccountSheet(false)
+    // 오프라인이면 시트는 그대로 두고 알림만. 안내를 다시 볼 수 있게
     if (!navigator.onLine) {
       setToast('offline')
       return
     }
+    setKakaoSheet(false)
+    setEmailAccountSheet(false)
     startKakaoLogin({ selectAccount })
   }
 

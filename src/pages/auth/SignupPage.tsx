@@ -245,7 +245,7 @@ function SignupPage() {
             <input
               ref={nameRef}
               id="signup-name"
-              autoComplete="name"
+              autoComplete="nickname"
               placeholder="예: 지수 (실명이 아니어도 돼요)"
               maxLength={NAME_MAX}
               value={name}
@@ -256,7 +256,7 @@ function SignupPage() {
             {name && (
               <button
                 type="button"
-                aria-label="이름 지우기"
+                aria-label="부를 이름 지우기"
                 className="hidden shrink-0 peer-focus:block"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {

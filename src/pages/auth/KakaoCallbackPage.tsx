@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { consumeKakaoState, loginWithKakao } from '@/api/auth'
-import { getErrorCode } from '@/api/axios'
 import { ROUTES } from '@/constants/routes'
 import { useFinishLogin } from '@/hooks/useFinishLogin'
 import { EMAIL_ACCOUNT_EXISTS } from '@/utils/auth'
@@ -18,7 +17,7 @@ function KakaoCallbackPage() {
     if (started.current) return
     started.current = true
 
-    // 실패는 로그인 화면 error로 넘겨 토스트로 알림. access_denied면 취소 토스트
+    // 실패는 로그인 화면 error로 넘겨 알림. access_denied면 취소 토스트, 이메일 계정과 겹치면 K-07 시트
     const fail = (error: string) =>
       navigate(`${ROUTES.LOGIN}?${new URLSearchParams({ error })}`, { replace: true })
 
@@ -29,11 +28,8 @@ function KakaoCallbackPage() {
     if (!code || !stateOk) return void fail('invalid_request')
 
     loginWithKakao(code)
-      .then(() => finish('kakao'))
-      // 같은 이메일로 가입한 이메일 계정이 있으면 합치지 않고 로그인 화면에서 K-07 시트로
-      .catch((loginError) =>
-        fail(getErrorCode(loginError) === 'AUTH_40902' ? EMAIL_ACCOUNT_EXISTS : 'server_error'),
-      )
+      .then((result) => (result === 'ok' ? finish('kakao') : fail(EMAIL_ACCOUNT_EXISTS)))
+      .catch(() => fail('server_error'))
   }, [searchParams, navigate, finish])
 
   return (
