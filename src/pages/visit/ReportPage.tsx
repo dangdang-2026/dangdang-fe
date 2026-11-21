@@ -83,14 +83,19 @@ function ReportPage() {
 
   // 누르는 순간 공유 창을 띄워야 해서 리포트 사진을 미리 만들어 둠. 내용이 바뀌면 다시
   const photo = useRef<{ key: string; blob: Blob } | null>(null)
-  const photoKey = [
+  // 리포트 카드에 그리는 값 전부. 기준 · 병원이 늦게 들어와도 옛 사진을 쓰지 않게
+  const photoKey = JSON.stringify({
     hideName,
     title,
     periodLabel,
-    report.measured,
-    report.blanks,
-    questions.length,
-  ].join('|')
+    criteriaLines,
+    measured: report.measured,
+    blanks: report.blanks,
+    lateEntries: report.lateEntries,
+    slots: report.slots.map(({ label, outOfTarget, total }) => [label, outOfTarget, total]),
+    lows: report.lows.length,
+    questions: questions.length,
+  })
   useEffect(() => {
     let canceled = false
     const timer = window.setTimeout(() => {
