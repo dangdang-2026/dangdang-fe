@@ -6,7 +6,7 @@ import iconPhone from '@/assets/icons/phone.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import GlucoseKeypad from '@/components/glucose/GlucoseKeypad'
 import TargetChip from '@/components/glucose/TargetChip'
-import { GLUCOSE_MAX_DIGITS, ON_TIME_MS } from '@/constants/glucose'
+import { GLUCOSE_LOW, GLUCOSE_MAX_DIGITS, ON_TIME_MS } from '@/constants/glucose'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { saveRecord } from '@/stores/useGlucoseStore'
 import type { GlucoseRecord, MeasureTarget } from '@/types/glucose'
@@ -52,6 +52,8 @@ function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInpu
   // 세 자리부터 또는 저장 시도 후 비교 결과 표시
   const showResult = digits.length >= 3 || triedSave
   const isInvalid = showResult && comparison === 'invalid'
+  // 70 미만은 목표가 없어도 안내
+  const isLow = showResult && comparison !== 'invalid' && value < GLUCOSE_LOW
 
   const handleDigit = (digit: string) => {
     setDigits((prev) => {
@@ -110,7 +112,7 @@ function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInpu
           <span className={`text-display ${numberColor}`}>{digits || '0'}</span>
           <span className="text-grey-400 text-base leading-normal font-medium">mg/dL</span>
         </p>
-        {showResult && <TargetChip comparison={comparison} target={goal} />}
+        {showResult && <TargetChip comparison={comparison} target={goal} low={isLow} />}
       </div>
 
       <button
@@ -129,7 +131,7 @@ function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInpu
         onDelete={() => setDigits((prev) => prev.slice(0, -1))}
       />
 
-      {showResult && comparison === 'high' && (
+      {showResult && (comparison === 'high' || (isLow && goal !== null)) && (
         <p className="text-grey-500 flex items-center justify-center gap-1.5 text-xs leading-normal">
           <img src={iconInfo} alt="" width={14} height={14} />
           목표는 병원에서 들은 대로 직접 적은 값이에요.
