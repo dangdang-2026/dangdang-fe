@@ -67,11 +67,12 @@ function toCriteriaVersions(items: CriteriaVersionResponse[]): Criteria[] {
   })
 }
 
-// 내 기준 전부. 한 번도 안 적었으면 빈 배열
+// 내 기준 전부와 처음 적은 시각. 한 번도 안 적었으면 빈 배열 · null
 export async function getCriteriaHistory() {
   const { data } =
     await apiClient.get<BaseResponse<CriteriaVersionResponse[]>>('/criteria-versions')
-  return toCriteriaVersions(data.data ?? [])
+  const items = data.data ?? []
+  return { versions: toCriteriaVersions(items), startedAt: items.at(-1)?.createdAt ?? null }
 }
 
 // 새 기준 등록. 서버는 덮어쓰지 않고 새 줄로 쌓고, 적용일은 오늘

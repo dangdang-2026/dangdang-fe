@@ -12,6 +12,7 @@ import { syncMealGuide } from '@/stores/useMealGuideStore'
 import { syncQuestions, syncVisitNote, syncVisits } from '@/stores/useVisitStore'
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
+import { useOnboardingStore } from '@/stores/useOnboardingStore'
 import { syncPostpartum, useProfileStore } from '@/stores/useProfileStore'
 
 // 앱을 열 때 한 번 서버 로그인 확인. 스플래시 동안 뒤에서 돌아 기다리지 않음
@@ -34,7 +35,13 @@ export function useSessionCheck() {
           .finally(syncPushSubscription)
         // 다른 기기에서 바꾼 병원 기준·식사·혈당 기록도 반영
         return Promise.all([
-          syncCriteria(),
+          // 서버에 기준이 있으면 다른 기기에서 설정을 마친 계정. 온보딩에 막혀 있던 기기도 풀림
+          syncCriteria().then(({ versions, startedAt }) => {
+            const onboarding = useOnboardingStore.getState()
+            if (versions.length > 0 && !onboarding.completed) {
+              onboarding.complete(startedAt ?? undefined)
+            }
+          }),
           syncMeals(),
           syncMyFoods(),
           syncRecords(),
