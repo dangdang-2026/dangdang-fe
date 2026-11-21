@@ -88,14 +88,18 @@ function TodayPage() {
     !!(location.state as { openGlucose?: boolean } | null)?.openGlucose ||
     searchParams.get('sheet') === 'glucose'
   const [sheetTarget, setSheetTarget] = useState<MeasureTarget | null>(() =>
-    fromMeasureAlert ? getMeasureTarget(meals, records, criteria.postMealHours, new Date()) : null,
+    fromMeasureAlert
+      ? getMeasureTarget(meals, records, criteria.postMealHours, new Date(), criteria.measureSlots)
+      : null,
   )
   // 오늘 탭이 열려 있을 때 알림을 눌러도 시트를 엶
   const [seenAlert, setSeenAlert] = useState(fromMeasureAlert)
   if (fromMeasureAlert !== seenAlert) {
     setSeenAlert(fromMeasureAlert)
     if (fromMeasureAlert) {
-      setSheetTarget(getMeasureTarget(meals, records, criteria.postMealHours, new Date()))
+      setSheetTarget(
+        getMeasureTarget(meals, records, criteria.postMealHours, new Date(), criteria.measureSlots),
+      )
     }
   }
   // 서버 알림을 눌러 들어오면 열람 처리. 실패해도 입력은 그대로
@@ -126,12 +130,12 @@ function TodayPage() {
   const todayMeals = meals.filter((meal) => isSameDay(new Date(meal.startedAt), now))
   const todayRecords = records.filter((record) => isSameDay(new Date(record.measuredAt), now))
   const todayInsulins = insulins.filter((insulin) => isSameDay(new Date(insulin.takenAt), now))
-  const heroState = getHeroState(meals, records, criteria.postMealHours, now)
+  const heroState = getHeroState(meals, records, criteria.postMealHours, now, criteria.measureSlots)
   const waitingMeasure = !hospitalized && WAITING_KINDS.includes(heroState.kind)
   const firstDay = heroState.kind === 'first-day'
   // 저녁 이후 놓친 식후 측정은 오늘 기록에 나중에 채우기 줄로
   const missedMeals = isDayEnd(now)
-    ? getMissedMeals(meals, records, criteria.postMealHours, now)
+    ? getMissedMeals(meals, records, criteria.postMealHours, now, criteria.measureSlots)
     : []
   // 측정 알림을 껐거나 브라우저 권한이 없거나, 푸시를 쓸 수 있는데 서버에 구독이 없으면 알림 꺼짐 배너
   const notificationsOff =
@@ -155,14 +159,16 @@ function TodayPage() {
   const handleStartMeal = async () => {
     const current = new Date()
     // 기기엔 바로 적혀 화면은 기다리지 않음
-    const saving = saveMealStart(getNextMealType(meals, current), current)
+    const mealType = getNextMealType(meals, current)
+    const saving = saveMealStart(mealType, current)
     // 첫 식사 시작 때 한 번만 알림 허용 안내
     if (!permissionAsked) {
       setPermissionSheet(true)
       return
     }
     const saved = await saving
-    const hours = criteria.postMealHours
+    // 병원 기준에 없는 끼니는 식후 알림 없음
+    const hours = criteria.measureSlots.includes(mealType) ? criteria.postMealHours : null
     setToast(
       !saved
         ? '식사 시작을 적었어요 · 연결이 안 돼 알림 예약은 못 했어요'
@@ -244,7 +250,9 @@ function TodayPage() {
   }
 
   const openGlucoseSheet = () => {
-    setSheetTarget(getMeasureTarget(meals, records, criteria.postMealHours, new Date()))
+    setSheetTarget(
+      getMeasureTarget(meals, records, criteria.postMealHours, new Date(), criteria.measureSlots),
+    )
   }
   // 알림에서 연 시트를 닫으면 기록에서 지워 뒤로 와도 다시 안 열리게
   const closeGlucoseSheet = useCallback(() => {

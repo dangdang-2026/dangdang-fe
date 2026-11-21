@@ -17,7 +17,8 @@ import type {
   MeasureTarget,
   TargetComparison,
 } from '@/types/glucose'
-import { formatDuration } from '@/utils/criteria'
+import type { MeasureSlotKey } from '@/types/criteria'
+import { formatDuration, MEASURE_SLOT_ORDER } from '@/utils/criteria'
 import { isSameDay } from '@/utils/date'
 
 const HOUR = 60 * 60 * 1000
@@ -60,16 +61,20 @@ export function getDueAt(meal: Meal, hours: number) {
   return new Date(new Date(meal.startedAt).getTime() + hours * HOUR)
 }
 
-// 식후 측정을 기다리는 끼니(건너뜀·기록함·만료 제외)
+// 병원 기준에서 이 끼니 식후를 재는지
+const measuresAfter = (meal: Meal, slots: MeasureSlotKey[]) => slots.includes(meal.type)
+
+// 식후 측정을 기다리는 끼니(건너뜀·기록함·만료 · 병원 기준에 없는 끼니 제외)
 export function getPendingMeal(
   meals: Meal[],
   records: GlucoseRecord[],
   hours: number | null,
   now: Date,
+  slots: MeasureSlotKey[] = MEASURE_SLOT_ORDER,
 ) {
   if (!hours) return null
   const meal = meals.at(-1)
-  if (!meal || meal.skipped) return null
+  if (!meal || meal.skipped || !measuresAfter(meal, slots)) return null
   if (records.some((record) => record.mealId === meal.id)) return null
 
   const dueAt = getDueAt(meal, hours)
@@ -78,9 +83,14 @@ export function getPendingMeal(
 }
 
 // 측정 시점을 모를 때 식사 중인 끼니. 혈당을 적거나 3시간 지나면 끝
-export function getOpenMeal(meals: Meal[], records: GlucoseRecord[], now: Date) {
+export function getOpenMeal(
+  meals: Meal[],
+  records: GlucoseRecord[],
+  now: Date,
+  slots: MeasureSlotKey[] = MEASURE_SLOT_ORDER,
+) {
   const meal = meals.at(-1)
-  if (!meal || meal.skipped) return null
+  if (!meal || meal.skipped || !measuresAfter(meal, slots)) return null
   if (records.some((record) => record.mealId === meal.id)) return null
   if (now.getTime() - new Date(meal.startedAt).getTime() > PENDING_EXPIRE_MS) return null
   return meal
@@ -92,9 +102,10 @@ export function getMeasureTarget(
   records: GlucoseRecord[],
   hours: number | null,
   now: Date,
+  slots: MeasureSlotKey[] = MEASURE_SLOT_ORDER,
 ): MeasureTarget {
-  const pending = getPendingMeal(meals, records, hours, now)
-  const openMeal = hours ? null : getOpenMeal(meals, records, now)
+  const pending = getPendingMeal(meals, records, hours, now, slots)
+  const openMeal = hours ? null : getOpenMeal(meals, records, now, slots)
   if (openMeal) return { slot: 'post-meal', mealId: openMeal.id, mealType: openMeal.type }
   if (pending) {
     return {
@@ -108,8 +119,11 @@ export function getMeasureTarget(
   const hasFastingToday = records.some(
     (record) => record.slot === 'fasting' && isSameDay(new Date(record.measuredAt), now),
   )
-  if (!hasFastingToday && now.getHours() < 11) return { slot: 'fasting' }
-  if (now.getHours() >= 21) return { slot: 'bedtime' }
+  // 공복 · 자기 전은 병원 기준에 있을 때만
+  if (slots.includes('fasting') && !hasFastingToday && now.getHours() < 11) {
+    return { slot: 'fasting' }
+  }
+  if (slots.includes('bedtime') && now.getHours() >= 21) return { slot: 'bedtime' }
   return { slot: 'post-meal', mealType: getMealTypeByHour(now) }
 }
 
@@ -156,16 +170,18 @@ export type HeroState =
   | { kind: 'eating-open'; meal: Meal }
   | { kind: 'saved'; record: GlucoseRecord; nextMeal: MealType }
 
-// 오늘 식후 측정을 놓친 끼니(건너뜀·기록함 제외, 측정할 시간이 지남)
+// 오늘 식후 측정을 놓친 끼니(건너뜀·기록함 · 병원 기준에 없는 끼니 제외, 측정할 시간이 지남)
 export function getMissedMeals(
   meals: Meal[],
   records: GlucoseRecord[],
   hours: number | null,
   now: Date,
+  slots: MeasureSlotKey[] = MEASURE_SLOT_ORDER,
 ) {
   if (!hours) return []
   return meals
     .filter((meal) => isSameDay(new Date(meal.startedAt), now) && !meal.skipped)
+    .filter((meal) => measuresAfter(meal, slots))
     .filter((meal) => !records.some((record) => record.mealId === meal.id))
     .map((meal) => ({ meal, dueAt: getDueAt(meal, hours) }))
     .filter(({ dueAt }) => now.getTime() - dueAt.getTime() >= MEASURE_WINDOW_MS)
@@ -182,16 +198,17 @@ export function getHeroState(
   records: GlucoseRecord[],
   hours: number | null,
   now: Date,
+  slots: MeasureSlotKey[] = MEASURE_SLOT_ORDER,
 ): HeroState {
-  const pending = getPendingMeal(meals, records, hours, now)
-  const missed = isDayEnd(now) ? getMissedMeals(meals, records, hours, now) : []
+  const pending = getPendingMeal(meals, records, hours, now, slots)
+  const missed = isDayEnd(now) ? getMissedMeals(meals, records, hours, now, slots) : []
   if (pending) {
     const diff = now.getTime() - pending.dueAt.getTime()
     const kind = diff < 0 ? 'eating' : diff < MEASURE_WINDOW_MS ? 'measure-time' : 'overdue'
     // 저녁 이후엔 시간 지남 대신 하루 정리
     if (!(kind === 'overdue' && missed.length > 0)) return { kind, ...pending }
   }
-  const openMeal = hours ? null : getOpenMeal(meals, records, now)
+  const openMeal = hours ? null : getOpenMeal(meals, records, now, slots)
   if (openMeal) return { kind: 'eating-open', meal: openMeal }
 
   const nextMeal = getNextMealType(meals, now)

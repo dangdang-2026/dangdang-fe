@@ -65,12 +65,12 @@ export function useMeasureReminder() {
   const navigate = useNavigate()
   const meals = useGlucoseStore((state) => state.meals)
   const records = useGlucoseStore((state) => state.records)
-  const { postMealHours } = useCriteria()
+  const { postMealHours, measureSlots } = useCriteria()
   const { measure, remind, hideOnLockScreen } = useNotificationStore()
   const paused = useProfileStore((state) => state.hospitalized || !!state.deliveryDate)
 
   useEffect(() => {
-    const pending = getPendingMeal(meals, records, postMealHours, new Date())
+    const pending = getPendingMeal(meals, records, postMealHours, new Date(), measureSlots)
     if (!pending || !measure || paused) return
     const { meal, dueAt } = pending
     // 서버에 있는 식사이고 이 기기가 푸시를 받으면 서버가 알림·재알림을 보내 기기 알림은 안 띄움
@@ -84,7 +84,13 @@ export function useMeasureReminder() {
         () => {
           // 그사이 혈당을 적었으면 띄우지 않음
           const state = useGlucoseStore.getState()
-          const still = getPendingMeal(state.meals, state.records, postMealHours, new Date())
+          const still = getPendingMeal(
+            state.meals,
+            state.records,
+            postMealHours,
+            new Date(),
+            measureSlots,
+          )
           if (fired.has(key) || still?.meal.id !== meal.id || !canNotify()) return
           fired.add(key)
           void showMeasureNotification(meal, postMealHours, hideOnLockScreen)
@@ -125,7 +131,7 @@ export function useMeasureReminder() {
       window.removeEventListener('measure-snooze', scheduleSnooze)
       navigator.serviceWorker?.removeEventListener('message', handleMessage)
     }
-  }, [meals, records, postMealHours, measure, remind, hideOnLockScreen, paused])
+  }, [meals, records, postMealHours, measureSlots, measure, remind, hideOnLockScreen, paused])
 
   // 알림을 누르면 오늘 탭 혈당 입력 시트로. 서버 알림은 주소(reminderId 포함) 그대로 열어 열람 처리
   useEffect(() => {
