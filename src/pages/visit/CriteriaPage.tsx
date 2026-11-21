@@ -33,7 +33,7 @@ function CriteriaPage() {
   // 진료 후 메모 정리에서 왔으면 체크한 값으로 채움
   const prefill = (useLocation().state as { prefill?: CriteriaPrefill } | null)?.prefill ?? {}
   const [hours, setHours] = useState(prefill.postMealHours ?? current.postMealHours ?? 1)
-  const [slots, setSlots] = useState<MeasureSlotKey[]>(current.measureSlots)
+  const [slots, setSlots] = useState<MeasureSlotKey[]>(prefill.measureSlots ?? current.measureSlots)
   const [fasting, setFasting] = useState(String(prefill.fasting ?? current.targets.fasting ?? ''))
   const [postMeal, setPostMeal] = useState(
     String(prefill.postMeal ?? current.targets.postMeal ?? ''),

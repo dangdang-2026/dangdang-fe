@@ -33,7 +33,8 @@ type VisitState = {
   noteId: string | null
   // 서버에 아직 안 남긴 글이 있음
   noteDirty: boolean
-  setNextVisit: (at: string | null) => void
+  // visited면 지금 진료를 다녀온 것으로 보고 지난 진료에 남김
+  setNextVisit: (at: string | null, visited?: boolean) => void
   setNote: (note: string) => void
   // 기기 질문 id를 돌려줌
   addQuestion: (text: string, now?: Date) => string
@@ -56,10 +57,11 @@ export const useVisitStore = create<VisitState>()(
       noteId: null,
       noteDirty: false,
       // 다녀온 진료일을 새 날짜로 바꾸면 지난 진료일에 남김
-      setNextVisit: (at) =>
+      setNextVisit: (at, markVisited = false) =>
         set((state) => {
           const previous = state.nextVisitAt
-          const visited = previous && new Date(previous) < new Date() && previous !== at
+          const visited =
+            previous && previous !== at && (markVisited || new Date(previous) < new Date())
           return {
             nextVisitAt: at,
             asked: true,
@@ -101,10 +103,13 @@ function getPrimaryCareSiteId() {
 }
 
 // 다음 진료일 정하기 · 바꾸기 · 모름. 화면엔 바로 바꾸고 서버에 못 남기면 되돌림
-export async function saveNextVisit(at: string | null) {
+// visited: 진료 후 메모에서 정한 날이라 지금 진료는 다녀온 것. 시각이 안 지났어도 새 진료로
+export async function saveNextVisit(at: string | null, { visited = false } = {}) {
   const before = useVisitStore.getState()
-  before.setNextVisit(at)
-  const moving = isNewVisit(before.nextVisitAt, at)
+  before.setNextVisit(at, visited)
+  const moving =
+    (visited && !!before.nextVisitAt && before.nextVisitAt !== at) ||
+    isNewVisit(before.nextVisitAt, at)
   try {
     // 질문 · 메모가 붙일 일정을 만드는 중일 수 있어 차례를 기다림
     await enqueue(async () => {
@@ -290,10 +295,17 @@ export function saveVisitNote() {
   if (!noteDirty || !content) return Promise.resolve()
   return enqueue(async () => {
     const target = noteVisitId ?? visitId ?? (await ensureVisitId())
-    const saved =
-      noteId && noteVisitId === target
-        ? await updateVisitNote(target, noteId, content)
-        : await createVisitNote(target, content)
+    // 앞서 기다리던 저장이 메모를 만들었으면 그 번호로 고침. 두 번 만들지 않게
+    const latest = useVisitStore.getState()
+    const id =
+      latest.noteVisitId === target && latest.noteId
+        ? latest.noteId
+        : noteVisitId === target
+          ? noteId
+          : null
+    const saved = id
+      ? await updateVisitNote(target, id, content)
+      : await createVisitNote(target, content)
     useVisitStore.setState((state) =>
       // 새 진료로 넘어가 메모가 비워졌으면 그대로 둠
       state.note === '' && state.noteId === null && note !== ''
