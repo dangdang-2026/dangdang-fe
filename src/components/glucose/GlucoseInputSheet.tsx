@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import iconChevronRight from '@/assets/icons/chevron-right.svg'
+import { createPortal } from 'react-dom'
 import iconClock from '@/assets/icons/clock-sm.svg'
 import iconInfo from '@/assets/icons/info.svg'
-import iconPhone from '@/assets/icons/phone.svg'
 import BottomSheet from '@/components/common/BottomSheet'
+import ContactCriteriaCard from '@/components/glucose/ContactCriteriaCard'
 import GlucoseKeypad from '@/components/glucose/GlucoseKeypad'
 import TargetChip from '@/components/glucose/TargetChip'
+import ContactMemoSheet from '@/components/my/ContactMemoSheet'
 import { GLUCOSE_LOW, GLUCOSE_MAX_DIGITS, ON_TIME_MS } from '@/constants/glucose'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { saveRecord } from '@/stores/useGlucoseStore'
+import { useProfileStore } from '@/stores/useProfileStore'
 import type { GlucoseRecord, MeasureTarget } from '@/types/glucose'
 import { getCriteriaAt } from '@/utils/criteria'
 import { formatMonthDay, formatTime } from '@/utils/date'
@@ -40,6 +42,11 @@ function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInpu
   const [triedSave, setTriedSave] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveFailed, setSaveFailed] = useState(false)
+  // 연락 기준 펼침. 직접 누르기 전엔 높음 · 낮음일 때 저절로 펼침
+  const [contactOpen, setContactOpen] = useState<boolean | null>(null)
+  const [memoSheet, setMemoSheet] = useState(false)
+  const contactMemo = useProfileStore((state) => state.contactMemo)
+  const updateProfile = useProfileStore((state) => state.updateProfile)
   // 측정 시각에 적용되는 기준(지난 날 채우기면 그날 기준)
   const criteria = getCriteriaAt(
     useCriteriaStore((state) => state.versions),
@@ -54,6 +61,7 @@ function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInpu
   const isInvalid = showResult && comparison === 'invalid'
   // 70 미만은 목표가 없어도 안내
   const isLow = showResult && comparison !== 'invalid' && value < GLUCOSE_LOW
+  const contactExpanded = contactOpen ?? (isLow || (showResult && comparison === 'high'))
 
   const handleDigit = (digit: string) => {
     setDigits((prev) => {
@@ -115,16 +123,11 @@ function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInpu
         {showResult && <TargetChip comparison={comparison} target={goal} low={isLow} />}
       </div>
 
-      <button
-        type="button"
-        className="bg-grey-50 flex items-center gap-2.5 rounded-2xl px-4 py-3 text-left"
-      >
-        <img src={iconPhone} alt="" width={18} height={18} />
-        <span className="text-grey-700 flex-1 text-sm leading-normal font-medium">
-          병원에서 들은 연락 기준
-        </span>
-        <img src={iconChevronRight} alt="" width={18} height={18} />
-      </button>
+      <ContactCriteriaCard
+        expanded={contactExpanded}
+        onToggle={() => setContactOpen(!contactExpanded)}
+        onWriteMemo={() => setMemoSheet(true)}
+      />
 
       <GlucoseKeypad
         onDigit={handleDigit}
@@ -153,6 +156,20 @@ function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInpu
       >
         저장
       </button>
+
+      {/* 혈당 시트 안에서 열어도 화면 기준으로 뜨게 body로 */}
+      {memoSheet &&
+        createPortal(
+          <ContactMemoSheet
+            initialMemo={contactMemo}
+            onSave={(memo) => {
+              updateProfile({ contactMemo: memo })
+              setMemoSheet(false)
+            }}
+            onClose={() => setMemoSheet(false)}
+          />,
+          document.body,
+        )}
     </BottomSheet>
   )
 }
