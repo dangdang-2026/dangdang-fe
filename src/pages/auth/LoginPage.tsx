@@ -17,12 +17,13 @@ import loginCharacter from '@/assets/images/auth/login-character.svg'
 import AuthField, { type FieldHelper } from '@/components/auth/AuthField'
 import AuthHeader from '@/components/auth/AuthHeader'
 import AuthToast from '@/components/auth/AuthToast'
+import EmailAccountSheet from '@/components/auth/EmailAccountSheet'
 import KakaoAccountSheet from '@/components/auth/KakaoAccountSheet'
 import { ROUTES } from '@/constants/routes'
 import { useFinishLogin } from '@/hooks/useFinishLogin'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useAuthStore } from '@/stores/useAuthStore'
-import { EMAIL_PATTERN } from '@/utils/auth'
+import { EMAIL_ACCOUNT_EXISTS, EMAIL_PATTERN } from '@/utils/auth'
 
 type EmailError = 'empty' | 'format'
 type PasswordError =
@@ -53,7 +54,8 @@ const TOAST: Record<ToastKind, { icon: string; message: string }> = {
 
 // 카카오 인가 후 돌아올 때 붙는 error. 사용자가 취소하면 access_denied
 function kakaoToast(error: string | null): ToastKind | null {
-  if (!error) return null
+  // 이메일 계정과 겹치면 토스트 대신 K-07 시트
+  if (!error || error === EMAIL_ACCOUNT_EXISTS) return null
   return error === 'access_denied' ? 'kakaoCancel' : 'kakaoFail'
 }
 
@@ -86,6 +88,9 @@ function LoginPage() {
   const [capsLock, setCapsLock] = useState(false)
   const [loading, setLoading] = useState(false)
   const [kakaoSheet, setKakaoSheet] = useState(false)
+  const [emailAccountSheet, setEmailAccountSheet] = useState(
+    () => searchParams.get('error') === EMAIL_ACCOUNT_EXISTS,
+  )
   const [toast, setToast] = useState<ToastKind | null>(
     () => kakaoToast(searchParams.get('error')) ?? (signedUp?.signedUp ? 'signedUp' : null),
   )
@@ -101,13 +106,14 @@ function LoginPage() {
   const findPassword = () => navigate(ROUTES.PASSWORD_FIND)
   const signUp = () => navigate(ROUTES.SIGNUP)
 
-  const loginKakao = () => {
+  const loginKakao = (selectAccount = false) => {
     setKakaoSheet(false)
+    setEmailAccountSheet(false)
     if (!navigator.onLine) {
       setToast('offline')
       return
     }
-    startKakaoLogin()
+    startKakaoLogin({ selectAccount })
   }
 
   const submit = async (event: FormEvent) => {
@@ -338,7 +344,7 @@ function LoginPage() {
       <button
         type="button"
         className="bg-kakao text-kakao-label text-subtitle-1 relative mt-10.5 flex h-14 items-center justify-center gap-1 rounded-xl leading-none"
-        onClick={loginKakao}
+        onClick={() => loginKakao()}
       >
         <img src={iconKakao} alt="" width={20} height={20} />
         카카오로 로그인
@@ -351,7 +357,17 @@ function LoginPage() {
       </p>
 
       {kakaoSheet && (
-        <KakaoAccountSheet onKakao={loginKakao} onClose={() => setKakaoSheet(false)} />
+        <KakaoAccountSheet onKakao={() => loginKakao()} onClose={() => setKakaoSheet(false)} />
+      )}
+      {emailAccountSheet && (
+        <EmailAccountSheet
+          onEmailLogin={() => {
+            setEmailAccountSheet(false)
+            emailRef.current?.focus()
+          }}
+          onOtherKakao={() => loginKakao(true)}
+          onClose={() => setEmailAccountSheet(false)}
+        />
       )}
       {toast && <AuthToast {...TOAST[toast]} onClose={closeToast} />}
     </main>

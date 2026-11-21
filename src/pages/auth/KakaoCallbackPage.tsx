@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { consumeKakaoState, loginWithKakao } from '@/api/auth'
+import { getErrorCode } from '@/api/axios'
 import { ROUTES } from '@/constants/routes'
 import { useFinishLogin } from '@/hooks/useFinishLogin'
+import { EMAIL_ACCOUNT_EXISTS } from '@/utils/auth'
 
 // 카카오 인가 후 돌아오는 주소. 코드를 서버에 넘기고 이메일 로그인과 같은 흐름으로
 function KakaoCallbackPage() {
@@ -28,7 +30,10 @@ function KakaoCallbackPage() {
 
     loginWithKakao(code)
       .then(() => finish('kakao'))
-      .catch(() => fail('server_error'))
+      // 같은 이메일로 가입한 이메일 계정이 있으면 합치지 않고 로그인 화면에서 K-07 시트로
+      .catch((loginError) =>
+        fail(getErrorCode(loginError) === 'AUTH_40902' ? EMAIL_ACCOUNT_EXISTS : 'server_error'),
+      )
   }, [searchParams, navigate, finish])
 
   return (
