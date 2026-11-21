@@ -3,6 +3,7 @@ import { getMeal } from '@/api/meals'
 import type { Food, Meal, MyFood, NutritionEdit, NutritionEdits, Portion } from '@/types/glucose'
 import {
   findFood,
+  findStaple,
   getPortionFactor,
   gramsToServings,
   looksLikeStaple,
@@ -122,12 +123,18 @@ export function toMealContent(
   editedAt: string,
 ): Pick<Meal, 'foods' | 'portion' | 'stapleGrams' | 'portions' | 'nutritionEdits'> {
   const staple = items.find((item) => isStaple(item.name, known))
+  // 그램은 식사 시트가 양을 받는 주식(처음 나오는 주식) 하나에만
+  const gramStaple = findStaple(
+    items.map((item) => item.name),
+    known,
+  )
+  const gramItem = items.find((item) => item.name === gramStaple?.name)
   const portions = items.filter((item) => item !== staple && toPortion(item.servings) !== 'one')
   const edited = items.filter((item) => isEdited(item, known))
   return {
     foods: [...new Set(items.map((item) => item.name))],
     portion: staple ? toPortion(staple.servings) : undefined,
-    stapleGrams: staple ? toStapleGrams(staple, known) : undefined,
+    stapleGrams: gramItem ? toStapleGrams(gramItem, known) : undefined,
     portions: portions.length
       ? Object.fromEntries(portions.map((item) => [item.name, toPortion(item.servings)]))
       : undefined,
@@ -153,7 +160,8 @@ export function toMealContent(
 // 주식은 끼니 양(그램이면 1인분 무게로 나눔), 한상 사진은 음식별 양, 나머지는 1인분
 function getServings(meal: Meal, name: string, known: Food[]) {
   const servingGrams = findFood(name, known)?.nutrition?.grams
-  if (meal.stapleGrams && servingGrams && isStaple(name, known)) {
+  const gramStaple = findStaple(meal.foods ?? [], known)
+  if (meal.stapleGrams && servingGrams && gramStaple?.name === name) {
     return gramsToServings(meal.stapleGrams, servingGrams)
   }
   const portion = (isStaple(name, known) && meal.portion) || meal.portions?.[name]

@@ -124,6 +124,12 @@ function MealContentSheet({
   // 양은 주식(밥·면 등)만 받음. 반찬은 이름만 기록
   const staple = findStaple(selected, foods)
   // 1인분 무게를 아는 주식만 그램으로 적음. 서버엔 인분 수로 바꿔 보냄
+  // 주식을 다른 음식으로 바꾸면 적던 그램은 비움. 처음 불러올 땐 그대로
+  const [gramFor, setGramFor] = useState(staple?.name)
+  if (staple?.name !== gramFor) {
+    if (gramFor) setGramText('')
+    setGramFor(staple?.name)
+  }
   const servingGrams = staple?.nutrition?.grams
   const stapleGrams = servingGrams && Number(gramText) > 0 ? Number(gramText) : undefined
   const savedPortion = !staple
