@@ -11,6 +11,7 @@ import { syncCriteria } from '@/stores/useCriteriaStore'
 import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncMealGuide } from '@/stores/useMealGuideStore'
+import { syncMealSettings } from '@/stores/useMealSettingsStore'
 import { syncQuestions, syncVisitNote, syncVisits } from '@/stores/useVisitStore'
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
@@ -81,6 +82,8 @@ export function useFinishLogin() {
       syncPostpartum(me.pregnancyState).catch(() => {})
       // 당당이 기록 보기 동의도 이 계정 값으로
       syncAiConsents().catch(() => {})
+      // 양 적는 방식(인분 · 그램)도 이 계정 값으로
+      syncMealSettings().catch(() => {})
       // 알림 설정도 이 계정 값으로. 다른 계정 설정이 남지 않게
       const settingsSynced = syncNotificationSettings().catch(() => {})
       // 약관 전이면 새 계정이거나 설정을 안 마친 계정. 기기에 남은 다른 계정 설정은 비움

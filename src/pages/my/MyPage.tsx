@@ -28,6 +28,7 @@ import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
 import { useHospitalStore } from '@/stores/useHospitalStore'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useFoodStore } from '@/stores/useFoodStore'
+import { useMealSettingsStore } from '@/stores/useMealSettingsStore'
 import { useNotificationStore } from '@/stores/useNotificationStore'
 import { CARE_MODE_LABEL, useProfileStore } from '@/stores/useProfileStore'
 import { useVisitStore } from '@/stores/useVisitStore'
@@ -51,6 +52,7 @@ function MyPage() {
   const navigate = useNavigate()
   const now = useNow()
   const { name, dueDate, careMode } = useProfileStore()
+  const portionUnit = useMealSettingsStore((state) => state.portionUnit)
   const criteria = useCriteria()
   const myFoodCount = useFoodStore((state) => state.myFoods.length)
   const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
@@ -178,6 +180,12 @@ function MyPage() {
               title: '내 음식',
               description: `직접 추가한 음식 ${myFoodCount}개`,
               onClick: () => navigate(ROUTES.MY_FOODS),
+            },
+            {
+              icon: iconMenuFood,
+              title: '식사 기록 설정',
+              description: `양 적는 방식 · ${portionUnit === 'GRAM' ? '그램' : '인분'}`,
+              onClick: () => navigate(ROUTES.MY_MEAL_SETTINGS),
             },
             {
               icon: iconMenuCommunity,

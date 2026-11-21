@@ -114,7 +114,9 @@ function FoodHistoryPage() {
   // 이 음식이 그 끼니의 주식일 때만 양 표시
   const getPortion = ({ meal }: FoodHistoryEntry) => {
     const staple = findStaple(meal.foods ?? [], foods)
-    if (!meal.portion || staple?.name !== name) return null
+    if (staple?.name !== name) return null
+    if (meal.stapleGrams) return `${meal.stapleGrams}g`
+    if (!meal.portion) return null
     return formatPortion(meal.portion, findFood(name, foods)?.unit ?? staple.unit)
   }
 

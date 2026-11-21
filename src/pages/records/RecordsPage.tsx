@@ -97,9 +97,10 @@ function RecordsPage() {
     foods: string[],
     portion?: Portion,
     nutritionEdits?: NutritionEdits,
+    stapleGrams?: number,
   ) => {
     if (!editingMeal) return
-    void saveMealContent(editingMeal.id, foods, portion, nutritionEdits)
+    void saveMealContent(editingMeal.id, foods, portion, nutritionEdits, stapleGrams)
     setEditingMeal(null)
     setToast(`${MEAL_LABEL[editingMeal.type]} 기록을 고쳤어요`)
   }
