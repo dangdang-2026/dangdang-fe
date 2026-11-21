@@ -28,7 +28,8 @@ const DAYS_IN_YEAR = 365
 
 type ReportPeriodSheetProps = {
   today: Date
-  onCreate: (range: DateRange, hospital: string) => void
+  // 고른 병원 이름과 번호(서버 병원이 없으면 null)
+  onCreate: (range: DateRange, hospital: { name: string; careSiteId: string | null }) => void
   onClose: () => void
 }
 
@@ -145,7 +146,13 @@ function ReportPeriodSheet({ today, onCreate, onClose }: ReportPeriodSheetProps)
         type="button"
         disabled={!range}
         className="text-subtitle-1 disabled:bg-grey-100 disabled:text-grey-400 bg-primary h-14 rounded-xl leading-none text-white"
-        onClick={() => range && onCreate(range, hospital)}
+        onClick={() =>
+          range &&
+          onCreate(range, {
+            name: hospital,
+            careSiteId: hospitals.find((item) => item.name === hospital)?.id ?? null,
+          })
+        }
       >
         이 기간으로 만들기
       </button>

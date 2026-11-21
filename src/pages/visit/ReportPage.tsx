@@ -12,9 +12,9 @@ import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
 import { useReportContent } from '@/hooks/useReportContent'
-import { getVisitReportPeriod, saveVisitReport, type VisitReportSave } from '@/api/visitReports'
+import { getVisitReportPeriod, type VisitReportSave } from '@/api/visitReports'
 import { useHospitalStore } from '@/stores/useHospitalStore'
-import { syncReports } from '@/stores/useReportStore'
+import { keepVisitReport } from '@/stores/useReportStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import { addDays, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 import { formatReportText } from '@/utils/report'
@@ -51,7 +51,9 @@ function ReportPage() {
     : (searchParams.get('visitId') ?? (searchParams.has('from') ? null : currentVisitId))
   // 진료용은 서버가 정한 기간(지난 진료일 ~ 진료 전날)으로 보여 줘야 저장 · 목록 숫자와 같음
   const [visitPeriod, setVisitPeriod] = useState<
-    { visitId: string; from: Date; to: Date } | { visitId: string; failed: true } | null
+    | { visitId: string; from: Date; to: Date; careSiteName: string | null }
+    | { visitId: string; failed: true }
+    | null
   >(null)
   useEffect(() => {
     if (!reportVisitId) return
@@ -70,8 +72,8 @@ function ReportPage() {
   }, [reportVisitId])
   const periodForVisit = visitPeriod?.visitId === reportVisitId ? visitPeriod : null
   const servedPeriod = periodForVisit && 'from' in periodForVisit ? periodForVisit : null
-  // 기간을 받는 중이어도 진료용으로 남김(기간은 서버가 정함). 못 받았을 때만 기간 직접
-  const saveAsVisit = !!reportVisitId && !(periodForVisit && 'failed' in periodForVisit)
+  // 기간을 받는 동안은 화면 기간과 서버 기간이 달라 전하기를 잠시 막음
+  const periodPending = !!reportVisitId && !periodForVisit
   // ?from=&to= 로 기간 지정(지난 리포트·기간 고르기). 없으면 최근 2주
   const to = servedPeriod?.to ?? parseDateKey(searchParams.get('to')) ?? today
   const from =
@@ -80,7 +82,10 @@ function ReportPage() {
     from,
     to,
     hideName,
-    hospitalName: searchParams.get('hospital') ?? undefined,
+    // 진료용은 그 진료 일정의 병원으로(지운 병원이면 빈 이름)
+    hospitalName: servedPeriod
+      ? (servedPeriod.careSiteName ?? '')
+      : (searchParams.get('hospital') ?? undefined),
   })
 
   // 인쇄 창이 닫히면 PDF 저장 안내
@@ -94,10 +99,13 @@ function ReportPage() {
   // 리포트를 전하면 지난 리포트에 남김
   const keepReport = () => {
     if (reopened) return
-    // 서버에 남김. 진료 일정이 있으면 진료용, 아니면 지금 보이는 기간 그대로 기간 직접
-    const careSiteId = Number(hospitals.find((item) => item.name === hospital.name)?.id)
+    // 병원은 고른 병원 번호(?careSiteId=), 없으면 이름으로 찾음
+    const careSiteId = Number(
+      searchParams.get('careSiteId') ?? hospitals.find((item) => item.name === hospital.name)?.id,
+    )
+    // 진료 기간을 받았으면 진료용, 못 받았거나 기간을 골랐으면 보이는 기간 그대로 기간 직접
     const body: VisitReportSave =
-      saveAsVisit && reportVisitId
+      servedPeriod && reportVisitId
         ? { kind: 'VISIT', visitId: Number(reportVisitId) }
         : {
             kind: 'CUSTOM',
@@ -105,13 +113,18 @@ function ReportPage() {
             to: toDateKey(to),
             careSiteId: Number.isFinite(careSiteId) ? careSiteId : undefined,
           }
-    // 남긴 뒤 지난 리포트 목록을 다시 받음. 못 남겨도 리포트 전하기는 그대로
-    saveVisitReport(body)
-      .then(() => syncReports())
-      .catch(() => {})
+    // 못 남기면 기기에 두고 다음에 다시 보냄. 리포트 전하기는 그대로
+    keepVisitReport(body)
+  }
+
+  // 기간을 받는 중이면 잠깐 기다리게. 화면과 다른 기간이 남지 않게
+  const waitPeriod = () => {
+    if (periodPending) setToast('진료 기간을 불러오는 중이에요. 잠시 후 다시 해 주세요')
+    return periodPending
   }
 
   const printReport = () => {
+    if (waitPeriod()) return
     keepReport()
     setShareOpen(false)
     // 시트가 닫힌 뒤 인쇄 창 열기
@@ -152,6 +165,7 @@ function ReportPage() {
 
   // 사진으로 저장: 휴대폰은 공유 창에서 이미지 저장, 컴퓨터는 파일 내려받기
   const savePhoto = async () => {
+    if (waitPeriod()) return
     setShareOpen(false)
     const node = receiptRef.current
     if (!node || savingPhoto) return
@@ -180,6 +194,7 @@ function ReportPage() {
   }
 
   const shareReport = async () => {
+    if (waitPeriod()) return
     const text = formatReportText({ report, title, periodLabel, criteriaLines, questions })
     keepReport()
     setShareOpen(false)
@@ -218,7 +233,7 @@ function ReportPage() {
             type="button"
             aria-label="리포트 전하기"
             className="rounded-full bg-white p-2.5"
-            onClick={() => setShareOpen(true)}
+            onClick={() => !waitPeriod() && setShareOpen(true)}
           >
             <img src={iconShare} alt="" width={20} height={20} />
           </button>

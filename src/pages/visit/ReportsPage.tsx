@@ -55,11 +55,16 @@ function ReportsPage() {
   const openReport = (
     from: Date,
     to: Date,
-    hospital: string,
+    hospital: { name: string; careSiteId: string | null },
     target: { custom: true } | { custom: false; visitId: string | null },
     reportId?: string,
   ) => {
-    const params = new URLSearchParams({ from: toDateKey(from), to: toDateKey(to), hospital })
+    const params = new URLSearchParams({
+      from: toDateKey(from),
+      to: toDateKey(to),
+      hospital: hospital.name,
+    })
+    if (hospital.careSiteId) params.set('careSiteId', hospital.careSiteId)
     if (reportId) params.set('reportId', reportId)
     if (target.custom) params.set('custom', '1')
     else if (target.visitId) params.set('visitId', target.visitId)
@@ -151,7 +156,7 @@ function ReportsPage() {
                         openReport(
                           from,
                           to,
-                          saved.hospital,
+                          { name: saved.hospital, careSiteId: saved.careSiteId },
                           saved.custom
                             ? { custom: true }
                             : { custom: false, visitId: saved.visitId },

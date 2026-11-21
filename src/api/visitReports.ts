@@ -4,11 +4,13 @@ import { parseDateKey } from '@/utils/date'
 // 리포트 종류. 진료용은 진료 일정 기준, 기간 직접은 고른 기간
 type ReportKind = 'VISIT' | 'CUSTOM'
 
-// 백엔드 VisitReportResponse 중 기간만. 내용은 기기 기록으로 그림
+// 백엔드 VisitReportResponse 중 기간 · 병원만. 내용은 기기 기록으로 그림
 type VisitReportPeriodResponse = {
   // yyyy-MM-dd, 둘 다 포함
   from: string
   to: string
+  // 그 진료 일정의 병원. 없거나 지웠으면 null
+  careSite: { careSiteId: number; name: string } | null
 }
 
 // 백엔드 VisitReportCreateRequest. 진료용은 visitId만, 기간 직접은 기간 · 병원
@@ -24,7 +26,7 @@ export async function getVisitReportPeriod(visitId: string) {
   const from = parseDateKey(data.data?.from ?? null)
   const to = parseDateKey(data.data?.to ?? null)
   if (!from || !to) throw new Error('진료 리포트 기간이 비어 있음')
-  return { from, to }
+  return { from, to, careSiteName: data.data?.careSite?.name ?? null }
 }
 
 // 리포트 저장. 같은 리포트가 이미 있으면 서버가 새로 만들지 않고 그 id를 줌
@@ -42,6 +44,7 @@ type VisitReportItem = {
   from: string | null
   to: string | null
   visitId: number | null
+  careSiteId: number | null
   careSiteName: string | null
   // yyyy-MM-dd. 진료용만
   visitDate: string | null
@@ -56,8 +59,9 @@ export type SavedReport = {
   id: string
   from: string
   to: string
-  // 병원이 없거나 지웠으면 빈 글
+  // 병원이 없거나 지웠으면 빈 글 · null
   hospital: string
+  careSiteId: string | null
   // 진료용이면 그 진료 일정 · 날짜
   visitId: string | null
   visitDate: string | null
@@ -68,9 +72,9 @@ export type SavedReport = {
   createdAt: string
 }
 
-// 한 번에 받는 수(서버 상한 100). 쪽 수는 서버 상한(page 0~10000)까지
+// 한 번에 받는 수(서버 상한 100)와 안전장치 쪽 수(1만 개)
 const PAGE_SIZE = 100
-const MAX_PAGES = 10001
+const MAX_PAGES = 100
 
 // 지난 리포트 전부. 최근 저장 순, 기간을 모르는(진료 날짜 미정) 리포트는 열 수 없어 뺌
 export async function getVisitReports() {
@@ -79,8 +83,12 @@ export async function getVisitReports() {
     const { data } = await apiClient.get<BaseResponse<VisitReportPage>>('/visit-reports', {
       params: { page, size: PAGE_SIZE },
     })
-    items.push(...(data.data?.items ?? []))
-    if (!data.data?.hasNext) break
+    // 이미 받은 리포트는 빼고 더함. 빈 쪽이나 같은 쪽이 다시 오면 그만 받음
+    const fresh = (data.data?.items ?? []).filter(
+      (item) => !items.some((seen) => seen.id === item.id),
+    )
+    items.push(...fresh)
+    if (!data.data?.hasNext || fresh.length === 0) break
   }
   return items.flatMap((item): SavedReport[] =>
     item.from && item.to
@@ -90,6 +98,7 @@ export async function getVisitReports() {
             from: item.from,
             to: item.to,
             hospital: item.careSiteName ?? '',
+            careSiteId: item.careSiteId === null ? null : String(item.careSiteId),
             visitId: item.visitId === null ? null : String(item.visitId),
             visitDate: item.visitDate,
             custom: item.kind === 'CUSTOM',
