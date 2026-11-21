@@ -9,6 +9,8 @@ const DAY_MS = 24 * 60 * MINUTE_MS
 type MeasuredTimePickerProps = {
   // 시트를 연 시각. 고를 수 있는 시각의 기준
   now: Date
+  // 이보다 이른 시각은 못 고름. 식사 시작
+  earliest: Date
   value: Date
   onChange: (measuredAt: Date) => void
 }
@@ -21,15 +23,17 @@ function getRecentTimes(now: Date) {
   return [new Date(latest), new Date(latest - STEP_MS)]
 }
 
-// 'HH:MM'을 그 시각으로. 지금보다 뒤면 자정을 넘긴 어제 시각
-function toTodayTime(time: string, now: Date) {
+// 'HH:MM'을 그 시각으로. 지금보다 뒤면 자정을 넘긴 어제 시각. 식사 시작 ~ 지금 안으로
+function toMeasuredTime(time: string, earliest: Date) {
+  const now = new Date()
   const [hours, minutes] = time.split(':').map(Number)
-  const picked = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes)
-  return picked > now ? new Date(picked.getTime() - DAY_MS) : picked
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes)
+  const picked = today > now ? new Date(today.getTime() - DAY_MS) : today
+  return picked < earliest ? earliest : picked
 }
 
 // Figma G-07 늦게 잴 때 언제 쟀는지 고르기 · G-10 직접 고르기는 시간 시트로
-function MeasuredTimePicker({ now, value, onChange }: MeasuredTimePickerProps) {
+function MeasuredTimePicker({ now, earliest, value, onChange }: MeasuredTimePickerProps) {
   const [wheelOpen, setWheelOpen] = useState(false)
   const presets = [now, ...getRecentTimes(now)]
   const custom = !presets.some((time) => time.getTime() === value.getTime())
@@ -76,7 +80,7 @@ function MeasuredTimePicker({ now, value, onChange }: MeasuredTimePickerProps) {
           title="잰 시각"
           value={formatTime(value)}
           onDone={(time) => {
-            onChange(toTodayTime(time, now))
+            onChange(toMeasuredTime(time, earliest))
             setWheelOpen(false)
           }}
           onClose={() => setWheelOpen(false)}

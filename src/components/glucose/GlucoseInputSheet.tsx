@@ -38,6 +38,12 @@ function getMeasuredLabel(measuredAt: Date, dueAt?: string) {
   return `${time} · ${minutes}분 ${diff > 0 ? '늦게' : '일찍'}`
 }
 
+// 식사를 시작한 시각 = 측정 예정 - 식후 시간. 모르면 예정 시각
+function getMealStart(dueAt: string | undefined, hours: number | null) {
+  const due = dueAt ? new Date(dueAt) : new Date()
+  return new Date(due.getTime() - (hours ?? 0) * 60 * 60 * 1000)
+}
+
 // Figma G-01~G-08 혈당 입력 바텀시트
 function GlucoseInputSheet({
   target,
@@ -88,7 +94,8 @@ function GlucoseInputSheet({
 
   const handleSave = async () => {
     if (saving) return
-    if (!isValidGlucose(value)) {
+    // 두 자리 낮은 값은 안내를 아직 못 봤으니 먼저 보여 주고 한 번 더 누르면 저장
+    if (!isValidGlucose(value) || (value < GLUCOSE_LOW && !showResult)) {
       setTriedSave(true)
       return
     }
@@ -135,7 +142,9 @@ function GlucoseInputSheet({
           <span className={`text-display ${numberColor}`}>{digits || '0'}</span>
           <span className="text-grey-400 text-base leading-normal font-medium">mg/dL</span>
         </p>
-        {showResult && <TargetChip comparison={comparison} target={goal} low={isLow} />}
+        {showResult && (
+          <TargetChip comparison={comparison} target={goal} low={isLow} hasMemo={!!contactMemo} />
+        )}
       </div>
 
       <ContactCriteriaCard
@@ -149,7 +158,14 @@ function GlucoseInputSheet({
         onDelete={() => setDigits((prev) => prev.slice(0, -1))}
       />
 
-      {late && <MeasuredTimePicker now={openedAt} value={measuredAt} onChange={setMeasuredAt} />}
+      {late && (
+        <MeasuredTimePicker
+          now={openedAt}
+          earliest={getMealStart(target.dueAt, criteria.postMealHours)}
+          value={measuredAt}
+          onChange={setMeasuredAt}
+        />
+      )}
 
       {showResult && (comparison === 'high' || (isLow && goal !== null)) && (
         <p className="text-grey-500 flex items-center justify-center gap-1.5 text-xs leading-normal">

@@ -69,6 +69,9 @@ const PERMISSION_DENIED_TOAST = '알림 권한이 꺼져 있어요. 설정에서
 // 측정을 기다리는 동안엔 히어로와 기다리는 측정만
 const WAITING_KINDS: HeroState['kind'][] = ['eating', 'measure-time', 'overdue']
 
+// 10분 뒤 다시를 맡겼을 때
+const SNOOZED_TOAST = '10분 뒤에 한 번 더 알려 드릴게요'
+
 function TodayPage() {
   const meals = useGlucoseStore((state) => state.meals)
   const records = useGlucoseStore((state) => state.records)
@@ -250,12 +253,15 @@ function TodayPage() {
   }, [fromMeasureAlert, navigate])
   // 10분 뒤 다시. 서버 알림으로 열었으면 서버가, 아니면 이 기기가 다시 알림
   const snoozeMeasure = (mealId?: string) => {
-    const onDevice = () => {
-      if (mealId) snoozeOnDevice(mealId)
+    if (reminderId) {
+      snoozeReminder(reminderId).catch(() => {
+        if (mealId) snoozeOnDevice(mealId)
+      })
+      setToast(SNOOZED_TOAST)
+      return
     }
-    if (reminderId) snoozeReminder(reminderId).catch(onDevice)
-    else onDevice()
-    setToast('10분 뒤에 한 번 더 알려 드릴게요')
+    const scheduled = !!mealId && snoozeOnDevice(mealId)
+    setToast(scheduled ? SNOOZED_TOAST : '알림이 꺼져 있어 다시 알려 드릴 수 없어요')
   }
   const closeMealSheet = useCallback(() => setWritingMeal(null), [])
   const closeToast = useCallback(() => setToast(null), [])
@@ -386,9 +392,9 @@ function TodayPage() {
           target={sheetTarget}
           onClose={closeGlucoseSheet}
           onSaved={handleSaved}
-          // 다시 알릴 끼니나 서버 알림이 있을 때만
+          // 서버 알림이 있거나, 측정 시점을 아는 끼니일 때만
           onSnooze={
-            sheetTarget.mealId || reminderId
+            reminderId || (sheetTarget.mealId && criteria.postMealHours)
               ? () => {
                   snoozeMeasure(sheetTarget.mealId)
                   closeGlucoseSheet()

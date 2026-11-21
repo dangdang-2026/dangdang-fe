@@ -21,13 +21,18 @@ const fired = new Set<string>()
 // 앱 안에서 누른 10분 뒤 다시. 화면이 바뀌어도 이 시각에 다시 알림
 let snoozed: { mealId: string; at: number } | null = null
 
-// 앱 안 10분 뒤 다시. 서버에 못 맡기면 이 기기에서 다시 알림
+const canNotify = () => 'Notification' in window && Notification.permission === 'granted'
+
+// 앱 안 10분 뒤 다시. 서버에 못 맡기면 이 기기에서 다시 알림. 알림을 못 띄우면 false
 export function snoozeOnDevice(mealId: string) {
+  const { hospitalized, deliveryDate } = useProfileStore.getState()
+  if (!canNotify() || !useNotificationStore.getState().measure || hospitalized || deliveryDate) {
+    return false
+  }
   snoozed = { mealId, at: Date.now() + REMIND_AFTER_MS }
   window.dispatchEvent(new Event('measure-snooze'))
+  return true
 }
-
-const canNotify = () => 'Notification' in window && Notification.permission === 'granted'
 
 // Figma E-05 측정 알림. 가리기면 수치·끼니 없이
 async function showMeasureNotification(meal: Meal, hours: number | null, hide: boolean) {
@@ -74,38 +79,47 @@ export function useMeasureReminder() {
 
     const schedule = (key: string, at: number) => {
       const delay = at - Date.now()
-      if (fired.has(key) || delay < -LATE_LIMIT_MS) return
-      timers.push(
-        window.setTimeout(
-          () => {
-            // 그사이 혈당을 적었으면 띄우지 않음
-            const state = useGlucoseStore.getState()
-            const still = getPendingMeal(state.meals, state.records, postMealHours, new Date())
-            if (fired.has(key) || still?.meal.id !== meal.id || !canNotify()) return
-            fired.add(key)
-            void showMeasureNotification(meal, postMealHours, hideOnLockScreen)
-          },
-          Math.max(delay, 0),
-        ),
+      if (fired.has(key) || delay < -LATE_LIMIT_MS) return undefined
+      const timer = window.setTimeout(
+        () => {
+          // 그사이 혈당을 적었으면 띄우지 않음
+          const state = useGlucoseStore.getState()
+          const still = getPendingMeal(state.meals, state.records, postMealHours, new Date())
+          if (fired.has(key) || still?.meal.id !== meal.id || !canNotify()) return
+          fired.add(key)
+          void showMeasureNotification(meal, postMealHours, hideOnLockScreen)
+        },
+        Math.max(delay, 0),
       )
+      timers.push(timer)
+      return timer
     }
 
-    // 10분 뒤 다시를 눌렀으면 그 시각에 한 번 더
+    const isSnoozed = () => snoozed?.mealId === meal.id
+    let remindTimer: number | undefined
+    let snoozeTimer: number | undefined
+    // 10분 뒤 다시를 눌렀으면 그 시각에 한 번만. 이전 미루기 · 원래 재알림은 취소
     const scheduleSnooze = () => {
-      if (snoozed?.mealId === meal.id) schedule(`${meal.id}:snooze:${snoozed.at}`, snoozed.at)
+      if (!snoozed || !isSnoozed()) return
+      window.clearTimeout(remindTimer)
+      window.clearTimeout(snoozeTimer)
+      snoozeTimer = schedule(`${meal.id}:snooze:${snoozed.at}`, snoozed.at)
+    }
+
+    if (!serverPush) {
+      schedule(`${meal.id}:first`, dueAt.getTime())
+      if (remind && !isSnoozed()) {
+        remindTimer = schedule(`${meal.id}:remind`, dueAt.getTime() + REMIND_AFTER_MS)
+      }
     }
     scheduleSnooze()
     window.addEventListener('measure-snooze', scheduleSnooze)
 
-    // 기기 알림의 10분 뒤 다시 버튼. 서버 알림이면 서비스 워커가 서버에 미룸
+    // 기기 알림의 10분 뒤 다시 버튼. 서버 알림은 서비스 워커가 서버에 미뤄 여기로 안 옴
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'measure-snooze') snoozeOnDevice(meal.id)
     }
-    if (!serverPush) {
-      schedule(`${meal.id}:first`, dueAt.getTime())
-      if (remind) schedule(`${meal.id}:remind`, dueAt.getTime() + REMIND_AFTER_MS)
-      navigator.serviceWorker?.addEventListener('message', handleMessage)
-    }
+    navigator.serviceWorker?.addEventListener('message', handleMessage)
     return () => {
       timers.forEach((timer) => window.clearTimeout(timer))
       window.removeEventListener('measure-snooze', scheduleSnooze)
