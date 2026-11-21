@@ -15,7 +15,7 @@ function Divider() {
   return <img src={dashedLine} alt="" height={2} className="h-0.5 w-full" />
 }
 
-// Figma C-06 영수증 모양 리포트 요약. 원값 표는 리포트 아래쪽(PDF)에 담음
+// Figma C-06 영수증 모양 리포트 요약. 원값 표는 PDF · 인쇄에만 담음
 function ReportReceipt({
   report,
   periodLabel,
@@ -30,7 +30,8 @@ function ReportReceipt({
   ] as const
   const details = [
     ['70 미만', report.lows.length ? `${report.lows.length}번` : '없음'],
-    ['원값 표 · 인슐린', '리포트 아래쪽'],
+    // 사진은 이 카드만 담아서 원값 표가 있는 곳(PDF · 인쇄)을 알려 줌
+    ['원값 표 · 인슐린', 'PDF · 인쇄에서 확인'],
     ['물어볼 것', `${questionCount}개`],
   ]
 
