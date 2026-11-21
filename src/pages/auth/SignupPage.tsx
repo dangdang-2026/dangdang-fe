@@ -233,18 +233,20 @@ function SignupPage() {
       <form noValidate className="mt-8 flex flex-1 flex-col" onSubmit={submit}>
         <div className="mb-6 flex flex-col gap-4">
           <AuthField
-            label="이름"
+            label="부를 이름"
             inputId="signup-name"
             invalid={nameEmpty}
             helper={
-              nameEmpty ? { icon: iconAlert, text: '이름을 입력해 주세요', tone: 'error' } : null
+              nameEmpty
+                ? { icon: iconAlert, text: '부를 이름을 입력해 주세요', tone: 'error' }
+                : null
             }
           >
             <input
               ref={nameRef}
               id="signup-name"
               autoComplete="name"
-              placeholder="이름을 입력해 주세요"
+              placeholder="예: 지수 (실명이 아니어도 돼요)"
               maxLength={NAME_MAX}
               value={name}
               aria-invalid={nameEmpty}
