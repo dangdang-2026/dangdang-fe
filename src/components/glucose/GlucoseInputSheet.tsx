@@ -21,6 +21,8 @@ type GlucoseInputSheetProps = {
   target: MeasureTarget
   onClose: () => void
   onSaved: (record: GlucoseRecord) => void
+  // 10분 뒤 다시. 없으면 버튼 안 보임
+  onSnooze?: () => void
   // 지난 날 나중에 채울 때 측정 시각. 없으면 지금
   backfillAt?: Date
 }
@@ -37,7 +39,13 @@ function getMeasuredLabel(measuredAt: Date, dueAt?: string) {
 }
 
 // Figma G-01~G-08 혈당 입력 바텀시트
-function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInputSheetProps) {
+function GlucoseInputSheet({
+  target,
+  onClose,
+  onSaved,
+  onSnooze,
+  backfillAt,
+}: GlucoseInputSheetProps) {
   // 시트를 연 시각. 늦게 잼이면 잰 시각을 이 앞으로 고름
   const [openedAt] = useState(() => backfillAt ?? new Date())
   const [measuredAt, setMeasuredAt] = useState(openedAt)
@@ -110,12 +118,12 @@ function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInpu
             {getMeasuredLabel(measuredAt, target.dueAt)}
           </p>
         </div>
-        {/* 알림 연동 전이라 시트만 닫음. 지난 날 채우기엔 없음 */}
-        {!backfillAt && (
+        {/* 지난 날 채우기엔 없음 */}
+        {onSnooze && !backfillAt && (
           <button
             type="button"
             className="bg-grey-100 text-t7 text-grey-600 rounded-full px-3 py-2 font-bold"
-            onClick={onClose}
+            onClick={onSnooze}
           >
             10분 뒤 다시
           </button>

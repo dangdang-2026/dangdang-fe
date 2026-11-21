@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { canServerPush, subscribePush } from '@/api/push'
-import { openReminder } from '@/api/reminders'
+import { openReminder, snoozeReminder } from '@/api/reminders'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
@@ -25,6 +25,7 @@ import { useFoods } from '@/hooks/useFoods'
 import { useNow } from '@/hooks/useNow'
 import { useOnline } from '@/hooks/useOnline'
 import { useCriteria } from '@/hooks/useCriteria'
+import { snoozeOnDevice } from '@/hooks/useMeasureReminder'
 import { useTodaySync } from '@/hooks/useTodaySync'
 import { saveHospitalized, useProfileStore } from '@/stores/useProfileStore'
 import { saveMealContent, saveMealStart, useGlucoseStore } from '@/stores/useGlucoseStore'
@@ -247,6 +248,15 @@ function TodayPage() {
     setSheetTarget(null)
     if (fromMeasureAlert) navigate(ROUTES.TODAY, { replace: true })
   }, [fromMeasureAlert, navigate])
+  // 10분 뒤 다시. 서버 알림으로 열었으면 서버가, 아니면 이 기기가 다시 알림
+  const snoozeMeasure = (mealId?: string) => {
+    const onDevice = () => {
+      if (mealId) snoozeOnDevice(mealId)
+    }
+    if (reminderId) snoozeReminder(reminderId).catch(onDevice)
+    else onDevice()
+    setToast('10분 뒤에 한 번 더 알려 드릴게요')
+  }
   const closeMealSheet = useCallback(() => setWritingMeal(null), [])
   const closeToast = useCallback(() => setToast(null), [])
 
@@ -323,6 +333,7 @@ function TodayPage() {
             onSkipMeal={skipMeal}
             onWriteMeal={setWritingMeal}
             onFillMissed={fillMissed}
+            onSnooze={snoozeMeasure}
           />
         )}
       </div>
@@ -371,7 +382,20 @@ function TodayPage() {
       )}
 
       {sheetTarget && (
-        <GlucoseInputSheet target={sheetTarget} onClose={closeGlucoseSheet} onSaved={handleSaved} />
+        <GlucoseInputSheet
+          target={sheetTarget}
+          onClose={closeGlucoseSheet}
+          onSaved={handleSaved}
+          // 다시 알릴 끼니나 서버 알림이 있을 때만
+          onSnooze={
+            sheetTarget.mealId || reminderId
+              ? () => {
+                  snoozeMeasure(sheetTarget.mealId)
+                  closeGlucoseSheet()
+                }
+              : undefined
+          }
+        />
       )}
       {writingMeal && (
         <MealWriteFlow meal={writingMeal} onClose={closeMealSheet} onSaved={handleMealSaved} />

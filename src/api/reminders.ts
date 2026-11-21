@@ -4,3 +4,8 @@ import { apiClient } from '@/api/axios'
 export async function openReminder(id: string) {
   await apiClient.post(`/reminders/${id}/open`)
 }
+
+// 측정 알림 10분 뒤 다시. 서버가 10분 뒤 한 번 더 보냄
+export async function snoozeReminder(id: string) {
+  await apiClient.post(`/reminders/${id}/snooze`)
+}

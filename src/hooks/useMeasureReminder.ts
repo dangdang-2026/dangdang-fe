@@ -18,6 +18,15 @@ const LATE_LIMIT_MS = MINUTE
 // 같은 끼니 알림을 두 번 띄우지 않게. 예: m1:first, m1:remind
 const fired = new Set<string>()
 
+// 앱 안에서 누른 10분 뒤 다시. 화면이 바뀌어도 이 시각에 다시 알림
+let snoozed: { mealId: string; at: number } | null = null
+
+// 앱 안 10분 뒤 다시. 서버에 못 맡기면 이 기기에서 다시 알림
+export function snoozeOnDevice(mealId: string) {
+  snoozed = { mealId, at: Date.now() + REMIND_AFTER_MS }
+  window.dispatchEvent(new Event('measure-snooze'))
+}
+
 const canNotify = () => 'Notification' in window && Notification.permission === 'granted'
 
 // Figma E-05 측정 알림. 가리기면 수치·끼니 없이
@@ -60,7 +69,7 @@ export function useMeasureReminder() {
     if (!pending || !measure || paused) return
     const { meal, dueAt } = pending
     // 서버에 있는 식사이고 이 기기가 푸시를 받으면 서버가 알림·재알림을 보내 기기 알림은 안 띄움
-    if (!meal.pending && hasServerPush()) return
+    const serverPush = !meal.pending && hasServerPush()
     const timers: number[] = []
 
     const schedule = (key: string, at: number) => {
@@ -81,18 +90,25 @@ export function useMeasureReminder() {
       )
     }
 
-    schedule(`${meal.id}:first`, dueAt.getTime())
-    if (remind) schedule(`${meal.id}:remind`, dueAt.getTime() + REMIND_AFTER_MS)
-
-    // 알림의 10분 뒤 다시 버튼
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'measure-snooze') {
-        schedule(`${meal.id}:snooze`, Date.now() + REMIND_AFTER_MS)
-      }
+    // 10분 뒤 다시를 눌렀으면 그 시각에 한 번 더
+    const scheduleSnooze = () => {
+      if (snoozed?.mealId === meal.id) schedule(`${meal.id}:snooze:${snoozed.at}`, snoozed.at)
     }
-    navigator.serviceWorker?.addEventListener('message', handleMessage)
+    scheduleSnooze()
+    window.addEventListener('measure-snooze', scheduleSnooze)
+
+    // 기기 알림의 10분 뒤 다시 버튼. 서버 알림이면 서비스 워커가 서버에 미룸
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'measure-snooze') snoozeOnDevice(meal.id)
+    }
+    if (!serverPush) {
+      schedule(`${meal.id}:first`, dueAt.getTime())
+      if (remind) schedule(`${meal.id}:remind`, dueAt.getTime() + REMIND_AFTER_MS)
+      navigator.serviceWorker?.addEventListener('message', handleMessage)
+    }
     return () => {
       timers.forEach((timer) => window.clearTimeout(timer))
+      window.removeEventListener('measure-snooze', scheduleSnooze)
       navigator.serviceWorker?.removeEventListener('message', handleMessage)
     }
   }, [meals, records, postMealHours, measure, remind, hideOnLockScreen, paused])
