@@ -42,15 +42,17 @@ function ReportPage() {
   const now = useNow()
   const today = startOfDay(now)
   // ?hospital= 보여 줄 병원, ?custom=1 기간을 직접 골라 만든 리포트, ?visitId= 진료용 리포트의 진료 일정
+  // ?reportId= 지난 리포트를 다시 엶. 이미 서버에 있어 다시 전해도 새로 남기지 않음
   const custom = searchParams.get('custom') === '1'
+  const reopened = searchParams.has('reportId')
   // 진료용 리포트: 기간을 안 줬으면 지금 진료 일정, 다시 열면 그 리포트의 진료 일정
   const reportVisitId = custom
     ? null
     : (searchParams.get('visitId') ?? (searchParams.has('from') ? null : currentVisitId))
   // 진료용은 서버가 정한 기간(지난 진료일 ~ 진료 전날)으로 보여 줘야 저장 · 목록 숫자와 같음
-  const [visitPeriod, setVisitPeriod] = useState<{ visitId: string; from: Date; to: Date } | null>(
-    null,
-  )
+  const [visitPeriod, setVisitPeriod] = useState<
+    { visitId: string; from: Date; to: Date } | { visitId: string; failed: true } | null
+  >(null)
   useEffect(() => {
     if (!reportVisitId) return
     let canceled = false
@@ -59,12 +61,17 @@ function ReportPage() {
         if (!canceled) setVisitPeriod({ visitId: reportVisitId, ...period })
       })
       // 진료 날짜 미정 · 오프라인이면 아래 기본 기간으로, 저장은 기간 직접으로
-      .catch(() => {})
+      .catch(() => {
+        if (!canceled) setVisitPeriod({ visitId: reportVisitId, failed: true })
+      })
     return () => {
       canceled = true
     }
   }, [reportVisitId])
-  const servedPeriod = visitPeriod?.visitId === reportVisitId ? visitPeriod : null
+  const periodForVisit = visitPeriod?.visitId === reportVisitId ? visitPeriod : null
+  const servedPeriod = periodForVisit && 'from' in periodForVisit ? periodForVisit : null
+  // 기간을 받는 중이어도 진료용으로 남김(기간은 서버가 정함). 못 받았을 때만 기간 직접
+  const saveAsVisit = !!reportVisitId && !(periodForVisit && 'failed' in periodForVisit)
   // ?from=&to= 로 기간 지정(지난 리포트·기간 고르기). 없으면 최근 2주
   const to = servedPeriod?.to ?? parseDateKey(searchParams.get('to')) ?? today
   const from =
@@ -86,16 +93,18 @@ function ReportPage() {
   // 서버 없이 브라우저 인쇄로 A4 리포트를 만듦(인쇄 창에서 PDF로 저장 선택)
   // 리포트를 전하면 지난 리포트에 남김
   const keepReport = () => {
-    // 서버에 남김. 진료 기간을 받았으면 진료용, 아니면 지금 보이는 기간 그대로 기간 직접
+    if (reopened) return
+    // 서버에 남김. 진료 일정이 있으면 진료용, 아니면 지금 보이는 기간 그대로 기간 직접
     const careSiteId = Number(hospitals.find((item) => item.name === hospital.name)?.id)
-    const body: VisitReportSave = servedPeriod
-      ? { kind: 'VISIT', visitId: Number(servedPeriod.visitId) }
-      : {
-          kind: 'CUSTOM',
-          from: toDateKey(from),
-          to: toDateKey(to),
-          careSiteId: Number.isFinite(careSiteId) ? careSiteId : undefined,
-        }
+    const body: VisitReportSave =
+      saveAsVisit && reportVisitId
+        ? { kind: 'VISIT', visitId: Number(reportVisitId) }
+        : {
+            kind: 'CUSTOM',
+            from: toDateKey(from),
+            to: toDateKey(to),
+            careSiteId: Number.isFinite(careSiteId) ? careSiteId : undefined,
+          }
     // 남긴 뒤 지난 리포트 목록을 다시 받음. 못 남겨도 리포트 전하기는 그대로
     saveVisitReport(body)
       .then(() => syncReports())

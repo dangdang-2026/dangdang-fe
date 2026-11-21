@@ -18,7 +18,18 @@ export const useReportStore = create<ReportState>()(
   }),
 )
 
-// 서버 목록으로 맞춤. 다른 계정 리포트가 남지 않게 로그인 · 앱 열 때 · 목록 열 때
+// 부를 때마다 올림. 늦게 온 옛 응답이 새 목록을 덮지 않게
+let syncCount = 0
+
+// 서버 목록으로 맞춤. 로그인 · 앱 열 때 · 목록 열 때 · 리포트를 남긴 뒤
 export async function syncReports() {
-  useReportStore.setState({ reports: await getVisitReports() })
+  const mine = ++syncCount
+  const reports = await getVisitReports()
+  if (mine === syncCount) useReportStore.setState({ reports })
+}
+
+// 다른 계정 리포트가 보이지 않게 로그인할 때 먼저 비움
+export function clearReports() {
+  syncCount += 1
+  useReportStore.setState({ reports: [] })
 }

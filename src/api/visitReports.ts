@@ -68,9 +68,9 @@ export type SavedReport = {
   createdAt: string
 }
 
-// 한 번에 받는 수(서버 상한 100)와 최대 쪽 수
+// 한 번에 받는 수(서버 상한 100). 쪽 수는 서버 상한(page 0~10000)까지
 const PAGE_SIZE = 100
-const MAX_PAGES = 5
+const MAX_PAGES = 10001
 
 // 지난 리포트 전부. 최근 저장 순, 기간을 모르는(진료 날짜 미정) 리포트는 열 수 없어 뺌
 export async function getVisitReports() {

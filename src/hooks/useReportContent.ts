@@ -31,8 +31,9 @@ export function useReportContent({
   )
   const hospital = chosen
     ? { name: chosen.name, department: chosen.department ?? null, phone: chosen.phone ?? '' }
-    : hospitalName
-      ? { name: hospitalName, department: null, phone: '' }
+    : hospitalName !== undefined
+      ? // 지운 병원 리포트는 이름이 비어 옴
+        { name: hospitalName || '다니던 병원', department: null, phone: '' }
       : primary
   const records = useGlucoseStore((state) => state.records)
   const meals = useGlucoseStore((state) => state.meals)

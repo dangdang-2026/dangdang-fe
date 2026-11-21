@@ -12,7 +12,7 @@ import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncMealGuide } from '@/stores/useMealGuideStore'
 import { syncMealSettings } from '@/stores/useMealSettingsStore'
-import { syncReports } from '@/stores/useReportStore'
+import { clearReports, syncReports } from '@/stores/useReportStore'
 import { syncQuestions, syncVisitNote, syncVisits } from '@/stores/useVisitStore'
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
@@ -34,6 +34,8 @@ export function useFinishLogin() {
 
   return async (method: LoginMethod, email: string | null = null, profile?: AccountProfile) => {
     login({ method, email })
+    // 앞 계정의 지난 리포트가 남지 않게. 서버 목록을 못 받아도 비어 있음
+    clearReports()
     // 데모 계정은 설정을 마친 상태로 계정 정보를 넣고 바로 홈으로
     if (profile) {
       updateProfile({

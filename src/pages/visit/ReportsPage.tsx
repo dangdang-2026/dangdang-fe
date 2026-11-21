@@ -43,7 +43,7 @@ function ReportsPage() {
       ...reports.map((item) => item.hospital).filter(Boolean),
     ]),
   ]
-  // 서버가 최근 저장 순으로 줌
+  // 서버가 처음 저장한 순(최근 먼저)으로 줌. 같은 리포트를 다시 전해도 순서 · 만든 날은 그대로
   const shown = reports.filter((saved) => !hospitalFilter || saved.hospital === hospitalFilter)
 
   // 서버 목록으로 맞춤. 못 받으면 기기에 남은 목록 그대로
@@ -57,8 +57,10 @@ function ReportsPage() {
     to: Date,
     hospital: string,
     target: { custom: true } | { custom: false; visitId: string | null },
+    reportId?: string,
   ) => {
     const params = new URLSearchParams({ from: toDateKey(from), to: toDateKey(to), hospital })
+    if (reportId) params.set('reportId', reportId)
     if (target.custom) params.set('custom', '1')
     else if (target.visitId) params.set('visitId', target.visitId)
     navigate(`${ROUTES.VISIT_REPORT}?${params}`)
@@ -153,6 +155,7 @@ function ReportsPage() {
                           saved.custom
                             ? { custom: true }
                             : { custom: false, visitId: saved.visitId },
+                          saved.id,
                         )
                       }
                     >
