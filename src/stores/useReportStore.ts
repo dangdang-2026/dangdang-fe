@@ -8,7 +8,7 @@ export type SavedReport = {
   from: string
   to: string
   hospital: string
-  // 이 리포트로 본 진료 일시. 모르면 없음
+  // 이 리포트로 본 진료 일시. 기간을 직접 골라 만들었으면 없음
   visitAt?: string
   createdAt: string
 }

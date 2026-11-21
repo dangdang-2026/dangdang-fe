@@ -35,10 +35,13 @@ function ReportPage() {
   // ?from=&to= 로 기간 지정(지난 리포트·기간 고르기). 없으면 최근 2주
   const to = parseDateKey(searchParams.get('to')) ?? today
   const from = parseDateKey(searchParams.get('from')) ?? addDays(to, -(REPORT_DAYS - 1))
+  // ?hospital= 보여 줄 병원, ?custom=1 기간을 직접 골라 만든 리포트(진료일 없음)
+  const custom = searchParams.get('custom') === '1'
   const { report, title, periodLabel, criteriaLines, hospital } = useReportContent({
     from,
     to,
     hideName,
+    hospitalName: searchParams.get('hospital') ?? undefined,
   })
 
   // 인쇄 창이 닫히면 PDF 저장 안내
@@ -55,7 +58,7 @@ function ReportPage() {
       from: toDateKey(from),
       to: toDateKey(to),
       hospital: hospital.name,
-      visitAt: nextVisitAt ?? undefined,
+      visitAt: custom ? undefined : (nextVisitAt ?? undefined),
     })
   }
 
