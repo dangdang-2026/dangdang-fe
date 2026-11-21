@@ -6,7 +6,7 @@ import SubPageHeader from '@/components/common/SubPageHeader'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
-import { saveNextVisit } from '@/stores/useVisitStore'
+import { saveNextVisit, useVisitStore } from '@/stores/useVisitStore'
 import type { CriteriaPrefill, MeasureSlotKey } from '@/types/criteria'
 import type { NoteExtraction, NoteFinding, NoteFindingKey } from '@/types/visit'
 import { formatMeasureSlots, formatPostMealHours, formatTarget } from '@/utils/criteria'
@@ -105,10 +105,14 @@ function VisitNoteResultPage() {
   const handleApply = () => {
     const selected = findings.filter((item) => checked.includes(item.key))
     const prefill: CriteriaPrefill = {}
+    let visitChanged = false
     for (const { key, value } of selected) {
-      // 못 남기면 원래 날짜로 돌아가 진료 탭에서 다시 정함
-      if (key === 'nextVisit') saveNextVisit(String(value)).catch(() => {})
-      else if (key === 'measureSlots')
+      // 지금 진료일과 같으면 보내지 않음. 못 남기면 원래 날짜로 돌아가 진료 탭에서 다시 정함
+      if (key === 'nextVisit') {
+        if (String(value) === useVisitStore.getState().nextVisitAt) continue
+        visitChanged = true
+        saveNextVisit(String(value)).catch(() => {})
+      } else if (key === 'measureSlots')
         prefill.measureSlots = String(value).split(',') as MeasureSlotKey[]
       else prefill[key] = Number(value)
     }
@@ -116,7 +120,8 @@ function VisitNoteResultPage() {
     if (Object.keys(prefill).length > 0) {
       navigate(ROUTES.VISIT_CRITERIA, { replace: true, state: { prefill } })
     } else {
-      navigate(ROUTES.VISIT, { replace: true, state: { toast: '다음 진료일을 바꿨어요' } })
+      const toast = visitChanged ? '다음 진료일을 바꿨어요' : '다음 진료일은 그대로예요'
+      navigate(ROUTES.VISIT, { replace: true, state: { toast } })
     }
   }
 
@@ -131,7 +136,7 @@ function VisitNoteResultPage() {
         <p className="text-grey-600 text-sm leading-relaxed">
           {findings.length > 0
             ? '맞는 것만 체크해 주세요. 체크한 것만 바꿔요.'
-            : '측정 시점·목표 수치·다음 진료일이 없어요. 직접 적어 주세요.'}
+            : '잴 때·측정 시점·목표 수치·다음 진료일이 없어요. 직접 적어 주세요.'}
         </p>
       </div>
 

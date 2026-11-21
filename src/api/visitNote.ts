@@ -10,6 +10,14 @@ const DEFAULT_VISIT_HOUR = 9
 const UNCHANGED = '바뀌지 않은 것 같아요'
 const UNCLEAR = '메모만으로는 분명하지 않아요'
 const PAST_DATE = '지난 날짜예요'
+const OUT_OF_RANGE = '앱에서 고를 수 없는 시간이에요'
+const UNKNOWN_SLOT = '알 수 없는 잴 때가 섞여 있어요'
+// AI 정리는 오래 걸릴 수 있어 기본(10초)보다 길게
+const ORGANIZE_TIMEOUT_MS = 30000
+// 식후 측정 시간은 30분~3시간, 10분 단위만(식후 측정 시간 시트와 같음)
+const POST_MEAL_MIN = 30
+const POST_MEAL_MAX = 180
+const POST_MEAL_STEP = 10
 
 // 백엔드 MeasureSlot → 화면 잴 때
 const SLOT_FROM_SERVER: Record<string, MeasureSlotKey> = {
@@ -78,7 +86,8 @@ function toNextVisit(date: string, nextVisitAt: string | null, now: Date): Conve
   const sameDay = !!current && isSameDay(current, day)
   const at = sameDay ? current : new Date(day.setHours(DEFAULT_VISIT_HOUR))
   return {
-    value: at.toISOString(),
+    // 같은 날이면 서버에 저장된 값 그대로. 다시 만들면 글자가 달라져 새 진료로 잘못 볼 수 있음
+    value: sameDay && nextVisitAt ? nextVisitAt : at.toISOString(),
     text: `${at.getMonth() + 1}월 ${at.getDate()}일 (${WEEKDAYS[at.getDay()]})`,
     unchanged: sameDay,
     problem: startOfDay(at) < startOfDay(now) ? PAST_DATE : undefined,
@@ -92,7 +101,13 @@ function toSlots(values: string[], current: MeasureSlotKey[]): Converted | null 
   )
   if (slots.length === 0) return null
   const same = slots.length === current.length && slots.every((key) => current.includes(key))
-  return { value: slots.join(','), text: formatMeasureSlots(slots), unchanged: same }
+  const unknown = values.some((value) => !SLOT_FROM_SERVER[value])
+  return {
+    value: slots.join(','),
+    text: formatMeasureSlots(slots),
+    unchanged: same,
+    problem: unknown ? UNKNOWN_SLOT : undefined,
+  }
 }
 
 // 저장된 진료 메모를 서버 AI로 정리. 잴 때 · 측정 시점 · 목표 · 다음 진료일만, 약은 정리하지 않음
@@ -105,6 +120,8 @@ export async function organizeVisitNote(
 ): Promise<NoteExtraction> {
   const { data } = await apiClient.post<BaseResponse<OrganizeResponse>>(
     `/visits/${visitId}/notes/${noteId}/organize`,
+    undefined,
+    { timeout: ORGANIZE_TIMEOUT_MS },
   )
   const extract = data.data?.aiExtract
   if (!extract) throw new Error('진료 메모 정리 응답이 비어 있음')
@@ -116,7 +133,13 @@ export async function organizeVisitNote(
     toFinding('postMealHours', extract.postMealMinutes, (minutes) => ({
       value: minutes / 60,
       text: `식후 ${formatDuration(minutes / 60)}`,
-      unchanged: minutes / 60 === current.postMealHours,
+      // 저장된 값이 소수로 반올림돼 있을 수 있어 분 단위로 비교
+      unchanged:
+        current.postMealHours !== null && minutes === Math.round(current.postMealHours * 60),
+      problem:
+        minutes < POST_MEAL_MIN || minutes > POST_MEAL_MAX || minutes % POST_MEAL_STEP !== 0
+          ? OUT_OF_RANGE
+          : undefined,
     })),
     toFinding('postMeal', extract.postMealTarget, (target) => ({
       value: target,

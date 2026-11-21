@@ -23,7 +23,7 @@ const ORGANIZE_ERROR: Record<string, string> = {
 }
 const ORGANIZE_FAILED = '메모를 정리하지 못했어요. 잠시 후 다시 시도해 주세요'
 
-// Figma C-11 진료 후 메모 쓰기. AI는 3가지만 찾고 고르는 건 사용자
+// Figma C-11 진료 후 메모 쓰기. AI는 잴 때 · 측정 시점 · 목표 · 다음 진료일만 찾고 고르는 건 사용자
 function VisitNotePage() {
   const navigate = useNavigate()
   const back = useGoBack(ROUTES.VISIT)
@@ -76,7 +76,8 @@ function VisitNotePage() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-13 pb-[max(--spacing(7.5),env(safe-area-inset-bottom))]">
-      <SubPageHeader title="진료 후 메모" onBack={goBack} />
+      {/* 정리하는 동안 떠나면 끝난 뒤 결과 화면으로 끌려와서 막음 */}
+      <SubPageHeader title="진료 후 메모" onBack={() => !loading && goBack()} />
 
       <div className="mt-3 flex flex-col gap-1.5">
         <h2 className="text-t3 text-grey-900">진료에서 들은 말을 적어 주세요</h2>
@@ -101,14 +102,15 @@ function VisitNotePage() {
 
       <p className="bg-grey-50 text-t7 text-grey-700 mt-5 mb-8 flex items-start gap-2 rounded-xl px-3.5 py-3 leading-relaxed">
         <img src={iconSparkle} alt="" width={18} height={18} className="shrink-0" />
-        AI를 켜 두면 측정 시점·목표 수치·다음 진료일 3가지만 찾아서 보여 드려요. 인슐린 이름·용량은
+        AI를 켜 두면 잴 때·측정 시점·목표 수치·다음 진료일만 찾아서 보여 드려요. 인슐린 이름·용량은
         정리하지 않아요.
       </p>
 
       <div className="mt-auto flex gap-2">
         <button
           type="button"
-          className="bg-grey-100 text-grey-800 rounded-key px-4.5 py-4 text-base leading-snug font-bold"
+          disabled={loading}
+          className="bg-grey-100 text-grey-800 disabled:text-grey-400 rounded-key px-4.5 py-4 text-base leading-snug font-bold"
           onClick={() => {
             keepNote()
             navigate(ROUTES.VISIT_CRITERIA)
