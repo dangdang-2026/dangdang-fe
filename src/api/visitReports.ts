@@ -26,7 +26,13 @@ export async function getVisitReportPeriod(visitId: string) {
   const from = parseDateKey(data.data?.from ?? null)
   const to = parseDateKey(data.data?.to ?? null)
   if (!from || !to) throw new Error('진료 리포트 기간이 비어 있음')
-  return { from, to, careSiteName: data.data?.careSite?.name ?? null }
+  const careSite = data.data?.careSite ?? null
+  return {
+    from,
+    to,
+    careSiteName: careSite?.name ?? null,
+    careSiteId: careSite ? String(careSite.careSiteId) : null,
+  }
 }
 
 // 리포트 저장. 같은 리포트가 이미 있으면 서버가 새로 만들지 않고 그 id를 줌

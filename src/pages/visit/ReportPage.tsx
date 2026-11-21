@@ -12,6 +12,7 @@ import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
 import { useReportContent } from '@/hooks/useReportContent'
+import { getErrorCode } from '@/api/axios'
 import { getVisitReportPeriod, type VisitReportSave } from '@/api/visitReports'
 import { useHospitalStore } from '@/stores/useHospitalStore'
 import { keepVisitReport } from '@/stores/useReportStore'
@@ -36,6 +37,7 @@ function ReportPage() {
   const [savingPhoto, setSavingPhoto] = useState(false)
 
   const currentVisitId = useVisitStore((state) => state.visitId)
+  const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
   const hospitals = useHospitalStore((state) => state.hospitals)
   const [searchParams] = useSearchParams()
 
@@ -45,14 +47,26 @@ function ReportPage() {
   // ?reportId= 지난 리포트를 다시 엶. 이미 서버에 있어 다시 전해도 새로 남기지 않음
   const custom = searchParams.get('custom') === '1'
   const reopened = searchParams.has('reportId')
-  // 진료용 리포트: 기간을 안 줬으면 지금 진료 일정, 다시 열면 그 리포트의 진료 일정
+  // 지금 진료 일정이 오늘 이후일 때만 이번 진료용. 지난 진료면 최근 2주 기간 직접으로
+  const upcoming = !!nextVisitAt && startOfDay(new Date(nextVisitAt)) >= today
+  // 진료용 리포트: 다시 열면 그 리포트의 진료 일정, 기간을 안 줬으면 다가오는 진료 일정
   const reportVisitId = custom
     ? null
-    : (searchParams.get('visitId') ?? (searchParams.has('from') ? null : currentVisitId))
+    : (searchParams.get('visitId') ??
+      (searchParams.has('from') || !upcoming ? null : currentVisitId))
   // 진료용은 서버가 정한 기간(지난 진료일 ~ 진료 전날)으로 보여 줘야 저장 · 목록 숫자와 같음
+  // 기간을 못 받으면 몇 번째 시도에서 실패했는지 남겨 다시 받을 때 구분
+  const [periodTry, setPeriodTry] = useState(0)
   const [visitPeriod, setVisitPeriod] = useState<
-    | { visitId: string; from: Date; to: Date; careSiteName: string | null }
-    | { visitId: string; failed: true }
+    | {
+        visitId: string
+        from: Date
+        to: Date
+        careSiteName: string | null
+        careSiteId: string | null
+      }
+    | { visitId: string; undecided: true }
+    | { visitId: string; failedTry: number }
     | null
   >(null)
   useEffect(() => {
@@ -62,30 +76,47 @@ function ReportPage() {
       .then((period) => {
         if (!canceled) setVisitPeriod({ visitId: reportVisitId, ...period })
       })
-      // 진료 날짜 미정 · 오프라인이면 아래 기본 기간으로, 저장은 기간 직접으로
-      .catch(() => {
-        if (!canceled) setVisitPeriod({ visitId: reportVisitId, failed: true })
+      .catch((error: unknown) => {
+        if (canceled) return
+        // 진료 날짜 미정이면 아래 기본 기간으로, 저장은 기간 직접으로. 그 밖(오프라인 등)은 전하기를 막고 다시 받음
+        setVisitPeriod(
+          getErrorCode(error) === 'VISIT_40003'
+            ? { visitId: reportVisitId, undecided: true }
+            : { visitId: reportVisitId, failedTry: periodTry },
+        )
       })
     return () => {
       canceled = true
     }
-  }, [reportVisitId])
+  }, [reportVisitId, periodTry])
   const periodForVisit = visitPeriod?.visitId === reportVisitId ? visitPeriod : null
   const servedPeriod = periodForVisit && 'from' in periodForVisit ? periodForVisit : null
-  // 기간을 받는 동안은 화면 기간과 서버 기간이 달라 전하기를 잠시 막음
-  const periodPending = !!reportVisitId && !periodForVisit
+  const periodFailed =
+    !!periodForVisit && 'failedTry' in periodForVisit && periodForVisit.failedTry === periodTry
+  // 기간을 받는 동안 · 못 받았을 때는 화면 기간과 서버 기간이 다를 수 있어 전하기를 막음
+  const periodPending =
+    !!reportVisitId && (!periodForVisit || ('failedTry' in periodForVisit && !periodFailed))
   // ?from=&to= 로 기간 지정(지난 리포트·기간 고르기). 없으면 최근 2주
   const to = servedPeriod?.to ?? parseDateKey(searchParams.get('to')) ?? today
   const from =
     servedPeriod?.from ?? parseDateKey(searchParams.get('from')) ?? addDays(to, -(REPORT_DAYS - 1))
-  const { report, title, periodLabel, criteriaLines, hospital } = useReportContent({
+  // 병원 번호: 진료용은 그 진료 일정 병원, 고른 병원(?careSiteId=), 안 골랐으면 대표 병원
+  const hospitalParam = searchParams.get('hospital')
+  const hospitalId = servedPeriod
+    ? servedPeriod.careSiteId
+    : (searchParams.get('careSiteId') ??
+      (hospitalParam === null
+        ? (hospitals[0]?.id ?? null)
+        : (hospitals.find((item) => item.name === hospitalParam)?.id ?? null)))
+  const { report, title, periodLabel, criteriaLines } = useReportContent({
     from,
     to,
     hideName,
-    // 진료용은 그 진료 일정의 병원으로(지운 병원이면 빈 이름)
+    hospitalId,
+    // 진료용은 그 진료 일정의 병원으로(병원이 없으면 대표 병원)
     hospitalName: servedPeriod
-      ? (servedPeriod.careSiteName ?? '')
-      : (searchParams.get('hospital') ?? undefined),
+      ? (servedPeriod.careSiteName ?? undefined)
+      : (hospitalParam ?? undefined),
   })
 
   // 인쇄 창이 닫히면 PDF 저장 안내
@@ -99,11 +130,8 @@ function ReportPage() {
   // 리포트를 전하면 지난 리포트에 남김
   const keepReport = () => {
     if (reopened) return
-    // 병원은 고른 병원 번호(?careSiteId=), 없으면 이름으로 찾음
-    const careSiteId = Number(
-      searchParams.get('careSiteId') ?? hospitals.find((item) => item.name === hospital.name)?.id,
-    )
-    // 진료 기간을 받았으면 진료용, 못 받았거나 기간을 골랐으면 보이는 기간 그대로 기간 직접
+    const careSiteId = Number(hospitalId)
+    // 진료 기간을 받았으면 진료용, 날짜 미정이거나 기간을 골랐으면 보이는 기간 그대로 기간 직접
     const body: VisitReportSave =
       servedPeriod && reportVisitId
         ? { kind: 'VISIT', visitId: Number(reportVisitId) }
@@ -111,14 +139,19 @@ function ReportPage() {
             kind: 'CUSTOM',
             from: toDateKey(from),
             to: toDateKey(to),
-            careSiteId: Number.isFinite(careSiteId) ? careSiteId : undefined,
+            careSiteId: hospitalId && Number.isFinite(careSiteId) ? careSiteId : undefined,
           }
     // 못 남기면 기기에 두고 다음에 다시 보냄. 리포트 전하기는 그대로
     keepVisitReport(body)
   }
 
-  // 기간을 받는 중이면 잠깐 기다리게. 화면과 다른 기간이 남지 않게
+  // 기간을 받는 중이면 잠깐 기다리게, 못 받았으면 다시 받음. 화면과 다른 기간이 남지 않게
   const waitPeriod = () => {
+    if (periodFailed) {
+      setPeriodTry((count) => count + 1)
+      setToast('진료 기간을 불러오지 못했어요. 다시 불러올게요')
+      return true
+    }
     if (periodPending) setToast('진료 기간을 불러오는 중이에요. 잠시 후 다시 해 주세요')
     return periodPending
   }
