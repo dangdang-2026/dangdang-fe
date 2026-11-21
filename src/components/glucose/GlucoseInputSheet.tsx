@@ -5,6 +5,7 @@ import iconInfo from '@/assets/icons/info.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import ContactCriteriaCard from '@/components/glucose/ContactCriteriaCard'
 import GlucoseKeypad from '@/components/glucose/GlucoseKeypad'
+import MeasuredTimePicker from '@/components/glucose/MeasuredTimePicker'
 import TargetChip from '@/components/glucose/TargetChip'
 import ContactMemoSheet from '@/components/my/ContactMemoSheet'
 import { GLUCOSE_LOW, GLUCOSE_MAX_DIGITS, ON_TIME_MS } from '@/constants/glucose'
@@ -37,7 +38,13 @@ function getMeasuredLabel(measuredAt: Date, dueAt?: string) {
 
 // Figma G-01~G-08 혈당 입력 바텀시트
 function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInputSheetProps) {
-  const [measuredAt] = useState(() => backfillAt ?? new Date())
+  // 시트를 연 시각. 늦게 잼이면 잰 시각을 이 앞으로 고름
+  const [openedAt] = useState(() => backfillAt ?? new Date())
+  const [measuredAt, setMeasuredAt] = useState(openedAt)
+  const late =
+    !backfillAt &&
+    !!target.dueAt &&
+    openedAt.getTime() - new Date(target.dueAt).getTime() > ON_TIME_MS
   const [digits, setDigits] = useState('')
   const [triedSave, setTriedSave] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -133,6 +140,8 @@ function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInpu
         onDigit={handleDigit}
         onDelete={() => setDigits((prev) => prev.slice(0, -1))}
       />
+
+      {late && <MeasuredTimePicker now={openedAt} value={measuredAt} onChange={setMeasuredAt} />}
 
       {showResult && (comparison === 'high' || (isLow && goal !== null)) && (
         <p className="text-grey-500 flex items-center justify-center gap-1.5 text-xs leading-normal">
