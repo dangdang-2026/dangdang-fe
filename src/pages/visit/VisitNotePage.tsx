@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { extractVisitNote } from '@/api/visitNote'
+import { getErrorCode } from '@/api/axios'
+import { organizeVisitNote } from '@/api/visitNote'
 import iconSparkle from '@/assets/icons/sparkle.svg'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import SubPageHeader from '@/components/common/SubPageHeader'
@@ -12,6 +13,15 @@ import { saveChatConsent, useAiStore } from '@/stores/useAiStore'
 import { saveVisitNote, useVisitStore } from '@/stores/useVisitStore'
 
 const NOTE_MAX = 500
+
+// 서버 정리 실패 이유별 안내. 국외 이전 동의 없음(AI_40301)은 동의 창으로
+const ORGANIZE_ERROR: Record<string, string> = {
+  AI_42901: '오늘은 정리를 다 썼어요. 내일 다시 해 주세요',
+  VISIT_40002: '메모가 너무 길어요. 조금 줄여 주세요',
+  VISIT_40901: '정리하는 동안 메모가 바뀌었어요. 다시 정리해 주세요',
+  VISIT_50201: '정리하지 못했어요. 다시 해 볼까요?',
+}
+const ORGANIZE_FAILED = '메모를 정리하지 못했어요. 잠시 후 다시 시도해 주세요'
 
 // Figma C-11 진료 후 메모 쓰기. AI는 3가지만 찾고 고르는 건 사용자
 function VisitNotePage() {
@@ -34,12 +44,22 @@ function VisitNotePage() {
     back()
   }
 
+  // 메모를 서버에 먼저 남기고(정리 API는 저장된 메모를 정리함) AI 정리 요청
   const organize = async () => {
-    keepNote()
     setLoading(true)
-    const result = await extractVisitNote(note.trim(), criteria)
-    setLoading(false)
-    navigate(ROUTES.VISIT_NOTE_RESULT, { state: { result } })
+    try {
+      await saveVisitNote()
+      const { noteVisitId, noteId } = useVisitStore.getState()
+      if (!noteVisitId || !noteId) throw new Error('저장된 진료 메모가 없음')
+      const result = await organizeVisitNote(noteVisitId, noteId, criteria)
+      navigate(ROUTES.VISIT_NOTE_RESULT, { state: { result } })
+    } catch (error) {
+      const code = getErrorCode(error)
+      if (code === 'AI_40301') setConsentOpen(true)
+      else setToast((code && ORGANIZE_ERROR[code]) || ORGANIZE_FAILED)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleOrganize = () => {

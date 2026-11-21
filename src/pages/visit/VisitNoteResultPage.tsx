@@ -58,7 +58,8 @@ function FindingItem({ finding, from, checked, onToggle }: FindingItemProps) {
           {value}
         </span>
         <span className="text-t7 text-grey-600">
-          “{finding.quote}”{finding.needsCheck && ` — ${finding.needsCheck}`}
+          {finding.quote ? `“${finding.quote}”` : ''}
+          {finding.needsCheck && `${finding.quote ? ' — ' : ''}${finding.needsCheck}`}
         </span>
       </span>
     </button>
@@ -79,7 +80,7 @@ function VisitNoteResultPage() {
 
   // 정리 결과 없이 바로 열면 메모 쓰기로
   if (!result) return <Navigate to={ROUTES.VISIT_NOTE} replace />
-  const { findings, insulinQuote } = result
+  const { findings, insulinSkipped } = result
 
   const getFrom = (key: NoteFindingKey) => {
     if (key === 'postMealHours') return formatPostMealHours(criteria.postMealHours)
@@ -136,11 +137,10 @@ function VisitNoteResultPage() {
           />
         ))}
 
-        {insulinQuote && (
+        {insulinSkipped && (
           <p className="bg-grey-50 text-t7 text-grey-700 flex items-start gap-2 rounded-xl px-3.5 py-3 leading-relaxed">
             <img src={iconEye} alt="" width={18} height={18} className="shrink-0" />
-            인슐린 이야기(“{insulinQuote}”)는 정리하지 않았어요. 바꿀 게 있으면 인슐린 기록에서 직접
-            적어 주세요.
+            인슐린 · 약 이야기는 정리하지 않았어요. 약은 인슐린 기록에서 직접 적어 주세요.
           </p>
         )}
       </div>

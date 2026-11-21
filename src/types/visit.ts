@@ -16,7 +16,7 @@ export type NoteFinding = {
   value: number | string
   // 바뀌는 값 표시. 예: 식후 2시간 / 120 미만 / 11월 4일 (화) 오전
   text: string
-  // 메모에서 근거가 된 문장
+  // 메모에서 근거가 된 문장. 서버가 못 찾았으면 빈 글
   quote: string
   // 애매하면 이유를 적고 체크 안 한 채로 보여 줌
   needsCheck: string | null
@@ -24,6 +24,6 @@ export type NoteFinding = {
 
 export type NoteExtraction = {
   findings: NoteFinding[]
-  // 인슐린 이야기는 정리하지 않고 문장만 알려 줌
-  insulinQuote: string | null
+  // 인슐린 · 약 문장은 정리하지 않고 걸러 냈는지만 알려 줌
+  insulinSkipped: boolean
 }
