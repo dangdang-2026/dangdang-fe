@@ -16,7 +16,10 @@ import { useReportStore } from '@/stores/useReportStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import { addDays, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 import { formatReportText } from '@/utils/report'
-import { saveReportImage } from '@/utils/reportImage'
+import { createReportImage, saveReportImage } from '@/utils/reportImage'
+
+// 화면이 그려진 뒤 사진을 미리 만들기까지 기다리는 시간
+const PHOTO_DELAY_MS = 500
 
 // Figma C-06 진료 리포트. 최근 2주 기록을 A4 1쪽으로
 function ReportPage() {
@@ -78,6 +81,33 @@ function ReportPage() {
     window.setTimeout(() => window.print(), 0)
   }
 
+  // 누르는 순간 공유 창을 띄워야 해서 리포트 사진을 미리 만들어 둠. 내용이 바뀌면 다시
+  const photo = useRef<{ key: string; blob: Blob } | null>(null)
+  const photoKey = [
+    hideName,
+    title,
+    periodLabel,
+    report.measured,
+    report.blanks,
+    questions.length,
+  ].join('|')
+  useEffect(() => {
+    let canceled = false
+    const timer = window.setTimeout(() => {
+      const node = receiptRef.current
+      if (!node) return
+      createReportImage(node)
+        .then((blob) => {
+          if (!canceled) photo.current = { key: photoKey, blob }
+        })
+        .catch(() => {})
+    }, PHOTO_DELAY_MS)
+    return () => {
+      canceled = true
+      window.clearTimeout(timer)
+    }
+  }, [photoKey])
+
   // 사진으로 저장: 휴대폰은 공유 창에서 이미지 저장, 컴퓨터는 파일 내려받기
   const savePhoto = async () => {
     setShareOpen(false)
@@ -85,15 +115,19 @@ function ReportPage() {
     if (!node || savingPhoto) return
     setSavingPhoto(true)
     try {
+      // 미리 만든 게 없거나 낡았으면 지금 만듦(이때는 아이폰이 공유 창을 막으면 내려받기로)
+      const blob =
+        photo.current?.key === photoKey ? photo.current.blob : await createReportImage(node)
       const result = await saveReportImage(
-        node,
+        blob,
         `당당-혈당기록-${toDateKey(from)}-${toDateKey(to)}.png`,
       )
       if (result === 'canceled') return
       keepReport()
+      // 공유 창에서는 저장 대신 다른 앱으로 보낼 수도 있어 둘 다 맞는 말로
       setToast(
         result === 'shared'
-          ? '사진으로 저장했어요 · 사진첩에서 볼 수 있어요'
+          ? '사진을 저장하거나 보냈어요'
           : '사진으로 저장했어요 · 다운로드 폴더에서 볼 수 있어요',
       )
     } catch {
@@ -159,7 +193,10 @@ function ReportPage() {
         </div>
 
         <div className="fixed bottom-[max(--spacing(10),env(safe-area-inset-bottom))] left-1/2 w-full max-w-107.5 -translate-x-1/2 px-5">
-          <SlideToSave label="밀어서 사진으로 저장" onComplete={() => void savePhoto()} />
+          <SlideToSave
+            label={savingPhoto ? '사진 만드는 중이에요' : '밀어서 사진으로 저장'}
+            onComplete={() => void savePhoto()}
+          />
         </div>
 
         {shareOpen && (

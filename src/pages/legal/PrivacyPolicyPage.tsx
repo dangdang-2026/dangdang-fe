@@ -39,7 +39,7 @@ function PrivacyPolicyPage() {
     {
       icon: iconTransfer,
       title: '국외 이전',
-      body: 'AI 기능을 켰을 때만',
+      body: 'AI 기능 · 메일 · 웹 전달',
       to: ROUTES.LEGAL_TRANSFER,
     },
     { icon: iconOfficer, title: '보호책임자', body: '임다현 · ddangdang2026@gmail.com' },
@@ -87,7 +87,7 @@ function PrivacyPolicyPage() {
             {
               label: '선택',
               value:
-                '식사 사진(음식을 찾는 데만 쓰고 저장하지 않음), 내 음식, 내 식사 안내, 커뮤니티 글·댓글',
+                '식사 사진(음식을 찾는 데만 쓰고 저장하지 않음), 내 음식, 내 식사 안내, 커뮤니티 글·댓글·투표',
             },
             {
               label: '자동 수집',
@@ -175,6 +175,11 @@ function PrivacyPolicyPage() {
             },
           ]}
           note="메일 발송(Google)과 웹 화면 전달(Vercel)도 미국 서버를 거쳐요."
+          // 이전 목적 · 거부 방법과 효과는 국외 이전 고지 화면에
+          link={{
+            label: '국외 이전 고지 자세히 보기',
+            onClick: () => navigate(ROUTES.LEGAL_TRANSFER),
+          }}
         />
       ),
     },
