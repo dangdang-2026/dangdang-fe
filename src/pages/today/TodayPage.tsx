@@ -52,6 +52,7 @@ import {
   getNextMealType,
   getSlotLabel,
   isDayEnd,
+  measuresAfter,
   type HeroState,
 } from '@/utils/glucose'
 import { formatMealSavedMessage } from '@/utils/meal'
@@ -60,6 +61,7 @@ import { formatMealSavedMessage } from '@/utils/meal'
 const HEADER_TITLE: Partial<Record<HeroState['kind'], string>> = {
   eating: '식사 시작했어요',
   'eating-open': '식사 시작했어요',
+  'eating-free': '식사 시작했어요',
   'measure-time': '지금 재 주세요',
   overdue: '측정이 조금 늦었어요',
   'day-end': '오늘 하루 수고했어요',
@@ -177,7 +179,7 @@ function TodayPage() {
     }
     const saved = await saving
     // 병원 기준에 없는 끼니는 식후 알림 없음
-    const hours = criteria.measureSlots.includes(mealType) ? criteria.postMealHours : null
+    const hours = measuresAfter(mealType, criteria.measureSlots) ? criteria.postMealHours : null
     setToast(
       !saved
         ? '식사 시작을 적었어요 · 연결이 안 돼 알림 예약은 못 했어요'
@@ -446,11 +448,11 @@ function TodayPage() {
               navigate(ROUTES.POSTPARTUM_DELIVERY)
               return
             }
-            // 입원은 서버가 알림만 멈추고 홈에서 바로 보여 줌
+            // 입원은 서버가 알림만 멈추고 홈에서 바로 보여 줌. 두 번 보내지 않게 시트 먼저 닫음
+            setBirthSheet(false)
             saveHospitalized(true)
               .then(() => setToast('측정 알림을 멈췄어요'))
               .catch(() => setToast('입원 상태를 저장하지 못했어요. 잠시 후 다시 시도해 주세요'))
-              .finally(() => setBirthSheet(false))
           }}
           onClose={() => setBirthSheet(false)}
         />

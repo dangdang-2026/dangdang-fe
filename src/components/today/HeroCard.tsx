@@ -60,7 +60,16 @@ function HeroCard({
         />
       )
     case 'eating-open':
-      return <EatingOpenHero meal={state.meal} onWriteMeal={() => onWriteMeal(state.meal)} />
+    case 'eating-free':
+      return (
+        <EatingOpenHero
+          meal={state.meal}
+          free={state.kind === 'eating-free'}
+          postMealHours={postMealHours}
+          onInputGlucose={onInputGlucose}
+          onWriteMeal={() => onWriteMeal(state.meal)}
+        />
+      )
     case 'measure-time':
       return (
         <MeasureTimeHero
