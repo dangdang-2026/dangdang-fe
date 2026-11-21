@@ -50,7 +50,7 @@ function IntroPage() {
         <button
           type="button"
           className="bg-kakao text-kakao-label text-subtitle-1 flex h-14 items-center justify-center gap-1 rounded-xl leading-none"
-          onClick={startKakaoLogin}
+          onClick={() => startKakaoLogin()}
         >
           <img src={iconKakao} alt="" width={20} height={20} />
           카카오로 로그인

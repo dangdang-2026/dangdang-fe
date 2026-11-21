@@ -41,3 +41,6 @@ export function isNewPasswordValid(password: string, confirm: string) {
   const checks = checkPassword(password)
   return checks.length && checks.mix && !checks.space && confirm === password
 }
+
+// 카카오 로그인이 이메일 계정과 겹쳐 로그인 화면이 K-07 시트를 띄우는 error 값
+export const EMAIL_ACCOUNT_EXISTS = 'email_account_exists'

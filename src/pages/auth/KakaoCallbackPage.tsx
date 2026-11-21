@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router'
 import { consumeKakaoState, loginWithKakao } from '@/api/auth'
 import { ROUTES } from '@/constants/routes'
 import { useFinishLogin } from '@/hooks/useFinishLogin'
+import { EMAIL_ACCOUNT_EXISTS } from '@/utils/auth'
 
 // 카카오 인가 후 돌아오는 주소. 코드를 서버에 넘기고 이메일 로그인과 같은 흐름으로
 function KakaoCallbackPage() {
@@ -16,7 +17,7 @@ function KakaoCallbackPage() {
     if (started.current) return
     started.current = true
 
-    // 실패는 로그인 화면 error로 넘겨 토스트로 알림. access_denied면 취소 토스트
+    // 실패는 로그인 화면 error로 넘겨 알림. access_denied면 취소 토스트, 이메일 계정과 겹치면 K-07 시트
     const fail = (error: string) =>
       navigate(`${ROUTES.LOGIN}?${new URLSearchParams({ error })}`, { replace: true })
 
@@ -27,7 +28,7 @@ function KakaoCallbackPage() {
     if (!code || !stateOk) return void fail('invalid_request')
 
     loginWithKakao(code)
-      .then(() => finish('kakao'))
+      .then((result) => (result === 'ok' ? finish('kakao') : fail(EMAIL_ACCOUNT_EXISTS)))
       .catch(() => fail('server_error'))
   }, [searchParams, navigate, finish])
 
