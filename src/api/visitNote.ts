@@ -1,13 +1,24 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
-import type { Criteria } from '@/types/criteria'
+import type { Criteria, MeasureSlotKey } from '@/types/criteria'
 import type { NoteExtraction, NoteFinding } from '@/types/visit'
-import { formatDuration } from '@/utils/criteria'
+import { formatDuration, formatMeasureSlots, MEASURE_SLOT_ORDER } from '@/utils/criteria'
+import { isSameDay, startOfDay } from '@/utils/date'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
-// 메모엔 날짜만 있어서 진료 시각은 오전 9시로 두고 진료 탭에서 고침
+// 메모엔 날짜만 있어서 새 진료 시각은 오전 9시로 두고 진료 탭에서 고침
 const DEFAULT_VISIT_HOUR = 9
 const UNCHANGED = '바뀌지 않은 것 같아요'
 const UNCLEAR = '메모만으로는 분명하지 않아요'
+const PAST_DATE = '지난 날짜예요'
+
+// 백엔드 MeasureSlot → 화면 잴 때
+const SLOT_FROM_SERVER: Record<string, MeasureSlotKey> = {
+  FASTING: 'fasting',
+  BREAKFAST_AFTER: 'breakfast',
+  LUNCH_AFTER: 'lunch',
+  DINNER_AFTER: 'dinner',
+  BEDTIME: 'bedtime',
+}
 
 // 백엔드 VisitNoteExtract.Field. FOUND는 체크된 채로, CHECK_NEEDED는 확인 필요로
 type ServerField<T> = {
@@ -33,35 +44,64 @@ type ServerExtract = {
 // 백엔드 VisitNoteOrganizeResponse
 type OrganizeResponse = { noteId: number; aiExtract: ServerExtract }
 
-// 서버 칸 하나 → 결과 화면 한 줄. 확인 필요거나 지금 값과 같으면 체크 안 한 채로
+// 화면에 보일 값. unchanged면 지금과 같음, problem이면 체크 안 한 채로 그 이유를 보여 줌
+type Converted = { value: number | string; text: string; unchanged?: boolean; problem?: string }
+
+// 서버 칸 하나 → 결과 화면 한 줄. 값을 못 읽으면 그 칸만 뺌
 function toFinding<T>(
   key: NoteFinding['key'],
   field: ServerField<T>,
-  toValue: (value: T) => { value: number | string; text: string },
-  current?: number | null,
+  convert: (value: T) => Converted | null,
 ): NoteFinding | null {
   if (!field || field.value === null) return null
-  const { value, text } = toValue(field.value)
-  const needsCheck =
-    field.status !== 'FOUND'
-      ? UNCLEAR
-      : current !== undefined && value === current
-        ? UNCHANGED
-        : null
+  const converted = convert(field.value)
+  if (!converted) return null
+  const { value, text, unchanged, problem } = converted
+  const needsCheck = problem ?? (field.status !== 'FOUND' ? UNCLEAR : unchanged ? UNCHANGED : null)
   return { key, value, text, quote: field.evidence ?? '', needsCheck }
 }
 
-// 'yyyy-MM-dd' → 그날 오전 9시(기기 시간)
-function toVisitAt(date: string) {
-  const [year, month, day] = date.split('-').map(Number)
-  return new Date(year, month - 1, day, DEFAULT_VISIT_HOUR)
+// 'yyyy-MM-dd' → 그날 0시. 형식이 다르면 null
+function parseDate(date: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date)
+  if (!match) return null
+  const [, year, month, day] = match.map(Number)
+  const parsed = new Date(year, month - 1, day)
+  return parsed.getMonth() === month - 1 ? parsed : null
 }
 
-// 저장된 진료 메모를 서버 AI로 정리. 측정 시점 · 목표 · 다음 진료일만, 약은 정리하지 않음
+// 다음 진료일. 지금 진료일과 같은 날이면 정해 둔 시각을 지키고, 지난 날짜면 확인 필요
+function toNextVisit(date: string, nextVisitAt: string | null, now: Date): Converted | null {
+  const day = parseDate(date)
+  if (!day) return null
+  const current = nextVisitAt ? new Date(nextVisitAt) : null
+  const sameDay = !!current && isSameDay(current, day)
+  const at = sameDay ? current : new Date(day.setHours(DEFAULT_VISIT_HOUR))
+  return {
+    value: at.toISOString(),
+    text: `${at.getMonth() + 1}월 ${at.getDate()}일 (${WEEKDAYS[at.getDay()]})`,
+    unchanged: sameDay,
+    problem: startOfDay(at) < startOfDay(now) ? PAST_DATE : undefined,
+  }
+}
+
+// 잴 때. 모르는 값은 빼고 하루 순서로, 쉼표로 이어 값으로 넘김
+function toSlots(values: string[], current: MeasureSlotKey[]): Converted | null {
+  const slots = MEASURE_SLOT_ORDER.filter((key) =>
+    values.some((value) => SLOT_FROM_SERVER[value] === key),
+  )
+  if (slots.length === 0) return null
+  const same = slots.length === current.length && slots.every((key) => current.includes(key))
+  return { value: slots.join(','), text: formatMeasureSlots(slots), unchanged: same }
+}
+
+// 저장된 진료 메모를 서버 AI로 정리. 잴 때 · 측정 시점 · 목표 · 다음 진료일만, 약은 정리하지 않음
 export async function organizeVisitNote(
   visitId: string,
   noteId: string,
-  current: Pick<Criteria, 'postMealHours' | 'targets'>,
+  current: Pick<Criteria, 'postMealHours' | 'measureSlots' | 'targets'>,
+  nextVisitAt: string | null,
+  now = new Date(),
 ): Promise<NoteExtraction> {
   const { data } = await apiClient.post<BaseResponse<OrganizeResponse>>(
     `/visits/${visitId}/notes/${noteId}/organize`,
@@ -70,31 +110,25 @@ export async function organizeVisitNote(
   if (!extract) throw new Error('진료 메모 정리 응답이 비어 있음')
 
   const findings = [
-    toFinding(
-      'postMealHours',
-      extract.postMealMinutes,
-      (minutes) => ({ value: minutes / 60, text: `식후 ${formatDuration(minutes / 60)}` }),
-      current.postMealHours,
+    toFinding('measureSlots', extract.measureSlots, (values) =>
+      toSlots(values, current.measureSlots),
     ),
-    toFinding(
-      'postMeal',
-      extract.postMealTarget,
-      (target) => ({ value: target, text: `${target} 미만` }),
-      current.targets.postMeal,
-    ),
-    toFinding(
-      'fasting',
-      extract.fastingTarget,
-      (target) => ({ value: target, text: `${target} 미만` }),
-      current.targets.fasting,
-    ),
-    toFinding('nextVisit', extract.nextVisitDate, (date) => {
-      const at = toVisitAt(date)
-      return {
-        value: at.toISOString(),
-        text: `${at.getMonth() + 1}월 ${at.getDate()}일 (${WEEKDAYS[at.getDay()]})`,
-      }
-    }),
+    toFinding('postMealHours', extract.postMealMinutes, (minutes) => ({
+      value: minutes / 60,
+      text: `식후 ${formatDuration(minutes / 60)}`,
+      unchanged: minutes / 60 === current.postMealHours,
+    })),
+    toFinding('postMeal', extract.postMealTarget, (target) => ({
+      value: target,
+      text: `${target} 미만`,
+      unchanged: target === current.targets.postMeal,
+    })),
+    toFinding('fasting', extract.fastingTarget, (target) => ({
+      value: target,
+      text: `${target} 미만`,
+      unchanged: target === current.targets.fasting,
+    })),
+    toFinding('nextVisit', extract.nextVisitDate, (date) => toNextVisit(date, nextVisitAt, now)),
   ].filter((item): item is NoteFinding => item !== null)
 
   // 바로 바꿀 수 있는 것 먼저, 확인 필요는 아래로

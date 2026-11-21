@@ -290,10 +290,17 @@ export function saveVisitNote() {
   if (!noteDirty || !content) return Promise.resolve()
   return enqueue(async () => {
     const target = noteVisitId ?? visitId ?? (await ensureVisitId())
-    const saved =
-      noteId && noteVisitId === target
-        ? await updateVisitNote(target, noteId, content)
-        : await createVisitNote(target, content)
+    // 앞서 기다리던 저장이 메모를 만들었으면 그 번호로 고침. 두 번 만들지 않게
+    const latest = useVisitStore.getState()
+    const id =
+      latest.noteVisitId === target && latest.noteId
+        ? latest.noteId
+        : noteVisitId === target
+          ? noteId
+          : null
+    const saved = id
+      ? await updateVisitNote(target, id, content)
+      : await createVisitNote(target, content)
     useVisitStore.setState((state) =>
       // 새 진료로 넘어가 메모가 비워졌으면 그대로 둠
       state.note === '' && state.noteId === null && note !== ''

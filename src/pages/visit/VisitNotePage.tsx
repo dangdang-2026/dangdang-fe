@@ -48,10 +48,12 @@ function VisitNotePage() {
   const organize = async () => {
     setLoading(true)
     try {
+      // 서버 메모 번호가 없으면(예전에 기기에만 남은 메모) 고친 게 없어도 저장
+      if (!useVisitStore.getState().noteId) useVisitStore.setState({ noteDirty: true })
       await saveVisitNote()
-      const { noteVisitId, noteId } = useVisitStore.getState()
+      const { noteVisitId, noteId, nextVisitAt } = useVisitStore.getState()
       if (!noteVisitId || !noteId) throw new Error('저장된 진료 메모가 없음')
-      const result = await organizeVisitNote(noteVisitId, noteId, criteria)
+      const result = await organizeVisitNote(noteVisitId, noteId, criteria, nextVisitAt)
       navigate(ROUTES.VISIT_NOTE_RESULT, { state: { result } })
     } catch (error) {
       const code = getErrorCode(error)
@@ -88,6 +90,8 @@ function VisitNotePage() {
         aria-label="진료 후 메모"
         value={note}
         maxLength={NOTE_MAX}
+        // 정리하는 동안 고친 글은 결과에 안 들어가서 잠금
+        readOnly={loading}
         placeholder="예: 오늘부터 식후 2시간에 재래요. 다음 진료는 11월 4일 오전."
         className={`focus:border-primary text-grey-900 placeholder:text-grey-400 rounded-key mt-5 h-55 resize-none border-2 px-4 py-3.5 text-base leading-relaxed outline-none ${
           note ? 'border-primary' : 'border-grey-200'

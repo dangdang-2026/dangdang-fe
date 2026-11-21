@@ -8,13 +8,13 @@ export type Question = {
 }
 
 // AI가 진료 후 메모에서 찾는 항목. 측정 시점·목표·다음 진료일만
-export type NoteFindingKey = 'postMealHours' | 'postMeal' | 'fasting' | 'nextVisit'
+export type NoteFindingKey = 'measureSlots' | 'postMealHours' | 'postMeal' | 'fasting' | 'nextVisit'
 
 export type NoteFinding = {
   key: NoteFindingKey
-  // 시간·mg/dL 숫자, 다음 진료일은 ISO 시각
+  // 시간·mg/dL 숫자, 다음 진료일은 ISO 시각, 잴 때는 쉼표로 이은 키
   value: number | string
-  // 바뀌는 값 표시. 예: 식후 2시간 / 120 미만 / 11월 4일 (화) 오전
+  // 바뀌는 값 표시. 예: 식후 2시간 / 120 미만 / 11월 4일 (화) / 공복·자기 전
   text: string
   // 메모에서 근거가 된 문장. 서버가 못 찾았으면 빈 글
   quote: string

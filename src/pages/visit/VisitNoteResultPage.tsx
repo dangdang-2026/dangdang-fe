@@ -7,11 +7,12 @@ import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
 import { saveNextVisit } from '@/stores/useVisitStore'
-import type { CriteriaPrefill } from '@/types/criteria'
+import type { CriteriaPrefill, MeasureSlotKey } from '@/types/criteria'
 import type { NoteExtraction, NoteFinding, NoteFindingKey } from '@/types/visit'
-import { formatPostMealHours, formatTarget } from '@/utils/criteria'
+import { formatMeasureSlots, formatPostMealHours, formatTarget } from '@/utils/criteria'
 
 const LABEL: Record<NoteFindingKey, string> = {
+  measureSlots: '잴 때',
   postMealHours: '측정 시점',
   postMeal: '식후 목표',
   fasting: '공복 목표',
@@ -26,9 +27,9 @@ type FindingItemProps = {
   onToggle: () => void
 }
 
-// 찾은 항목 한 줄. 애매하면 값 대신 확인 필요
+// 찾은 항목 한 줄. 애매해도 값은 보여 주고 확인 필요를 붙임
 function FindingItem({ finding, from, checked, onToggle }: FindingItemProps) {
-  const value = finding.needsCheck ? '확인 필요' : from ? `${from} → ${finding.text}` : finding.text
+  const value = from ? `${from} → ${finding.text}` : finding.text
 
   // 테두리 두께를 같게 둬서 체크할 때 흔들리지 않게
   return (
@@ -49,7 +50,10 @@ function FindingItem({ finding, from, checked, onToggle }: FindingItemProps) {
         <span className="border-grey-300 size-5.5 shrink-0 rounded-md border-2" />
       )}
       <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="text-t7 text-grey-600 leading-snug font-medium">{LABEL[finding.key]}</span>
+        <span className="text-t7 text-grey-600 leading-snug font-medium">
+          {LABEL[finding.key]}
+          {finding.needsCheck && ' · 확인 필요'}
+        </span>
         <span
           className={`text-base leading-snug font-bold ${
             finding.needsCheck ? 'text-grey-600' : 'text-grey-900'
@@ -57,10 +61,12 @@ function FindingItem({ finding, from, checked, onToggle }: FindingItemProps) {
         >
           {value}
         </span>
-        <span className="text-t7 text-grey-600">
-          {finding.quote ? `“${finding.quote}”` : ''}
-          {finding.needsCheck && `${finding.quote ? ' — ' : ''}${finding.needsCheck}`}
-        </span>
+        {(finding.quote || finding.needsCheck) && (
+          <span className="text-t7 text-grey-600">
+            {finding.quote ? `“${finding.quote}”` : ''}
+            {finding.needsCheck && `${finding.quote ? ' — ' : ''}${finding.needsCheck}`}
+          </span>
+        )}
       </span>
     </button>
   )
@@ -83,6 +89,7 @@ function VisitNoteResultPage() {
   const { findings, insulinSkipped } = result
 
   const getFrom = (key: NoteFindingKey) => {
+    if (key === 'measureSlots') return formatMeasureSlots(criteria.measureSlots)
     if (key === 'postMealHours') return formatPostMealHours(criteria.postMealHours)
     if (key === 'postMeal') return formatTarget(criteria.targets.postMeal)
     if (key === 'fasting') return formatTarget(criteria.targets.fasting)
@@ -101,6 +108,8 @@ function VisitNoteResultPage() {
     for (const { key, value } of selected) {
       // 못 남기면 원래 날짜로 돌아가 진료 탭에서 다시 정함
       if (key === 'nextVisit') saveNextVisit(String(value)).catch(() => {})
+      else if (key === 'measureSlots')
+        prefill.measureSlots = String(value).split(',') as MeasureSlotKey[]
       else prefill[key] = Number(value)
     }
     // 기준 항목이 있으면 기준 바꾸기에서 전후 확인 후 저장
