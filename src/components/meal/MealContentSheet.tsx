@@ -20,6 +20,7 @@ import { useFoodSearch, useFoods } from '@/hooks/useFoods'
 import { DEFAULT_RECENT_FOODS } from '@/mocks/foods'
 import { useFoodStore } from '@/stores/useFoodStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
+import { useMealSettingsStore } from '@/stores/useMealSettingsStore'
 import type { Food, Meal, MyFood, NutritionEdits, Portion } from '@/types/glucose'
 import { formatTime } from '@/utils/date'
 import {
@@ -27,12 +28,16 @@ import {
   findStaple,
   formatPortion,
   getRecentFoods,
+  gramsToServings,
+  toNearestPortion,
   type NutritionItem,
 } from '@/utils/meal'
 
 const PORTIONS: Portion[] = ['half', 'one', 'one-half']
 const RECENT_LIMIT = 3
 const SEARCH_LIMIT = 8
+// 그램 칸은 네 자리까지
+const GRAM_MAX_DIGITS = 4
 
 // 사진 분석 상태. found면 후보와 미리 고를 1등 후보
 export type PhotoAnalysis = {
@@ -51,8 +56,13 @@ type MealContentSheetProps = {
   // 찾는 중에 이름으로 넘어온 경우(F-03·F-04). 분석이 끝나면 후보 칩으로
   photoAnalysis?: PhotoAnalysis
   onClose: () => void
-  // 주식을 고르지 않으면 portion 없음. nutritionEdits는 내가 잰 영양값
-  onSaved: (foods: string[], portion?: Portion, nutritionEdits?: NutritionEdits) => void
+  // 주식을 고르지 않으면 portion 없음. nutritionEdits는 내가 잰 영양값, stapleGrams는 그램으로 적은 주식 무게
+  onSaved: (
+    foods: string[],
+    portion?: Portion,
+    nutritionEdits?: NutritionEdits,
+    stapleGrams?: number,
+  ) => void
 }
 
 // Figma F-01·F-05·F-07·D-09 식사 내용 적기. 최근 음식·이름 검색으로 고르고 양 선택
@@ -69,6 +79,9 @@ function MealContentSheet({
   const foods = useFoods()
   const [selected, setSelected] = useState<string[]>(meal.foods ?? [])
   const [portion, setPortion] = useState<Portion>(meal.portion ?? 'one')
+  const [gramText, setGramText] = useState(meal.stapleGrams ? String(meal.stapleGrams) : '')
+  // 설정이 그램이면 그램 칸을 먼저(M-20)
+  const gramFirst = useMealSettingsStore((state) => state.portionUnit === 'GRAM')
   const [nutritionEdits, setNutritionEdits] = useState<NutritionEdits>(meal.nutritionEdits ?? {})
   const [searching, setSearching] = useState(!!photoFailed)
   const [query, setQuery] = useState('')
@@ -110,11 +123,23 @@ function MealContentSheet({
   ]
   // 양은 주식(밥·면 등)만 받음. 반찬은 이름만 기록
   const staple = findStaple(selected, foods)
+  // 1인분 무게를 아는 주식만 그램으로 적음. 서버엔 인분 수로 바꿔 보냄
+  const servingGrams = staple?.nutrition?.grams
+  const stapleGrams = servingGrams && Number(gramText) > 0 ? Number(gramText) : undefined
+  const savedPortion = !staple
+    ? undefined
+    : stapleGrams && servingGrams
+      ? toNearestPortion(gramsToServings(stapleGrams, servingGrams))
+      : portion
   // 영양 참고값이 있는 고른 음식. 주식은 고른 양, 반찬은 1인분 기준
   const nutritionItems: NutritionItem[] = selected
     .map((name) => findFood(name, foods))
     .filter((food) => food?.nutrition !== undefined)
-    .map((food) => ({ food: food!, portion: food === staple ? portion : undefined }))
+    .map((food) => ({
+      food: food!,
+      portion: food === staple ? savedPortion : undefined,
+      grams: food === staple ? stapleGrams : undefined,
+    }))
   // 고른 음식 중 전에 먹은 적 있는 것 하나(주식 먼저). 지난 기록 링크로
   const pastMeals = meals.filter((item) => item.id !== meal.id)
   const countEaten = (name: string) => pastMeals.filter((item) => item.foods?.includes(name)).length
@@ -149,11 +174,55 @@ function MealContentSheet({
   const handleAddMyFood = (food: MyFood) => {
     addMyFood(food)
     // 이미 고른 주식이 있으면 그 양 유지
-    const nextPortion = staple ? portion : food.staple ? food.portion : undefined
-    onSaved([...new Set([...selected, food.name])], nextPortion, nutritionEdits)
+    const nextPortion = staple ? savedPortion : food.staple ? food.portion : undefined
+    onSaved([...new Set([...selected, food.name])], nextPortion, nutritionEdits, stapleGrams)
   }
 
   const mealLabel = MEAL_LABEL[meal.type]
+
+  // 양 칩. 그램을 적었으면 칩은 고르지 않은 상태로
+  const portionChips = staple && (
+    <div className="flex gap-2">
+      {PORTIONS.map((item) => {
+        const isSelected = !stapleGrams && item === portion
+        return (
+          <button
+            key={item}
+            type="button"
+            aria-pressed={isSelected}
+            className={`text-t6 rounded-key flex-1 border-2 py-3 font-bold ${
+              isSelected
+                ? 'border-primary text-grey-800 bg-yellow-50'
+                : 'border-grey-200 text-grey-600 bg-white'
+            }`}
+            onClick={() => {
+              setPortion(item)
+              setGramText('')
+            }}
+          >
+            {formatPortion(item, staple.unit)}
+          </button>
+        )
+      })}
+    </div>
+  )
+  // Figma F-01 그램 칸. 숫자만, 비우면 칩 양으로
+  const gramField = staple && (
+    <label className="bg-grey-50 rounded-key flex items-center gap-2 px-3.5 py-3">
+      <input
+        type="text"
+        inputMode="numeric"
+        aria-label={`${staple.name} 그램`}
+        placeholder="예) 210"
+        value={gramText}
+        className="text-body-2 text-grey-900 placeholder:text-grey-400 min-w-0 flex-1 bg-transparent leading-snug outline-none"
+        onChange={(event) =>
+          setGramText(event.target.value.replace(/\D/g, '').slice(0, GRAM_MAX_DIGITS))
+        }
+      />
+      <span className="text-body-2 text-grey-600 leading-snug">g</span>
+    </label>
+  )
 
   if (addingName !== null) {
     return (
@@ -313,26 +382,29 @@ function MealContentSheet({
                 <p className="text-grey-800 text-sm leading-normal font-bold">
                   {selected.length > 1 ? `${staple.name} 양` : '양'}
                 </p>
-                <div className="flex gap-2">
-                  {PORTIONS.map((item) => {
-                    const isSelected = item === portion
-                    return (
-                      <button
-                        key={item}
-                        type="button"
-                        aria-pressed={isSelected}
-                        className={`text-t6 rounded-key flex-1 border-2 py-3 font-bold ${
-                          isSelected
-                            ? 'border-primary text-grey-800 bg-yellow-50'
-                            : 'border-grey-200 text-grey-600 bg-white'
-                        }`}
-                        onClick={() => setPortion(item)}
-                      >
-                        {formatPortion(item, staple.unit)}
-                      </button>
-                    )
-                  })}
-                </div>
+                {servingGrams && gramFirst ? (
+                  <>
+                    {gramField}
+                    <div className="flex flex-col gap-2">
+                      <p className="text-body-3 text-grey-600 leading-normal font-normal">
+                        또는 인분으로 적기
+                      </p>
+                      {portionChips}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {portionChips}
+                    {!!servingGrams && (
+                      <div className="flex flex-col gap-2">
+                        <p className="text-body-3 text-grey-600 leading-normal font-normal">
+                          또는 그램으로 적기 · 저울을 쓴다면 (선택)
+                        </p>
+                        {gramField}
+                      </div>
+                    )}
+                  </>
+                )}
               </>
             )}
 
@@ -351,7 +423,7 @@ function MealContentSheet({
           type="button"
           disabled={selected.length === 0}
           className="text-subtitle-1 disabled:bg-grey-100 disabled:text-grey-400 bg-primary h-14 rounded-xl leading-none text-white"
-          onClick={() => onSaved(selected, staple ? portion : undefined, nutritionEdits)}
+          onClick={() => onSaved(selected, savedPortion, nutritionEdits, stapleGrams)}
         >
           확인한 것만 저장
         </button>

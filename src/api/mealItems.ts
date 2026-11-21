@@ -1,7 +1,13 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
 import { getMeal } from '@/api/meals'
 import type { Food, Meal, MyFood, NutritionEdit, NutritionEdits, Portion } from '@/types/glucose'
-import { findFood, getPortionFactor, looksLikeStaple } from '@/utils/meal'
+import {
+  findFood,
+  getPortionFactor,
+  gramsToServings,
+  looksLikeStaple,
+  toNearestPortion,
+} from '@/utils/meal'
 
 // 백엔드 MealNutrition. 먹은 양 전체 기준, 모르는 값은 null
 type MealNutrition = {
@@ -97,9 +103,13 @@ function toNutrition(values: Omit<NutritionEdit, 'grams' | 'editedAt'>): MealNut
 }
 
 // 서버 인분 → 화면 양(반 · 1 · 1.5)
-function toPortion(servings: number): Portion {
-  if (servings <= 0.75) return 'half'
-  return servings >= 1.25 ? 'one-half' : 'one'
+const toPortion = (servings: number): Portion => toNearestPortion(servings)
+
+// 반 · 1 · 1.5인분이 아니면 그램으로 적은 양. 1인분 무게를 알 때만 그램으로 되돌림
+function toStapleGrams(item: MealItemSummary, known: Food[]) {
+  const servingGrams = findFood(item.name, known)?.nutrition?.grams
+  const standard = [0.5, 1, 1.5].some((value) => Math.abs(item.servings - value) < 0.01)
+  return standard || !servingGrams ? undefined : Math.round(item.servings * servingGrams)
 }
 
 const isStaple = (name: string, known: Food[]) =>
@@ -110,13 +120,14 @@ export function toMealContent(
   items: MealItemSummary[],
   known: Food[],
   editedAt: string,
-): Pick<Meal, 'foods' | 'portion' | 'portions' | 'nutritionEdits'> {
+): Pick<Meal, 'foods' | 'portion' | 'stapleGrams' | 'portions' | 'nutritionEdits'> {
   const staple = items.find((item) => isStaple(item.name, known))
   const portions = items.filter((item) => item !== staple && toPortion(item.servings) !== 'one')
   const edited = items.filter((item) => isEdited(item, known))
   return {
     foods: [...new Set(items.map((item) => item.name))],
     portion: staple ? toPortion(staple.servings) : undefined,
+    stapleGrams: staple ? toStapleGrams(staple, known) : undefined,
     portions: portions.length
       ? Object.fromEntries(portions.map((item) => [item.name, toPortion(item.servings)]))
       : undefined,
@@ -139,8 +150,12 @@ export function toMealContent(
   }
 }
 
-// 주식은 끼니 양, 한상 사진은 음식별 양, 나머지는 1인분
+// 주식은 끼니 양(그램이면 1인분 무게로 나눔), 한상 사진은 음식별 양, 나머지는 1인분
 function getServings(meal: Meal, name: string, known: Food[]) {
+  const servingGrams = findFood(name, known)?.nutrition?.grams
+  if (meal.stapleGrams && servingGrams && isStaple(name, known)) {
+    return gramsToServings(meal.stapleGrams, servingGrams)
+  }
   const portion = (isStaple(name, known) && meal.portion) || meal.portions?.[name]
   return getPortionFactor(portion || undefined)
 }

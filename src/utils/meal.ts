@@ -25,9 +25,20 @@ export function getPortionFactor(portion?: Portion) {
   return portion ? PORTION_FACTOR[portion] : 1
 }
 
-// 1인분 값에 고른 양을 곱함
-export function scaleNutrition(nutrition: Nutrition, portion?: Portion) {
-  const factor = getPortionFactor(portion)
+// 그램을 1인분 대비 배수로. 소수 둘째 자리까지
+export function gramsToServings(grams: number, servingGrams: number) {
+  return Math.round((grams / servingGrams) * 100) / 100
+}
+
+// 인분 수에 가장 가까운 양 칩. 예: 1.3인분 → 1공기
+export function toNearestPortion(servings: number): Portion {
+  if (servings <= 0.75) return 'half'
+  return servings >= 1.25 ? 'one-half' : 'one'
+}
+
+// 1인분 값에 고른 양을 곱함. 그램으로 적었으면 그 무게 기준
+export function scaleNutrition(nutrition: Nutrition, portion?: Portion, grams?: number) {
+  const factor = grams ? grams / nutrition.grams : getPortionFactor(portion)
   return {
     kcal: Math.round(nutrition.kcal * factor),
     carbs: Math.round(nutrition.carbs * factor),
@@ -42,11 +53,13 @@ export type NutritionItem = {
   food: Food | MyFood
   // 주식이면 고른 양, 반찬이면 없음(1인분)
   portion?: Portion
+  // 주식을 그램으로 적었으면 그 무게
+  grams?: number
 }
 
-// 예: 1공기 / 1접시
-export function formatNutritionBasis({ food, portion }: NutritionItem) {
-  return formatPortion(portion ?? 'one', food.unit)
+// 예: 1공기 / 1접시 / 315 g
+export function formatNutritionBasis({ food, portion, grams }: NutritionItem) {
+  return grams ? `${grams} g` : formatPortion(portion ?? 'one', food.unit)
 }
 
 export function findFood(name: string, foods: Food[]) {
@@ -64,9 +77,11 @@ export function formatMealContent(meal: Meal, foods: Food[]) {
   const staple = findStaple(meal.foods, foods)
   if (!staple) return meal.foods.join(', ')
   const others = meal.foods.filter((name) => name !== staple.name)
-  const main = meal.portion
-    ? `${staple.name} ${formatPortion(meal.portion, staple.unit)}`
-    : staple.name
+  const main = meal.stapleGrams
+    ? `${staple.name} ${meal.stapleGrams}g`
+    : meal.portion
+      ? `${staple.name} ${formatPortion(meal.portion, staple.unit)}`
+      : staple.name
   return [main, ...others].join(', ')
 }
 
@@ -85,6 +100,8 @@ export function looksLikeStaple(name: string) {
 
 // 받침 있으면 을, 없으면 를
 export function withObjectParticle(word: string) {
+  // 315g는 그램으로 읽어 받침 있음
+  if (/\dg$/.test(word)) return `${word}을`
   const code = word.charCodeAt(word.length - 1) - 0xac00
   if (code < 0 || code > 11171) return `${word}를`
   return `${word}${code % 28 ? '을' : '를'}`

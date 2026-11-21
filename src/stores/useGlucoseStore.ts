@@ -29,6 +29,7 @@ type GlucoseState = {
     foods: string[],
     portion?: Portion,
     nutritionEdits?: NutritionEdits,
+    stapleGrams?: number,
   ) => void
   // 사진으로 적은 끼니의 AI 후보·음식별 양
   setMealPhotoInfo: (mealId: string, info: Pick<Meal, 'aiCandidates' | 'portions'>) => void
@@ -71,7 +72,7 @@ export const useGlucoseStore = create<GlucoseState>()(
             meal.id === mealId ? { ...meal, skipped: true } : meal,
           ),
         })),
-      setMealContent: (mealId, foods, portion, nutritionEdits) =>
+      setMealContent: (mealId, foods, portion, nutritionEdits, stapleGrams) =>
         set((state) => ({
           meals: state.meals.map((meal) =>
             meal.id === mealId
@@ -79,6 +80,7 @@ export const useGlucoseStore = create<GlucoseState>()(
                   ...meal,
                   foods,
                   portion,
+                  stapleGrams,
                   nutritionEdits: keepEdits(nutritionEdits ?? meal.nutritionEdits, foods),
                   itemsPending: true,
                 }
@@ -192,6 +194,7 @@ async function pushMealItemsOnce(mealId: string) {
   const same = (item: Meal) =>
     item.foods === meal.foods &&
     item.portion === meal.portion &&
+    item.stapleGrams === meal.stapleGrams &&
     item.portions === meal.portions &&
     item.nutritionEdits === meal.nutritionEdits
   useGlucoseStore.setState((state) => ({
@@ -219,8 +222,9 @@ export function saveMealContent(
   foods: string[],
   portion?: Portion,
   nutritionEdits?: NutritionEdits,
+  stapleGrams?: number,
 ) {
-  useGlucoseStore.getState().setMealContent(mealId, foods, portion, nutritionEdits)
+  useGlucoseStore.getState().setMealContent(mealId, foods, portion, nutritionEdits, stapleGrams)
   return pushMealItems(mealId)
 }
 

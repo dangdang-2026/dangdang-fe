@@ -40,7 +40,7 @@ function NutritionCard({ items, edits, onEditsChange, onShowSource }: NutritionC
   if (!active?.food.nutrition) return null
 
   const edit = edits[active.food.name]
-  const value = edit ?? scaleNutrition(active.food.nutrition, active.portion)
+  const value = edit ?? scaleNutrition(active.food.nutrition, active.portion, active.grams)
   const rows = [
     ['탄수화물', `${value.carbs} g`],
     ['당류', `${value.sugar} g`],

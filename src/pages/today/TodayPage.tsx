@@ -301,10 +301,13 @@ function TodayPage() {
     mealFoods: string[],
     portion?: Portion,
     nutritionEdits?: NutritionEdits,
+    stapleGrams?: number,
   ) => {
     if (!writingMeal) return
-    void saveMealContent(writingMeal.id, mealFoods, portion, nutritionEdits)
-    setToast(formatMealSavedMessage({ ...writingMeal, foods: mealFoods, portion }, foods))
+    void saveMealContent(writingMeal.id, mealFoods, portion, nutritionEdits, stapleGrams)
+    setToast(
+      formatMealSavedMessage({ ...writingMeal, foods: mealFoods, portion, stapleGrams }, foods),
+    )
     setWritingMeal(null)
   }
 

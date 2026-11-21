@@ -47,7 +47,12 @@ function NutritionSourceSheet({ item, onClose }: NutritionSourceSheetProps) {
     ['데이터', NUTRITION_SOURCE.data],
     ['받는 곳', NUTRITION_SOURCE.provider],
     ['음식', similarTo ? `${similarTo} (비슷한 음식 기준)` : `${food.name} (대표값)`],
-    ['기준', `1인분 ${food.nutrition?.grams} g × ${formatNutritionBasis(item)}`],
+    [
+      '기준',
+      item.grams
+        ? `내가 적은 양 ${item.grams} g (1인분 ${food.nutrition?.grams} g)`
+        : `1인분 ${food.nutrition?.grams} g × ${formatNutritionBasis(item)}`,
+    ],
     ['갱신', sourceVersion],
   ]
 
