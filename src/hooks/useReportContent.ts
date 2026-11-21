@@ -25,13 +25,15 @@ export function useReportContent({
   hospitalName,
 }: ReportContentParams) {
   const primary = usePrimaryHospital()
-  // 고른 병원을 병원 목록에서 찾음. 없으면 대표 병원
+  // 고른 병원을 병원 목록에서 찾음. 이름만 남고 목록에 없으면(지움 · 이름 바뀜) 그 이름 그대로, 안 골랐으면 대표 병원
   const chosen = useHospitalStore((state) =>
     state.hospitals.find((item) => item.name === hospitalName),
   )
   const hospital = chosen
     ? { name: chosen.name, department: chosen.department ?? null, phone: chosen.phone ?? '' }
-    : primary
+    : hospitalName
+      ? { name: hospitalName, department: null, phone: '' }
+      : primary
   const records = useGlucoseStore((state) => state.records)
   const meals = useGlucoseStore((state) => state.meals)
   const versions = useCriteriaStore((state) => state.versions)

@@ -49,17 +49,18 @@ function ReportsPage() {
     .reverse()
     .filter((saved) => !hospitalFilter || saved.hospital === hospitalFilter)
 
-  // 직접 고른 기간은 custom, 지난 진료 리포트는 원래 진료일을 넘겨 다시 저장해도 그대로
+  // 직접 고른 기간은 custom, 지난 리포트는 saved로 원래 진료일(없으면 없음 그대로)을 넘겨 다시 저장해도 유지
   const openReport = (
     from: Date,
     to: Date,
     hospital: string,
     custom: boolean,
-    visitAt?: string,
+    saved?: { visitAt?: string },
   ) => {
     const params = new URLSearchParams({ from: toDateKey(from), to: toDateKey(to), hospital })
     if (custom) params.set('custom', '1')
-    if (visitAt) params.set('visitAt', visitAt)
+    if (saved) params.set('saved', '1')
+    if (saved?.visitAt) params.set('visitAt', saved.visitAt)
     navigate(`${ROUTES.VISIT_REPORT}?${params}`)
   }
 
@@ -147,7 +148,9 @@ function ReportsPage() {
                       type="button"
                       className="flex w-full items-center gap-4 text-left"
                       onClick={() =>
-                        openReport(from, to, saved.hospital, !!saved.custom, saved.visitAt)
+                        openReport(from, to, saved.hospital, !!saved.custom, {
+                          visitAt: saved.visitAt,
+                        })
                       }
                     >
                       <span className="flex min-w-0 flex-1 flex-col gap-1 leading-snug">
