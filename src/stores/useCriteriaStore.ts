@@ -44,8 +44,9 @@ export const useCriteriaStore = create<CriteriaState>()(
 
 // 서버에 기준이 있으면 그걸로. 아직 없으면(첫 진입 설정 전) 기기 값 유지
 export async function syncCriteria() {
-  const versions = await getCriteriaHistory()
-  if (versions.length > 0) useCriteriaStore.getState().setVersions(versions)
+  const history = await getCriteriaHistory()
+  if (history.versions.length > 0) useCriteriaStore.getState().setVersions(history.versions)
+  return history
 }
 
 // 서버에 저장한 뒤 화면에 바로 반영. 서버 id는 이력을 다시 받아 채움

@@ -22,7 +22,8 @@ type OnboardingState = OnboardingAnswers & {
   // 설정을 마친 시각. 달력에서 이 날 전은 흐리게
   completedAt: string | null
   setAnswers: (changes: Partial<OnboardingAnswers>) => void
-  complete: () => void
+  // 다른 기기에서 마친 계정은 서버에 기준을 처음 적은 시각으로
+  complete: (completedAt?: string) => void
   // 다른 계정의 설정이 남지 않게 처음 상태로
   reset: () => void
 }
@@ -42,7 +43,7 @@ export const useOnboardingStore = create<OnboardingState>()(
     (set) => ({
       ...INITIAL,
       setAnswers: (changes) => set(changes),
-      complete: () => set({ completed: true, completedAt: new Date().toISOString() }),
+      complete: (completedAt = new Date().toISOString()) => set({ completed: true, completedAt }),
       reset: () => set(INITIAL),
     }),
     {

@@ -89,12 +89,23 @@ export function useFinishLogin() {
         navigate(ROUTES.ONBOARDING_TERMS, { replace: true })
         return
       }
-      // 병원 기준은 서버 값으로. 못 받아도 기기 값으로 계속 씀
-      syncCriteria().catch(() => {})
       // 알림 설정을 받은 뒤 측정 알림이 켜져 있으면 이 기기를 구독 등록
       void settingsSynced.then(syncPushSubscription)
-      // 약관은 서버에 있음. 나머지 설정은 아직 기기에만 있어 기기 값으로
-      navigate(completed ? ROUTES.TODAY : ROUTES.ONBOARDING_TIMING, { replace: true })
+      // 병원 기준은 서버 값으로. 못 받으면 기기 값으로 판단
+      const criteria = await syncCriteria().catch(() => null)
+      if (!criteria) {
+        navigate(completed ? ROUTES.TODAY : ROUTES.ONBOARDING_TIMING, { replace: true })
+        return
+      }
+      // 서버에 기준이 있으면 다른 기기에서 설정을 마친 계정
+      if (criteria.versions.length > 0) {
+        completeOnboarding(criteria.startedAt ?? undefined)
+        navigate(ROUTES.TODAY, { replace: true })
+        return
+      }
+      // 기준이 없으면 기기에 남은 다른 계정 설정은 비우고 측정 시점부터
+      resetOnboarding()
+      navigate(ROUTES.ONBOARDING_TIMING, { replace: true })
     } catch {
       goByDevice()
     }
