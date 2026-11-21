@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import iconChevDown from '@/assets/icons/legal/chev-down.svg'
 import iconChevUp from '@/assets/icons/legal/chev-up.svg'
+import LegalTable, { type LegalRow } from '@/components/legal/LegalTable'
 
 export type Clause = {
   title: string
@@ -68,6 +69,24 @@ export function ClauseParagraphs({ lines }: { lines: string[] }) {
       {lines.map((line) => (
         <p key={line}>{line}</p>
       ))}
+    </div>
+  )
+}
+
+type ClauseBodyProps = {
+  lines?: string[]
+  rows?: LegalRow[]
+  // 표 아래 덧붙이는 한 줄
+  note?: string
+}
+
+// 조항 본문: 문단 → 두 칸 표 → 덧붙임 순서(N-02 · N-07)
+export function ClauseBody({ lines, rows, note }: ClauseBodyProps) {
+  return (
+    <div className="flex flex-col gap-3">
+      {lines && <ClauseParagraphs lines={lines} />}
+      {rows && <LegalTable rows={rows} />}
+      {note && <p className="text-grey-600 text-xs leading-normal">{note}</p>}
     </div>
   )
 }
