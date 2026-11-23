@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import iconEdit from '@/assets/icons/edit.svg'
 import iconFileGrey from '@/assets/icons/file-grey.svg'
@@ -12,6 +12,7 @@ import VisitMenuRow from '@/components/visit/VisitMenuRow'
 import QuestionSheet from '@/components/visit/QuestionSheet'
 import QuestionsCard from '@/components/visit/QuestionsCard'
 import VisitDateSheet from '@/components/visit/VisitDateSheet'
+import { getVisitReportPeriod } from '@/api/visitReports'
 import { ROUTES } from '@/constants/routes'
 import { useNow } from '@/hooks/useNow'
 import {
@@ -45,6 +46,34 @@ function VisitPage() {
   const now = useNow()
   const status = getVisitStatus(nextVisitAt, now)
   const visitedDay = getVisitedDay(nextVisitAt, now)
+
+  // 리포트 화면과 같은 조건: 진료 일정이 오늘 이후면 서버 진료 기간, 아니면 최근 2주
+  const visitId = useVisitStore((state) => state.visitId)
+  const upcoming = !!nextVisitAt && startOfDay(new Date(nextVisitAt)) >= startOfDay(now)
+  const reportKey = upcoming && visitId ? `${visitId}|${nextVisitAt}` : null
+  const [reportPeriod, setReportPeriod] = useState<{
+    key: string
+    period: { from: Date; to: Date } | null
+  } | null>(null)
+  useEffect(() => {
+    if (!reportKey || !visitId) return
+    let canceled = false
+    // 날짜 미정 · 못 받으면 리포트 화면 기본처럼 최근 2주로
+    getVisitReportPeriod(visitId)
+      .then(({ from, to }) => ({ from, to }))
+      .catch(() => null)
+      .then((period) => {
+        if (!canceled) setReportPeriod({ key: reportKey, period })
+      })
+    return () => {
+      canceled = true
+    }
+  }, [reportKey, visitId])
+  const visitPeriod = !reportKey
+    ? null
+    : reportPeriod?.key === reportKey
+      ? reportPeriod.period
+      : 'loading'
 
   // 화면엔 바로 바꾸고, 서버에 못 남기면 되돌린 뒤 안내
   const saveVisit = useCallback((at: string | null) => {
@@ -132,6 +161,7 @@ function VisitPage() {
       <div className="mt-7">
         <ReportCard
           today={startOfDay(now)}
+          visitPeriod={visitPeriod}
           onCreate={() => navigate(ROUTES.VISIT_REPORT)}
           onPast={() => navigate(ROUTES.VISIT_REPORTS)}
         />
