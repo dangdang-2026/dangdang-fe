@@ -70,24 +70,56 @@ self.addEventListener('fetch', (event) => {
   }
 })
 
+// 화면에 답을 기다리는 시간. 못 받으면 시스템 알림을 띄움
+const ASK_MS = 500
+
+// 보이는 앱 화면이 실시간 알림에 붙어 있는지. 붙어 있으면 그 화면이 앱 안 배너를 띄움
+async function hasLiveBanner() {
+  const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+  const visible = clients.filter((client) => client.visibilityState === 'visible')
+  const answers = visible.map(
+    (client) =>
+      new Promise((resolve) => {
+        const channel = new MessageChannel()
+        const timer = setTimeout(() => resolve(false), ASK_MS)
+        channel.port1.onmessage = (event) => {
+          clearTimeout(timer)
+          resolve(!!event.data?.connected)
+        }
+        client.postMessage({ type: 'notification-stream-status' }, [channel.port2])
+      }),
+  )
+  return (await Promise.all(answers)).some(Boolean)
+}
+
 // 서버 푸시. 잠금화면 가리기는 서버가 사용자 설정을 보고 문구를 정해 보냄
 // payload 예: { title, body, tag, url, reminderId }. reminderId는 서버 측정 알림 번호
+// 앱을 보고 있고 실시간 알림이 붙어 있으면 배너와 겹치지 않게 시스템 알림은 띄우지 않음
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {}
   event.waitUntil(
-    self.registration.showNotification(data.title || '당당', {
-      body: data.body || '확인할 일이 있어요',
-      tag: data.tag || 'measure',
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
-      data: { url: data.url || MEASURE_URL, tag: data.tag, reminderId: data.reminderId },
-      actions: [
-        { action: 'input', title: '지금 입력' },
-        { action: 'snooze', title: '10분 뒤 다시' },
-      ],
-    }),
+    hasLiveBanner()
+      .catch(() => false)
+      .then((live) => {
+        if (live) return undefined
+        return showPush(data)
+      }),
   )
 })
+
+function showPush(data) {
+  return self.registration.showNotification(data.title || '당당', {
+    body: data.body || '확인할 일이 있어요',
+    tag: data.tag || 'measure',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    data: { url: data.url || MEASURE_URL, tag: data.tag, reminderId: data.reminderId },
+    actions: [
+      { action: 'input', title: '지금 입력' },
+      { action: 'snooze', title: '10분 뒤 다시' },
+    ],
+  })
+}
 
 // 서버 측정 알림 10분 뒤 다시. 로그인 쿠키가 만료됐으면 한 번 갱신하고 다시 보냄
 async function snoozeReminder(reminderId) {

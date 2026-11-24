@@ -75,12 +75,19 @@ type StreamHandlers = {
   // 연결될 때마다(처음 · 다시 붙을 때)
   onConnected: () => void
   onNotification: (item: InboxItem) => void
+  // 끊길 때마다(브라우저가 다시 붙는 중이어도)
+  onDisconnected: () => void
   // 서버가 거절해(로그인 만료 등) 브라우저가 다시 붙지 않을 때
   onClosed: () => void
 }
 
 // 새 알림 실시간 받기(SSE). 로그인 쿠키를 함께 보내고, 끊기면 브라우저가 알아서 다시 붙음. 닫는 함수를 돌려줌
-export function openNotificationStream({ onConnected, onNotification, onClosed }: StreamHandlers) {
+export function openNotificationStream({
+  onConnected,
+  onNotification,
+  onDisconnected,
+  onClosed,
+}: StreamHandlers) {
   const source = new EventSource(`${apiClient.defaults.baseURL}/notifications/stream`, {
     withCredentials: true,
   })
@@ -95,6 +102,7 @@ export function openNotificationStream({ onConnected, onNotification, onClosed }
   })
   // 응답이 401 · 5xx 등이면 CLOSED로 끝나 다시 붙지 않음. 끊김(CONNECTING)은 브라우저가 처리
   source.addEventListener('error', () => {
+    onDisconnected()
     if (source.readyState === EventSource.CLOSED) onClosed()
   })
   return () => source.close()

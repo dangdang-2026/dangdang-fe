@@ -9,11 +9,26 @@ import { receiveInboxItem, syncInbox } from '@/stores/useInboxStore'
 const RETRY_MIN_MS = 3000
 const RETRY_MAX_MS = 60 * 1000
 
+// 지금 실시간 알림이 붙어 있는지. 서비스 워커가 시스템 알림을 띄울지 물어볼 때 답함
+let streamConnected = false
+
 // 로그인한 동안 새 알림을 실시간으로 받아 알림함에 넣음. 로그아웃 · 계정 바뀌면 끊음
 export function useNotificationStream() {
   const accountKey = useAuthStore((state) =>
     state.account ? `${state.account.method}|${state.account.email ?? ''}` : null,
   )
+
+  // 붙어 있으면 배너가 뜨니 서비스 워커는 같은 푸시를 시스템 알림으로 띄우지 않음
+  useEffect(() => {
+    const container = navigator.serviceWorker
+    if (!container) return
+    const handleMessage = (event: MessageEvent<{ type?: string } | null>) => {
+      if (event.data?.type !== 'notification-stream-status') return
+      event.ports[0]?.postMessage({ connected: streamConnected })
+    }
+    container.addEventListener('message', handleMessage)
+    return () => container.removeEventListener('message', handleMessage)
+  }, [])
 
   useEffect(() => {
     if (!accountKey) return
@@ -26,6 +41,7 @@ export function useNotificationStream() {
     const connect = () => {
       close = openNotificationStream({
         onConnected: () => {
+          streamConnected = true
           retryMs = RETRY_MIN_MS
           // 다시 붙었으면 끊긴 사이 온 알림을 알림함으로 맞춤
           if (connectedOnce) syncInbox().catch(() => {})
@@ -36,6 +52,9 @@ export function useNotificationStream() {
           if (receiveInboxItem(item) && document.visibilityState === 'visible') {
             showAlertBanner(item)
           }
+        },
+        onDisconnected: () => {
+          streamConnected = false
         },
         // 로그인 만료일 수 있어 서버 확인(만료면 인터셉터가 재발급, 실패면 로그아웃) 뒤 다시 붙음
         onClosed: () => {
@@ -69,6 +88,7 @@ export function useNotificationStream() {
       window.clearTimeout(timer)
       window.removeEventListener('online', handleOnline)
       close?.()
+      streamConnected = false
     }
   }, [accountKey])
 }
