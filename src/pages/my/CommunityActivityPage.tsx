@@ -73,7 +73,13 @@ function ActivityList({ type }: ActivityListProps) {
               </li>
             ))}
       </ul>
-      {list.hasNext && <MorePostsButton loading={list.loadingMore} onClick={list.loadMore} />}
+      {list.hasNext && (
+        <MorePostsButton
+          loading={list.loadingMore}
+          label={type === 'comments' ? '댓글 더 보기' : undefined}
+          onClick={list.loadMore}
+        />
+      )}
     </>
   )
 }
