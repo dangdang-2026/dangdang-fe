@@ -12,6 +12,11 @@ const RETRY_MAX_MS = 60 * 1000
 // 지금 실시간 알림이 붙어 있는지. 서비스 워커가 시스템 알림을 띄울지 물어볼 때 답함
 let streamConnected = false
 
+// 실시간 알림이 붙어 있으면 서버 알림이 배너로 뜸. 기기 측정 알림이 겹치지 않게 확인용
+export function isNotificationStreamConnected() {
+  return streamConnected
+}
+
 // 로그인한 동안 새 알림을 실시간으로 받아 알림함에 넣음. 로그아웃 · 계정 바뀌면 끊음
 export function useNotificationStream() {
   const accountKey = useAuthStore((state) =>
