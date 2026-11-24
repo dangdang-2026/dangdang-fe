@@ -1,37 +1,36 @@
-import { apiClient, getErrorCode, getErrorMessage, type BaseResponse } from '@/api/axios'
+import { apiClient, getErrorCode, getErrorData, type BaseResponse } from '@/api/axios'
 import type { AccountProfile } from '@/mocks/auth'
 
-// 연속으로 틀리면 잠깐 잠금. 횟수·시간은 서버 정책 값
+// 연속으로 틀리면 잠깐 잠금. 횟수 · 시간은 서버 정책 값
 export const LOGIN_MAX_FAILURES = 5
-const LOCK_MINUTES = 5
+export const LOGIN_LOCK_MINUTES = 5
+
+// 서버 AuthRetryInfo. 로그인 실패면 남은 횟수, 잠금이면 풀리기까지 남은 초
+type AuthRetryInfo = { remainingAttempts: number; retryAfterSeconds: number }
 
 export type EmailLoginResult =
   // 데모 계정이면 계정 정보도 함께
   | { status: 'ok'; profile?: AccountProfile }
-  // 틀린 횟수를 못 읽으면 null
-  | { status: 'wrong'; failures: number | null }
-  | { status: 'locked'; minutes: number }
-  // 카카오로 가입한 이메일이라 비밀번호 없음
-  | { status: 'kakao' }
+  // 남은 횟수를 못 읽으면 null
+  | { status: 'wrong'; remaining: number | null }
+  // 풀리는 시각
+  | { status: 'locked'; until: Date }
 
-// 남은 횟수가 data가 아니라 문구에만 옴: "... (남은 횟수 3번)". 형식 바뀌면 null
-function parseLoginFailures(message: string | undefined) {
-  const left = Number(message?.match(/남은 횟수 (\d+)번/)?.[1])
-  return Number.isNaN(left) ? null : LOGIN_MAX_FAILURES - left
-}
-
-// 성공하면 서버가 ACCESS_TOKEN·REFRESH_TOKEN 쿠키를 심음
+// 성공하면 서버가 ACCESS_TOKEN · REFRESH_TOKEN 쿠키를 심음
+// 없는 이메일 · 카카오로 가입한 이메일도 같은 실패로 옴(가입 여부를 드러내지 않음)
 export async function loginWithEmail(email: string, password: string): Promise<EmailLoginResult> {
   try {
     await apiClient.post('/auth/login', { email, password })
   } catch (error) {
     const code = getErrorCode(error)
-    if (code === 'AUTH_40004') {
-      return { status: 'wrong', failures: parseLoginFailures(getErrorMessage(error)) }
+    const data = getErrorData<AuthRetryInfo>(error)
+    if (code === 'AUTH_40004')
+      return { status: 'wrong', remaining: data?.remainingAttempts ?? null }
+    if (code === 'AUTH_42902') {
+      // 남은 시간이 없으면 정책 값(5분)으로
+      const seconds = data?.retryAfterSeconds ?? LOGIN_LOCK_MINUTES * 60
+      return { status: 'locked', until: new Date(Date.now() + seconds * 1000) }
     }
-    // 잠금 응답엔 남은 시간이 없어 고정 5분
-    if (code === 'AUTH_42902') return { status: 'locked', minutes: LOCK_MINUTES }
-    if (code === 'AUTH_40005') return { status: 'kakao' }
     throw error
   }
   return { status: 'ok' }

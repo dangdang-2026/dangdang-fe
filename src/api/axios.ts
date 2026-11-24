@@ -26,6 +26,12 @@ export function getErrorCode(error: unknown) {
   return error.response?.data?.errorCode ?? null
 }
 
+// 실패 응답에 함께 온 값. 예: 로그인 실패 { remainingAttempts }, 잠금 · 다시 받기 대기 { retryAfterSeconds }
+export function getErrorData<T>(error: unknown): Partial<T> | null {
+  if (!axios.isAxiosError<BaseResponse<T>>(error)) return null
+  return error.response?.data?.data ?? null
+}
+
 // 서버가 보낸 에러 문구. 응답이 없으면 undefined
 export function getErrorMessage(error: unknown) {
   if (!axios.isAxiosError<BaseResponse<unknown>>(error)) return undefined

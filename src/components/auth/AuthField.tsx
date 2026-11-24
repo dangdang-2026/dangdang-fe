@@ -51,7 +51,7 @@ function AuthField({
       {helper ? (
         <p id={`${inputId}-helper`} className="text-body-3 flex items-start gap-1">
           <img src={helper.icon} alt="" width={16} height={16} className="mt-0.5 shrink-0" />
-          <span className={HELPER_TONE[helper.tone]}>{helper.text}</span>
+          <span className={`whitespace-pre-line ${HELPER_TONE[helper.tone]}`}>{helper.text}</span>
           {helper.action && (
             <button
               type="button"
