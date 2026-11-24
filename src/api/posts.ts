@@ -52,7 +52,7 @@ type PostSummaryResponse = {
   hasPoll: boolean
 }
 
-type PostListResponse = {
+export type PostListResponse = {
   items: PostSummaryResponse[]
   nextCursor: string | null
   hasNext: boolean
@@ -74,7 +74,7 @@ export function toAuthor(author: AuthorResponse, fallbackId: string) {
 }
 
 // 서버 글 한 줄 → 화면 글. 목록엔 본문 앞부분 · 댓글 수만 와서 댓글은 비움, 투표는 있다는 표시만
-function toPost(item: PostSummaryResponse): Post | null {
+export function toPost(item: PostSummaryResponse): Post | null {
   const board = BOARD[item.category]
   if (!board) return null
   return {
