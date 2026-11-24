@@ -7,7 +7,7 @@ import { addDays } from '@/utils/date'
 
 type ReportCardProps = {
   today: Date
-  // 다가오는 진료의 서버 리포트 기간. 받는 중이면 'loading', 진료용이 아니면 없음(최근 2주)
+  // 다가오는 진료의 서버 리포트 기간. 받는 중 · 못 받았으면 'loading', 진료용 아니거나 날짜 미정이면 없음(최근 2주)
   visitPeriod?: { from: Date; to: Date } | 'loading' | null
   onCreate: () => void
   onPast: () => void
@@ -17,7 +17,7 @@ const formatShortDate = (date: Date) => `${date.getMonth() + 1}/${date.getDate()
 
 // Figma C-02 진료 리포트 카드
 function ReportCard({ today, visitPeriod, onCreate, onPast }: ReportCardProps) {
-  // 리포트 화면과 같은 기간으로. 받는 중엔 날짜를 비워 2주 기간이 잠깐 보이지 않게
+  // 리포트 화면과 같은 기간으로. 기간이 확정 전이면 날짜를 비워 다른 기간이 보이지 않게
   const period =
     visitPeriod === 'loading'
       ? '진료 전까지'

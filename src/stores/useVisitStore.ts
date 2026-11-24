@@ -92,6 +92,12 @@ export const useVisitStore = create<VisitState>()(
   ),
 )
 
+// 진료일 저장 진행 상태. 저장 중엔 서버 진료 기간이 바뀌기 전이라 기다리고, 끝날 때마다 version을 올려 다시 받음
+export const useVisitSaveStore = create<{ saving: number; version: number }>()(() => ({
+  saving: 0,
+  version: 0,
+}))
+
 // 다녀온 진료일을 새 날짜로 바꾸는지. 그러면 지난 일정은 남기고 새 일정을 만듦
 const isNewVisit = (previous: string | null, at: string | null, now = new Date()) =>
   !!previous && new Date(previous) < now && previous !== at
@@ -110,6 +116,7 @@ export async function saveNextVisit(at: string | null, { visited = false } = {})
   const moving =
     (visited && !!before.nextVisitAt && before.nextVisitAt !== at) ||
     isNewVisit(before.nextVisitAt, at)
+  useVisitSaveStore.setState((state) => ({ saving: state.saving + 1 }))
   try {
     // 질문 · 메모가 붙일 일정을 만드는 중일 수 있어 차례를 기다림
     await enqueue(async () => {
@@ -133,6 +140,11 @@ export async function saveNextVisit(at: string | null, { visited = false } = {})
       asked: before.asked,
     })
     throw error
+  } finally {
+    useVisitSaveStore.setState((state) => ({
+      saving: state.saving - 1,
+      version: state.version + 1,
+    }))
   }
 }
 

@@ -12,6 +12,7 @@ import VisitMenuRow from '@/components/visit/VisitMenuRow'
 import QuestionSheet from '@/components/visit/QuestionSheet'
 import QuestionsCard from '@/components/visit/QuestionsCard'
 import VisitDateSheet from '@/components/visit/VisitDateSheet'
+import { getErrorCode } from '@/api/axios'
 import { getVisitReportPeriod } from '@/api/visitReports'
 import { ROUTES } from '@/constants/routes'
 import { useNow } from '@/hooks/useNow'
@@ -20,6 +21,7 @@ import {
   restoreDeletedQuestion,
   saveNextVisit,
   saveQuestion,
+  useVisitSaveStore,
   useVisitStore,
 } from '@/stores/useVisitStore'
 import type { Question } from '@/types/visit'
@@ -50,18 +52,24 @@ function VisitPage() {
   // 리포트 화면과 같은 조건: 진료 일정이 오늘 이후면 서버 진료 기간, 아니면 최근 2주
   const visitId = useVisitStore((state) => state.visitId)
   const upcoming = !!nextVisitAt && startOfDay(new Date(nextVisitAt)) >= startOfDay(now)
-  const reportKey = upcoming && visitId ? `${visitId}|${nextVisitAt}` : null
+  const forVisit = upcoming && !!visitId
+  // 진료일 저장 중엔 받지 않고, 저장이 끝날 때마다(version) 다시 받음. 저장 전 기간이 남지 않게
+  const visitSaving = useVisitSaveStore((state) => state.saving > 0)
+  const visitVersion = useVisitSaveStore((state) => state.version)
+  const reportKey = forVisit && !visitSaving ? `${visitId}|${nextVisitAt}|${visitVersion}` : null
   const [reportPeriod, setReportPeriod] = useState<{
     key: string
-    period: { from: Date; to: Date } | null
+    period: { from: Date; to: Date } | null | 'loading'
   } | null>(null)
   useEffect(() => {
     if (!reportKey || !visitId) return
     let canceled = false
-    // 날짜 미정 · 못 받으면 리포트 화면 기본처럼 최근 2주로
+    // 날짜 미정이면 리포트 화면 기본처럼 최근 2주로, 그 밖 실패는 미확정(진료 탭에 다시 오면 다시 받음)
     getVisitReportPeriod(visitId)
       .then(({ from, to }) => ({ from, to }))
-      .catch(() => null)
+      .catch((error: unknown) =>
+        getErrorCode(error) === 'VISIT_40003' ? null : ('loading' as const),
+      )
       .then((period) => {
         if (!canceled) setReportPeriod({ key: reportKey, period })
       })
@@ -69,9 +77,9 @@ function VisitPage() {
       canceled = true
     }
   }, [reportKey, visitId])
-  const visitPeriod = !reportKey
+  const visitPeriod = !forVisit
     ? null
-    : reportPeriod?.key === reportKey
+    : reportKey && reportPeriod?.key === reportKey
       ? reportPeriod.period
       : 'loading'
 

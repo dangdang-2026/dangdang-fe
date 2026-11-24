@@ -16,7 +16,7 @@ import { getErrorCode } from '@/api/axios'
 import { getVisitReportPeriod, type VisitReportSave } from '@/api/visitReports'
 import { useHospitalStore } from '@/stores/useHospitalStore'
 import { keepVisitReport } from '@/stores/useReportStore'
-import { useVisitStore } from '@/stores/useVisitStore'
+import { useVisitSaveStore, useVisitStore } from '@/stores/useVisitStore'
 import { addDays, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 import { formatReportText } from '@/utils/report'
 import { createReportImage, saveReportImage } from '@/utils/reportImage'
@@ -55,41 +55,45 @@ function ReportPage() {
     : (searchParams.get('visitId') ??
       (searchParams.has('from') || !upcoming ? null : currentVisitId))
   // 진료용은 서버가 정한 기간(지난 진료일 ~ 진료 전날)으로 보여 줘야 저장 · 목록 숫자와 같음
+  // 진료일 저장 중엔 받지 않고, 저장이 끝날 때마다(version) 다시 받음. 같은 visitId로 날짜만 바꿔도 맞게
+  const visitSaving = useVisitSaveStore((state) => state.saving > 0)
+  const visitVersion = useVisitSaveStore((state) => state.version)
+  const periodKey = reportVisitId && !visitSaving ? `${reportVisitId}|${visitVersion}` : null
   // 기간을 못 받으면 몇 번째 시도에서 실패했는지 남겨 다시 받을 때 구분
   const [periodTry, setPeriodTry] = useState(0)
   const [visitPeriod, setVisitPeriod] = useState<
     | {
-        visitId: string
+        key: string
         from: Date
         to: Date
         careSiteName: string | null
         careSiteId: string | null
       }
-    | { visitId: string; undecided: true }
-    | { visitId: string; failedTry: number }
+    | { key: string; undecided: true }
+    | { key: string; failedTry: number }
     | null
   >(null)
   useEffect(() => {
-    if (!reportVisitId) return
+    if (!periodKey || !reportVisitId) return
     let canceled = false
     getVisitReportPeriod(reportVisitId)
       .then((period) => {
-        if (!canceled) setVisitPeriod({ visitId: reportVisitId, ...period })
+        if (!canceled) setVisitPeriod({ key: periodKey, ...period })
       })
       .catch((error: unknown) => {
         if (canceled) return
         // 진료 날짜 미정이면 아래 기본 기간으로, 저장은 기간 직접으로. 그 밖(오프라인 등)은 전하기를 막고 다시 받음
         setVisitPeriod(
           getErrorCode(error) === 'VISIT_40003'
-            ? { visitId: reportVisitId, undecided: true }
-            : { visitId: reportVisitId, failedTry: periodTry },
+            ? { key: periodKey, undecided: true }
+            : { key: periodKey, failedTry: periodTry },
         )
       })
     return () => {
       canceled = true
     }
-  }, [reportVisitId, periodTry])
-  const periodForVisit = visitPeriod?.visitId === reportVisitId ? visitPeriod : null
+  }, [periodKey, reportVisitId, periodTry])
+  const periodForVisit = periodKey && visitPeriod?.key === periodKey ? visitPeriod : null
   const servedPeriod = periodForVisit && 'from' in periodForVisit ? periodForVisit : null
   const periodFailed =
     !!periodForVisit && 'failedTry' in periodForVisit && periodForVisit.failedTry === periodTry
