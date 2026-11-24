@@ -14,12 +14,7 @@ import MorePostsButton from '@/components/community/MorePostsButton'
 import PopularList from '@/components/community/PopularList'
 import PostRow from '@/components/community/PostRow'
 import SortToggle from '@/components/community/SortToggle'
-import {
-  BOARD_LABEL,
-  BOARD_ORDER,
-  LATEST_ONLY_BOARDS,
-  PREPARING_BOARDS,
-} from '@/constants/community'
+import { BOARD_LABEL, BOARD_ORDER, LATEST_ONLY_BOARDS } from '@/constants/community'
 import { ROUTES, communityBoardPath, communityPostPath } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
@@ -51,11 +46,7 @@ function BoardPage() {
   const popular = board === 'popular'
   const boardKey = isBoardKey(board) ? board : undefined
   const latestOnly = !!boardKey && LATEST_ONLY_BOARDS.includes(boardKey)
-  const preparing = !!boardKey && PREPARING_BOARDS.includes(boardKey)
-  const list = usePostList(
-    { board: boardKey, sort: latestOnly ? 'latest' : sort },
-    !!boardKey && !preparing,
-  )
+  const list = usePostList({ board: boardKey, sort: latestOnly ? 'latest' : sort }, !!boardKey)
   if (!popular && !boardKey) return <Navigate to={ROUTES.COMMUNITY} replace />
 
   const label = popular ? '인기' : BOARD_LABEL[board as BoardKey]
@@ -99,14 +90,7 @@ function BoardPage() {
         </span>
       </p>
 
-      {preparing ? (
-        <CommunityEmpty
-          variant="front"
-          title={`${label} 게시판은 준비 중이에요`}
-          description="곧 열 거예요. 지금은 다른 게시판에 이야기를 남겨 주세요."
-          action={{ label: '전체 글 보기', onClick: () => navigate(ROUTES.COMMUNITY) }}
-        />
-      ) : !online || list.status === 'error' ? (
+      {!online || list.status === 'error' ? (
         <CommunityEmpty
           variant="sorry"
           title="글을 불러오지 못했어요"

@@ -3,9 +3,9 @@ import { persist } from 'zustand/middleware'
 import { getErrorCode } from '@/api/axios'
 import { blockProfile, getBlockedProfiles, unblockProfile } from '@/api/blocks'
 import { getMyCommunityProfile } from '@/api/communityProfile'
-import { getRestriction, type Restriction } from '@/api/restriction'
+import { appealRestriction, getRestriction, type Restriction } from '@/api/restriction'
 import { createComment, deleteComment, getComments } from '@/api/comments'
-import { savePostDraft, votePoll } from '@/api/posts'
+import { deletePostDraft, savePostDraft, votePoll } from '@/api/posts'
 import { reactComment, reactPost } from '@/api/reactions'
 import { MY_AUTHOR_ID } from '@/constants/community'
 import type { Author, CommunityComment, Post, PostDraft } from '@/types/community'
@@ -222,10 +222,10 @@ export function keepPostDraft(draft: PostDraft) {
   return savePostDraft(draft)
 }
 
-// 임시 글 버리기. 서버엔 지우기 API가 없어 빈 글로 덮어씀
+// 임시 글 버리기(쓰다가 나갈 때 저장 안 함). 기기 · 서버 둘 다 지움
 export function dropPostDraft() {
   useCommunityStore.getState().clearDraft()
-  return savePostDraft(null)
+  return deletePostDraft()
 }
 
 // 서버 댓글로 글 화면을 맞춤
@@ -342,4 +342,28 @@ export async function syncRestriction() {
   const restriction = await getRestriction()
   useCommunityStore.setState({ restriction })
   return restriction
+}
+
+// 이용 제한 이의 신청. 접수됐거나 이미 했으면 접수됨으로, 제한이 풀렸으면 제한을 비움
+export async function sendAppeal(content: string): Promise<'sent' | 'already' | 'lifted'> {
+  const markAppealed = () =>
+    useCommunityStore.setState((state) => ({
+      restriction: state.restriction && { ...state.restriction, appealed: true },
+    }))
+  try {
+    await appealRestriction(content)
+    markAppealed()
+    return 'sent'
+  } catch (error) {
+    const code = getErrorCode(error)
+    if (code === 'COMMUNITY_40905') {
+      markAppealed()
+      return 'already'
+    }
+    if (code === 'COMMUNITY_40904') {
+      useCommunityStore.setState({ restriction: null })
+      return 'lifted'
+    }
+    throw error
+  }
 }

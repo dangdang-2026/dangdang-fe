@@ -23,6 +23,7 @@ import CommentItem from '@/components/community/CommentItem'
 import PollCard from '@/components/community/PollCard'
 import PostMoreSheet from '@/components/community/PostMoreSheet'
 import ReportSheet from '@/components/community/ReportSheet'
+import AppealSheet from '@/components/community/AppealSheet'
 import RestrictedSheet from '@/components/community/RestrictedSheet'
 import { BOARD_LABEL, MY_AUTHOR_ID } from '@/constants/community'
 import { ROUTES } from '@/constants/routes'
@@ -49,8 +50,6 @@ import {
   formatRelativeTime,
   getBestComment,
 } from '@/utils/community'
-
-const COMING_SOON = '다음 업데이트에서 열려요'
 
 type LoadState = 'loading' | 'done' | 'gone' | 'error'
 
@@ -118,6 +117,12 @@ function PostDetailPage() {
   const closeComposer = useCallback(() => setComposing(null), [])
   const closeDelete = useCallback(() => setDeletingId(null), [])
   const closeRestricted = useCallback(() => setRestrictedOpen(false), [])
+  const [appealOpen, setAppealOpen] = useState(false)
+  // 이의 신청을 닫으면 글쓰기처럼 제한 시트로 돌아옴
+  const closeAppeal = useCallback(() => {
+    setAppealOpen(false)
+    setRestrictedOpen(true)
+  }, [])
   const closeMore = useCallback(() => setMoreOpen(false), [])
   const closeReport = useCallback(() => setReportOpen(false), [])
   const closeConfirming = useCallback(() => setConfirming(null), [])
@@ -434,9 +439,24 @@ function PostDetailPage() {
         <RestrictedSheet
           until={restriction?.until ? new Date(restriction.until) : null}
           reason={restriction?.reason ?? null}
+          appealed={!!restriction?.appealed}
           onPolicy={() => navigate(ROUTES.COMMUNITY_POLICY)}
-          onAppeal={() => setToast(COMING_SOON)}
+          onAppeal={() => {
+            setRestrictedOpen(false)
+            setAppealOpen(true)
+          }}
           onClose={closeRestricted}
+        />
+      )}
+      {appealOpen && (
+        <AppealSheet
+          onDone={(message, result) => {
+            // 제한이 풀렸으면 시트만 닫고, 아니면 접수됨이 보이게 제한 시트로
+            if (result === 'lifted') setAppealOpen(false)
+            else closeAppeal()
+            setToast(message)
+          }}
+          onClose={closeAppeal}
         />
       )}
       {moreOpen && (

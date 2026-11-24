@@ -4,15 +4,17 @@ import type { BoardKey, Post, PostDraft, PostSort } from '@/types/community'
 
 // 백엔드 PostCategory. NEWS는 당당 소식 공식 계정만
 export type PostCategory =
-  'NEWS' | 'MEAL' | 'MEASUREMENT' | 'VISIT' | 'MIND' | 'BIRTH' | 'POSTPARTUM'
+  'NEWS' | 'MEAL' | 'MEASUREMENT' | 'VISIT' | 'MIND' | 'BIRTH' | 'POSTPARTUM' | 'FREE' | 'QUESTION'
 
-// 화면 게시판 → 서버 게시판. 자유 · 질문은 서버에 없음
+// 화면 게시판 → 서버 게시판
 export const CATEGORY: Partial<Record<BoardKey, PostCategory>> = {
   diet: 'MEAL',
   measure: 'MEASUREMENT',
   visit: 'VISIT',
   mind: 'MIND',
   birth: 'POSTPARTUM',
+  free: 'FREE',
+  question: 'QUESTION',
 }
 
 // 서버 게시판 → 화면 게시판. 출산(BIRTH)도 출산·산후로, 당당 소식은 목록에서 뺌
@@ -23,6 +25,8 @@ const BOARD: Partial<Record<PostCategory, BoardKey>> = {
   MIND: 'mind',
   BIRTH: 'birth',
   POSTPARTUM: 'birth',
+  FREE: 'free',
+  QUESTION: 'question',
 }
 
 // 백엔드 AuthorResponse. 익명이면 profileId 없음, 탈퇴한 회원이면 displayName만
@@ -48,7 +52,7 @@ type PostSummaryResponse = {
   hasPoll: boolean
 }
 
-type PostListResponse = {
+export type PostListResponse = {
   items: PostSummaryResponse[]
   nextCursor: string | null
   hasNext: boolean
@@ -70,7 +74,7 @@ export function toAuthor(author: AuthorResponse, fallbackId: string) {
 }
 
 // 서버 글 한 줄 → 화면 글. 목록엔 본문 앞부분 · 댓글 수만 와서 댓글은 비움, 투표는 있다는 표시만
-function toPost(item: PostSummaryResponse): Post | null {
+export function toPost(item: PostSummaryResponse): Post | null {
   const board = BOARD[item.category]
   if (!board) return null
   return {
@@ -264,15 +268,21 @@ export async function getPostDraft(): Promise<PostDraft | null> {
   }
 }
 
-// 임시 저장. 있으면 덮어씀. 비운 글을 보내면 지운 것과 같음(지우기 API 없음)
-export async function savePostDraft(draft: PostDraft | null) {
+// 임시 저장. 있으면 덮어씀
+export async function savePostDraft(draft: PostDraft) {
   await apiClient.put('/posts/drafts', {
-    category: draft?.board ? CATEGORY[draft.board] : undefined,
-    title: draft?.title || undefined,
-    content: draft?.body || undefined,
-    isAnonymous: draft?.anonymous ?? false,
-    poll: draft?.poll?.length ? draft.poll : undefined,
+    category: draft.board ? CATEGORY[draft.board] : undefined,
+    title: draft.title || undefined,
+    content: draft.body || undefined,
+    // 예전 기기 임시 글엔 익명 칸이 없을 수 있음
+    isAnonymous: draft.anonymous ?? false,
+    poll: draft.poll?.length ? draft.poll : undefined,
   })
+}
+
+// 임시 글 지우기. 없어도 200. 글을 올리면 서버가 알아서 지움
+export async function deletePostDraft() {
+  await apiClient.delete('/posts/drafts')
 }
 
 type PrecheckIssue = { kind: 'DOSE' | 'URGENT_MEDICAL' | 'MIND'; quote: string }
