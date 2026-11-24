@@ -99,66 +99,85 @@ export async function checkEmail(email: string): Promise<EmailOwner> {
   return result.authProvider === 'KAKAO' ? 'kakao' : 'email'
 }
 
-// 인증번호는 10분 동안만, 5번 틀리면 무효, 하루 5번까지 발송. 서버 정책 값
+// 인증번호는 10분 동안만, 5번 틀리면 무효, 하루 5번까지 발송, 다시 받기는 60초 뒤. 서버 정책 값
 export const VERIFY_CODE_LENGTH = 6
 export const VERIFY_TTL_MS = 10 * 60 * 1000
 export const VERIFY_MAX_FAILURES = 5
 export const VERIFY_MAX_SENDS = 5
+export const RESEND_WAIT_MS = 60 * 1000
 
-// 이메일별 틀린 횟수. 서버가 횟수를 안 알려 줘서 프론트에서 셈
-const verifyFailures = new Map<string, number>()
+// 서버 EmailCodeSendResponse
+type EmailCodeSendResponse = {
+  remainingSends: number
+  expiresInSeconds: number
+  resendAfterSeconds: number
+}
+
+// 인증번호를 보낸 상태. resendAt: 다시 받을 수 있는 시각, remainingSends: 오늘 더 받을 수 있는 횟수(모르면 null)
+export type CodeSent = { sentAt: number; resendAt: number; remainingSends: number | null }
 
 export type SendCodeResult =
-  | { status: 'ok'; sentAt: number }
+  | ({ status: 'ok' } & CodeSent)
+  // AUTH_42904 60초 안에 다시 보냄. 앞서 보낸 번호는 그대로 씀
+  | { status: 'wait'; resendAt: number }
+  // AUTH_50202 메일 서버 오류. 오늘 횟수는 돌려받고 60초 뒤 다시
+  | { status: 'mailFailed'; resendAt: number }
   // AUTH_40901 이미 가입된 이메일
   | { status: 'taken' }
   // AUTH_42901 하루 발송 횟수 초과
   | { status: 'limit' }
 
-// 인증번호 메일 발송. 서버가 보낸 시각을 안 줘서 프론트 시각으로 타이머
+// 기다릴 시각. 서버가 남은 초를 안 주면 정책 값(60초)
+const waitUntil = (seconds: number | undefined, now: number) =>
+  now + (seconds ?? RESEND_WAIT_MS / 1000) * 1000
+
+// 인증번호 메일 발송. 타이머는 받은 시각부터 셈
 export async function sendVerifyCode(email: string): Promise<SendCodeResult> {
+  const now = Date.now()
   try {
-    await apiClient.post('/auth/email/code', { email })
+    const { data } = await apiClient.post<BaseResponse<EmailCodeSendResponse>>('/auth/email/code', {
+      email,
+    })
+    return {
+      status: 'ok',
+      sentAt: now,
+      resendAt: waitUntil(data.data?.resendAfterSeconds, now),
+      remainingSends: data.data?.remainingSends ?? null,
+    }
   } catch (error) {
     const code = getErrorCode(error)
+    const retry = getErrorData<AuthRetryInfo>(error)?.retryAfterSeconds
+    if (code === 'AUTH_42904') return { status: 'wait', resendAt: waitUntil(retry, now) }
+    if (code === 'AUTH_50202') return { status: 'mailFailed', resendAt: waitUntil(retry, now) }
     if (code === 'AUTH_40901') return { status: 'taken' }
     if (code === 'AUTH_42901') return { status: 'limit' }
     throw error
   }
-  // 새 번호를 받으면 틀린 횟수 초기화
-  verifyFailures.delete(email)
-  return { status: 'ok', sentAt: Date.now() }
-}
-
-export type ResendResult = { status: 'ok'; sentAt: number } | { status: 'limit' }
-
-// 인증 화면에선 이미 가입된 경우가 거의 없어 발송 불가로 같이 처리
-export async function resendVerifyCode(email: string): Promise<ResendResult> {
-  const result = await sendVerifyCode(email)
-  return result.status === 'ok' ? result : { status: 'limit' }
 }
 
 export type VerifyResult =
   | { status: 'ok' }
-  | { status: 'wrong'; failures: number }
+  // 남은 횟수를 못 읽으면 null
+  | { status: 'wrong'; remaining: number | null }
+  // AUTH_40010 5번 틀림. 번호를 다시 받아야 함
   | { status: 'tooMany' }
+  // AUTH_40001 10분 지남
   | { status: 'expired' }
 
-// 서버는 5번 틀리면 번호를 무효로 함(AUTH_40001). 화면은 5번째에 바로 다시 받기 안내
+// 이미 인증된 이메일을 다시 확인해도 200
 export async function verifyEmailCode(email: string, code: string): Promise<VerifyResult> {
   try {
     await apiClient.post('/auth/email/verify', { email, code })
   } catch (error) {
     const errorCode = getErrorCode(error)
     if (errorCode === 'AUTH_40002') {
-      const failures = (verifyFailures.get(email) ?? 0) + 1
-      verifyFailures.set(email, failures)
-      return failures >= VERIFY_MAX_FAILURES ? { status: 'tooMany' } : { status: 'wrong', failures }
+      const remaining = getErrorData<AuthRetryInfo>(error)?.remainingAttempts ?? null
+      return remaining === 0 ? { status: 'tooMany' } : { status: 'wrong', remaining }
     }
+    if (errorCode === 'AUTH_40010') return { status: 'tooMany' }
     if (errorCode === 'AUTH_40001') return { status: 'expired' }
     throw error
   }
-  verifyFailures.delete(email)
   return { status: 'ok' }
 }
 

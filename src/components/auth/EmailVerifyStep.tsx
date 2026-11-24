@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import {
   VERIFY_CODE_LENGTH,
   VERIFY_MAX_FAILURES,
+  VERIFY_MAX_SENDS,
   VERIFY_TTL_MS,
-  resendVerifyCode,
+  sendVerifyCode,
   verifyEmailCode,
+  type CodeSent,
 } from '@/api/auth'
 import iconAlert from '@/assets/icons/auth/alert.svg'
 import iconCheck from '@/assets/icons/auth/check.svg'
@@ -20,10 +22,11 @@ import AuthField, { type FieldHelper } from '@/components/auth/AuthField'
 import AuthHeader from '@/components/auth/AuthHeader'
 import AuthToast from '@/components/auth/AuthToast'
 import MailHelpSheet from '@/components/auth/MailHelpSheet'
+import { SUPPORT_EMAIL } from '@/constants/contact'
 import { useNow } from '@/hooks/useNow'
 
-// 보낸 직후 30초는 다시 받기 막음
-const RESEND_WAIT_MS = 30 * 1000
+// 남은 시간이 이만큼 이하면 타이머를 빨갛게
+const TIMER_WARN_MS = 60 * 1000
 
 type VerifyStatus = 'idle' | 'wrong' | 'digits' | 'tooMany' | 'resent' | 'limit' | 'verified'
 
@@ -32,7 +35,7 @@ type ToastKind = 'offline' | 'verifyFailed' | 'sendFailed' | 'signUpFailed'
 const TOAST: Record<ToastKind, { icon: string; message: string }> = {
   offline: {
     icon: iconToastOffline,
-    message: '인터넷 연결이 불안정해요. 연결되면 다시 확인할게요',
+    message: '인터넷 연결이 불안정해요. 연결을 확인하고 다시 시도해 주세요.',
   },
   verifyFailed: {
     icon: iconToastAlert,
@@ -48,33 +51,52 @@ const TOAST: Record<ToastKind, { icon: string; message: string }> = {
   },
 }
 
+// 가입 화면에서 처음 보낸 결과. 메일을 못 보냈으면 mailFailed
+export type FirstSend = ({ status: 'sent' } & CodeSent) | { status: 'mailFailed'; resendAt: number }
+
 type EmailVerifyStepProps = {
   email: string
-  sentAt: number
+  firstSend: FirstSend
   onBack: () => void
   onChangeEmail: () => void
   // 가입까지 마침. 인증 유효 시간(30분)이 지났으면 'expired'
   onVerified: () => Promise<'expired' | void>
 }
 
+// 예: 09:59
 function formatRemaining(ms: number) {
   const seconds = Math.ceil(ms / 1000)
   return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 }
 
-// Figma V-01~V-10 이메일 인증: 6자리 번호, 10분 제한, 5번 틀리면 다시 받기
+// 예: 0:42
+const formatWait = (ms: number) => {
+  const seconds = Math.ceil(ms / 1000)
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+}
+
+// Figma V-01~V-13 이메일 인증: 6자리 번호, 10분 제한, 5번 틀리면 다시 받기, 다시 받기는 60초 뒤
 function EmailVerifyStep({
   email,
-  sentAt: firstSentAt,
+  firstSend,
   onBack,
   onChangeEmail,
   onVerified,
 }: EmailVerifyStepProps) {
   const now = useNow(1000).getTime()
-  const [sentAt, setSentAt] = useState(firstSentAt)
+  // 메일을 못 보냈으면 null(타이머 없음)
+  const [sentAt, setSentAt] = useState<number | null>(
+    firstSend.status === 'sent' ? firstSend.sentAt : null,
+  )
+  const [resendAt, setResendAt] = useState(firstSend.resendAt)
+  const [remainingSends, setRemainingSends] = useState<number | null>(
+    firstSend.status === 'sent' ? firstSend.remainingSends : null,
+  )
+  const [mailFailed, setMailFailed] = useState(firstSend.status === 'mailFailed')
   const [code, setCode] = useState('')
   const [status, setStatus] = useState<VerifyStatus>('idle')
-  const [failures, setFailures] = useState(0)
+  // 인증번호를 더 틀릴 수 있는 횟수. 모르면 null
+  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null)
   const [checking, setChecking] = useState(false)
   // 오프라인이라 못 보낸 확인. 연결되면 다시 시도
   const [pending, setPending] = useState(false)
@@ -82,13 +104,17 @@ function EmailVerifyStep({
   const [toast, setToast] = useState<ToastKind | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
 
-  const remaining = Math.max(0, VERIFY_TTL_MS - (now - sentAt))
+  const remaining = sentAt === null ? 0 : Math.max(0, VERIFY_TTL_MS - (now - sentAt))
   const verified = status === 'verified'
   const tooMany = status === 'tooMany'
-  const expired = remaining === 0 && !verified && !tooMany
-  const locked = verified || tooMany || expired
-  const canResend =
-    !verified && status !== 'limit' && (tooMany || expired || now - sentAt >= RESEND_WAIT_MS)
+  const limit = status === 'limit'
+  const expired = sentAt !== null && remaining === 0 && !verified && !tooMany && !limit
+  const locked = verified || tooMany || expired || limit || mailFailed
+  // 다시 받기는 서버가 정한 시각부터
+  const waitMs = Math.max(0, resendAt - now)
+  const canResend = !verified && !limit && waitMs === 0
+  // 번호를 다시 받아야만 이어 갈 수 있는 상태
+  const needResend = tooMany || expired || mailFailed
 
   const verify = useCallback(
     async (value: string) => {
@@ -102,7 +128,7 @@ function EmailVerifyStep({
         const result = await verifyEmailCode(email, value)
         if (result.status === 'ok') setStatus('verified')
         else if (result.status === 'wrong') {
-          setFailures(result.failures)
+          setAttemptsLeft(result.remaining)
           setStatus('wrong')
         } else if (result.status === 'tooMany') setStatus('tooMany')
         // 서버에서 시간이 지났다고 하면 화면도 시간 초과로
@@ -135,9 +161,8 @@ function EmailVerifyStep({
     }
     let result
     try {
-      result = await resendVerifyCode(email)
+      result = await sendVerifyCode(email)
     } catch {
-      // 메일 발송 실패(AUTH_50202)·네트워크 오류
       setToast('sendFailed')
       return
     }
@@ -145,9 +170,28 @@ function EmailVerifyStep({
       setStatus('limit')
       return
     }
+    // 60초 안이면 앞서 보낸 번호를 그대로 쓰고 기다릴 시각만 맞춤
+    if (result.status === 'wait') {
+      setResendAt(result.resendAt)
+      return
+    }
+    if (result.status === 'mailFailed') {
+      setResendAt(result.resendAt)
+      setMailFailed(true)
+      setStatus('idle')
+      return
+    }
+    // 인증 화면에선 이미 가입된 경우가 거의 없어 보내지 못함으로
+    if (result.status === 'taken') {
+      setToast('sendFailed')
+      return
+    }
     setSentAt(result.sentAt)
+    setResendAt(result.resendAt)
+    setRemainingSends(result.remainingSends)
+    setMailFailed(false)
     setCode('')
-    setFailures(0)
+    setAttemptsLeft(null)
     setStatus('resent')
   }
 
@@ -173,7 +217,8 @@ function EmailVerifyStep({
   const submit = (event: FormEvent) => {
     event.preventDefault()
     if (checking) return
-    if (verified) void complete()
+    if (needResend) void resend()
+    else if (verified) void complete()
     else if (code.length < VERIFY_CODE_LENGTH) setStatus('digits')
     else void verify(code)
   }
@@ -192,25 +237,39 @@ function EmailVerifyStep({
             text: '입력 시간이 지났어요. 인증번호를 다시 받아 주세요',
             tone: 'error',
           }
-        : status === 'wrong'
+        : mailFailed
           ? {
               icon: iconAlert,
-              text: `인증번호가 맞지 않아요 (${failures}/${VERIFY_MAX_FAILURES})`,
+              text: '메일을 보내지 못했어요. 잠시 후 다시 받아 주세요.',
               tone: 'error',
             }
-          : status === 'digits'
-            ? { icon: iconAlert, text: '숫자 6자리를 모두 입력해 주세요', tone: 'error' }
-            : status === 'resent'
-              ? {
-                  icon: iconMail,
-                  text: '인증번호를 다시 보냈어요. 메일이 안 보이면 스팸함도 확인해 주세요',
-                  tone: 'info',
-                }
-              : status === 'limit'
-                ? { icon: iconAlert, text: '오늘은 인증번호를 더 받을 수 없어요', tone: 'error' }
-                : null
+          : status === 'wrong'
+            ? {
+                icon: iconAlert,
+                text:
+                  attemptsLeft === null
+                    ? '인증번호가 맞지 않아요.'
+                    : `인증번호가 맞지 않아요.\n${attemptsLeft}번 더 틀리면 인증번호를 다시 받아야 해요.`,
+                tone: 'error',
+              }
+            : status === 'digits'
+              ? { icon: iconAlert, text: '숫자 6자리를 모두 입력해 주세요', tone: 'error' }
+              : status === 'resent'
+                ? {
+                    icon: iconMail,
+                    text: '인증번호를 다시 보냈어요',
+                    tone: 'info',
+                  }
+                : status === 'limit'
+                  ? {
+                      icon: iconAlert,
+                      text: `오늘 보낼 수 있는 횟수(${VERIFY_MAX_SENDS}번)를 다 썼어요.\n내일 다시 받아 주세요.`,
+                      tone: 'error',
+                    }
+                  : null
 
-  const invalid = tooMany || expired || status === 'wrong' || status === 'digits'
+  const invalid =
+    tooMany || expired || mailFailed || limit || status === 'wrong' || status === 'digits'
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-14.5 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
@@ -224,7 +283,9 @@ function EmailVerifyStep({
           <br />
           입력해 주세요
         </h1>
-        <p className="text-grey-500 text-sm leading-normal">{email} 으로 보냈어요</p>
+        <p className="text-grey-500 text-sm leading-normal">
+          {email} 으로 {mailFailed ? '보내지 못했어요' : '보냈어요'}
+        </p>
       </div>
 
       <form noValidate className="flex flex-1 flex-col" onSubmit={submit}>
@@ -242,7 +303,7 @@ function EmailVerifyStep({
               inputMode="numeric"
               autoComplete="one-time-code"
               placeholder="숫자 6자리"
-              value={tooMany || expired ? '' : code}
+              value={tooMany || expired || limit || mailFailed ? '' : code}
               disabled={locked}
               aria-invalid={invalid}
               aria-describedby={helper ? 'verify-code-helper' : undefined}
@@ -260,22 +321,28 @@ function EmailVerifyStep({
               <img src={iconVerified} alt="" width={20} height={20} className="shrink-0" />
             ) : (
               <>
-                {!tooMany && (
+                {/* 타이머는 보낸 번호가 있을 때만. 1분 이하면 빨갛게 */}
+                {sentAt !== null && !tooMany && !limit && !mailFailed && (
                   <span
                     aria-label={`남은 시간 ${formatRemaining(remaining)}`}
-                    className="shrink-0 text-sm leading-normal font-medium text-red-500"
+                    className={`shrink-0 text-sm leading-normal font-medium ${
+                      remaining <= TIMER_WARN_MS ? 'text-red-500' : 'text-grey-700'
+                    }`}
                   >
                     {formatRemaining(remaining)}
                   </span>
                 )}
-                <button
-                  type="button"
-                  disabled={!canResend}
-                  className="text-body-3 border-grey-200 text-grey-900 disabled:text-grey-400 shrink-0 rounded-lg border bg-white px-2.5 py-1.5"
-                  onClick={resend}
-                >
-                  다시 받기
-                </button>
+                {/* 다시 받아야 하는 상태에선 아래 큰 버튼으로 */}
+                {!needResend && !limit && (
+                  <button
+                    type="button"
+                    disabled={!canResend}
+                    className="text-body-3 border-grey-200 text-grey-900 disabled:text-grey-400 shrink-0 rounded-lg border bg-white px-2.5 py-1.5"
+                    onClick={resend}
+                  >
+                    {waitMs > 0 ? `${formatWait(waitMs)} 후 다시 받기` : '다시 받기'}
+                  </button>
+                )}
               </>
             )}
           </AuthField>
@@ -286,9 +353,14 @@ function EmailVerifyStep({
           <p className="text-t7 text-grey-700">
             메일이 안 보이면 스팸함도 확인해 주세요.
             <br />
-            <button type="button" onClick={() => setSheet(true)}>
-              메일이 안 와요
-            </button>
+            {/* 오늘 횟수를 다 쓰면 다시 받기 대신 문의하기 */}
+            {limit ? (
+              <a href={`mailto:${SUPPORT_EMAIL}`}>문의하기</a>
+            ) : (
+              <button type="button" onClick={() => setSheet(true)}>
+                메일이 안 와요
+              </button>
+            )}
             {' · '}
             <button type="button" onClick={onChangeEmail}>
               이메일 바꾸기
@@ -298,11 +370,19 @@ function EmailVerifyStep({
 
         <button
           type="submit"
-          disabled={tooMany || expired}
+          disabled={limit || (needResend && !canResend)}
           aria-busy={checking}
           className="text-subtitle-1 bg-primary disabled:bg-grey-100 disabled:text-grey-400 relative mt-auto h-14 rounded-xl leading-none text-white"
         >
-          <span className={checking ? 'opacity-0' : undefined}>확인</span>
+          <span className={checking ? 'opacity-0' : undefined}>
+            {limit
+              ? '내일 다시 받을 수 있어요'
+              : needResend
+                ? waitMs > 0
+                  ? `${formatWait(waitMs)} 후 인증번호 다시 받기`
+                  : '인증번호 다시 받기'
+                : '확인'}
+          </span>
           {checking && (
             <img
               src={iconLoading}
@@ -318,6 +398,7 @@ function EmailVerifyStep({
       {sheet && (
         <MailHelpSheet
           email={email}
+          remainingSends={remainingSends}
           canResend={canResend}
           onResend={resend}
           onChangeEmail={onChangeEmail}

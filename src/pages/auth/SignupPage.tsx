@@ -1,6 +1,12 @@
 import { useCallback, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
-import { checkEmail, completeSignUp, sendVerifyCode, startKakaoLogin } from '@/api/auth'
+import {
+  RESEND_WAIT_MS,
+  checkEmail,
+  completeSignUp,
+  sendVerifyCode,
+  startKakaoLogin,
+} from '@/api/auth'
 import iconAlert from '@/assets/icons/auth/alert.svg'
 import iconInfoBlue from '@/assets/icons/auth/caps-lock.svg'
 import iconCheck from '@/assets/icons/auth/check.svg'
@@ -11,7 +17,7 @@ import iconToastOffline from '@/assets/icons/auth/toast-offline.svg'
 import AuthField, { type FieldHelper } from '@/components/auth/AuthField'
 import AuthHeader from '@/components/auth/AuthHeader'
 import AuthToast from '@/components/auth/AuthToast'
-import EmailVerifyStep from '@/components/auth/EmailVerifyStep'
+import EmailVerifyStep, { type FirstSend } from '@/components/auth/EmailVerifyStep'
 import NewPasswordFields from '@/components/auth/NewPasswordFields'
 import { ROUTES } from '@/constants/routes'
 import { useFinishLogin } from '@/hooks/useFinishLogin'
@@ -66,8 +72,8 @@ function SignupPage() {
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState<ToastKind | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
-  // 인증번호를 보낸 시각. 있으면 인증 단계
-  const [sentAt, setSentAt] = useState<number | null>(null)
+  // 처음 보낸 결과. 있으면 인증 단계
+  const [firstSend, setFirstSend] = useState<FirstSend | null>(null)
 
   const emailStatus = emailCheck?.email === email ? emailCheck.status : null
   const nameEmpty = submitted && !name.trim()
@@ -129,24 +135,35 @@ function SignupPage() {
     setLoading(true)
     try {
       const result = await sendVerifyCode(trimmedEmail)
-      if (result.status === 'ok') setSentAt(result.sentAt)
+      if (result.status === 'ok') setFirstSend({ ...result, status: 'sent' })
+      // 60초 안에 다시 누름. 앞서 보낸 번호가 그대로라 그 번호의 보낸 시각으로 이어 감
+      else if (result.status === 'wait') {
+        setFirstSend({
+          status: 'sent',
+          sentAt: result.resendAt - RESEND_WAIT_MS,
+          resendAt: result.resendAt,
+          remainingSends: null,
+        })
+      }
+      // 메일 서버 오류면 인증 화면에서 다시 받게
+      else if (result.status === 'mailFailed') setFirstSend(result)
       else if (result.status === 'limit') setToast('limit')
       else setEmailCheck({ email: trimmedEmail, status: { kind: 'taken' } })
     } catch {
-      // 메일 발송 실패(AUTH_50202)·네트워크 오류
+      // 네트워크 오류
       setToast('failed')
     } finally {
       setLoading(false)
     }
   }
 
-  if (sentAt !== null) {
-    const backToForm = () => setSentAt(null)
+  if (firstSend !== null) {
+    const backToForm = () => setFirstSend(null)
     return (
       <EmailVerifyStep
-        key={sentAt}
+        key={firstSend.resendAt}
         email={email}
-        sentAt={sentAt}
+        firstSend={firstSend}
         onBack={backToForm}
         onChangeEmail={() => {
           backToForm()
