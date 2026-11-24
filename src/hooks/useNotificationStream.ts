@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { getMe } from '@/api/me'
 import { openNotificationStream } from '@/api/notifications'
+import { showAlertBanner } from '@/stores/useAlertBannerStore'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { receiveInboxItem, syncInbox } from '@/stores/useInboxStore'
 
@@ -31,7 +32,10 @@ export function useNotificationStream() {
           connectedOnce = true
         },
         onNotification: (item) => {
-          receiveInboxItem(item)
+          // 처음 받은 알림만, 앱을 보고 있을 때만 배너로. 알림함에는 늘 남음
+          if (receiveInboxItem(item) && document.visibilityState === 'visible') {
+            showAlertBanner(item)
+          }
         },
         // 로그인 만료일 수 있어 서버 확인(만료면 인터셉터가 재발급, 실패면 로그아웃) 뒤 다시 붙음
         onClosed: () => {

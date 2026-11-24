@@ -1,4 +1,5 @@
 import { Navigate, Routes, Route, useLocation } from 'react-router'
+import AlertBanner from '@/components/common/AlertBanner'
 import SplashScreen from '@/components/onboarding/SplashScreen'
 import { ROUTES } from '@/constants/routes'
 import { SPLASH_TOTAL_MS } from '@/constants/splashMotion'
@@ -103,6 +104,8 @@ function App() {
 
   return (
     <>
+      {/* 앱 안 알림 배너. 화면 위에 떠서 어느 화면에서나 보임 */}
+      <AlertBanner />
       {splash && (
         <SplashScreen
           revisit={completed}
