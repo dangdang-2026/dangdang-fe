@@ -10,6 +10,7 @@ import iconVote from '@/assets/icons/community/vote.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import Toast from '@/components/common/Toast'
+import AppealSheet from '@/components/community/AppealSheet'
 import PollEditor from '@/components/community/PollEditor'
 import PostWarningSheet from '@/components/community/PostWarningSheet'
 import RestrictedSheet from '@/components/community/RestrictedSheet'
@@ -91,6 +92,12 @@ function WritePage() {
     setRestrictedOpen(false)
     goBack()
   }, [goBack])
+  // 이의 신청을 닫거나 마치면 제한 시트로 돌아옴(글은 여전히 못 씀)
+  const [appealOpen, setAppealOpen] = useState(false)
+  const closeAppeal = useCallback(() => {
+    setAppealOpen(false)
+    setRestrictedOpen(true)
+  }, [])
 
   // 들어올 때 서버 이용 제한을 다시 확인. 제한 중이면 시트
   useEffect(() => {
@@ -367,9 +374,22 @@ function WritePage() {
         <RestrictedSheet
           until={restriction?.until ? new Date(restriction.until) : null}
           reason={restriction?.reason ?? null}
+          appealed={!!restriction?.appealed}
           onPolicy={() => navigate(ROUTES.COMMUNITY_POLICY)}
-          onAppeal={() => setToast(COMING_SOON)}
+          onAppeal={() => {
+            setRestrictedOpen(false)
+            setAppealOpen(true)
+          }}
           onClose={closeRestricted}
+        />
+      )}
+      {appealOpen && (
+        <AppealSheet
+          onDone={(message) => {
+            closeAppeal()
+            setToast(message)
+          }}
+          onClose={closeAppeal}
         />
       )}
       {warning && (

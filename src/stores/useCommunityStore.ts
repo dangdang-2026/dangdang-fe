@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import { getErrorCode } from '@/api/axios'
 import { blockProfile, getBlockedProfiles, unblockProfile } from '@/api/blocks'
 import { getMyCommunityProfile } from '@/api/communityProfile'
-import { getRestriction, type Restriction } from '@/api/restriction'
+import { appealRestriction, getRestriction, type Restriction } from '@/api/restriction'
 import { createComment, deleteComment, getComments } from '@/api/comments'
 import { deletePostDraft, savePostDraft, votePoll } from '@/api/posts'
 import { reactComment, reactPost } from '@/api/reactions'
@@ -342,4 +342,28 @@ export async function syncRestriction() {
   const restriction = await getRestriction()
   useCommunityStore.setState({ restriction })
   return restriction
+}
+
+// 이용 제한 이의 신청. 접수됐거나 이미 했으면 접수됨으로, 제한이 풀렸으면 제한을 비움
+export async function sendAppeal(content: string): Promise<'sent' | 'already' | 'lifted'> {
+  const markAppealed = () =>
+    useCommunityStore.setState((state) => ({
+      restriction: state.restriction && { ...state.restriction, appealed: true },
+    }))
+  try {
+    await appealRestriction(content)
+    markAppealed()
+    return 'sent'
+  } catch (error) {
+    const code = getErrorCode(error)
+    if (code === 'COMMUNITY_40905') {
+      markAppealed()
+      return 'already'
+    }
+    if (code === 'COMMUNITY_40904') {
+      useCommunityStore.setState({ restriction: null })
+      return 'lifted'
+    }
+    throw error
+  }
 }

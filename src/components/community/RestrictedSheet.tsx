@@ -7,13 +7,22 @@ type RestrictedSheetProps = {
   until: Date | null
   // 제한 사유 문구. 모르면 null
   reason: string | null
+  // 이 제한에 이의 신청을 이미 했는지
+  appealed: boolean
   onPolicy: () => void
   onAppeal: () => void
   onClose: () => void
 }
 
 // Figma U-17 이용 제한 중. 읽기·공감은 그대로
-function RestrictedSheet({ until, reason, onPolicy, onAppeal, onClose }: RestrictedSheetProps) {
+function RestrictedSheet({
+  until,
+  reason,
+  appealed,
+  onPolicy,
+  onAppeal,
+  onClose,
+}: RestrictedSheetProps) {
   return (
     <BottomSheet label="이용 제한" onClose={onClose}>
       <div className="flex flex-col items-center gap-2 text-center">
@@ -42,9 +51,13 @@ function RestrictedSheet({ until, reason, onPolicy, onAppeal, onClose }: Restric
         <button type="button" className="underline" onClick={onPolicy}>
           운영정책 보기
         </button>
-        <button type="button" className="underline" onClick={onAppeal}>
-          이의 신청하기
-        </button>
+        {appealed ? (
+          <span className="text-grey-400">이의 신청 접수됨</span>
+        ) : (
+          <button type="button" className="underline" onClick={onAppeal}>
+            이의 신청하기
+          </button>
+        )}
       </p>
     </BottomSheet>
   )
