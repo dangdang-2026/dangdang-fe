@@ -12,7 +12,7 @@ import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncMealGuide } from '@/stores/useMealGuideStore'
 import { syncMealSettings } from '@/stores/useMealSettingsStore'
-import { clearReports, startReports, syncReports } from '@/stores/useReportStore'
+import { clearReports, getReportAccount, startReports, syncReports } from '@/stores/useReportStore'
 import { syncQuestions, syncVisitNote, syncVisits } from '@/stores/useVisitStore'
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
@@ -52,6 +52,7 @@ export function useFinishLogin() {
       const me = await getMe()
       // 못 보낸 리포트 저장은 이 계정 것일 때만 이어서 보냄
       startReports(me.userId)
+      const reportAccount = getReportAccount()
       // 입원 상태도 이 계정 값으로
       updateProfile({ name: me.displayName, hospitalized: me.pregnancyState === 'HOSPITALIZED' })
       // 카카오는 로그인 응답에 이메일이 없어 /me 값으로 채움
@@ -71,7 +72,8 @@ export function useFinishLogin() {
           Promise.all(
             [
               syncMealGuide(false),
-              syncReports(),
+              // 병원을 받는 사이 다른 계정으로 로그인했으면 건너뜀
+              reportAccount === getReportAccount() ? syncReports() : Promise.resolve(),
               syncVisits(false).then(() =>
                 Promise.all([syncQuestions(false), syncVisitNote(false)]),
               ),

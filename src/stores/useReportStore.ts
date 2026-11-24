@@ -85,7 +85,10 @@ export async function syncReports() {
 export function keepVisitReport(body: VisitReportSave) {
   const account = accountCount
   saveVisitReport(body).then(
-    () => syncReports().catch(() => {}),
+    () => {
+      // 그사이 계정이 바뀌었으면 새 계정 목록은 startReports 쪽에서 맞춤
+      if (account === accountCount) syncReports().catch(() => {})
+    },
     () => {
       // 그사이 계정이 바뀌었으면 새 계정 목록에 넣지 않음
       if (account === accountCount) {
@@ -102,13 +105,21 @@ export function clearReports() {
   useReportStore.setState({ reports: [] })
 }
 
-// 계정 확인 후 시작. 보낼 목록은 다른 계정 것일 때만 비움(주인 모르는 예전 리포트는 둠)
+// 계정 확인 후 시작(로그인 · 앱 열 때). 목록 · 보낼 목록은 다른 계정 것일 때만 비움(주인 모르는 예전 리포트는 둠)
 export function startReports(userId: number) {
   syncCount += 1
   accountCount += 1
-  useReportStore.setState((state) => ({
-    reports: [],
-    pending: state.ownerId === null || state.ownerId === userId ? state.pending : [],
-    ownerId: userId,
-  }))
+  useReportStore.setState((state) => {
+    const mine = state.ownerId === null || state.ownerId === userId
+    return {
+      reports: state.ownerId === userId ? state.reports : [],
+      pending: mine ? state.pending : [],
+      ownerId: userId,
+    }
+  })
+}
+
+// 지금 계정 차례. 늦게 끝난 앞 로그인 작업이 새 계정으로 맞추지 않게 비교용
+export function getReportAccount() {
+  return accountCount
 }
