@@ -24,6 +24,8 @@ export type NewsCard = {
   withdrawn?: boolean
   // 내가 저장했는지
   saved?: boolean
+  // 내가 공감했는지. 공감 수는 보여 주지 않음
+  reacted?: boolean
 }
 
 // 목록 한 장. 슬라이드 · 출처는 상세에서만 옴

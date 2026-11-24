@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { getErrorCode } from '@/api/axios'
-import { getCard, saveCard, unsaveCard } from '@/api/cards'
+import { getCard, reactCard, saveCard, unreactCard, unsaveCard } from '@/api/cards'
 import iconAskPencil from '@/assets/icons/community/ask-pencil.svg'
 import iconCorrection from '@/assets/icons/community/correction.svg'
 import iconNewsCheck from '@/assets/icons/community/news-check.svg'
@@ -17,7 +17,6 @@ import Toast from '@/components/common/Toast'
 import NewsAskSheet from '@/components/community/NewsAskSheet'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { useCommunityStore } from '@/stores/useCommunityStore'
 import { saveQuestion } from '@/stores/useVisitStore'
 import type { NewsCard } from '@/types/news'
 import { parseDateKey } from '@/utils/date'
@@ -54,9 +53,8 @@ function NewsDetailPage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.COMMUNITY_NEWS)
   const card = useCard(id)
-  const likedNewsIds = useCommunityStore((state) => state.likedNewsIds)
-  const toggleLikeNews = useCommunityStore((state) => state.toggleLikeNews)
-  // 저장을 누른 뒤 값. 누르기 전엔 서버 값
+  // 공감 · 저장을 누른 뒤 값. 누르기 전엔 서버 값
+  const [reactedNow, setReactedNow] = useState<{ id: string; reacted: boolean } | null>(null)
   const [savedNow, setSavedNow] = useState<{ id: string; saved: boolean } | null>(null)
   const [slide, setSlide] = useState(0)
   const [sourcesOpen, setSourcesOpen] = useState(false)
@@ -110,7 +108,7 @@ function NewsDetailPage() {
     )
   }
 
-  const liked = likedNewsIds.includes(card.id)
+  const liked = reactedNow?.id === card.id ? reactedNow.reacted : !!card.reacted
   const saved = savedNow?.id === card.id ? savedNow.saved : !!card.saved
 
   // 화면엔 바로 바꾸고 서버에 못 남기면 되돌림
@@ -124,6 +122,20 @@ function NewsDetailPage() {
         getErrorCode(error) === 'CARD_40901'
           ? '내려간 카드라 저장할 수 없어요'
           : '저장하지 못했어요. 잠시 후 다시 시도해 주세요',
+      )
+    })
+  }
+
+  // 공감도 화면엔 바로 바꾸고 서버에 못 남기면 되돌림. 공감 수는 보여 주지 않음
+  const toggleLike = () => {
+    const next = !liked
+    setReactedNow({ id: card.id, reacted: next })
+    ;(next ? reactCard(card.id) : unreactCard(card.id)).catch((error) => {
+      setReactedNow({ id: card.id, reacted: liked })
+      setToast(
+        getErrorCode(error) === 'CARD_40903'
+          ? '내려간 카드라 공감할 수 없어요'
+          : '공감하지 못했어요. 잠시 후 다시 시도해 주세요',
       )
     })
   }
@@ -143,7 +155,7 @@ function NewsDetailPage() {
       icon: iconNewsLike,
       label: '공감',
       active: liked,
-      onClick: () => toggleLikeNews(card.id),
+      onClick: toggleLike,
     },
     {
       icon: iconNewsSave,

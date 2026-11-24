@@ -23,6 +23,7 @@ type CardDetailResponse = Omit<CardSummaryResponse, 'createdAt'> & {
   correctionNote: string | null
   correctedAt: string | null
   withdrawnAt: string | null
+  reacted: boolean
 }
 
 const SERIES_LABEL: Record<string, string> = {
@@ -70,6 +71,7 @@ function toNewsCard(item: CardDetailResponse): NewsCard {
         : undefined,
     withdrawn: item.status === 'WITHDRAWN',
     saved: item.saved,
+    reacted: item.reacted,
   }
 }
 
@@ -94,6 +96,16 @@ export async function saveCard(cardId: string) {
 // 카드 저장 취소
 export async function unsaveCard(cardId: string) {
   await apiClient.delete(`/cards/${cardId}/save`)
+}
+
+// 카드 공감. 두 번 눌러도 한 번, 내려간 카드는 409 CARD_40903
+export async function reactCard(cardId: string) {
+  await apiClient.put(`/cards/${cardId}/reaction`)
+}
+
+// 카드 공감 취소. 안 눌렀어도 200
+export async function unreactCard(cardId: string) {
+  await apiClient.delete(`/cards/${cardId}/reaction`)
 }
 
 // 저장한 카드. 최근에 저장한 순, 내려간 카드도 남음
