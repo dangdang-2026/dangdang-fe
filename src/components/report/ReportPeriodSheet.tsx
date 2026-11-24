@@ -28,7 +28,8 @@ const DAYS_IN_YEAR = 365
 
 type ReportPeriodSheetProps = {
   today: Date
-  onCreate: (range: DateRange, hospital: string) => void
+  // 고른 병원 이름과 번호(서버 병원이 없으면 null)
+  onCreate: (range: DateRange, hospital: { name: string; careSiteId: string | null }) => void
   onClose: () => void
 }
 
@@ -42,13 +43,14 @@ function ReportPeriodSheet({ today, onCreate, onClose }: ReportPeriodSheetProps)
   const [preset, setPreset] = useState<Preset>('recent')
   const [custom, setCustom] = useState<DateRange | null>(null)
   const [rangeOpen, setRangeOpen] = useState(false)
-  // 다니는 병원 이름(겹치는 이름은 하나로). 하나도 없으면 대표 병원 이름
-  const hospitalNames = hospitals.length
-    ? [...new Set(hospitals.map((item) => item.name))]
-    : [primary.name]
+  // 다니는 병원(이름이 같아도 병원마다 따로). 하나도 없으면 번호 없는 대표 병원
+  const choices: { id: string | null; name: string }[] = hospitals.length
+    ? hospitals.map((item) => ({ id: item.id, name: item.name }))
+    : [{ id: null, name: primary.name }]
   // 고른 병원이 목록에 없으면(늦게 받아 옴 · 지움) 첫 병원
   const [picked, setHospital] = useState<string | null>(null)
-  const hospital = picked && hospitalNames.includes(picked) ? picked : hospitalNames[0]
+  const chosen = choices.find((item) => item.id !== null && item.id === picked) ?? choices[0]
+  const hospital = chosen.name
 
   // 가장 오래된 기록 날짜. 없으면 오늘
   const firstRecordDay = records.reduce((earliest, record) => {
@@ -120,16 +122,16 @@ function ReportPeriodSheet({ today, onCreate, onClose }: ReportPeriodSheetProps)
       )}
 
       {/* 병원이 둘 이상일 때만 고름 */}
-      {hospitalNames.length > 1 && (
+      {choices.length > 1 && (
         <section className="flex flex-col gap-2">
           <h3 className="text-body-3 text-grey-600">어느 병원에 보여 줄까요</h3>
           <div className="flex flex-wrap gap-2">
-            {hospitalNames.map((name) => (
+            {choices.map((item) => (
               <FoodChip
-                key={name}
-                name={name}
-                selected={hospital === name}
-                onClick={() => setHospital(name)}
+                key={item.id ?? item.name}
+                name={item.name}
+                selected={chosen === item}
+                onClick={() => setHospital(item.id)}
               />
             ))}
           </div>
@@ -145,7 +147,7 @@ function ReportPeriodSheet({ today, onCreate, onClose }: ReportPeriodSheetProps)
         type="button"
         disabled={!range}
         className="text-subtitle-1 disabled:bg-grey-100 disabled:text-grey-400 bg-primary h-14 rounded-xl leading-none text-white"
-        onClick={() => range && onCreate(range, hospital)}
+        onClick={() => range && onCreate(range, { name: hospital, careSiteId: chosen.id })}
       >
         이 기간으로 만들기
       </button>

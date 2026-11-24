@@ -12,6 +12,7 @@ import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncMealGuide } from '@/stores/useMealGuideStore'
 import { syncMealSettings } from '@/stores/useMealSettingsStore'
+import { clearReports, getReportAccount, startReports, syncReports } from '@/stores/useReportStore'
 import { syncQuestions, syncVisitNote, syncVisits } from '@/stores/useVisitStore'
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
@@ -33,6 +34,8 @@ export function useFinishLogin() {
 
   return async (method: LoginMethod, email: string | null = null, profile?: AccountProfile) => {
     login({ method, email })
+    // 앞 계정의 지난 리포트가 남지 않게. 서버 목록을 못 받아도 비어 있음
+    clearReports()
     // 데모 계정은 설정을 마친 상태로 계정 정보를 넣고 바로 홈으로
     if (profile) {
       updateProfile({
@@ -47,6 +50,9 @@ export function useFinishLogin() {
     }
     try {
       const me = await getMe()
+      // 못 보낸 리포트 저장은 이 계정 것일 때만 이어서 보냄
+      startReports(me.userId)
+      const reportAccount = getReportAccount()
       // 입원 상태도 이 계정 값으로
       updateProfile({ name: me.displayName, hospitalized: me.pregnancyState === 'HOSPITALIZED' })
       // 카카오는 로그인 응답에 이메일이 없어 /me 값으로 채움
@@ -59,13 +65,15 @@ export function useFinishLogin() {
       // 알림함도 이 계정 알림으로. 다른 계정 알림이 남지 않게
       syncInbox().catch(() => {})
       // 다니는 병원도 이 계정 병원으로
-      // 식사 안내 · 진료 일정도 이 계정 것으로. 병원 번호를 써서 병원 다음에
+      // 식사 안내 · 진료 일정 · 지난 진료 리포트도 이 계정 것으로. 병원 번호를 써서 병원 다음에
       syncHospitals()
         .catch(() => {})
         .then(() =>
           Promise.all(
             [
               syncMealGuide(false),
+              // 병원을 받는 사이 다른 계정으로 로그인했으면 건너뜀
+              reportAccount === getReportAccount() ? syncReports() : Promise.resolve(),
               syncVisits(false).then(() =>
                 Promise.all([syncQuestions(false), syncVisitNote(false)]),
               ),
