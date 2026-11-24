@@ -51,6 +51,7 @@ export function toChatMessage(item: ChatMessageResponse, question: string): Chat
         intro: item.content,
         text: item.questionDraft ?? question,
         added: false,
+        chatMessageId: id,
       }
     case 'INFO':
       return {

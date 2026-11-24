@@ -46,10 +46,6 @@ type CommunityState = {
   blockedAuthors: Pick<Author, 'id' | 'nickname'>[]
   blockAuthor: (author: Author) => void
   unblockAuthor: (authorId: string) => void
-  // 당당 소식 카드 공감·저장
-  likedNewsIds: string[]
-
-  toggleLikeNews: (newsId: string) => void
 
   // 커뮤니티 메인에서 닫은 소식 카드. 새 카드가 걸리면 다시 보임
   dismissedNewsId: number | null
@@ -70,9 +66,6 @@ const renameMe = (posts: Post[], from: string | null, to: string) => {
     comments: post.comments.map((item) => ({ ...item, author: rename(item.author) })),
   }))
 }
-
-const toggle = (ids: string[], id: string) =>
-  ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]
 
 // 목록 본문은 앞 100자. 그보다 짧으면 본문 전체
 const EXCERPT_LENGTH = 100
@@ -126,8 +119,6 @@ export const useCommunityStore = create<CommunityState>()(
       draft: null,
       restriction: null,
       blockedAuthors: [],
-      likedNewsIds: [],
-
       dismissedNewsId: null,
       setNickname: (nickname, showWeek) =>
         set((state) => ({
@@ -192,8 +183,6 @@ export const useCommunityStore = create<CommunityState>()(
             { id, nickname },
           ],
         })),
-      toggleLikeNews: (newsId) =>
-        set((state) => ({ likedNewsIds: toggle(state.likedNewsIds, newsId) })),
       dismissNewsCard: (id) => set({ dismissedNewsId: id }),
       unblockAuthor: (authorId) =>
         set((state) => ({
