@@ -3,11 +3,12 @@ import type { NewsCard, NewsSummary } from '@/types/news'
 
 type CardStatus = 'PUBLISHED' | 'CORRECTED' | 'WITHDRAWN'
 
-// 백엔드 CardSummaryResponse. series는 BEFORE_VISIT · GUIDELINE · POSTPARTUM · MIND
+// 백엔드 CardSummaryResponse. series는 BEFORE_VISIT · GUIDELINE · POSTPARTUM · MIND, seriesLabel은 그 이름
 export type CardSummaryResponse = {
   id: number
   title: string
   series: string | null
+  seriesLabel: string | null
   status: CardStatus
   checkedOn: string | null
   createdAt: string
@@ -16,8 +17,11 @@ export type CardSummaryResponse = {
 
 // 백엔드 CardDetailResponse. 내려간 카드는 슬라이드 · 출처가 빈 목록
 type CardDetailResponse = Omit<CardSummaryResponse, 'createdAt'> & {
-  slides: { title: string; text: string }[]
+  // eyebrow · source는 예전 카드면 null
+  slides: { title: string; text: string; eyebrow: string | null; source: string | null }[]
   sources: { title: string; url: string }[]
+  // 물어볼 것에 적기 질문. 내려간 카드면 빈 목록
+  questions: string[]
   reviewer: string | null
   reviewedOn: string | null
   correctionNote: string | null
@@ -26,21 +30,23 @@ type CardDetailResponse = Omit<CardSummaryResponse, 'createdAt'> & {
   reacted: boolean
 }
 
+// 서버 이름이 없을 때만 씀. 서버 CardSeries와 같은 이름
 const SERIES_LABEL: Record<string, string> = {
-  BEFORE_VISIT: '진료 전에',
+  BEFORE_VISIT: '병원 가기 전에',
   GUIDELINE: '지침은 이렇게 말해요',
   POSTPARTUM: '출산 후에도',
   MIND: '마음 돌보기',
 }
 
-// 시리즈 코드 → 화면 이름. 모르는 코드는 당당 소식
-const toSeries = (series: string | null) => (series && SERIES_LABEL[series]) || '당당 소식'
+// 시리즈 화면 이름. 서버 이름 > 코드로 찾은 이름 > 당당 소식
+const toSeries = (item: Pick<CardSummaryResponse, 'series' | 'seriesLabel'>) =>
+  item.seriesLabel || (item.series && SERIES_LABEL[item.series]) || '당당 소식'
 
 // 서버 카드 한 줄 → 화면 카드 목록 한 장. 확인일이 없으면 만든 날
 export function toNewsSummary(item: CardSummaryResponse): NewsSummary {
   return {
     id: String(item.id),
-    series: toSeries(item.series),
+    series: toSeries(item),
     title: item.title,
     checkedAt: item.checkedOn ?? item.createdAt.slice(0, 10),
     withdrawn: item.status === 'WITHDRAWN',
@@ -48,10 +54,10 @@ export function toNewsSummary(item: CardSummaryResponse): NewsSummary {
   }
 }
 
-// 서버 카드 상세 → 화면 카드. 슬라이드 위 작은 글은 시리즈 이름
-// 서버에 물어볼 질문이 없어 제목으로 한 문장 만듦
+// 서버 카드 상세 → 화면 카드. 슬라이드 위 작은 글이 없으면 시리즈 이름
+// 물어볼 질문이 없는 예전 카드는 제목으로 한 문장 만듦
 function toNewsCard(item: CardDetailResponse): NewsCard {
-  const series = toSeries(item.series)
+  const series = toSeries(item)
   const correctedOn = item.correctedAt?.slice(0, 10)
   return {
     id: String(item.id),
@@ -60,11 +66,14 @@ function toNewsCard(item: CardDetailResponse): NewsCard {
     sources: item.sources.map((source) => source.title),
     checkedAt: item.checkedOn ?? '',
     slides: item.slides.map((slide) => ({
-      eyebrow: series,
+      eyebrow: slide.eyebrow || series,
+      source: slide.source || undefined,
       headline: slide.title,
       body: slide.text,
     })),
-    questions: [`「${item.title}」 내용이 제 경우에도 맞는지 궁금해요`],
+    questions: item.questions.length
+      ? item.questions
+      : [`「${item.title}」 내용이 제 경우에도 맞는지 궁금해요`],
     correction:
       item.status === 'CORRECTED' && item.correctionNote && correctedOn
         ? { on: correctedOn, summary: '내용을 고쳤어요', detail: item.correctionNote }
