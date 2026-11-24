@@ -81,9 +81,9 @@ function toNewsCard(item: CardDetailResponse): NewsCard {
     questions: item.questions?.length
       ? item.questions
       : [`「${item.title}」 내용이 제 경우에도 맞는지 궁금해요`],
-    // 요약이 없는 예전 정정은 자세히만 있어 기본 문구로
+    // 정정된 카드면 늘 띠를 보여 줌. 요약이 없으면 기본 문구, 자세히가 없으면 누를 수 없는 띠
     correction:
-      item.status === 'CORRECTED' && correctedOn && (item.correctionSummary || item.correctionNote)
+      item.status === 'CORRECTED' && correctedOn
         ? {
             on: correctedOn,
             summary: item.correctionSummary || '내용을 고쳤어요',
