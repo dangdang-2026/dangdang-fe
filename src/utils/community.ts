@@ -1,4 +1,4 @@
-import { MY_AUTHOR_ID, POPULAR_VIEWS } from '@/constants/community'
+import { POPULAR_VIEWS } from '@/constants/community'
 import type { Author, Post, PostSort } from '@/types/community'
 import { diffInDays } from '@/utils/date'
 
@@ -50,14 +50,6 @@ export const ACTIVITY_LABEL: Record<ActivityType, string> = {
 
 export const isActivityType = (value: string | null): value is ActivityType =>
   value !== null && value in ACTIVITY_LABEL
-
-// 내가 쓴 글·댓글 단 글·공감한 글
-export function filterActivity(posts: Post[], type: ActivityType) {
-  if (type === 'posts') return posts.filter((post) => post.author.id === MY_AUTHOR_ID)
-  if (type === 'comments')
-    return posts.filter((post) => post.comments.some((item) => item.author.id === MY_AUTHOR_ID))
-  return posts.filter((post) => post.liked)
-}
 
 // 검색어 부분만 강조하려고 자름. 예: 식후 1시간 [알림], 밖에...
 export function splitHighlight(text: string, query: string) {

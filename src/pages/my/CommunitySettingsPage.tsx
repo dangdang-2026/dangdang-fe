@@ -1,6 +1,7 @@
-import { useCallback, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { updateCommunityProfile } from '@/api/communityProfile'
+import { getActivityCounts, type ActivityCounts } from '@/api/myActivity'
 import iconChevronMd from '@/assets/icons/chevron-md.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import SubPageHeader from '@/components/common/SubPageHeader'
@@ -9,7 +10,7 @@ import Toast from '@/components/common/Toast'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { unblockOnServer, useCommunityStore } from '@/stores/useCommunityStore'
-import { ACTIVITY_LABEL, filterActivity, type ActivityType } from '@/utils/community'
+import { ACTIVITY_LABEL, type ActivityType } from '@/utils/community'
 
 const ACTIVITY_TYPES: ActivityType[] = ['posts', 'comments', 'liked']
 
@@ -51,7 +52,19 @@ function CommunitySettingsPage() {
   const nickname = useCommunityStore((state) => state.nickname)
   const showWeek = useCommunityStore((state) => state.showWeek)
   const setShowWeek = useCommunityStore((state) => state.setShowWeek)
-  const posts = useCommunityStore((state) => state.posts)
+  // 서버 활동 개수. 받기 전 · 못 받으면 개수를 비움
+  const [counts, setCounts] = useState<ActivityCounts | null>(null)
+  useEffect(() => {
+    let stale = false
+    getActivityCounts()
+      .then((next) => {
+        if (!stale) setCounts(next)
+      })
+      .catch(() => {})
+    return () => {
+      stale = true
+    }
+  }, [])
   const blockedAuthors = useCommunityStore((state) => state.blockedAuthors)
   const [blockedOpen, setBlockedOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -100,9 +113,11 @@ function CommunitySettingsPage() {
               key={type}
               title={ACTIVITY_LABEL[type]}
               right={
-                <span className="text-grey-500 text-sm leading-snug font-medium">
-                  {filterActivity(posts, type).length}개
-                </span>
+                counts && (
+                  <span className="text-grey-500 text-sm leading-snug font-medium">
+                    {counts[type]}개
+                  </span>
+                )
               }
               onClick={() => navigate(`${ROUTES.MY_COMMUNITY_ACTIVITY}?type=${type}`)}
             />

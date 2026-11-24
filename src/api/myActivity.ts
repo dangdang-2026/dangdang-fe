@@ -29,6 +29,26 @@ export type MyComment = {
 
 export type ActivityPage<T> = { items: T[]; nextCursor: string | null }
 
+// 내 활동 개수. 목록과 같은 조건으로 셈, 프로필이 없으면 전부 0
+export type ActivityCounts = { posts: number; comments: number; liked: number }
+
+export async function getActivityCounts(): Promise<ActivityCounts> {
+  const { data } = await apiClient.get<
+    BaseResponse<{
+      postCount: number
+      commentCount: number
+      reactedPostCount: number
+      blockedCount: number
+    }>
+  >('/me/community-activity/counts')
+  if (!data.data) throw new Error('내 활동 개수 응답이 비어 있음')
+  return {
+    posts: data.data.postCount,
+    comments: data.data.commentCount,
+    liked: data.data.reactedPostCount,
+  }
+}
+
 // 내가 쓴 글 · 공감한 글. 글 목록과 같은 모양
 async function getPostPage(path: string, cursor?: string): Promise<ActivityPage<Post>> {
   const { data } = await apiClient.get<BaseResponse<PostListResponse>>(path, {
