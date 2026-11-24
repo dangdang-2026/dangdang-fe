@@ -143,9 +143,12 @@ function ChatPage() {
   }, [initialAsk])
 
   const addDraft = (id: string, text: string) => {
+    // 서버 「물어볼 말 정리」 답이면 답 번호를 같이 보내 당당이 질문으로 남김
+    const draft = messages.find((message) => message.id === id)
+    const chatMessageId = draft && 'chatMessageId' in draft ? draft.chatMessageId : undefined
     updateMessage(id, { text, added: true })
     // 서버에 못 남기면 추가 전으로 되돌림
-    saveQuestion(text).catch(() => {
+    saveQuestion(text, { chatMessageId }).catch(() => {
       updateMessage(id, { added: false })
       setToast({ message: '물어볼 것을 저장하지 못했어요. 잠시 후 다시 시도해 주세요' })
     })

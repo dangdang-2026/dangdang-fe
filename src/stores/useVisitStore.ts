@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { getErrorCode } from '@/api/axios'
 import {
   createVisit,
   createVisitNote,
@@ -227,20 +228,29 @@ function replaceQuestion(localId: string, saved: VisitQuestionResponse) {
   }))
 }
 
-// 기기 질문 하나를 서버에 등록
-async function postQuestion(localId: string, sortOrder?: number) {
+// 기기 질문 하나를 서버에 등록. 당당이 답 번호를 서버가 못 알아보면 번호 없이 다시 등록
+async function postQuestion(localId: string, sortOrder?: number, chatMessageId?: string) {
   const question = useVisitStore.getState().questions.find((item) => item.id === localId)
   // 등록 전에 지운 질문
   if (!question) return
-  const saved = await createVisitQuestion(await ensureVisitId(), question.text, sortOrder)
+  const visitId = await ensureVisitId()
+  const saved = await createVisitQuestion(visitId, question.text, sortOrder, chatMessageId).catch(
+    (error: unknown) => {
+      if (!chatMessageId || getErrorCode(error) !== 'VISIT_40405') throw error
+      return createVisitQuestion(visitId, question.text, sortOrder)
+    },
+  )
   replaceQuestion(localId, saved)
 }
 
-// 물어볼 것 추가. 화면엔 바로 넣고 서버에 못 남기면 뺌
-export async function saveQuestion(text: string) {
+// 물어볼 것 추가. 화면엔 바로 넣고 서버에 못 남기면 뺌. 당당이 답에서 왔으면 답 번호도 함께
+export async function saveQuestion(
+  text: string,
+  { chatMessageId }: { chatMessageId?: string } = {},
+) {
   const localId = useVisitStore.getState().addQuestion(text)
   try {
-    await enqueue(() => postQuestion(localId))
+    await enqueue(() => postQuestion(localId, undefined, chatMessageId))
   } catch (error) {
     useVisitStore.getState().removeQuestion(localId)
     throw error

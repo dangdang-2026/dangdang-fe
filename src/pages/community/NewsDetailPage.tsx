@@ -323,7 +323,7 @@ function NewsDetailPage() {
           onSubmit={(questions) => {
             setAskOpen(false)
             setToast(`진료 탭 물어볼 것에 ${questions.length}개 적었어요`)
-            Promise.all(questions.map(saveQuestion)).catch(() =>
+            Promise.all(questions.map((question) => saveQuestion(question))).catch(() =>
               setToast('물어볼 것을 저장하지 못했어요. 잠시 후 다시 시도해 주세요'),
             )
           }}
