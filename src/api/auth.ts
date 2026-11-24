@@ -104,7 +104,7 @@ export const VERIFY_CODE_LENGTH = 6
 export const VERIFY_TTL_MS = 10 * 60 * 1000
 export const VERIFY_MAX_FAILURES = 5
 export const VERIFY_MAX_SENDS = 5
-export const RESEND_WAIT_MS = 60 * 1000
+const RESEND_WAIT_MS = 60 * 1000
 
 // 서버 EmailCodeSendResponse
 type EmailCodeSendResponse = {

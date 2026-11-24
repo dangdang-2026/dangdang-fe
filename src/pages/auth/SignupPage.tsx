@@ -1,12 +1,6 @@
 import { useCallback, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
-import {
-  RESEND_WAIT_MS,
-  checkEmail,
-  completeSignUp,
-  sendVerifyCode,
-  startKakaoLogin,
-} from '@/api/auth'
+import { checkEmail, completeSignUp, sendVerifyCode, startKakaoLogin } from '@/api/auth'
 import iconAlert from '@/assets/icons/auth/alert.svg'
 import iconInfoBlue from '@/assets/icons/auth/caps-lock.svg'
 import iconCheck from '@/assets/icons/auth/check.svg'
@@ -33,7 +27,7 @@ const STEP_COUNT = 3
 type EmailStatus =
   { kind: 'empty' | 'format' | 'available' | 'taken' | 'kakao' } | { kind: 'typo'; domain: string }
 
-type ToastKind = 'offline' | 'limit' | 'failed'
+type ToastKind = 'offline' | 'limit' | 'failed' | 'wait'
 
 const TOAST: Record<ToastKind, { icon: string; message: string }> = {
   offline: {
@@ -47,6 +41,10 @@ const TOAST: Record<ToastKind, { icon: string; message: string }> = {
   failed: {
     icon: iconToastAlert,
     message: '인증번호를 보내지 못했어요. 잠시 후 다시 시도해 주세요',
+  },
+  wait: {
+    icon: iconToastAlert,
+    message: '인증번호는 1분에 한 번 받을 수 있어요. 잠시 후 다시 시도해 주세요',
   },
 }
 
@@ -136,15 +134,8 @@ function SignupPage() {
     try {
       const result = await sendVerifyCode(trimmedEmail)
       if (result.status === 'ok') setFirstSend({ ...result, status: 'sent' })
-      // 60초 안에 다시 누름. 앞서 보낸 번호가 그대로라 그 번호의 보낸 시각으로 이어 감
-      else if (result.status === 'wait') {
-        setFirstSend({
-          status: 'sent',
-          sentAt: result.resendAt - RESEND_WAIT_MS,
-          resendAt: result.resendAt,
-          remainingSends: null,
-        })
-      }
+      // 60초 안에 다시 누름. 앞 번호를 쓸 수 있는지(메일 실패 · 5번 틀림) 몰라 기다렸다 새로 받게
+      else if (result.status === 'wait') setToast('wait')
       // 메일 서버 오류면 인증 화면에서 다시 받게
       else if (result.status === 'mailFailed') setFirstSend(result)
       else if (result.status === 'limit') setToast('limit')
