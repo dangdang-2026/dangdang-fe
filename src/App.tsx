@@ -4,6 +4,7 @@ import { ROUTES } from '@/constants/routes'
 import { SPLASH_TOTAL_MS } from '@/constants/splashMotion'
 import { getAnnouncementLabel, useAnnouncement, useOpenAnnouncement } from '@/hooks/useAnnouncement'
 import { useMeasureReminder } from '@/hooks/useMeasureReminder'
+import { useNotificationStream } from '@/hooks/useNotificationStream'
 import { useSessionCheck } from '@/hooks/useSessionCheck'
 import { useTimeout } from '@/hooks/useTimeout'
 import OnboardingGate from '@/layouts/OnboardingGate'
@@ -88,6 +89,8 @@ function App() {
   // 앱이 열려 있는 동안 측정 알림 · 알림 누르면 혈당 입력
   useMeasureReminder()
   useSessionCheck()
+  // 로그인한 동안 새 알림 실시간 받기
+  useNotificationStream()
   const completed = useOnboardingStore((state) => state.completed)
   // 앱을 열 때 한 번. 설정을 마친 뒤엔 당당 소식 한 장과 함께
   const splash = useSplashStore((state) => state.visible)

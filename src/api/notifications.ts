@@ -37,6 +37,9 @@ const INBOX_DAYS = 30
 // 한 번에 받을 수 있는 최대 개수(서버 상한 100)
 const PAGE_SIZE = 100
 
+// 앱이 아는 종류인지. 모르는 새 종류는 그릴 아이콘이 없어 뺌
+const isKnownType = (item: NotificationResponse) => item.type in TYPE
+
 function toInboxItem(item: NotificationResponse): InboxItem {
   return {
     id: String(item.id),
@@ -61,12 +64,40 @@ export async function getNotifications(now = new Date()) {
     })
     if (!data.data) break
     const recent = data.data.items.filter((item) => new Date(item.sentAt).getTime() >= since)
-    // 앱이 모르는 새 종류는 그릴 아이콘이 없어 빼 둠
-    items.push(...recent.filter((item) => item.type in TYPE).map(toInboxItem))
+    items.push(...recent.filter(isKnownType).map(toInboxItem))
     hasNext = data.data.hasNext && recent.length === data.data.items.length
     page += 1
   }
   return items
+}
+
+type StreamHandlers = {
+  // 연결될 때마다(처음 · 다시 붙을 때)
+  onConnected: () => void
+  onNotification: (item: InboxItem) => void
+  // 서버가 거절해(로그인 만료 등) 브라우저가 다시 붙지 않을 때
+  onClosed: () => void
+}
+
+// 새 알림 실시간 받기(SSE). 로그인 쿠키를 함께 보내고, 끊기면 브라우저가 알아서 다시 붙음. 닫는 함수를 돌려줌
+export function openNotificationStream({ onConnected, onNotification, onClosed }: StreamHandlers) {
+  const source = new EventSource(`${apiClient.defaults.baseURL}/notifications/stream`, {
+    withCredentials: true,
+  })
+  source.addEventListener('connected', onConnected)
+  source.addEventListener('notification', (event) => {
+    try {
+      const item = JSON.parse((event as MessageEvent<string>).data) as NotificationResponse
+      if (isKnownType(item)) onNotification(toInboxItem(item))
+    } catch {
+      // 모양이 깨진 알림은 건너뜀. 알림함은 다음 목록 받을 때 맞춰짐
+    }
+  })
+  // 응답이 401 · 5xx 등이면 CLOSED로 끝나 다시 붙지 않음. 끊김(CONNECTING)은 브라우저가 처리
+  source.addEventListener('error', () => {
+    if (source.readyState === EventSource.CLOSED) onClosed()
+  })
+  return () => source.close()
 }
 
 // 알림함 알림 읽음 처리. 이미 읽은 알림도 처음 읽은 시각 그대로 200

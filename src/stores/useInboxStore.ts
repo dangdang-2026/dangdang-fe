@@ -31,6 +31,13 @@ export async function syncInbox() {
   useInboxStore.setState({ items })
 }
 
+// 실시간으로 받은 알림을 맨 위에. 이미 있는 알림 번호면 넣지 않음. 새로 넣었으면 true
+export function receiveInboxItem(item: InboxItem) {
+  if (useInboxStore.getState().items.some((saved) => saved.id === item.id)) return false
+  useInboxStore.setState((state) => ({ items: [item, ...state.items] }))
+  return true
+}
+
 // 알림함에서 누르면 읽음 표시하고 서버에도 저장. 실패해도 화면은 읽음으로
 export function readInboxItem(id: string) {
   useInboxStore.getState().markRead(id)
