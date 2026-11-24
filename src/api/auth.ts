@@ -212,18 +212,29 @@ export async function completeSignUp(
   return { status: 'ok' }
 }
 
-export type ResetRequestResult = { status: 'ok' } | { status: 'limit' }
+// resendAt: 다시 보낼 수 있는 시각
+export type ResetRequestResult =
+  | { status: 'ok'; resendAt: number }
+  // AUTH_42904 60초 안에 다시 보냄
+  | { status: 'wait'; resendAt: number }
+  // AUTH_42903 같은 이메일로 하루 5번 넘게 보냄
+  | { status: 'limit' }
 
 // 가입 여부와 상관없이 같은 응답(계정 노출 방지). 이메일로 가입한 계정에만 링크 발급
 export async function requestPasswordReset(email: string): Promise<ResetRequestResult> {
+  const now = Date.now()
   try {
     await apiClient.post('/auth/password/reset/request', { email })
   } catch (error) {
-    // 같은 이메일로 하루 5번 넘게 보냄
-    if (getErrorCode(error) === 'AUTH_42903') return { status: 'limit' }
+    const code = getErrorCode(error)
+    if (code === 'AUTH_42904') {
+      const retry = getErrorData<AuthRetryInfo>(error)?.retryAfterSeconds
+      return { status: 'wait', resendAt: waitUntil(retry, now) }
+    }
+    if (code === 'AUTH_42903') return { status: 'limit' }
     throw error
   }
-  return { status: 'ok' }
+  return { status: 'ok', resendAt: now + RESEND_WAIT_MS }
 }
 
 export type ResetPasswordResult = { status: 'ok' } | { status: 'same' } | { status: 'expired' }
