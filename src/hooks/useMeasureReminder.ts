@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { hasServerPush } from '@/api/push'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
+import { canShowAlertBanner } from '@/hooks/useNotificationStream'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useNotificationStore } from '@/stores/useNotificationStore'
 import { useProfileStore } from '@/stores/useProfileStore'
@@ -92,6 +93,10 @@ export function useMeasureReminder() {
             measureSlots,
           )
           if (fired.has(key) || still?.meal.id !== meal.id || !canNotify()) return
+          // 서버에 있는 식사이고 실시간 알림이 붙어 있고 화면을 보고 있으면 서버 알림이 배너로 뜨니 기기 알림은 안 띄움
+          // 기기 10분 뒤 다시는 서버에 못 맡긴 것이라 그대로 띄움
+          const deviceSnooze = key.includes(':snooze:')
+          if (!deviceSnooze && !still.meal.pending && canShowAlertBanner()) return
           fired.add(key)
           void showMeasureNotification(meal, postMealHours, hideOnLockScreen)
         },
