@@ -385,8 +385,10 @@ function WritePage() {
       )}
       {appealOpen && (
         <AppealSheet
-          onDone={(message) => {
-            closeAppeal()
+          onDone={(message, result) => {
+            // 제한이 풀렸으면 그대로 글을 쓰게 시트만 닫음
+            if (result === 'lifted') setAppealOpen(false)
+            else closeAppeal()
             setToast(message)
           }}
           onClose={closeAppeal}

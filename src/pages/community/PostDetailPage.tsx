@@ -118,7 +118,11 @@ function PostDetailPage() {
   const closeDelete = useCallback(() => setDeletingId(null), [])
   const closeRestricted = useCallback(() => setRestrictedOpen(false), [])
   const [appealOpen, setAppealOpen] = useState(false)
-  const closeAppeal = useCallback(() => setAppealOpen(false), [])
+  // 이의 신청을 닫으면 글쓰기처럼 제한 시트로 돌아옴
+  const closeAppeal = useCallback(() => {
+    setAppealOpen(false)
+    setRestrictedOpen(true)
+  }, [])
   const closeMore = useCallback(() => setMoreOpen(false), [])
   const closeReport = useCallback(() => setReportOpen(false), [])
   const closeConfirming = useCallback(() => setConfirming(null), [])
@@ -446,8 +450,10 @@ function PostDetailPage() {
       )}
       {appealOpen && (
         <AppealSheet
-          onDone={(message) => {
-            setAppealOpen(false)
+          onDone={(message, result) => {
+            // 제한이 풀렸으면 시트만 닫고, 아니면 접수됨이 보이게 제한 시트로
+            if (result === 'lifted') setAppealOpen(false)
+            else closeAppeal()
             setToast(message)
           }}
           onClose={closeAppeal}

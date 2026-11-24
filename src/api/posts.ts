@@ -274,7 +274,8 @@ export async function savePostDraft(draft: PostDraft) {
     category: draft.board ? CATEGORY[draft.board] : undefined,
     title: draft.title || undefined,
     content: draft.body || undefined,
-    isAnonymous: draft.anonymous,
+    // 예전 기기 임시 글엔 익명 칸이 없을 수 있음
+    isAnonymous: draft.anonymous ?? false,
     poll: draft.poll?.length ? draft.poll : undefined,
   })
 }

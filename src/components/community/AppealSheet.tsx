@@ -10,9 +10,11 @@ const DONE_MESSAGE = {
   lifted: '지금은 이용 제한 중이 아니에요',
 } as const
 
+export type AppealResult = keyof typeof DONE_MESSAGE
+
 type AppealSheetProps = {
-  // 끝나면 알릴 문구
-  onDone: (message: string) => void
+  // 끝나면 알릴 문구와 결과. lifted면 제한이 풀려 제한 시트로 돌아가지 않음
+  onDone: (message: string, result: AppealResult) => void
   onClose: () => void
 }
 
@@ -28,7 +30,7 @@ function AppealSheet({ onDone, onClose }: AppealSheetProps) {
     setSending(true)
     setFailed(false)
     sendAppeal(trimmed)
-      .then((result) => onDone(DONE_MESSAGE[result]))
+      .then((result) => onDone(DONE_MESSAGE[result], result))
       .catch(() => {
         setFailed(true)
         setSending(false)

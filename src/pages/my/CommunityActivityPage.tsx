@@ -35,8 +35,27 @@ function ActivityList({ type }: ActivityListProps) {
     )
   }
   const empty = type === 'comments' ? list.comments.length === 0 : list.posts.length === 0
+  const more = list.hasNext && (
+    <MorePostsButton
+      loading={list.loadingMore}
+      label={type === 'comments' ? '댓글 더 보기' : undefined}
+      onClick={list.loadMore}
+    />
+  )
+  const moreFailed = list.moreFailed && (
+    <p role="alert" className="text-t7 text-center text-red-500">
+      더 불러오지 못했어요. 다시 눌러 주세요
+    </p>
+  )
+  // 비어 있어도 서버에 다음 장이 있으면 더 보기를 남김
   if (empty) {
-    return <p className="text-grey-500 py-20 text-center text-sm leading-normal">아직 없어요</p>
+    return (
+      <>
+        <p className="text-grey-500 py-20 text-center text-sm leading-normal">아직 없어요</p>
+        {moreFailed}
+        {more}
+      </>
+    )
   }
 
   return (
@@ -73,13 +92,8 @@ function ActivityList({ type }: ActivityListProps) {
               </li>
             ))}
       </ul>
-      {list.hasNext && (
-        <MorePostsButton
-          loading={list.loadingMore}
-          label={type === 'comments' ? '댓글 더 보기' : undefined}
-          onClick={list.loadMore}
-        />
-      )}
+      {moreFailed}
+      {more}
     </>
   )
 }
