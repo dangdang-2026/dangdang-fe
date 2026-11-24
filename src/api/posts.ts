@@ -268,15 +268,20 @@ export async function getPostDraft(): Promise<PostDraft | null> {
   }
 }
 
-// 임시 저장. 있으면 덮어씀. 비운 글을 보내면 지운 것과 같음(지우기 API 없음)
-export async function savePostDraft(draft: PostDraft | null) {
+// 임시 저장. 있으면 덮어씀
+export async function savePostDraft(draft: PostDraft) {
   await apiClient.put('/posts/drafts', {
-    category: draft?.board ? CATEGORY[draft.board] : undefined,
-    title: draft?.title || undefined,
-    content: draft?.body || undefined,
-    isAnonymous: draft?.anonymous ?? false,
-    poll: draft?.poll?.length ? draft.poll : undefined,
+    category: draft.board ? CATEGORY[draft.board] : undefined,
+    title: draft.title || undefined,
+    content: draft.body || undefined,
+    isAnonymous: draft.anonymous,
+    poll: draft.poll?.length ? draft.poll : undefined,
   })
+}
+
+// 임시 글 지우기. 없어도 200. 글을 올리면 서버가 알아서 지움
+export async function deletePostDraft() {
+  await apiClient.delete('/posts/drafts')
 }
 
 type PrecheckIssue = { kind: 'DOSE' | 'URGENT_MEDICAL' | 'MIND'; quote: string }
