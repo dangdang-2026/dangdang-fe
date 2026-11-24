@@ -97,13 +97,13 @@ async function hasLiveBanner() {
 // 앱을 보고 있고 실시간 알림이 붙어 있으면 배너와 겹치지 않게 시스템 알림은 띄우지 않음
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {}
+  // 알림함에도 남아 배너가 뜨는 푸시만 뺄 수 있음(측정 · 산후 검사). 테스트 푸시 등은 늘 띄움
+  const inInbox = !!data.reminderId || String(data.url || '').startsWith('/postpartum/')
   event.waitUntil(
-    hasLiveBanner()
-      .catch(() => false)
-      .then((live) => {
-        if (live) return undefined
-        return showPush(data)
-      }),
+    (inInbox ? hasLiveBanner().catch(() => false) : Promise.resolve(false)).then((live) => {
+      if (live) return undefined
+      return showPush(data)
+    }),
   )
 })
 

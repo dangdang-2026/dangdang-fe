@@ -4,6 +4,8 @@ import { openNotificationStream } from '@/api/notifications'
 import { showAlertBanner } from '@/stores/useAlertBannerStore'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { receiveInboxItem, syncInbox } from '@/stores/useInboxStore'
+import { useOnboardingStore } from '@/stores/useOnboardingStore'
+import { useSplashStore } from '@/stores/useSplashStore'
 
 // 서버가 거절했을 때 다시 붙기까지 기다림. 실패할수록 2배, 최대 1분
 const RETRY_MIN_MS = 3000
@@ -11,10 +13,18 @@ const RETRY_MAX_MS = 60 * 1000
 
 // 지금 실시간 알림이 붙어 있는지. 서비스 워커가 시스템 알림을 띄울지 물어볼 때 답함
 let streamConnected = false
+// 배너로 이미 보여 준 알림 번호. 다시 붙을 때 같은 알림이 또 와도 한 번만
+const bannerShown = new Set<string>()
 
-// 실시간 알림이 붙어 있으면 서버 알림이 배너로 뜸. 기기 측정 알림이 겹치지 않게 확인용
-export function isNotificationStreamConnected() {
-  return streamConnected
+// 지금 서버 알림이 오면 배너로 뜨는지. 실시간 알림이 붙어 있고, 화면을 보고 있고, 스플래시 · 첫 설정 중이 아님
+// 서비스 워커 푸시 · 기기 측정 알림이 배너와 겹치지 않게 확인용
+export function canShowAlertBanner() {
+  return (
+    streamConnected &&
+    document.visibilityState === 'visible' &&
+    !useSplashStore.getState().visible &&
+    useOnboardingStore.getState().completed
+  )
 }
 
 // 로그인한 동안 새 알림을 실시간으로 받아 알림함에 넣음. 로그아웃 · 계정 바뀌면 끊음
@@ -29,7 +39,7 @@ export function useNotificationStream() {
     if (!container) return
     const handleMessage = (event: MessageEvent<{ type?: string } | null>) => {
       if (event.data?.type !== 'notification-stream-status') return
-      event.ports[0]?.postMessage({ connected: streamConnected })
+      event.ports[0]?.postMessage({ connected: canShowAlertBanner() })
     }
     container.addEventListener('message', handleMessage)
     return () => container.removeEventListener('message', handleMessage)
@@ -53,10 +63,12 @@ export function useNotificationStream() {
           connectedOnce = true
         },
         onNotification: (item) => {
-          // 처음 받은 알림만, 앱을 보고 있을 때만 배너로. 알림함에는 늘 남음
-          if (receiveInboxItem(item) && document.visibilityState === 'visible') {
-            showAlertBanner(item)
-          }
+          receiveInboxItem(item)
+          // 알림함 목록 받기가 먼저 넣었어도 배너는 띄움(같은 알림은 한 번만). 서비스 워커가 시스템 알림을 뺐을 수 있어서
+          // 앱을 보고 있고, 스플래시 · 첫 설정 중이 아닐 때만. 알림함에는 늘 남음
+          if (item.readAt || bannerShown.has(item.id) || !canShowAlertBanner()) return
+          bannerShown.add(item.id)
+          showAlertBanner(item)
         },
         onDisconnected: () => {
           streamConnected = false

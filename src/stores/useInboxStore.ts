@@ -25,10 +25,15 @@ export const useInboxStore = create<InboxState>()(
   ),
 )
 
-// 서버 알림함 목록으로 바꿈
+// 서버 알림함 목록으로 바꿈. 받는 사이 실시간으로 들어온 알림은 목록에 없어도 남김
 export async function syncInbox() {
+  const before = new Set(useInboxStore.getState().items.map((item) => item.id))
   const items = await getNotifications()
-  useInboxStore.setState({ items })
+  useInboxStore.setState((state) => {
+    const fetched = new Set(items.map((item) => item.id))
+    const arrived = state.items.filter((item) => !before.has(item.id) && !fetched.has(item.id))
+    return { items: [...arrived, ...items] }
+  })
 }
 
 // 실시간으로 받은 알림을 맨 위에. 이미 있는 알림 번호면 넣지 않음. 새로 넣었으면 true
