@@ -11,6 +11,9 @@ export type CardSummaryResponse = {
   seriesLabel: string | null
   status: CardStatus
   checkedOn: string | null
+  // 내려간 카드면 0
+  sourceCount: number
+  slideCount: number
   createdAt: string
   saved: boolean
 }
@@ -53,6 +56,8 @@ export function toNewsSummary(item: CardSummaryResponse): NewsSummary {
     checkedAt: item.checkedOn ?? item.createdAt.slice(0, 10),
     withdrawn: item.status === 'WITHDRAWN',
     saved: item.saved,
+    slideCount: item.slideCount,
+    sourceCount: item.sourceCount,
   }
 }
 

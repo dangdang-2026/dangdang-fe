@@ -94,8 +94,11 @@ function NewsListPage() {
                       <span className="text-caption text-grey-800 font-bold">{card.series}</span>
                       <span className="text-grey-900 text-base leading-snug">{card.title}</span>
                     </span>
-                    <span className="text-grey-500 text-xs leading-snug">
-                      확인일 {formatShortDate(card.checkedAt)}
+                    {/* 내려간 카드는 수가 0이라 확인일로 */}
+                    <span className="text-grey-600 text-xs leading-snug">
+                      {card.slideCount > 0
+                        ? `출처 ${card.sourceCount} · ${card.slideCount}장`
+                        : `확인일 ${formatShortDate(card.checkedAt)}`}
                     </span>
                   </button>
                 </li>

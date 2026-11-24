@@ -28,8 +28,8 @@ export type NewsCard = {
   reacted?: boolean
 }
 
-// 목록 한 장. 슬라이드 · 출처는 상세에서만 옴
+// 목록 한 장. 슬라이드 · 출처는 상세에서만 오고 목록엔 수만 옴(내려간 카드면 0)
 export type NewsSummary = Pick<
   NewsCard,
   'id' | 'series' | 'title' | 'checkedAt' | 'withdrawn' | 'saved'
->
+> & { slideCount: number; sourceCount: number }

@@ -32,6 +32,10 @@ import type { PostSort } from '@/types/community'
 
 type Category = { key: string; label: string; icon: string; onClick: () => void }
 
+// YYYY-MM-DD → 10/19
+const formatMonthDaySlash = (date: string) =>
+  `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`
+
 // Figma U-01 커뮤니티 메인 · U-06·U-07 검색 · U-08 불러오지 못함
 function CommunityPage() {
   const navigate = useNavigate()
@@ -218,7 +222,11 @@ function CommunityPage() {
                       onClick={() => openAnnouncement(announcement)}
                     >
                       <span className="rounded-tag text-caption text-grey-800 flex size-14 shrink-0 items-start bg-white p-2 font-bold">
-                        {announcement.kind === 'AD' ? 'AD' : '소식'}
+                        {announcement.kind === 'AD'
+                          ? 'AD'
+                          : announcement.card
+                            ? `${announcement.card.slideCount}장`
+                            : '소식'}
                       </span>
                       <span className="flex min-w-0 flex-col gap-0.5">
                         <span className="text-caption text-grey-800 flex items-center gap-1 font-bold">
@@ -228,6 +236,17 @@ function CommunityPage() {
                         <span className="text-grey-900 truncate text-sm leading-snug font-bold">
                           {announcement.title}
                         </span>
+                        {announcement.card && (
+                          <span className="text-caption text-grey-700 font-normal">
+                            {[
+                              `출처 ${announcement.card.sourceCount}`,
+                              announcement.card.checkedOn &&
+                                `확인일 ${formatMonthDaySlash(announcement.card.checkedOn)}`,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                        )}
                       </span>
                     </button>
                     <button
