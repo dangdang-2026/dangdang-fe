@@ -13,7 +13,7 @@ import Toast from '@/components/common/Toast'
 import PollEditor from '@/components/community/PollEditor'
 import PostWarningSheet from '@/components/community/PostWarningSheet'
 import RestrictedSheet from '@/components/community/RestrictedSheet'
-import { BOARD_LABEL, BOARD_ORDER, POLL_MIN_OPTIONS, PREPARING_BOARDS } from '@/constants/community'
+import { BOARD_LABEL, BOARD_ORDER, POLL_MIN_OPTIONS } from '@/constants/community'
 import { ROUTES, communityPostPath } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useMyAuthor } from '@/hooks/useMyAuthor'
@@ -37,9 +37,8 @@ const BODY_PLACEHOLDER = [
   '같은 길을 걷는 산모끼리, 서로 존중하는 따뜻한 당당 커뮤니티를 함께 만들어 가요.',
 ].join('\n\n')
 
-// 서버에 있는 게시판만 고를 수 있음
 const isBoardKey = (value: string | null): value is BoardKey =>
-  BOARD_ORDER.includes(value as BoardKey) && !PREPARING_BOARDS.includes(value as BoardKey)
+  BOARD_ORDER.includes(value as BoardKey)
 
 // Figma U-03 글쓰기 · U-16 쓰다가 나가기 · U-17 이용 제한 중. ?edit=글id면 고치기
 function WritePage() {
@@ -309,7 +308,7 @@ function WritePage() {
         <BottomSheet label="게시판 선택" onClose={closeBoard}>
           <h2 className="text-t4 text-grey-900">어느 게시판에 올릴까요?</h2>
           <ul className="grid grid-cols-2 gap-2">
-            {BOARD_ORDER.filter((board) => !PREPARING_BOARDS.includes(board)).map((board) => (
+            {BOARD_ORDER.map((board) => (
               <li key={board}>
                 <button
                   type="button"

@@ -4,15 +4,17 @@ import type { BoardKey, Post, PostDraft, PostSort } from '@/types/community'
 
 // 백엔드 PostCategory. NEWS는 당당 소식 공식 계정만
 export type PostCategory =
-  'NEWS' | 'MEAL' | 'MEASUREMENT' | 'VISIT' | 'MIND' | 'BIRTH' | 'POSTPARTUM'
+  'NEWS' | 'MEAL' | 'MEASUREMENT' | 'VISIT' | 'MIND' | 'BIRTH' | 'POSTPARTUM' | 'FREE' | 'QUESTION'
 
-// 화면 게시판 → 서버 게시판. 자유 · 질문은 서버에 없음
+// 화면 게시판 → 서버 게시판
 export const CATEGORY: Partial<Record<BoardKey, PostCategory>> = {
   diet: 'MEAL',
   measure: 'MEASUREMENT',
   visit: 'VISIT',
   mind: 'MIND',
   birth: 'POSTPARTUM',
+  free: 'FREE',
+  question: 'QUESTION',
 }
 
 // 서버 게시판 → 화면 게시판. 출산(BIRTH)도 출산·산후로, 당당 소식은 목록에서 뺌
@@ -23,6 +25,8 @@ const BOARD: Partial<Record<PostCategory, BoardKey>> = {
   MIND: 'mind',
   BIRTH: 'birth',
   POSTPARTUM: 'birth',
+  FREE: 'free',
+  QUESTION: 'question',
 }
 
 // 백엔드 AuthorResponse. 익명이면 profileId 없음, 탈퇴한 회원이면 displayName만
