@@ -24,6 +24,11 @@ export function diffInDays(from: Date, to: Date) {
   return Math.round((startOfDay(to).getTime() - startOfDay(from).getTime()) / DAY)
 }
 
+// 예: 10/14
+export function formatShortDate(date: Date) {
+  return `${date.getMonth() + 1}/${date.getDate()}`
+}
+
 // 예: 10월 14일
 export function formatMonthDay(date: Date) {
   return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })

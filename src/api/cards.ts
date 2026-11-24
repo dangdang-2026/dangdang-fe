@@ -23,8 +23,8 @@ type CardDetailResponse = Omit<CardSummaryResponse, 'createdAt'> & {
   // eyebrow · source는 예전 카드면 null
   slides: { title: string; text: string; eyebrow: string | null; source: string | null }[]
   sources: { title: string; url: string }[]
-  // 물어볼 것에 적기 질문. 내려간 카드면 빈 목록
-  questions: string[]
+  // 물어볼 것에 적기 질문. 내려간 카드면 빈 목록, 예전 카드는 null일 수 있음
+  questions: string[] | null
   reviewer: string | null
   reviewedOn: string | null
   // 정정 요약 한 줄(CORRECTED일 때) · 자세히(없을 수 있음)
@@ -78,7 +78,7 @@ function toNewsCard(item: CardDetailResponse): NewsCard {
       headline: slide.title,
       body: slide.text,
     })),
-    questions: item.questions.length
+    questions: item.questions?.length
       ? item.questions
       : [`「${item.title}」 내용이 제 경우에도 맞는지 궁금해요`],
     // 요약이 없는 예전 정정은 자세히만 있어 기본 문구로
