@@ -171,9 +171,11 @@ function NewsDetailPage() {
       <SubPageHeader title="당당 소식" onBack={goBack} />
 
       <article className="mt-3 flex flex-col gap-4">
+        {/* 자세히가 없으면 요약 띠만, 누를 수 없음 */}
         {card.correction && (
           <button
             type="button"
+            disabled={!card.correction.detail}
             className="flex items-center gap-2 rounded-xl bg-blue-50 py-3 pr-3 pl-3.5 text-left text-sm leading-snug text-blue-700"
             onClick={() => setCorrectionOpen(true)}
           >
@@ -181,7 +183,7 @@ function NewsDetailPage() {
             <span className="flex-1 font-bold">
               {formatShortDate(card.correction.on)} 정정 · {card.correction.summary}
             </span>
-            <span className="font-medium">고친 내용 ›</span>
+            {card.correction.detail && <span className="font-medium">고친 내용 ›</span>}
           </button>
         )}
         <p className="flex items-center gap-1.5 text-xs leading-snug">
@@ -284,7 +286,7 @@ function NewsDetailPage() {
         </button>
       </div>
 
-      {correctionOpen && card.correction && (
+      {correctionOpen && card.correction?.detail && (
         <BottomSheet label="고친 내용" onClose={() => setCorrectionOpen(false)}>
           <h2 className="text-t4 text-grey-900">{formatShortDate(card.correction.on)} 고친 내용</h2>
           <p className="text-body-2 text-grey-800 font-normal">{card.correction.detail}</p>

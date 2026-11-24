@@ -24,6 +24,8 @@ type CardDetailResponse = Omit<CardSummaryResponse, 'createdAt'> & {
   questions: string[]
   reviewer: string | null
   reviewedOn: string | null
+  // 정정 요약 한 줄(CORRECTED일 때) · 자세히(없을 수 있음)
+  correctionSummary: string | null
   correctionNote: string | null
   correctedAt: string | null
   withdrawnAt: string | null
@@ -74,9 +76,14 @@ function toNewsCard(item: CardDetailResponse): NewsCard {
     questions: item.questions.length
       ? item.questions
       : [`「${item.title}」 내용이 제 경우에도 맞는지 궁금해요`],
+    // 요약이 없는 예전 정정은 자세히만 있어 기본 문구로
     correction:
-      item.status === 'CORRECTED' && item.correctionNote && correctedOn
-        ? { on: correctedOn, summary: '내용을 고쳤어요', detail: item.correctionNote }
+      item.status === 'CORRECTED' && correctedOn && (item.correctionSummary || item.correctionNote)
+        ? {
+            on: correctedOn,
+            summary: item.correctionSummary || '내용을 고쳤어요',
+            detail: item.correctionNote || undefined,
+          }
         : undefined,
     withdrawn: item.status === 'WITHDRAWN',
     saved: item.saved,
