@@ -1,5 +1,6 @@
 import dashedLine from '@/assets/images/report/dashed-line.svg'
 import receiptEdge from '@/assets/images/report/receipt-edge.svg'
+import { toDateKey } from '@/utils/date'
 import type { Report } from '@/utils/report'
 
 type ReportReceiptProps = {
@@ -9,6 +10,8 @@ type ReportReceiptProps = {
   title: string
   criteriaLines: string[]
   questionCount: number
+  // 바닥글 생성일
+  createdAt: Date
 }
 
 function Divider() {
@@ -22,6 +25,7 @@ function ReportReceipt({
   title,
   criteriaLines,
   questionCount,
+  createdAt,
 }: ReportReceiptProps) {
   const stats = [
     ['측정', report.measured],
@@ -95,6 +99,12 @@ function ReportReceipt({
         </dl>
         <p className="text-grey-800 text-xs leading-normal font-medium">
           해석이나 권고 없이 기록만 담았어요
+        </p>
+        {/* 의료기기로 오해하지 않게 화면 · 사진에도 늘 넣음 */}
+        <p className="text-grey-500 text-xs leading-normal">
+          당당 앱 · {toDateKey(createdAt)} 생성
+          <br />
+          환자 본인 입력 기록 · 의료기기 아님
         </p>
       </article>
       {/* 영수증 아래 물결 */}

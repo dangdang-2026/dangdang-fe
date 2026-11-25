@@ -1,4 +1,4 @@
-import { formatMonthDay, formatTime } from '@/utils/date'
+import { formatMonthDay, formatTime, toDateKey } from '@/utils/date'
 import { REPORT_SLOT_KEYS, type Report } from '@/utils/report'
 import type { Question } from '@/types/visit'
 
@@ -148,8 +148,9 @@ function ReportDocument({
       )}
 
       <footer className="border-grey-300 text-grey-600 border-t pt-2">
-        해석이나 권고 없이 기록만 담았어요 · {formatMonthDay(createdAt)} {formatTime(createdAt)}{' '}
-        기기에서 만듦
+        당당 앱 · {toDateKey(createdAt)} 생성
+        <br />
+        환자 본인 입력 기록 · 의료기기 아님
       </footer>
     </article>
   )
