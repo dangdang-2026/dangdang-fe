@@ -26,7 +26,9 @@ function DocumentHead({ title, version, description, onVersions }: DocumentHeadP
           </button>
         </div>
       )}
-      {description && <p className="text-grey-600 text-sm leading-relaxed">{description}</p>}
+      {description && (
+        <p className="text-grey-600 text-sm leading-relaxed whitespace-pre-line">{description}</p>
+      )}
     </div>
   )
 }

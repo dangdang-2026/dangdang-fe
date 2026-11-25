@@ -72,6 +72,7 @@ import TourPage from '@/pages/onboarding/TourPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 import PrivacyPolicyPage from '@/pages/legal/PrivacyPolicyPage'
 import SensitiveConsentPage from '@/pages/legal/SensitiveConsentPage'
+import MarketingConsentPage from '@/pages/legal/MarketingConsentPage'
 import ServiceTermsPage from '@/pages/legal/ServiceTermsPage'
 import TransferNoticePage from '@/pages/legal/TransferNoticePage'
 
@@ -142,6 +143,7 @@ function App() {
         <Route path={ROUTES.LEGAL_TERMS} element={<ServiceTermsPage />} />
         <Route path={ROUTES.LEGAL_SENSITIVE} element={<SensitiveConsentPage />} />
         <Route path={ROUTES.LEGAL_TRANSFER} element={<TransferNoticePage />} />
+        <Route path={ROUTES.LEGAL_MARKETING} element={<MarketingConsentPage />} />
         <Route element={<OnboardingGate />}>
           <Route path={ROUTES.ONBOARDING_TOUR} element={<TourPage />} />
           <Route element={<TabLayout />}>

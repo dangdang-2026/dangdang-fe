@@ -56,6 +56,11 @@ export async function savePhotoConsent(agreed: boolean) {
   await apiClient.post('/me/consents', { items: [{ type: 'AI_PHOTO', granted: agreed }] })
 }
 
+// 광고성 정보 받기 동의 · 거부(N-09 · 마이 › 알림)
+export async function saveMarketingConsent(agreed: boolean) {
+  await apiClient.post('/me/consents', { items: [{ type: 'MARKETING', granted: agreed }] })
+}
+
 // M-12 AI 사용 동의 모두 철회
 export async function withdrawAiConsents() {
   const types: ConsentType[] = ['AI_PHOTO', 'AI_CHAT_RECORDS', 'OVERSEAS_TRANSFER']
