@@ -11,6 +11,7 @@ import CheckCircle from '@/components/onboarding/CheckCircle'
 import OnboardingHeader from '@/components/onboarding/OnboardingHeader'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
+import { marketingResultText } from '@/utils/consent'
 import {
   REQUIRED_AGREEMENTS,
   useOnboardingStore,
@@ -86,7 +87,10 @@ function TermsAgreePage() {
     setSaving(true)
     try {
       await saveConsents(agreed)
-      navigate(ROUTES.ONBOARDING_TIMING)
+      // 광고성 정보에 동의했으면 다음 화면에서 처리 결과를 알림(정보통신망법 제50조)
+      navigate(ROUTES.ONBOARDING_TIMING, {
+        state: agreed.includes('marketing') ? { toast: marketingResultText(true) } : null,
+      })
     } catch {
       setToast('failed')
     } finally {

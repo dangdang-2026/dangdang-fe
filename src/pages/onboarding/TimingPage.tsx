@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useCallback, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router'
 import iconOptionCheckOff from '@/assets/icons/onboarding/option-check-off.svg'
 import iconOptionCheckOn from '@/assets/icons/onboarding/option-check-on.svg'
 import iconInfoSm from '@/assets/icons/info-sm.svg'
+import Toast from '@/components/common/Toast'
 import PostMealTimeSheet from '@/components/criteria/PostMealTimeSheet'
 import OnboardingHeader from '@/components/onboarding/OnboardingHeader'
 import { POST_MEAL_PRESETS } from '@/constants/criteria'
@@ -26,7 +27,13 @@ const OPTIONS: Option[] = [
 // Figma A-02 식후 측정 시점 · A-02c 아직 몰라요(식후 알림 없음 안내) · A-02e 직접 입력
 function TimingPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const goBack = useGoBack(ROUTES.ONBOARDING_TERMS)
+  // 약관 화면에서 광고성 정보에 동의했으면 처리 결과 안내
+  const [toast, setToast] = useState<string | null>(
+    () => (location.state as { toast?: string } | null)?.toast ?? null,
+  )
+  const closeToast = useCallback(() => setToast(null), [])
   const saved = useOnboardingStore((state) => state.postMealHours)
   const setAnswers = useOnboardingStore((state) => state.setAnswers)
   const [hours, setHours] = useState<number | null | undefined>(saved)
@@ -151,6 +158,7 @@ function TimingPage() {
           onClose={() => setSheetOpen(false)}
         />
       )}
+      {toast && <Toast message={toast} onClose={closeToast} />}
     </main>
   )
 }
