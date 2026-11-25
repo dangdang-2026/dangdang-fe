@@ -1,9 +1,12 @@
-import { Navigate, useNavigate } from 'react-router'
-import { startKakaoLogin } from '@/api/auth'
+import { useState } from 'react'
+import { Navigate, useNavigate, useSearchParams } from 'react-router'
+import { getPendingKakaoToken, signUpWithKakao, startKakaoLogin } from '@/api/auth'
 import iconKakao from '@/assets/icons/onboarding/kakao.svg'
 import iconMail from '@/assets/icons/onboarding/mail.svg'
 import introCharacter from '@/assets/images/onboarding/intro-character.svg'
+import KakaoSignupSheet, { type KakaoSignupError } from '@/components/auth/KakaoSignupSheet'
 import { ROUTES } from '@/constants/routes'
+import { useFinishLogin } from '@/hooks/useFinishLogin'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
 
@@ -12,9 +15,38 @@ function IntroPage() {
   const navigate = useNavigate()
   const loggedIn = useAuthStore((state) => state.account !== null)
   const completed = useOnboardingStore((state) => state.completed)
+  const finish = useFinishLogin()
+  const [searchParams, setSearchParams] = useSearchParams()
+  // 카카오에서 처음 보는 계정으로 돌아오면 가입 확인 시트. 토큰이 없으면(10분 지남) 안 띄움
+  const [signupSheet, setSignupSheet] = useState(
+    () => searchParams.get('kakao') === 'signup' && !!getPendingKakaoToken(),
+  )
+  const [signing, setSigning] = useState(false)
+  const [signupError, setSignupError] = useState<KakaoSignupError | null>(null)
 
   if (loggedIn && completed) return <Navigate to={ROUTES.TODAY} replace />
 
+  const closeSignupSheet = () => {
+    setSignupSheet(false)
+    setSignupError(null)
+    setSearchParams({}, { replace: true })
+  }
+
+  const signUp = async () => {
+    if (signing) return
+    setSigning(true)
+    setSignupError(null)
+    try {
+      const result = await signUpWithKakao()
+      // 가입되면 이메일 가입과 같이 동의 화면부터
+      if (result === 'ok') return void (await finish('kakao'))
+      setSignupError(result)
+    } catch {
+      setSignupError('failed')
+    } finally {
+      setSigning(false)
+    }
+  }
 
   return (
     <main className="relative mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
@@ -66,6 +98,18 @@ function IntroPage() {
           </button>
         </p>
       </div>
+
+      {signupSheet && (
+        <KakaoSignupSheet
+          loading={signing}
+          error={signupError}
+          onSignup={() => void signUp()}
+          onKakaoAgain={() => startKakaoLogin()}
+          // 토큰은 남겨 두고 이메일 로그인 뒤 카카오 연결에 씀
+          onEmailLogin={() => navigate(ROUTES.LOGIN)}
+          onClose={closeSignupSheet}
+        />
+      )}
     </main>
   )
 }

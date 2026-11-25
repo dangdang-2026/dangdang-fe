@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { logoutFromServer } from '@/api/auth'
+import { clearPendingKakao } from '@/utils/kakaoPending'
 import { unsubscribePush } from '@/api/push'
 import iconBell from '@/assets/icons/my/bell.svg'
 import iconChevronDark from '@/assets/icons/my/chevron-dark.svg'
@@ -254,7 +255,8 @@ function MyPage() {
             } catch {
               // 서버 로그아웃이 실패해도 기기에선 로그인 풂
             }
-            // 기록은 기기에 남기고 로그인만 풂
+            // 기록은 기기에 남기고 로그인만 풂. 받아 둔 카카오 토큰은 다음 사람 계정에 연결되지 않게 지움
+            clearPendingKakao()
             logout()
             navigate(ROUTES.ONBOARDING, { replace: true })
           }}
