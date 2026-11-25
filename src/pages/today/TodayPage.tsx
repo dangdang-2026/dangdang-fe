@@ -23,7 +23,7 @@ import VisitCard from '@/components/today/VisitCard'
 import WaitingMeasureCard from '@/components/today/WaitingMeasureCard'
 import MealWriteFlow from '@/components/meal/MealWriteFlow'
 import PostpartumToday from '@/components/postpartum/PostpartumToday'
-import { GLUCOSE_LOW } from '@/constants/glucose'
+import { GLUCOSE_LOW, JUST_SAVED_MS } from '@/constants/glucose'
 import { ROUTES } from '@/constants/routes'
 import { useFoods } from '@/hooks/useFoods'
 import { useNow } from '@/hooks/useNow'
@@ -124,6 +124,8 @@ function TodayPage() {
   const [memoSheet, setMemoSheet] = useState(false)
   const [birthSheet, setBirthSheet] = useState(false)
   const [permissionSheet, setPermissionSheet] = useState(false)
+  // 방금 저장한 낮은 값(70 미만). 늦게 채운 기록도 저장한 때부터 셈
+  const [savedLow, setSavedLow] = useState<{ id: string; at: number } | null>(null)
   const permissionAsked = useNotificationStore((state) => state.permissionAsked)
   const measureNotification = useNotificationStore((state) => state.measure)
   const markPermissionAsked = useNotificationStore((state) => state.markPermissionAsked)
@@ -144,6 +146,11 @@ function TodayPage() {
   const heroState = getHeroState(meals, records, criteria.postMealHours, now, criteria.measureSlots)
   const waitingMeasure = !hospitalized && WAITING_KINDS.includes(heroState.kind)
   const firstDay = heroState.kind === 'first-day'
+  const showLowBlock =
+    !hospitalized &&
+    !!savedLow &&
+    now.getTime() - savedLow.at < JUST_SAVED_MS &&
+    records.some((record) => record.id === savedLow.id && record.value < GLUCOSE_LOW)
   // 출산 예정일이 가까우면 입원·출산 입구. 입원 중이면 안 보임
   const nearDue = !hospitalized && (getPregnancyAge(dueDate, now)?.weeks ?? 0) >= BIRTH_ENTRY_WEEKS
   // 저녁 이후 놓친 식후 측정은 오늘 기록에 나중에 채우기 줄로
@@ -297,6 +304,7 @@ function TodayPage() {
     closeGlucoseSheet()
     const label = getSlotLabel(record.slot, record.mealType, criteria.postMealHours)
     setToast(`${label} ${record.value} 저장했어요`)
+    setSavedLow(record.value < GLUCOSE_LOW ? { id: record.id, at: Date.now() } : null)
   }
 
   const handleMealSaved = (
@@ -367,8 +375,8 @@ function TodayPage() {
           />
         )}
       </div>
-      {/* 낮은 값을 저장한 직후에도 위급 안내를 그대로 */}
-      {heroState.kind === 'saved' && heroState.record.value < GLUCOSE_LOW && (
+      {/* 낮은 값을 저장한 직후 30분은 위급 안내 그대로. 입원 중 · 지운 기록이면 숨김 */}
+      {showLowBlock && (
         <div className="mt-5">
           <EmergencyBlock onWriteMemo={() => setMemoSheet(true)} />
         </div>

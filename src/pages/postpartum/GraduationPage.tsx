@@ -60,7 +60,14 @@ function GraduationPage() {
 
         {/* 출산 뒤 마음이 힘들 때 바로 걸 수 있게 */}
         <p className="text-t7 text-grey-700 mt-auto text-center font-medium">
-          마음이 힘들 땐 <a href="tel:109">109</a> · <a href="tel:15770199">1577-0199</a>
+          마음이 힘들 땐{' '}
+          <a href="tel:109" className="font-bold text-blue-500 underline">
+            109
+          </a>{' '}
+          ·{' '}
+          <a href="tel:15770199" className="font-bold text-blue-500 underline">
+            1577-0199
+          </a>
         </p>
 
         <button
