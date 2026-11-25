@@ -56,6 +56,8 @@ type MealContentSheetProps = {
   // 찾는 중에 이름으로 넘어온 경우(F-03·F-04). 분석이 끝나면 후보 칩으로
   photoAnalysis?: PhotoAnalysis
   onClose: () => void
+  // 고칠 때만. 이 기록 지우기
+  onDelete?: () => void
   // 주식을 고르지 않으면 portion 없음. nutritionEdits는 내가 잰 영양값, stapleGrams는 그램으로 적은 주식 무게
   onSaved: (
     foods: string[],
@@ -72,6 +74,7 @@ function MealContentSheet({
   photoFailed,
   photoAnalysis,
   onClose,
+  onDelete,
   onSaved,
 }: MealContentSheetProps) {
   const navigate = useNavigate()
@@ -431,8 +434,17 @@ function MealContentSheet({
           className="text-subtitle-1 disabled:bg-grey-100 disabled:text-grey-400 bg-primary h-14 rounded-xl leading-none text-white"
           onClick={() => onSaved(selected, savedPortion, nutritionEdits, stapleGrams)}
         >
-          확인한 것만 저장
+          {editing ? '수정 저장' : '확인한 것만 저장'}
         </button>
+        {editing && onDelete && (
+          <button
+            type="button"
+            className="text-body-2 -mt-1.5 h-11 font-medium text-red-700"
+            onClick={onDelete}
+          >
+            이 기록 지우기
+          </button>
+        )}
       </BottomSheet>
 
       {/* 시트 밖에 둬야 transform 영향 없이 화면 기준으로 뜸 */}

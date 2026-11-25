@@ -6,6 +6,8 @@ type ConfirmSheetProps = {
   title: string
   // 회색 상자 안 「이름 · 값」 줄. 예: 식후 측정 1시간 → 2시간
   summary?: { label: string; value: string }[]
+  // 줄 대신 회색 상자에 직접 그릴 내용. 예: 지우는 혈당 기록
+  detail?: ReactNode
   description?: ReactNode
   confirmLabel: string
   // 동의 철회 · 지우기처럼 되돌리기 어려우면 빨간 버튼
@@ -15,10 +17,11 @@ type ConfirmSheetProps = {
   onClose: () => void
 }
 
-// Figma M-03b · M-04b · M-12 확인 시트: 제목 + 요약 + 설명 + 확인 버튼 + 취소
+// Figma M-03b · M-04b · M-12 · D-11 · C-20 · M-18 확인 · 지우기 시트: 제목 + 요약 + 설명 + 확인 버튼 + 취소
 function ConfirmSheet({
   title,
   summary,
+  detail,
   description,
   confirmLabel,
   danger,
@@ -39,6 +42,7 @@ function ConfirmSheet({
           ))}
         </dl>
       )}
+      {detail && <div className="bg-grey-50 rounded-key px-4 py-3.5">{detail}</div>}
       {description && (
         <div className="text-t6 text-grey-700 whitespace-pre-line">{description}</div>
       )}

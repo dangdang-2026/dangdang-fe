@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getErrorCode } from '@/api/axios'
 import { applyMealItems, toMealContent } from '@/api/mealItems'
-import { createMeal, getAllMeals, type ServerMeal } from '@/api/meals'
+import { createMeal, deleteMeal, getAllMeals, type ServerMeal } from '@/api/meals'
 import { createReading, deleteReading, getAllReadings, updateReading } from '@/api/readings'
 import type {
   GlucoseRecord,
@@ -362,6 +362,13 @@ export async function syncServerRange<T extends ServerRangeData>(load: () => Pro
 export async function editRecord(id: string, changes: { value: number; measuredAt: string }) {
   await updateReading(id, changes)
   useGlucoseStore.getState().updateRecord(id, changes)
+}
+
+// 서버에서 지운 뒤 기기에서도 뺌. 아직 서버에 안 간 끼니는 기기에서만
+export async function removeMeal(id: string) {
+  const meal = useGlucoseStore.getState().meals.find((item) => item.id === id)
+  if (meal && !meal.pending) await deleteMeal(id)
+  useGlucoseStore.setState((state) => ({ meals: state.meals.filter((item) => item.id !== id) }))
 }
 
 // 서버에서 지운 뒤 기기에서도 뺌
