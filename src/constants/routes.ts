@@ -53,6 +53,7 @@ export const ROUTES = {
   LEGAL_TERMS: '/legal/terms',
   LEGAL_SENSITIVE: '/legal/sensitive',
   LEGAL_TRANSFER: '/legal/transfer',
+  LEGAL_MARKETING: '/legal/marketing',
   POSTPARTUM_DELIVERY: '/postpartum/delivery',
   POSTPARTUM_CHECK: '/postpartum/check',
   POSTPARTUM_CHECK_RESULT: '/postpartum/check/result',

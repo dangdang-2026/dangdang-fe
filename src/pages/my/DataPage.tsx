@@ -198,6 +198,7 @@ function DataPage() {
             needsPassword={needsPassword}
             wrongPassword={wrongPassword}
             onPasswordChange={clearWrongPassword}
+            onSavePdf={printRecords}
             onWithdraw={withdraw}
             onClose={() => {
               setWithdrawSheet(false)

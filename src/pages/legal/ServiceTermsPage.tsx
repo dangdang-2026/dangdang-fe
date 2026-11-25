@@ -1,5 +1,4 @@
 import { useCallback, useState } from 'react'
-import iconAlert from '@/assets/icons/legal/terms-alert.svg'
 import Toast from '@/components/common/Toast'
 import ClauseList, { ClauseBody, type Clause } from '@/components/legal/ClauseList'
 import DocumentHead from '@/components/legal/DocumentHead'
@@ -80,6 +79,7 @@ const CLAUSES: Clause[] = [
         lines={[
           '① 이메일 또는 카카오로 가입할 수 있어요. 건강정보 수집·이용에는 따로 동의해야 해요.',
           '② 마이 › 데이터 · 개인정보에서 언제든 탈퇴할 수 있어요. 탈퇴하면 기록은 바로 지워지고 되돌릴 수 없어요.',
+          '③ 만 14세 미만은 가입할 수 없어요.',
         ]}
       />
     ),
@@ -110,11 +110,12 @@ const CLAUSES: Clause[] = [
     ),
   },
   {
-    title: '제9조 서비스 중단',
+    title: '제9조 서비스 중단과 종료',
     body: (
       <ClauseBody
         lines={[
           '시스템 점검이나 장애로 서비스를 잠시 멈출 수 있어요. 미리 알 수 있는 점검은 앱에 먼저 알려요.',
+          '서비스를 끝낼 때는 30일 전에 앱에 알려요. 그동안 내 기록 PDF를 받을 수 있고, 끝나면 모든 정보를 지워요.',
         ]}
       />
     ),
@@ -126,7 +127,7 @@ const CLAUSES: Clause[] = [
         lines={[
           '① 회원이 넣은 기준과 기록이 틀려서 생긴 결과에는 책임지지 않아요.',
           '② 알림은 기기·네트워크 상태에 따라 늦거나 오지 않을 수 있어요. 중요한 측정은 알림에만 기대지 말아 주세요.',
-          '③ 당당의 고의나 중대한 과실로 손해가 생기면 법에 따라 책임져요.',
+          '③ 당당의 잘못으로 손해가 생기면 법에 따라 책임져요.',
         ]}
       />
     ),
@@ -156,17 +157,15 @@ function ServiceTermsPage() {
         version={LEGAL_VERSION}
         onVersions={() => setToast('지금 버전이 첫 버전이에요')}
       />
-      <section className="rounded-key flex flex-col gap-2 bg-yellow-50 p-4">
-        <h3 className="text-t6 text-grey-900 flex items-center gap-2 font-bold">
-          <img src={iconAlert} alt="" width={18} height={18} />
-          제5조 당당은 의료기기가 아니에요
-        </h3>
-        <p className="text-grey-800 text-sm leading-6">
-          당당은 병원에서 안내받은 관리 기준대로 기록하고 알림을 받도록 돕는 서비스예요. 진단·처방을
-          하거나 혈당·식단이 괜찮은지 판단하지 않아요. AI가 보여 주는 음식 이름과 영양 참고값은 틀릴
-          수 있으니 직접 확인해 주세요.
-        </p>
-      </section>
+      <p className="bg-grey-50 text-t7 text-grey-700 rounded-xl px-3.5 py-3 leading-5">
+        당당은 의료기기가 아니에요.
+        <br />
+        병원에서 안내받은 관리 기준대로 기록하고
+        <br />
+        알림을 받도록 돕는 서비스예요.
+        <br />
+        의료 판단은 꼭 병원에서 받아 주세요.
+      </p>
       <ClauseList clauses={CLAUSES} />
 
       {toast && <Toast message={toast} onClose={closeToast} />}

@@ -6,11 +6,15 @@ type LegalLayoutProps = {
   onBack: () => void
   // 아래 고정 버튼. 예: 동의하기 · 확인했어요
   footer?: { label: string; onClick: () => void }
+  // 아래 버튼 밑 글자 버튼. 예: 동의 안 할게요
+  secondary?: { label: string; onClick: () => void }
+  // 아래 버튼 위에 띄울 처리 결과 안내
+  notice?: ReactNode
   children: ReactNode
 }
 
 // Figma N-01~N-07 약관 문서 공통 틀: 줄 그은 머리 + 본문 + 아래 버튼
-function LegalLayout({ title, onBack, footer, children }: LegalLayoutProps) {
+function LegalLayout({ title, onBack, footer, secondary, notice, children }: LegalLayoutProps) {
   // 긴 문서끼리 오갈 때 앞 문서 스크롤 위치가 남지 않게
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -32,7 +36,8 @@ function LegalLayout({ title, onBack, footer, children }: LegalLayoutProps) {
       <div className="flex flex-1 flex-col gap-4.5 px-5 pt-5 pb-10">{children}</div>
 
       {footer && (
-        <div className="border-grey-100 sticky bottom-0 border-t bg-white px-5 pt-3 pb-[max(--spacing(7.5),env(safe-area-inset-bottom))]">
+        <div className="border-grey-100 sticky bottom-0 flex flex-col gap-1 border-t bg-white px-5 pt-3 pb-[max(--spacing(7.5),env(safe-area-inset-bottom))]">
+          {notice && <div className="absolute inset-x-5 bottom-full mb-3">{notice}</div>}
           <button
             type="button"
             className="bg-primary rounded-key w-full py-4 text-base leading-snug font-bold text-white"
@@ -40,6 +45,15 @@ function LegalLayout({ title, onBack, footer, children }: LegalLayoutProps) {
           >
             {footer.label}
           </button>
+          {secondary && (
+            <button
+              type="button"
+              className="text-body-2 text-grey-700 h-11 font-medium"
+              onClick={secondary.onClick}
+            >
+              {secondary.label}
+            </button>
+          )}
         </div>
       )}
     </main>

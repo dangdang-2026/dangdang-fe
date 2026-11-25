@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router'
+import { getConsents, saveMarketingConsent } from '@/api/consent'
 import { hasServerPush, sendTestPush, syncPushSubscription, unsubscribePush } from '@/api/push'
 import iconAlertMd from '@/assets/icons/alert-md.svg'
 import iconCheckBlue from '@/assets/icons/check-blue.svg'
@@ -14,6 +16,7 @@ import {
   useNotificationStore,
   type NotificationSettings,
 } from '@/stores/useNotificationStore'
+import { marketingResultText } from '@/utils/consent'
 import { formatDuration } from '@/utils/criteria'
 
 type Permission = NotificationPermission | 'unsupported'
@@ -54,6 +57,16 @@ function StatusRow({ ok, warn, text }: { ok: boolean; warn?: boolean; text: stri
 // Figma M-04 알림 · M-05 권한 꺼짐
 function NotificationsPage() {
   const goBack = useGoBack(ROUTES.MY)
+  const navigate = useNavigate()
+  // 광고성 정보 받기. 서버 동의 값을 못 받으면 줄을 안 보여 줌
+  const [marketing, setMarketing] = useState<boolean | null>(null)
+  useEffect(() => {
+    getConsents()
+      .then((items) =>
+        setMarketing(items.find((item) => item.type === 'MARKETING')?.granted ?? false),
+      )
+      .catch(() => {})
+  }, [])
   const { measure, remind, hideOnLockScreen } = useNotificationStore()
   const { postMealHours } = useCriteria()
   const [permission, setPermission] = useState(readPermission)
@@ -117,6 +130,22 @@ function NotificationsPage() {
     }
   }
 
+  // 켤 때는 안내 문서를 읽고 동의, 끌 땐 바로 거부하고 처리 결과를 알림(정보통신망법 제50조)
+  const changeMarketing = async (checked: boolean) => {
+    if (checked) {
+      navigate(ROUTES.LEGAL_MARKETING, { state: { save: true } })
+      return
+    }
+    setMarketing(false)
+    try {
+      await saveMarketingConsent(false)
+      setToast(marketingResultText(false))
+    } catch {
+      setMarketing(true)
+      setToast('설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+    }
+  }
+
   const sendTest = async () => {
     if (!(await askPermission())) return
     // 서버 푸시를 받는 기기는 실제 측정 알림과 같은 길(서버 → 푸시)로 보내 봄
@@ -158,6 +187,24 @@ function NotificationsPage() {
             </li>
           ))}
         </ul>
+
+        {marketing !== null && (
+          <ul className="bg-grey-50 flex flex-col rounded-3xl px-4.5 py-2">
+            <li className="flex items-center gap-3 py-2.5">
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <p className="text-t6 text-grey-900 font-bold">광고성 정보 받기</p>
+                <p className="text-t7 text-grey-500">
+                  혜택·이벤트 소식 · 밤 9시~아침 8시엔 안 보내요
+                </p>
+              </div>
+              <Switch
+                checked={marketing}
+                label="광고성 정보 받기"
+                onChange={(checked) => void changeMarketing(checked)}
+              />
+            </li>
+          </ul>
+        )}
 
         <section className="bg-grey-100 rounded-banner flex flex-col gap-2.5 p-4.5">
           <h2 className="text-t7 text-grey-600 font-bold">잠금화면에서는 이렇게 보여요</h2>

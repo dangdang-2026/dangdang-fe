@@ -1,5 +1,4 @@
-import { useLocation } from 'react-router'
-import iconShield from '@/assets/icons/legal/shield.svg'
+import { useLocation, useNavigate } from 'react-router'
 import DocumentHead from '@/components/legal/DocumentHead'
 import LegalLayout from '@/components/legal/LegalLayout'
 import LegalTable from '@/components/legal/LegalTable'
@@ -10,6 +9,7 @@ import { useOnboardingStore } from '@/stores/useOnboardingStore'
 // Figma N-04 민감정보(건강정보) 수집·이용 동의
 function SensitiveConsentPage() {
   const goBack = useGoBack(ROUTES.MY_TERMS)
+  const navigate = useNavigate()
   // 가입 약관 화면에서 왔으면 여기서 바로 동의
   const fromAgree = !!(useLocation().state as { agree?: boolean } | null)?.agree
   const agreements = useOnboardingStore((state) => state.agreements)
@@ -28,6 +28,18 @@ function SensitiveConsentPage() {
           goBack()
         },
       }}
+      // 필수라 안 하면 가입 약관 화면에서 다음으로 못 감
+      secondary={
+        fromAgree
+          ? {
+              label: '동의하지 않기',
+              onClick: () => {
+                setAnswers({ agreements: agreements.filter((key) => key !== 'sensitive') })
+                goBack()
+              },
+            }
+          : undefined
+      }
     >
       <DocumentHead
         title="건강정보 수집·이용에 동의해 주세요"
@@ -42,7 +54,7 @@ function SensitiveConsentPage() {
           {
             label: '수집 항목',
             value:
-              '임신 주수·출산 예정일, 진단일, 혈당 측정값·측정 시각, 식사 기록, 인슐린 기록, 병원에서 안내받은 관리 기준',
+              '임신 주수·출산 예정일, 진단일, 혈당 측정값·측정 시각, 식사 기록, 인슐린 기록, 진료 메모, 출산일·입원 여부, 다니는 병원, 병원에서 안내받은 관리 기준, 이름(부를 이름)',
           },
           { label: '보유 기간', value: '탈퇴하거나 동의를 철회하면 바로 파기해요' },
           {
@@ -52,11 +64,24 @@ function SensitiveConsentPage() {
           },
         ]}
       />
-      <p className="bg-grey-50 text-t7 text-grey-700 flex items-start gap-2 rounded-xl px-3.5 py-3 leading-relaxed">
-        <img src={iconShield} alt="" width={18} height={18} className="shrink-0" />
-        건강정보는 암호화해서 저장하고, 다른 곳에 제공하지 않아요. 마이 › 데이터·개인정보에서 언제든
-        철회할 수 있어요.
-      </p>
+      <div className="rounded-key bg-grey-100 flex flex-col gap-2 p-4 text-sm">
+        <p className="text-grey-700 leading-relaxed">
+          건강정보는 암호화해서 저장해요.
+          <br />
+          AI 기능을 켜면 질문·진료 메모 정리에
+          <br />
+          필요한 내용이 해외(미국 OpenAI)로 가요.
+          <br />
+          마이 › 데이터·개인정보에서 언제든 철회할 수 있어요.
+        </p>
+        <button
+          type="button"
+          className="text-grey-900 self-start font-bold underline"
+          onClick={() => navigate(ROUTES.LEGAL_TRANSFER)}
+        >
+          국외 이전 자세히 보기 ›
+        </button>
+      </div>
     </LegalLayout>
   )
 }
