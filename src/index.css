@@ -28,8 +28,11 @@
   --color-blue-700: #1b64da;
   --color-green-50: #f0faf6;
   --color-green-500: #03b26c;
+  /* 위급 안내 블록 배경 · 테두리 */
+  --color-red-25: #fff6f6;
   --color-red-50: #ffeeee;
   --color-red-100: #ffd4d6;
+  --color-red-200: #f8b4ba;
   --color-red-500: #f04452;
   --color-red-600: #e42939;
   --color-red-700: #d22030;
