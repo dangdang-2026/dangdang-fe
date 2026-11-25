@@ -295,7 +295,7 @@ function PrivacyPolicyPage() {
       <DocumentHead
         title="당당 개인정보 처리방침"
         version={LEGAL_VERSION}
-        onVersions={() => setToast('지금 버전이 첫 버전이에요')}
+        onVersions={() => navigate(ROUTES.LEGAL_PRIVACY_VERSIONS)}
       />
       <p className="text-grey-700 text-sm leading-6">
         당당 팀(이하 「당당」)은 「개인정보 보호법」 제30조에 따라 이용자의 개인정보를 보호하고

@@ -4,29 +4,39 @@ import iconInfo from '@/assets/icons/chat/suggest-info.svg'
 import iconMemo from '@/assets/icons/chat/suggest-memo.svg'
 import iconChevron from '@/assets/icons/postpartum/chevron-md.svg'
 import ChatAvatar from '@/components/chat/ChatAvatar'
-import { CHAT_SUGGESTIONS } from '@/constants/chat'
+import { CHAT_SUGGESTIONS, CHAT_SUGGESTIONS_GENERAL } from '@/constants/chat'
 
 const SUGGESTION_ICON = { records: iconRecords, memo: iconMemo, info: iconInfo, alert: iconAlert }
 
 type ChatIntroProps = {
   onAsk: (text: string) => void
+  // 기록 보기 동의를 거절함. 일반 질문만 받고 설정으로 가는 줄
+  recordsDeclined?: boolean
+  onOpenSettings?: () => void
 }
 
-// Figma Q-02 첫 화면: 소개 + 추천 질문
-function ChatIntro({ onAsk }: ChatIntroProps) {
+// Figma Q-02 첫 화면: 소개 + 추천 질문 · Q-02b 기록 보기 동의를 안 했으면 일반 질문만
+function ChatIntro({ onAsk, recordsDeclined = false, onOpenSettings }: ChatIntroProps) {
+  const suggestions = recordsDeclined ? CHAT_SUGGESTIONS_GENERAL : CHAT_SUGGESTIONS
   return (
     <>
       <section className="flex flex-col gap-2.5 pt-3 pb-2">
         <ChatAvatar variant="hello" />
         <h2 className="text-t4 text-grey-900">진료 사이에 궁금한 걸 물어보세요</h2>
         <p className="text-grey-600 text-sm leading-relaxed">
-          내 기록을 찾아 보여 드리고, 병원에 물어볼 말을 함께 정리해요. 몸 상태를 판단하거나
-          처방하지는 않아요.
+          {recordsDeclined ? (
+            <>
+              내 기록은 보지 않고, 일반 정보로 답해요.
+              <br />몸 상태를 판단하거나 처방하지는 않아요.
+            </>
+          ) : (
+            '내 기록을 찾아 보여 드리고, 병원에 물어볼 말을 함께 정리해요. 몸 상태를 판단하거나 처방하지는 않아요.'
+          )}
         </p>
       </section>
       <section className="flex flex-col gap-2 pt-2">
         <h3 className="text-body-3 text-grey-600">이렇게 물어보세요</h3>
-        {CHAT_SUGGESTIONS.map((suggestion) => (
+        {suggestions.map((suggestion) => (
           <button
             key={suggestion.text}
             type="button"
@@ -39,6 +49,16 @@ function ChatIntro({ onAsk }: ChatIntroProps) {
           </button>
         ))}
       </section>
+      {recordsDeclined && (
+        <button
+          type="button"
+          className="rounded-key bg-grey-100 mt-4 flex items-center justify-between p-4 text-sm"
+          onClick={onOpenSettings}
+        >
+          <span className="text-grey-700 font-medium">기록을 보려면 동의가 필요해요</span>
+          <span className="text-grey-900 font-bold">설정 ›</span>
+        </button>
+      )}
     </>
   )
 }

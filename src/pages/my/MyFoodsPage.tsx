@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { useNavigate } from 'react-router'
 import iconChevronMd from '@/assets/icons/chevron-md.svg'
 import iconPrivate from '@/assets/icons/private.svg'
 import BottomSheet from '@/components/common/BottomSheet'
@@ -25,6 +26,7 @@ function describeMyFood(food: MyFood) {
 // Figma M-13 내 음식 · M-17 고치기 · M-18 지우기 확인
 function MyFoodsPage() {
   const goBack = useGoBack(ROUTES.MY)
+  const navigate = useNavigate()
   const { myFoods, updateMyFood, removeMyFood } = useFoodStore()
   const [editing, setEditing] = useState<MyFood | null>(null)
   const [deleting, setDeleting] = useState<MyFood | null>(null)
@@ -42,10 +44,19 @@ function MyFoodsPage() {
 
         {myFoods.length === 0 ? (
           <div className="border-grey-200 flex flex-col items-center gap-1 rounded-2xl border px-4 py-8 text-center">
-            <p className="text-t6 text-grey-900 font-bold">아직 직접 추가한 음식이 없어요</p>
+            <p className="text-t6 text-grey-900 font-bold">아직 내 음식이 없어요</p>
             <p className="text-t7 text-grey-500">
-              식사 기록에서 찾는 음식이 없으면 내 음식으로 추가할 수 있어요
+              식사 기록에서 ‘직접 추가’한 음식이
+              <br />
+              여기에 모여요.
             </p>
+            <button
+              type="button"
+              className="text-t7 bg-grey-100 text-grey-800 rounded-tag mt-3 px-4 py-2 font-bold"
+              onClick={() => navigate(ROUTES.RECORDS)}
+            >
+              식사 기록으로 가기
+            </button>
           </div>
         ) : (
           <ul className="border-grey-200 divide-grey-100 divide-y rounded-2xl border">

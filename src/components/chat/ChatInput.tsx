@@ -44,7 +44,9 @@ function ChatInput({ disabled, onSend }: ChatInputProps) {
         </button>
       </div>
       <p className="text-caption text-grey-600 leading-snug font-normal">
-        당당이는 진단·처방을 하지 않아요. 몸이 이상하면 병원에 먼저 연락하세요.
+        당당이(AI)는 진단·처방을 하지 않아요.
+        <br />
+        몸이 이상하면 병원에 먼저 연락하세요.
       </p>
     </form>
   )

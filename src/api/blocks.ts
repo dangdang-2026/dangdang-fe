@@ -11,14 +11,20 @@ const PAGE_SIZE = 100
 
 // 차단 목록 전부. 최근 차단 순
 export async function getBlockedProfiles() {
-  const items: { id: string; nickname: string }[] = []
+  const items: { id: string; nickname: string; blockedAt: string }[] = []
   let cursor: string | undefined
   do {
     const { data } = await apiClient.get<BaseResponse<BlockListResponse>>('/blocks', {
       params: { cursor, size: PAGE_SIZE },
     })
     if (!data.data) break
-    items.push(...data.data.items.map((item) => ({ id: item.profileId, nickname: item.nickname })))
+    items.push(
+      ...data.data.items.map((item) => ({
+        id: item.profileId,
+        nickname: item.nickname,
+        blockedAt: item.blockedAt,
+      })),
+    )
     cursor = data.data.hasNext ? (data.data.nextCursor ?? undefined) : undefined
   } while (cursor)
   return items

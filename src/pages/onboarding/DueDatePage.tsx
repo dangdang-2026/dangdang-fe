@@ -7,6 +7,7 @@ import Toast from '@/components/common/Toast'
 import ProfileDateSheet from '@/components/my/ProfileDateSheet'
 import OnboardingHeader from '@/components/onboarding/OnboardingHeader'
 import { ROUTES } from '@/constants/routes'
+import { needsHomeScreenGuide } from '@/utils/device'
 import { useGoBack } from '@/hooks/useGoBack'
 import { saveFirstCriteria } from '@/stores/useCriteriaStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
@@ -63,7 +64,10 @@ function DueDatePage() {
     updateProfile({ dueDate: finalDueDate })
     answers.setAnswers({ dueDate: finalDueDate })
     answers.complete()
-    navigate(ROUTES.ONBOARDING_TOUR, { replace: true })
+    // 아이폰은 홈 화면 앱에서만 알림이 와서 투어 전에 홈 화면 추가 안내
+    navigate(needsHomeScreenGuide() ? ROUTES.ONBOARDING_HOME_SCREEN : ROUTES.ONBOARDING_TOUR, {
+      replace: true,
+    })
   }
 
   return (

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useEffectEvent, useState, type FormEvent } from 'react'
 import {
   VERIFY_CODE_LENGTH,
   VERIFY_MAX_FAILURES,
@@ -27,6 +27,9 @@ import { useNow } from '@/hooks/useNow'
 
 // 남은 시간이 이만큼 이하면 타이머를 빨갛게
 const TIMER_WARN_MS = 60 * 1000
+
+// 인증됐다는 안내를 읽을 틈을 두고 넘어감
+const AUTO_NEXT_MS = 800
 
 type VerifyStatus = 'idle' | 'wrong' | 'digits' | 'tooMany' | 'resent' | 'verified'
 
@@ -215,6 +218,8 @@ function EmailVerifyStep({
   }
 
   const complete = async () => {
+    // 자동으로 넘어가는 중에 확인을 또 눌러도 가입은 한 번만
+    if (checking) return
     if (!navigator.onLine) {
       setToast('offline')
       return
@@ -233,6 +238,14 @@ function EmailVerifyStep({
     }
   }
 
+  // Figma V-03 인증되면 확인 버튼 없이 잠깐 안내를 보여 준 뒤 다음 단계로. 실패하면 확인으로 다시
+  const autoComplete = useEffectEvent(() => void complete())
+  useEffect(() => {
+    if (!verified) return
+    const timer = window.setTimeout(autoComplete, AUTO_NEXT_MS)
+    return () => window.clearTimeout(timer)
+  }, [verified])
+
   const submit = (event: FormEvent) => {
     event.preventDefault()
     if (checking || sending) return
@@ -248,7 +261,7 @@ function EmailVerifyStep({
     tone: 'error',
   }
   const helper: FieldHelper | null = verified
-    ? { icon: iconCheck, text: '인증됐어요', tone: 'success' }
+    ? { icon: iconCheck, text: '인증됐어요. 다음 단계로 넘어갈게요', tone: 'success' }
     : limitBlock
       ? limitHelper
       : tooMany

@@ -43,7 +43,8 @@ type CommunityState = {
   restriction: Restriction | null
   removePost: (postId: string) => void
   // 이 사람 글 안 보기
-  blockedAuthors: Pick<Author, 'id' | 'nickname'>[]
+  // blockedAt: 안 보기 시작한 때. 마이 › 안 보는 사람에 날짜로
+  blockedAuthors: (Pick<Author, 'id' | 'nickname'> & { blockedAt?: string })[]
   blockAuthor: (author: Author) => void
   unblockAuthor: (authorId: string) => void
 
@@ -180,7 +181,7 @@ export const useCommunityStore = create<CommunityState>()(
         set((state) => ({
           blockedAuthors: [
             ...state.blockedAuthors.filter((item) => item.id !== id),
-            { id, nickname },
+            { id, nickname, blockedAt: new Date().toISOString() },
           ],
         })),
       dismissNewsCard: (id) => set({ dismissedNewsId: id }),

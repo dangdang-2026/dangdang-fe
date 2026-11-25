@@ -5,7 +5,6 @@ import { clearPendingKakao } from '@/utils/kakaoPending'
 import { unsubscribePush } from '@/api/push'
 import iconBell from '@/assets/icons/my/bell.svg'
 import iconChevronDark from '@/assets/icons/my/chevron-dark.svg'
-import iconHospital from '@/assets/icons/my/hospital.svg'
 import iconMenuAi from '@/assets/icons/my/menu-ai.svg'
 import iconMenuBell from '@/assets/icons/my/menu-bell.svg'
 import iconMenuCommunity from '@/assets/icons/my/menu-community.svg'
@@ -16,8 +15,7 @@ import iconMenuHospital from '@/assets/icons/my/menu-hospital.svg'
 import iconMenuTarget from '@/assets/icons/my/menu-target.svg'
 import iconMenuTerms from '@/assets/icons/my/menu-terms.svg'
 import iconReport from '@/assets/icons/my/report.svg'
-import iconTarget from '@/assets/icons/my/target.svg'
-import iconUtensils from '@/assets/icons/my/utensils.svg'
+import iconChevron from '@/assets/icons/nav-next.svg'
 import profileBody from '@/assets/images/dangdang/profile-body.svg'
 import profileFace from '@/assets/images/dangdang/profile-face.svg'
 import LogoutSheet from '@/components/my/LogoutSheet'
@@ -26,6 +24,7 @@ import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useNow } from '@/hooks/useNow'
 import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
+import { useAiStore } from '@/stores/useAiStore'
 import { useHospitalStore } from '@/stores/useHospitalStore'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useFoodStore } from '@/stores/useFoodStore'
@@ -33,7 +32,6 @@ import { useMealSettingsStore } from '@/stores/useMealSettingsStore'
 import { useNotificationStore } from '@/stores/useNotificationStore'
 import { CARE_MODE_LABEL, useProfileStore } from '@/stores/useProfileStore'
 import { useVisitStore } from '@/stores/useVisitStore'
-import { formatMeridiemTime } from '@/utils/date'
 import { getPregnancyAge } from '@/utils/pregnancy'
 import { getVisitStatus } from '@/utils/visit'
 import { formatDuration } from '@/utils/criteria'
@@ -42,14 +40,16 @@ const APP_VERSION = '1.0.0'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
-// 예: 10월 24일 (금) 오전 10:30
-const formatVisitAt = (at: Date) =>
-  `${at.getMonth() + 1}월 ${at.getDate()}일 (${WEEKDAYS[at.getDay()]}) ${formatMeridiemTime(at)}`
+// 예: 10월 19일(월)
+const formatVisitDay = (at: Date) =>
+  `${at.getMonth() + 1}월 ${at.getDate()}일(${WEEKDAYS[at.getDay()]})`
 
 // Figma M-01 마이 메인
 function MyPage() {
   const hospital = usePrimaryHospital()
-  const hospitalCount = useHospitalStore((state) => state.hospitals.length)
+  const hospitals = useHospitalStore((state) => state.hospitals)
+  const aiPhoto = useAiStore((state) => !!state.photo?.agreed)
+  const aiChat = useAiStore((state) => !!state.chat?.agreed)
   const navigate = useNavigate()
   const now = useNow()
   const { name, dueDate, careMode } = useProfileStore()
@@ -65,12 +65,13 @@ function MyPage() {
   const age = getPregnancyAge(dueDate, now)
   const visit = getVisitStatus(nextVisitAt, now)
 
-  const shortcuts = [
-    { icon: iconTarget, label: '병원 기준', to: ROUTES.MY_CRITERIA },
-    { icon: iconBell, label: '알림', to: ROUTES.MY_NOTIFICATIONS },
-    { icon: iconUtensils, label: '내 음식', to: ROUTES.MY_FOODS },
-    { icon: iconReport, label: '리포트', to: ROUTES.VISIT_REPORTS },
-  ]
+  // 예: 산부인과 · 내분비내과 2곳
+  const departments = [...new Set(hospitals.map((item) => item.department))]
+  const hospitalSummary =
+    hospitals.length === 0 ? hospital.name : `${departments.join(' · ')} ${hospitals.length}곳`
+  // 예: 사진 찾기 · 당당이 켜짐 / 모두 꺼짐
+  const aiOn = [aiPhoto && '사진 찾기', aiChat && '당당이'].filter(Boolean)
+  const aiSummary = aiOn.length > 0 ? `${aiOn.join(' · ')} 켜짐` : '사진 찾기 · 당당이 꺼짐'
 
   const criteriaSummary = [
     criteria.postMealHours ? `식후 ${formatDuration(criteria.postMealHours)}` : '측정 시점 모름',
@@ -124,42 +125,25 @@ function MyPage() {
       </button>
 
       <div className="relative mt-1 flex flex-col gap-3 px-4">
+        {/* Figma M-01 진료 리포트. 다가오는 진료가 있으면 그 진료용 */}
         <button
           type="button"
           className="rounded-banner flex items-center gap-3 bg-white py-4 pr-3.5 pl-4 text-left"
-          onClick={() => navigate(ROUTES.VISIT)}
+          onClick={() => navigate(ROUTES.VISIT_REPORT)}
         >
           <span className="rounded-key flex size-11 shrink-0 items-center justify-center bg-yellow-50">
-            <img src={iconHospital} alt="" width={24} height={24} />
+            <img src={iconReport} alt="" width={24} height={24} />
           </span>
           <span className="flex min-w-0 flex-1 flex-col gap-0.5 leading-snug">
-            <span className="text-body-3 text-grey-500">다음 진료 · {hospital.name}</span>
+            <span className="text-t7 text-grey-600 font-medium">진료 리포트</span>
             <span className="text-grey-900 text-base font-bold">
-              {visit.kind === 'unknown' ? '다음 진료일을 적어 주세요' : formatVisitAt(visit.at)}
+              {visit.kind === 'unknown'
+                ? '최근 2주 리포트 보기'
+                : `${formatVisitDay(visit.at)} 진료용 리포트`}
             </span>
           </span>
-          {visit.kind !== 'unknown' && (
-            <span className="bg-grey-900 text-t7 text-grey-50 shrink-0 rounded-full px-2.5 py-1 font-bold">
-              {visit.kind === 'today' ? '오늘' : `D-${visit.dDay}`}
-            </span>
-          )}
+          <img src={iconChevron} alt="" width={16} height={16} />
         </button>
-
-        <nav aria-label="바로가기" className="rounded-banner flex bg-white px-2 py-4">
-          {shortcuts.map(({ icon, label, to }) => (
-            <button
-              key={label}
-              type="button"
-              className="flex flex-1 flex-col items-center gap-2"
-              onClick={() => navigate(to)}
-            >
-              <span className="bg-grey-50 flex size-12 items-center justify-center rounded-2xl">
-                <img src={icon} alt="" width={24} height={24} />
-              </span>
-              <span className="text-body-3 text-grey-800">{label}</span>
-            </button>
-          ))}
-        </nav>
 
         <MyMenuGroup
           title="내 관리"
@@ -167,7 +151,7 @@ function MyPage() {
             {
               icon: iconMenuHospital,
               title: '다니는 병원',
-              description: `${hospital.name}${hospitalCount > 1 ? ` 외 ${hospitalCount - 1}곳` : ''}`,
+              description: hospitalSummary,
               onClick: () => navigate(ROUTES.MY_HOSPITALS),
             },
             {
@@ -188,12 +172,6 @@ function MyPage() {
               description: `양 적는 방식 · ${portionUnit === 'GRAM' ? '그램' : '인분'}`,
               onClick: () => navigate(ROUTES.MY_MEAL_SETTINGS),
             },
-            {
-              icon: iconMenuCommunity,
-              title: '커뮤니티 설정',
-              description: '닉네임 · 내 글 · 안 보는 사람',
-              onClick: () => navigate(ROUTES.MY_COMMUNITY),
-            },
           ]}
         />
         <MyMenuGroup
@@ -208,8 +186,14 @@ function MyPage() {
             {
               icon: iconMenuAi,
               title: 'AI 설정',
-              description: '사진 찾기 · 당당이',
+              description: aiSummary,
               onClick: () => navigate(ROUTES.MY_AI),
+            },
+            {
+              icon: iconMenuCommunity,
+              title: '커뮤니티 설정',
+              description: '닉네임 · 내 글 · 안 보는 사람',
+              onClick: () => navigate(ROUTES.MY_COMMUNITY),
             },
             {
               icon: iconMenuData,
@@ -222,10 +206,10 @@ function MyPage() {
         <MyMenuGroup
           title="도움"
           items={[
-            { icon: iconMenuHelp, title: '문의하기' },
+            { icon: iconMenuHelp, title: '문의하기', onClick: () => navigate(ROUTES.MY_CONTACT) },
             {
               icon: iconMenuTerms,
-              title: '약관 · 의료기기 아님 고지',
+              title: '약관 · 고지',
               onClick: () => navigate(ROUTES.MY_TERMS),
             },
           ]}
