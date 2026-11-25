@@ -12,11 +12,11 @@ export function getReportFileName(name: string | null, from: Date, to: Date) {
   return safeName ? `${safeName}_${base}` : base
 }
 
-// 리포트 이미지를 파일로 공유. 파일 공유가 안 되는 기기면 'unsupported'
+// 리포트 이미지를 파일로 공유. 파일 공유가 안 되는 기기면 'unsupported', 시도했다 막히면 'failed'
 export async function shareReportImage(
   blob: Blob,
   fileName: string,
-): Promise<'shared' | 'canceled' | 'unsupported'> {
+): Promise<'shared' | 'canceled' | 'unsupported' | 'failed'> {
   const file = new File([blob], fileName, { type: 'image/png' })
   if (!navigator.canShare?.({ files: [file] })) return 'unsupported'
   try {
@@ -24,7 +24,8 @@ export async function shareReportImage(
     return 'shared'
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') return 'canceled'
-    return 'unsupported'
+    // 공유 창이 막힘(누른 직후가 아님 등). 다시 누르게 해야 함
+    return 'failed'
   }
 }
 

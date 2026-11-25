@@ -38,6 +38,10 @@ function ReportPage() {
   // 병원 밖으로 보낼 때 이름 빼기
   const [hideName, setHideName] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  // 파일 공유가 막혔을 때 토스트에서 다시 눌러 글로 보내기
+  const [toastAction, setToastAction] = useState<{ label: string; onClick: () => void } | null>(
+    null,
+  )
   // 사진으로 저장할 리포트 카드
   const receiptRef = useRef<HTMLDivElement>(null)
   const [savingPhoto, setSavingPhoto] = useState(false)
@@ -235,22 +239,8 @@ function ReportPage() {
     }
   }
 
-  // 공유하기: 리포트 이미지를 파일로. 파일 공유가 안 되면 글로 공유 · 복사
-  const shareReport = async () => {
-    if (waitPeriod()) return
-    const text = formatReportText({ report, title, periodLabel, criteriaLines, questions })
-    keepReport()
-    setShareOpen(false)
-    // 이미지를 지금 만들면 누른 직후가 아니라 공유 창이 막혀서, 미리 만든 게 있을 때만 파일로
-    try {
-      const blob = photo.current?.key === photoKey ? photo.current.blob : null
-      if (blob) {
-        const result = await shareReportImage(blob, `${fileName}.png`)
-        if (result !== 'unsupported') return
-      }
-    } catch {
-      // 파일 공유가 막히면 글로
-    }
+  // 글로 공유. 공유 창이 없으면 복사
+  const shareText = async (text: string) => {
     try {
       if (navigator.share) {
         await navigator.share({ title: '진료 리포트', text })
@@ -263,8 +253,32 @@ function ReportPage() {
     }
   }
 
+  // 공유하기: 리포트 이미지를 파일로. 파일 공유가 안 되는 기기면 바로 글로
+  const shareReport = async () => {
+    if (waitPeriod()) return
+    const text = formatReportText({ report, title, periodLabel, criteriaLines, questions })
+    keepReport()
+    setShareOpen(false)
+    // 이미지를 지금 만들면 누른 직후가 아니라 공유 창이 막혀서, 미리 만든 게 있을 때만 파일로
+    const blob = photo.current?.key === photoKey ? photo.current.blob : null
+    if (blob) {
+      const result = await shareReportImage(blob, `${fileName}.png`)
+      if (result === 'shared' || result === 'canceled') return
+      // 시도했다 막혔으면 공유 창을 또 못 띄우니 새로 누르게
+      if (result === 'failed') {
+        setToastAction({ label: '글로 보내기', onClick: () => void shareText(text) })
+        setToast('파일로 공유하지 못했어요')
+        return
+      }
+    }
+    await shareText(text)
+  }
+
   const closeShare = useCallback(() => setShareOpen(false), [])
-  const closeToast = useCallback(() => setToast(null), [])
+  const closeToast = useCallback(() => {
+    setToast(null)
+    setToastAction(null)
+  }, [])
 
   return (
     <>
@@ -320,7 +334,7 @@ function ReportPage() {
             onClose={closeShare}
           />
         )}
-        {toast && <Toast message={toast} onClose={closeToast} />}
+        {toast && <Toast message={toast} action={toastAction ?? undefined} onClose={closeToast} />}
       </main>
 
       {/* 인쇄할 때만 보이는 A4 리포트 */}

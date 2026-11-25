@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
 import iconClock from '@/assets/icons/clock-sm.svg'
@@ -102,6 +102,17 @@ function GlucoseInputSheet({
     'dinner',
     ...(criteria.measureSlots.includes('bedtime') ? (['bedtime'] as const) : []),
   ]
+  // 방향키로 앞뒤 시점을 고르고 그 칩으로 포커스. Tab은 고른 칩 하나만 거침
+  const moveSlot = (event: KeyboardEvent<HTMLDivElement>) => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key]
+    if (!step) return
+    event.preventDefault()
+    const index = slotOptions.findIndex((key) => isSameSlot(target, SLOT_TARGET[key]))
+    const next = (index + step + slotOptions.length) % slotOptions.length
+    setTarget(SLOT_TARGET[slotOptions[next]])
+    const radios = event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')
+    radios[next]?.focus()
+  }
   const value = Number(digits)
   const goal = getTarget(target.slot, criteria.targets, criteria.postMealHours)
   const comparison = compareToTarget(value, goal)
@@ -168,7 +179,12 @@ function GlucoseInputSheet({
       </div>
 
       {guessed && (
-        <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="측정 시점">
+        <div
+          className="grid grid-cols-4 gap-2"
+          role="radiogroup"
+          aria-label="측정 시점"
+          onKeyDown={moveSlot}
+        >
           {slotOptions.map((key) => {
             const selected = isSameSlot(target, SLOT_TARGET[key])
             return (
@@ -177,6 +193,7 @@ function GlucoseInputSheet({
                 type="button"
                 role="radio"
                 aria-checked={selected}
+                tabIndex={selected ? 0 : -1}
                 className={`h-11 rounded-xl text-sm font-medium ${
                   selected ? 'bg-grey-900 text-white' : 'bg-grey-100 text-grey-700'
                 }`}

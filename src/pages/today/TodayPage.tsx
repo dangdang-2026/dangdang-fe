@@ -353,7 +353,7 @@ function TodayPage() {
     }
     const [hours, minutes] = time.split(':').map(Number)
     const original = new Date(meal.startedAt)
-    // 자정을 넘나들 수 있어 전날 · 그날 · 다음 날 중 원래 시각에 가장 가까운, 지금보다 이른 시각
+    // 자정을 넘나들 수 있어 전날 · 그날 · 다음 날 중 원래 시각에 가장 가까운 날. 그게 지금보다 늦으면 거절
     const startedAt = [-1, 0, 1]
       .map((offset) => {
         const date = new Date(original)
@@ -361,12 +361,11 @@ function TodayPage() {
         date.setHours(hours, minutes, 0, 0)
         return date
       })
-      .filter((date) => date.getTime() <= Date.now())
       .sort(
         (a, b) =>
           Math.abs(a.getTime() - original.getTime()) - Math.abs(b.getTime() - original.getTime()),
       )[0]
-    if (!startedAt) {
+    if (startedAt.getTime() > Date.now()) {
       setToast('지금보다 늦은 시각은 고를 수 없어요')
       return
     }

@@ -54,7 +54,8 @@ export async function syncCriteria() {
 export async function saveCriteria(criteria: CriteriaInput, effectiveFrom?: Date) {
   await createCriteria(criteria, effectiveFrom)
   useCriteriaStore.getState().addCriteria(criteria, effectiveFrom)
-  syncCriteria().catch(() => {})
+  // 동기화가 끝나야 다음 저장이 이 응답에 덮이지 않음. 실패해도 저장은 된 것
+  await syncCriteria().catch(() => {})
 }
 
 // 첫 진입 설정. 1번 기준부터 다시 시작

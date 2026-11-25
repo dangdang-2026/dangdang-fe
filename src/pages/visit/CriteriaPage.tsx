@@ -14,6 +14,7 @@ import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
 import { saveCriteria } from '@/stores/useCriteriaStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
+import { useVisitStore } from '@/stores/useVisitStore'
 import type { CriteriaPrefill, MeasureSlotKey } from '@/types/criteria'
 import {
   MEASURE_SLOT_LABEL,
@@ -40,9 +41,20 @@ function CriteriaPage() {
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(false)
   const closeToast = useCallback(() => setToast(false), [])
-  // 언제부터 적용할지. 진료일처럼 지난 날도 고를 수 있음
   const today = startOfDay(new Date())
-  const [effectiveFrom, setEffectiveFrom] = useState(today)
+  // 적용일 하한: 지금 기준 시작일보다 앞서면 서버 이력(적용일 순)이 꼬임. v1은 기기에선 '처음'이라 설정을 마친 날
+  const earliest = startOfDay(
+    new Date(current.version === 1 && completedAt ? completedAt : current.appliedFrom),
+  )
+  const clampDate = (date: Date) => {
+    const day = startOfDay(date)
+    return day < earliest ? earliest : day > today ? today : day
+  }
+  // 언제부터 적용할지. 기본은 지난 진료일, 없으면 오늘
+  const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
+  const [effectiveFrom, setEffectiveFrom] = useState(() =>
+    clampDate(nextVisitAt && new Date(nextVisitAt) <= new Date() ? new Date(nextVisitAt) : today),
+  )
   const [pickingDate, setPickingDate] = useState(false)
   const [confirmUnusual, setConfirmUnusual] = useState(false)
   // 진료 후 메모 정리에서 왔으면 체크한 값으로 채움
@@ -78,10 +90,8 @@ function CriteriaPage() {
     setConfirmUnusual(false)
     setSaving(true)
     try {
-      await saveCriteria(
-        { ...draft, source: '진료 후 직접 입력' },
-        effectiveFrom.getTime() < today.getTime() ? effectiveFrom : undefined,
-      )
+      // 고른 뒤 기준이 바뀌었을 수 있어 저장 직전에 한 번 더 맞춤. 오늘이어도 같은 날을 보냄
+      await saveCriteria({ ...draft, source: '진료 후 직접 입력' }, clampDate(effectiveFrom))
     } catch {
       setToast(true)
       return
@@ -204,12 +214,7 @@ function CriteriaPage() {
           pick="past"
           submitLabel={(date) => `${formatMonthDay(date)}부터 적용`}
           onSave={(date) => {
-            // 지금 기준보다 앞선 날은 서버 이력(적용일 순)이 꼬여서 지금 기준 시작일로 맞춤
-            // v1은 기기에선 '처음'이라 설정을 마친 날을 씀
-            const earliest = startOfDay(
-              new Date(current.version === 1 && completedAt ? completedAt : current.appliedFrom),
-            )
-            setEffectiveFrom(date < earliest ? earliest : startOfDay(date))
+            setEffectiveFrom(clampDate(date))
             setPickingDate(false)
           }}
           onClose={() => setPickingDate(false)}
