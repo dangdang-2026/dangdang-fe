@@ -8,6 +8,10 @@ import { formatRangeLabel, type DateRange } from '@/utils/stats'
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
 type RangeSheetProps = {
+  // 기본은 통계. 리포트(C-25b)는 리포트 기간
+  title?: string
+  // 고른 뒤 버튼 글. 기본은 '… 보기'
+  actionLabel?: (range: DateRange) => string
   today: Date
   // 기록 시작 전은 고를 수 없음
   start: Date
@@ -17,7 +21,15 @@ type RangeSheetProps = {
 }
 
 // Figma D-19 통계 기간 직접 고르기. 시작일 → 끝나는 날 차례로
-function RangeSheet({ today, start, initial, onApply, onClose }: RangeSheetProps) {
+function RangeSheet({
+  title = '통계 기간',
+  actionLabel = (range) => `${formatRangeLabel(range)} 보기`,
+  today,
+  start,
+  initial,
+  onApply,
+  onClose,
+}: RangeSheetProps) {
   const [month, setMonth] = useState(() => startOfMonth(initial?.to ?? today))
   const [from, setFrom] = useState<Date | null>(initial?.from ?? null)
   const [to, setTo] = useState<Date | null>(initial?.to ?? null)
@@ -36,9 +48,9 @@ function RangeSheet({ today, start, initial, onApply, onClose }: RangeSheetProps
   }
 
   return (
-    <BottomSheet label="통계 기간" onClose={onClose}>
+    <BottomSheet label={title} onClose={onClose}>
       <div className="flex flex-col gap-1.5">
-        <h2 className="text-t4 text-grey-900">통계 기간</h2>
+        <h2 className="text-t4 text-grey-900">{title}</h2>
         <p className="text-t6 text-grey-700">시작일과 끝나는 날을 차례로 눌러 주세요.</p>
       </div>
 
@@ -116,7 +128,7 @@ function RangeSheet({ today, start, initial, onApply, onClose }: RangeSheetProps
         onClick={() => from && to && onApply({ from, to })}
       >
         {from && to
-          ? `${formatRangeLabel({ from, to })} 보기`
+          ? actionLabel({ from, to })
           : from
             ? '끝나는 날을 골라 주세요'
             : '시작일을 골라 주세요'}

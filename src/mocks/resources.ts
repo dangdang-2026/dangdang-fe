@@ -1,24 +1,30 @@
 import type { ResourceLink, ResourceSummary } from '@/types/resource'
 
-// 링크·학회명은 원문 확인 전. 확정되면 url만 채우면 됨
+// Figma C-13 공식 자료. 각 기관 누리집으로 연결
 export const RESOURCE_LINKS: ResourceLink[] = [
   {
+    id: 'nhis-supply',
+    source: '국민건강보험공단',
+    title: '당뇨병 소모성 재료 지원',
+    url: 'https://www.nhis.or.kr',
+    domain: 'nhis.or.kr',
+    checkedOn: '2026-10-19',
+  },
+  {
+    id: 'kda-guideline',
+    source: '대한당뇨병학회',
+    title: '당뇨병 진료지침 2023',
+    url: 'https://www.diabetes.or.kr',
+    domain: 'diabetes.or.kr',
+    checkedOn: '2026-10-19',
+  },
+  {
     id: 'kdca-gdm',
-    source: '질병관리청 국가건강정보포털',
-    title: '임신성 당뇨병 [링크 확인 필요]',
-    url: null,
-  },
-  {
-    id: 'society-gdm',
-    source: '[학회명 확인 필요]',
-    title: '임신성 당뇨 환자 안내 [링크 확인 필요]',
-    url: null,
-  },
-  {
-    id: 'local-support',
-    source: '[지자체·보건소]',
-    title: '임산부 지원 제도 안내 [링크 확인 필요]',
-    url: null,
+    source: '질병관리청',
+    title: '국가건강정보포털 임신성 당뇨병',
+    url: 'https://health.kdca.go.kr',
+    domain: 'health.kdca.go.kr',
+    checkedOn: '2026-10-19',
   },
 ]
 

@@ -15,6 +15,8 @@ export type Meal = {
   foods?: string[]
   // 주식(밥·면 등) 양. 반찬은 양을 받지 않음
   portion?: Portion
+  // 주식을 그램으로 적었으면 그 무게. 있으면 portion보다 먼저 씀
+  stapleGrams?: number
   // 음식 이름별 내가 잰 영양값(F-18). 없으면 식약처 참고값
   nutritionEdits?: NutritionEdits
   // 사진으로 찾은 AI 후보 이름(D-09 고치기에서 다시 보여 줌). 사진은 보관 안 함

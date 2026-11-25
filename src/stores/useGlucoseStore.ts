@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getErrorCode } from '@/api/axios'
 import { applyMealItems, toMealContent } from '@/api/mealItems'
-import { createMeal, getAllMeals, type ServerMeal } from '@/api/meals'
+import { createMeal, deleteMeal, getAllMeals, updateMealStart, type ServerMeal } from '@/api/meals'
 import { createReading, deleteReading, getAllReadings, updateReading } from '@/api/readings'
 import type {
   GlucoseRecord,
@@ -29,6 +29,7 @@ type GlucoseState = {
     foods: string[],
     portion?: Portion,
     nutritionEdits?: NutritionEdits,
+    stapleGrams?: number,
   ) => void
   // 사진으로 적은 끼니의 AI 후보·음식별 양
   setMealPhotoInfo: (mealId: string, info: Pick<Meal, 'aiCandidates' | 'portions'>) => void
@@ -71,7 +72,7 @@ export const useGlucoseStore = create<GlucoseState>()(
             meal.id === mealId ? { ...meal, skipped: true } : meal,
           ),
         })),
-      setMealContent: (mealId, foods, portion, nutritionEdits) =>
+      setMealContent: (mealId, foods, portion, nutritionEdits, stapleGrams) =>
         set((state) => ({
           meals: state.meals.map((meal) =>
             meal.id === mealId
@@ -79,6 +80,7 @@ export const useGlucoseStore = create<GlucoseState>()(
                   ...meal,
                   foods,
                   portion,
+                  stapleGrams,
                   nutritionEdits: keepEdits(nutritionEdits ?? meal.nutritionEdits, foods),
                   itemsPending: true,
                 }
@@ -192,6 +194,7 @@ async function pushMealItemsOnce(mealId: string) {
   const same = (item: Meal) =>
     item.foods === meal.foods &&
     item.portion === meal.portion &&
+    item.stapleGrams === meal.stapleGrams &&
     item.portions === meal.portions &&
     item.nutritionEdits === meal.nutritionEdits
   useGlucoseStore.setState((state) => ({
@@ -219,8 +222,9 @@ export function saveMealContent(
   foods: string[],
   portion?: Portion,
   nutritionEdits?: NutritionEdits,
+  stapleGrams?: number,
 ) {
-  useGlucoseStore.getState().setMealContent(mealId, foods, portion, nutritionEdits)
+  useGlucoseStore.getState().setMealContent(mealId, foods, portion, nutritionEdits, stapleGrams)
   return pushMealItems(mealId)
 }
 
@@ -358,6 +362,38 @@ export async function syncServerRange<T extends ServerRangeData>(load: () => Pro
 export async function editRecord(id: string, changes: { value: number; measuredAt: string }) {
   await updateReading(id, changes)
   useGlucoseStore.getState().updateRecord(id, changes)
+}
+
+// 같은 끼니의 시작 시각 고치기는 차례로. 늦게 끝난 앞 요청이 마지막에 고른 시각을 덮지 않게
+const mealStartQueue = new Map<string, Promise<void>>()
+
+// 식사 시작 시각 고치기. 아직 서버에 안 간 끼니는 기기에서만
+export async function editMealStart(id: string, startedAt: Date) {
+  const run = (mealStartQueue.get(id) ?? Promise.resolve())
+    .catch(() => {})
+    .then(async () => {
+      const meal = useGlucoseStore.getState().meals.find((item) => item.id === id)
+      if (!meal) return
+      if (!meal.pending) await updateMealStart(id, startedAt)
+      useGlucoseStore.setState((state) => ({
+        meals: state.meals
+          .map((item) => (item.id === id ? { ...item, startedAt: startedAt.toISOString() } : item))
+          .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()),
+      }))
+    })
+  mealStartQueue.set(id, run)
+  try {
+    await run
+  } finally {
+    if (mealStartQueue.get(id) === run) mealStartQueue.delete(id)
+  }
+}
+
+// 서버에서 지운 뒤 기기에서도 뺌. 아직 서버에 안 간 끼니는 기기에서만
+export async function removeMeal(id: string) {
+  const meal = useGlucoseStore.getState().meals.find((item) => item.id === id)
+  if (meal && !meal.pending) await deleteMeal(id)
+  useGlucoseStore.setState((state) => ({ meals: state.meals.filter((item) => item.id !== id) }))
 }
 
 // 서버에서 지운 뒤 기기에서도 뺌

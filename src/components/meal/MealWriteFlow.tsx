@@ -36,7 +36,12 @@ type SearchTarget = { mode: 'single' } | { mode: 'table'; id: string | null }
 type MealWriteFlowProps = {
   meal: Meal
   onClose: () => void
-  onSaved: (foods: string[], portion?: Portion, nutritionEdits?: NutritionEdits) => void
+  onSaved: (
+    foods: string[],
+    portion?: Portion,
+    nutritionEdits?: NutritionEdits,
+    stapleGrams?: number,
+  ) => void
 }
 
 // 이미 적은 식사는 이름으로 고치기. 사진 동의를 안 물어봤으면 동의부터, 거절했으면 이름으로
@@ -103,9 +108,10 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
     savedPortion: Portion | undefined,
     info: Pick<Meal, 'aiCandidates' | 'portions'>,
     edits?: NutritionEdits,
+    stapleGrams?: number,
   ) => {
     setMealPhotoInfo(meal.id, info)
-    onSaved(names, savedPortion, edits)
+    onSaved(names, savedPortion, edits, stapleGrams)
   }
 
   const handleCapture = async (photo: Blob) => {
@@ -320,10 +326,16 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
           photoFailed={step === 'failed'}
           photoAnalysis={analysis && photoUrl ? { ...analysis, photoUrl } : undefined}
           onClose={onClose}
-          onSaved={(names, savedPortion, edits) =>
+          onSaved={(names, savedPortion, edits, stapleGrams) =>
             analysis?.status === 'found'
-              ? saveWithPhotoInfo(names, savedPortion, { aiCandidates: analysis.candidates }, edits)
-              : onSaved(names, savedPortion, edits)
+              ? saveWithPhotoInfo(
+                  names,
+                  savedPortion,
+                  { aiCandidates: analysis.candidates },
+                  edits,
+                  stapleGrams,
+                )
+              : onSaved(names, savedPortion, edits, stapleGrams)
           }
         />
       )

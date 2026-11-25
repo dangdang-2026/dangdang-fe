@@ -17,7 +17,13 @@ import { ROUTES } from '@/constants/routes'
 import { useNow } from '@/hooks/useNow'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useWeekRecordsSync } from '@/hooks/useWeekRecordsSync'
-import { removeRecord, saveMealContent, useGlucoseStore } from '@/stores/useGlucoseStore'
+import {
+  removeMeal,
+  removeRecord,
+  saveMealContent,
+  useGlucoseStore,
+} from '@/stores/useGlucoseStore'
+import ConfirmSheet from '@/components/common/ConfirmSheet'
 import type {
   GlucoseRecord,
   InsulinRecord,
@@ -26,7 +32,14 @@ import type {
   NutritionEdits,
   Portion,
 } from '@/types/glucose'
-import { formatMonthDayWeekday, isSameDay, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
+import {
+  formatMonthDayWeekday,
+  formatTime,
+  isSameDay,
+  parseDateKey,
+  startOfDay,
+  toDateKey,
+} from '@/utils/date'
 import { getBackfillTarget, getMeasureTarget, getSlotLabel } from '@/utils/glucose'
 
 type InputSheet = { target: MeasureTarget; backfillAt?: Date }
@@ -43,6 +56,8 @@ function RecordsPage() {
   const [deleting, setDeleting] = useState<GlucoseRecord | null>(null)
   const [removing, setRemoving] = useState(false)
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null)
+  // 식사 기록 고치기에서 지우기를 누른 끼니
+  const [deletingMeal, setDeletingMeal] = useState<Meal | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const criteria = useCriteria()
   const navigate = useNavigate()
@@ -71,7 +86,13 @@ function RecordsPage() {
 
   const openInputSheet = () => {
     if (isToday) {
-      const target = getMeasureTarget(meals, records, criteria.postMealHours, new Date())
+      const target = getMeasureTarget(
+        meals,
+        records,
+        criteria.postMealHours,
+        new Date(),
+        criteria.measureSlots,
+      )
       setInputSheet({ target })
       return
     }
@@ -91,13 +112,28 @@ function RecordsPage() {
     foods: string[],
     portion?: Portion,
     nutritionEdits?: NutritionEdits,
+    stapleGrams?: number,
   ) => {
     if (!editingMeal) return
-    void saveMealContent(editingMeal.id, foods, portion, nutritionEdits)
+    void saveMealContent(editingMeal.id, foods, portion, nutritionEdits, stapleGrams)
     setEditingMeal(null)
     setToast(`${MEAL_LABEL[editingMeal.type]} 기록을 고쳤어요`)
   }
   const closeToast = useCallback(() => setToast(null), [])
+
+  const handleMealDeleted = async () => {
+    if (!deletingMeal || removing) return
+    setRemoving(true)
+    try {
+      await removeMeal(deletingMeal.id)
+      setToast(`${MEAL_LABEL[deletingMeal.type]} 기록을 지웠어요`)
+    } catch {
+      setToast('기록을 지우지 못했어요. 잠시 후 다시 시도해 주세요')
+    } finally {
+      setRemoving(false)
+      setDeletingMeal(null)
+    }
+  }
 
   const handleSaved = (record: GlucoseRecord) => {
     setInputSheet(null)
@@ -202,7 +238,12 @@ function RecordsPage() {
         />
       )}
       {deleting && (
-        <RecordDeleteSheet onConfirm={() => void handleDeleted()} onClose={closeDeleteSheet} />
+        <RecordDeleteSheet
+          record={deleting}
+          label={getSlotLabel(deleting.slot, deleting.mealType, criteria.postMealHours)}
+          onConfirm={() => void handleDeleted()}
+          onClose={closeDeleteSheet}
+        />
       )}
       {editingMeal && (
         <MealContentSheet
@@ -210,6 +251,27 @@ function RecordsPage() {
           editing
           onClose={closeMealSheet}
           onSaved={handleMealEdited}
+          onDelete={() => {
+            setDeletingMeal(editingMeal)
+            setEditingMeal(null)
+          }}
+        />
+      )}
+      {deletingMeal && (
+        <ConfirmSheet
+          title={`${MEAL_LABEL[deletingMeal.type]} 기록을 지울까요?`}
+          summary={[
+            {
+              label: '식사',
+              value: `${formatTime(new Date(deletingMeal.startedAt))} · ${deletingMeal.foods?.join(', ') || '내용 없음'}`,
+            },
+          ]}
+          description={'식사 기록만 지워요. 이 끼니의 혈당 기록은 그대로 남아요.'}
+          confirmLabel="지우기"
+          danger
+          loading={removing}
+          onConfirm={() => void handleMealDeleted()}
+          onClose={() => setDeletingMeal(null)}
         />
       )}
       {editingInsulin && (

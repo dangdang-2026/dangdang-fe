@@ -7,11 +7,11 @@ import iconToastOffline from '@/assets/icons/auth/toast-offline.svg'
 import iconAgreeChev from '@/assets/icons/onboarding/agree-chev.svg'
 import iconAgreeInfo from '@/assets/icons/onboarding/agree-info.svg'
 import AuthToast from '@/components/auth/AuthToast'
-import BottomSheet from '@/components/common/BottomSheet'
 import CheckCircle from '@/components/onboarding/CheckCircle'
 import OnboardingHeader from '@/components/onboarding/OnboardingHeader'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
+import { marketingResultText } from '@/utils/consent'
 import {
   REQUIRED_AGREEMENTS,
   useOnboardingStore,
@@ -46,11 +46,12 @@ const MARKETING: Agreement = {
   document: true,
 }
 
-// 본문 화면이 있는 문서. 광고성 정보는 아직 시트로 안내
+// 본문 화면이 있는 문서
 const DOCUMENT_ROUTES: Partial<Record<AgreementKey, string>> = {
   terms: ROUTES.LEGAL_TERMS,
   privacy: ROUTES.LEGAL_PRIVACY,
   sensitive: ROUTES.LEGAL_SENSITIVE,
+  marketing: ROUTES.LEGAL_MARKETING,
 }
 
 const ALL_KEYS = [...BASIC, SENSITIVE, MARKETING].map((item) => item.key)
@@ -72,7 +73,6 @@ function TermsAgreePage() {
   const saved = useOnboardingStore((state) => state.agreements)
   const setAnswers = useOnboardingStore((state) => state.setAnswers)
   const [agreed, setAgreed] = useState<AgreementKey[]>(saved)
-  const [document, setDocument] = useState<Agreement | null>(null)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<ToastKind | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
@@ -87,7 +87,10 @@ function TermsAgreePage() {
     setSaving(true)
     try {
       await saveConsents(agreed)
-      navigate(ROUTES.ONBOARDING_TIMING)
+      // 광고성 정보에 동의했으면 다음 화면에서 처리 결과를 알림(정보통신망법 제50조)
+      navigate(ROUTES.ONBOARDING_TIMING, {
+        state: agreed.includes('marketing') ? { toast: marketingResultText(true) } : null,
+      })
     } catch {
       setToast('failed')
     } finally {
@@ -100,11 +103,8 @@ function TermsAgreePage() {
 
   const openDocument = (item: Agreement) => {
     const route = DOCUMENT_ROUTES[item.key]
-    if (!route) {
-      setDocument(item)
-      return
-    }
-    // 문서를 보고 돌아와도 체크가 남게 저장. 민감정보는 문서에서 바로 동의
+    if (!route) return
+    // 문서를 보고 돌아와도 체크가 남게 저장. 민감정보 · 광고성 정보는 문서에서 바로 동의
     setAnswers({ agreements: agreed })
     navigate(route, { state: { agree: true } })
   }
@@ -201,25 +201,6 @@ function TermsAgreePage() {
 
       {toast && (
         <AuthToast icon={TOAST[toast].icon} message={TOAST[toast].message} onClose={closeToast} />
-      )}
-
-      {document && (
-        <BottomSheet label={document.label} onClose={() => setDocument(null)}>
-          <h2 className="text-t4 text-grey-900">{document.label.replace(/^\[.+?\]\s/, '')}</h2>
-          <p className="text-t6 text-grey-700">
-            {document.description ?? '정식 출시 전에 본문을 올려 둘게요.'}
-          </p>
-          <button
-            type="button"
-            className="text-subtitle-1 bg-primary h-14 rounded-xl leading-none text-white"
-            onClick={() => {
-              if (!agreed.includes(document.key)) toggle(document.key)
-              setDocument(null)
-            }}
-          >
-            동의해요
-          </button>
-        </BottomSheet>
       )}
     </main>
   )

@@ -25,3 +25,5 @@ export const JUST_SAVED_MS = 30 * MINUTE
 export const DAY_END_HOUR = 21
 // 예정 시각과 5분 이내면 제시간
 export const ON_TIME_MS = 5 * MINUTE
+// 이 값 미만이면 목표와 상관없이 낮음 안내(G-05)
+export const GLUCOSE_LOW = 70

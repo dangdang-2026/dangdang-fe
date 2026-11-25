@@ -7,6 +7,8 @@ import { addDays } from '@/utils/date'
 
 type ReportCardProps = {
   today: Date
+  // 다가오는 진료의 서버 리포트 기간. 받는 중 · 못 받았으면 'loading', 진료용 아니거나 날짜 미정이면 없음(최근 2주)
+  visitPeriod?: { from: Date; to: Date } | 'loading' | null
   onCreate: () => void
   onPast: () => void
 }
@@ -14,8 +16,14 @@ type ReportCardProps = {
 const formatShortDate = (date: Date) => `${date.getMonth() + 1}/${date.getDate()}`
 
 // Figma C-02 진료 리포트 카드
-function ReportCard({ today, onCreate, onPast }: ReportCardProps) {
-  const from = addDays(today, -(REPORT_DAYS - 1))
+function ReportCard({ today, visitPeriod, onCreate, onPast }: ReportCardProps) {
+  // 리포트 화면과 같은 기간으로. 기간이 확정 전이면 날짜를 비워 다른 기간이 보이지 않게
+  const period =
+    visitPeriod === 'loading'
+      ? '진료 전까지'
+      : visitPeriod
+        ? `${formatShortDate(visitPeriod.from)}–${formatShortDate(visitPeriod.to)}`
+        : `${formatShortDate(addDays(today, -(REPORT_DAYS - 1)))}–${formatShortDate(today)}`
   const pastCount = useReportStore((state) => state.reports.length)
 
   return (
@@ -24,7 +32,7 @@ function ReportCard({ today, onCreate, onPast }: ReportCardProps) {
         icon={iconFile}
         primary
         title="진료 리포트 만들기"
-        description={`${formatShortDate(from)}–${formatShortDate(today)} 기록 · A4 1쪽`}
+        description={`${period} 기록 · A4 1쪽`}
         onClick={onCreate}
       />
       <hr className="border-grey-100" />

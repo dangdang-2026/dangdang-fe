@@ -1,7 +1,7 @@
 import { diffInDays, parseDateKey } from '@/utils/date'
 
 // 출산예정일은 임신 40주(280일) 기준
-const FULL_TERM_DAYS = 280
+export const FULL_TERM_DAYS = 280
 
 // 출산예정일로 계산한 임신 주수. 예정일이 없으면 null
 export function getPregnancyAge(dueDate: string | null, date: Date) {

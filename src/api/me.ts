@@ -14,6 +14,8 @@ export type Me = {
   version: string
   // 임신 정보가 없으면 null
   pregnancyState: PregnancyState | null
+  // 로그인 방식별 연결 여부. 운영 서버 배포 전엔 없을 수 있음
+  loginMethods?: { email: boolean; kakao: boolean }
 }
 
 // 백엔드 NameUpdateResponse

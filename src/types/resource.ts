@@ -5,6 +5,10 @@ export type ResourceLink = {
   source: string
   title: string
   url: string | null
+  // 출처 줄에 보일 주소. 예: nhis.or.kr
+  domain: string
+  // 내용을 확인한 날. 예: 2026-10-19
+  checkedOn: string
 }
 
 // 출처를 붙인 한 장 요약. 공식 자료 문장을 그대로 옮김

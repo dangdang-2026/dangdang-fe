@@ -13,6 +13,8 @@ export type Announcement = {
   linkUrl: string | null
   // 당당 소식 카드로 열 때
   contentCardId: number | null
+  // 연결된 카드 요약. 카드가 없으면 null
+  card: { slideCount: number; sourceCount: number; checkedOn: string | null } | null
   activeFrom: string
   activeTo: string | null
 }

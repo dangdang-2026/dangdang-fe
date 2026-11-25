@@ -1,15 +1,15 @@
-import { useCallback, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { updateCommunityProfile } from '@/api/communityProfile'
+import { getActivityCounts, type ActivityCounts } from '@/api/myActivity'
 import iconChevronMd from '@/assets/icons/chevron-md.svg'
-import BottomSheet from '@/components/common/BottomSheet'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import Switch from '@/components/common/Switch'
 import Toast from '@/components/common/Toast'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useCommunityStore } from '@/stores/useCommunityStore'
-import { ACTIVITY_LABEL, filterActivity, type ActivityType } from '@/utils/community'
+import { ACTIVITY_LABEL, type ActivityType } from '@/utils/community'
 
 const ACTIVITY_TYPES: ActivityType[] = ['posts', 'comments', 'liked']
 
@@ -51,13 +51,22 @@ function CommunitySettingsPage() {
   const nickname = useCommunityStore((state) => state.nickname)
   const showWeek = useCommunityStore((state) => state.showWeek)
   const setShowWeek = useCommunityStore((state) => state.setShowWeek)
-  const posts = useCommunityStore((state) => state.posts)
+  // 서버 활동 개수. 받기 전 · 못 받으면 개수를 비움
+  const [counts, setCounts] = useState<ActivityCounts | null>(null)
+  useEffect(() => {
+    let stale = false
+    getActivityCounts()
+      .then((next) => {
+        if (!stale) setCounts(next)
+      })
+      .catch(() => {})
+    return () => {
+      stale = true
+    }
+  }, [])
   const blockedAuthors = useCommunityStore((state) => state.blockedAuthors)
-  const unblockAuthor = useCommunityStore((state) => state.unblockAuthor)
-  const [blockedOpen, setBlockedOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
-  const closeBlocked = useCallback(() => setBlockedOpen(false), [])
 
   // 화면엔 바로 바꾸고 서버에 저장. 프로필을 만들기 전이면 기기에만
   const changeShowWeek = async (checked: boolean) => {
@@ -101,9 +110,11 @@ function CommunitySettingsPage() {
               key={type}
               title={ACTIVITY_LABEL[type]}
               right={
-                <span className="text-grey-500 text-sm leading-snug font-medium">
-                  {filterActivity(posts, type).length}개
-                </span>
+                counts && (
+                  <span className="text-grey-500 text-sm leading-snug font-medium">
+                    {counts[type]}개
+                  </span>
+                )
               }
               onClick={() => navigate(`${ROUTES.MY_COMMUNITY_ACTIVITY}?type=${type}`)}
             />
@@ -118,47 +129,12 @@ function CommunitySettingsPage() {
                 ? `${blockedAuthors.length}명 · 다시 보이게 할 수 있어요`
                 : '아직 없어요'
             }
-            onClick={() => setBlockedOpen(true)}
+            onClick={() => navigate(ROUTES.MY_BLOCKED)}
           />
           <Row title="커뮤니티 운영정책" onClick={() => navigate(ROUTES.COMMUNITY_POLICY)} />
         </section>
       </div>
 
-      {blockedOpen && (
-        <BottomSheet label="안 보는 사람" onClose={closeBlocked}>
-          <h2 className="text-t4 text-grey-900">안 보는 사람</h2>
-          {blockedAuthors.length === 0 ? (
-            <p className="text-grey-500 text-sm leading-normal">
-              글 더보기 › 이 사람 글 안 보기로 추가할 수 있어요.
-            </p>
-          ) : (
-            <ul className="flex flex-col">
-              {blockedAuthors.map((author) => (
-                <li key={author.id} className="flex items-center justify-between py-3">
-                  <span className="text-body-2 text-grey-900">{author.nickname}</span>
-                  <button
-                    type="button"
-                    className="bg-grey-100 text-grey-800 rounded-full px-3.5 py-1.5 text-sm leading-snug font-bold"
-                    onClick={() => {
-                      unblockAuthor(author.id)
-                      setToast(`${author.nickname}님 글이 다시 보여요`)
-                    }}
-                  >
-                    다시 보기
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <button
-            type="button"
-            className="bg-grey-100 text-grey-800 rounded-key py-4 text-base leading-snug font-bold"
-            onClick={closeBlocked}
-          >
-            닫기
-          </button>
-        </BottomSheet>
-      )}
       {toast && <Toast message={toast} onClose={closeToast} />}
     </main>
   )

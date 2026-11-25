@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { getErrorCode } from '@/api/axios'
-import { getCard, saveCard, unsaveCard } from '@/api/cards'
+import { getCard, reactCard, saveCard, unreactCard, unsaveCard } from '@/api/cards'
 import iconAskPencil from '@/assets/icons/community/ask-pencil.svg'
 import iconCorrection from '@/assets/icons/community/correction.svg'
 import iconNewsCheck from '@/assets/icons/community/news-check.svg'
@@ -17,7 +17,6 @@ import Toast from '@/components/common/Toast'
 import NewsAskSheet from '@/components/community/NewsAskSheet'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { useCommunityStore } from '@/stores/useCommunityStore'
 import { saveQuestion } from '@/stores/useVisitStore'
 import type { NewsCard } from '@/types/news'
 import { parseDateKey } from '@/utils/date'
@@ -54,9 +53,10 @@ function NewsDetailPage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.COMMUNITY_NEWS)
   const card = useCard(id)
-  const likedNewsIds = useCommunityStore((state) => state.likedNewsIds)
-  const toggleLikeNews = useCommunityStore((state) => state.toggleLikeNews)
-  // 저장을 누른 뒤 값. 누르기 전엔 서버 값
+  // 공감 · 저장을 누른 뒤 값. 누르기 전엔 서버 값
+  const [reactedNow, setReactedNow] = useState<{ id: string; reacted: boolean } | null>(null)
+  // 공감 요청이 오가는 동안은 다시 누르지 않게. 공감 · 취소가 엇갈려 서버와 화면이 어긋나지 않게
+  const [likePending, setLikePending] = useState(false)
   const [savedNow, setSavedNow] = useState<{ id: string; saved: boolean } | null>(null)
   const [slide, setSlide] = useState(0)
   const [sourcesOpen, setSourcesOpen] = useState(false)
@@ -110,7 +110,7 @@ function NewsDetailPage() {
     )
   }
 
-  const liked = likedNewsIds.includes(card.id)
+  const liked = reactedNow?.id === card.id ? reactedNow.reacted : !!card.reacted
   const saved = savedNow?.id === card.id ? savedNow.saved : !!card.saved
 
   // 화면엔 바로 바꾸고 서버에 못 남기면 되돌림
@@ -126,6 +126,24 @@ function NewsDetailPage() {
           : '저장하지 못했어요. 잠시 후 다시 시도해 주세요',
       )
     })
+  }
+
+  // 공감도 화면엔 바로 바꾸고 서버에 못 남기면 되돌림. 공감 수는 보여 주지 않음
+  const toggleLike = () => {
+    if (likePending) return
+    setLikePending(true)
+    const next = !liked
+    setReactedNow({ id: card.id, reacted: next })
+    ;(next ? reactCard(card.id) : unreactCard(card.id))
+      .catch((error) => {
+        setReactedNow({ id: card.id, reacted: liked })
+        setToast(
+          getErrorCode(error) === 'CARD_40903'
+            ? '내려간 카드라 공감할 수 없어요'
+            : '공감하지 못했어요. 잠시 후 다시 시도해 주세요',
+        )
+      })
+      .finally(() => setLikePending(false))
   }
   const checkedAt = formatShortDate(card.checkedAt)
 
@@ -143,7 +161,7 @@ function NewsDetailPage() {
       icon: iconNewsLike,
       label: '공감',
       active: liked,
-      onClick: () => toggleLikeNews(card.id),
+      onClick: toggleLike,
     },
     {
       icon: iconNewsSave,
@@ -159,19 +177,28 @@ function NewsDetailPage() {
       <SubPageHeader title="당당 소식" onBack={goBack} />
 
       <article className="mt-3 flex flex-col gap-4">
-        {card.correction && (
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-xl bg-blue-50 py-3 pr-3 pl-3.5 text-left text-sm leading-snug text-blue-700"
-            onClick={() => setCorrectionOpen(true)}
-          >
-            <img src={iconCorrection} alt="" width={16} height={16} />
-            <span className="flex-1 font-bold">
-              {formatShortDate(card.correction.on)} 정정 · {card.correction.summary}
-            </span>
-            <span className="font-medium">고친 내용 ›</span>
-          </button>
-        )}
+        {/* 자세히가 있으면 눌러서 보는 띠, 없으면 요약 띠만 */}
+        {card.correction &&
+          (card.correction.detail ? (
+            <button
+              type="button"
+              className="flex items-center gap-2 rounded-xl bg-blue-50 py-3 pr-3 pl-3.5 text-left text-sm leading-snug text-blue-700"
+              onClick={() => setCorrectionOpen(true)}
+            >
+              <img src={iconCorrection} alt="" width={16} height={16} />
+              <span className="flex-1 font-bold">
+                {formatShortDate(card.correction.on)} 정정 · {card.correction.summary}
+              </span>
+              <span className="font-medium">고친 내용 ›</span>
+            </button>
+          ) : (
+            <p className="flex items-center gap-2 rounded-xl bg-blue-50 py-3 pr-3 pl-3.5 text-sm leading-snug text-blue-700">
+              <img src={iconCorrection} alt="" width={16} height={16} />
+              <span className="flex-1 font-bold">
+                {formatShortDate(card.correction.on)} 정정 · {card.correction.summary}
+              </span>
+            </p>
+          ))}
         <p className="flex items-center gap-1.5 text-xs leading-snug">
           <span className="text-grey-800 flex items-center gap-1 rounded-md bg-yellow-50 px-2 py-0.5 font-bold">
             <img src={iconNewsCheck} alt="" width={12} height={12} />
@@ -272,7 +299,7 @@ function NewsDetailPage() {
         </button>
       </div>
 
-      {correctionOpen && card.correction && (
+      {correctionOpen && card.correction?.detail && (
         <BottomSheet label="고친 내용" onClose={() => setCorrectionOpen(false)}>
           <h2 className="text-t4 text-grey-900">{formatShortDate(card.correction.on)} 고친 내용</h2>
           <p className="text-body-2 text-grey-800 font-normal">{card.correction.detail}</p>
@@ -309,7 +336,7 @@ function NewsDetailPage() {
           onSubmit={(questions) => {
             setAskOpen(false)
             setToast(`진료 탭 물어볼 것에 ${questions.length}개 적었어요`)
-            Promise.all(questions.map(saveQuestion)).catch(() =>
+            Promise.all(questions.map((question) => saveQuestion(question))).catch(() =>
               setToast('물어볼 것을 저장하지 못했어요. 잠시 후 다시 시도해 주세요'),
             )
           }}

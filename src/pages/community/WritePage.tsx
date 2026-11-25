@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router'
-import { getErrorCode, getErrorMessage } from '@/api/axios'
+import { getErrorCode } from '@/api/axios'
 import { createPost, getPostDraft, precheckPost, updatePost } from '@/api/posts'
 import iconCaret from '@/assets/icons/community/caret.svg'
 import iconCheckCircle from '@/assets/icons/community/check-circle.svg'
@@ -10,14 +10,21 @@ import iconVote from '@/assets/icons/community/vote.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import Toast from '@/components/common/Toast'
+import AppealSheet from '@/components/community/AppealSheet'
 import PollEditor from '@/components/community/PollEditor'
 import PostWarningSheet from '@/components/community/PostWarningSheet'
 import RestrictedSheet from '@/components/community/RestrictedSheet'
-import { BOARD_LABEL, BOARD_ORDER, POLL_MIN_OPTIONS, PREPARING_BOARDS } from '@/constants/community'
+import { BOARD_LABEL, BOARD_ORDER, POLL_MIN_OPTIONS } from '@/constants/community'
 import { ROUTES, communityPostPath } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useMyAuthor } from '@/hooks/useMyAuthor'
-import { dropPostDraft, keepPostDraft, useCommunityStore } from '@/stores/useCommunityStore'
+import {
+  dropPostDraft,
+  isRestricted,
+  keepPostDraft,
+  syncRestriction,
+  useCommunityStore,
+} from '@/stores/useCommunityStore'
 import type { BoardKey, PostDraft } from '@/types/community'
 import { checkPost, type PostWarning } from '@/utils/postCheck'
 
@@ -31,9 +38,8 @@ const BODY_PLACEHOLDER = [
   '같은 길을 걷는 산모끼리, 서로 존중하는 따뜻한 당당 커뮤니티를 함께 만들어 가요.',
 ].join('\n\n')
 
-// 서버에 있는 게시판만 고를 수 있음
 const isBoardKey = (value: string | null): value is BoardKey =>
-  BOARD_ORDER.includes(value as BoardKey) && !PREPARING_BOARDS.includes(value as BoardKey)
+  BOARD_ORDER.includes(value as BoardKey)
 
 // Figma U-03 글쓰기 · U-16 쓰다가 나가기 · U-17 이용 제한 중. ?edit=글id면 고치기
 function WritePage() {
@@ -45,7 +51,7 @@ function WritePage() {
     state.posts.find((post) => post.id === params.get('edit')),
   )
   const savedDraft = useCommunityStore((state) => state.draft)
-  const restrictedUntil = useCommunityStore((state) => state.restrictedUntil)
+  const restriction = useCommunityStore((state) => state.restriction)
   const cachePosts = useCommunityStore((state) => state.cachePosts)
   const clearDraft = useCommunityStore((state) => state.clearDraft)
 
@@ -75,9 +81,7 @@ function WritePage() {
 
   const [warning, setWarning] = useState<PostWarning | null>(null)
   const [leaving, setLeaving] = useState(false)
-  const [restrictedOpen, setRestrictedOpen] = useState(
-    () => !!restrictedUntil && new Date(restrictedUntil) > new Date(),
-  )
+  const [restrictedOpen, setRestrictedOpen] = useState(() => isRestricted(restriction))
   const [toast, setToast] = useState<string | null>(() =>
     !editing && savedDraft ? '임시 저장한 글을 불러왔어요' : null,
   )
@@ -88,6 +92,26 @@ function WritePage() {
     setRestrictedOpen(false)
     goBack()
   }, [goBack])
+  // 이의 신청을 닫거나 마치면 제한 시트로 돌아옴(글은 여전히 못 씀)
+  const [appealOpen, setAppealOpen] = useState(false)
+  const closeAppeal = useCallback(() => {
+    setAppealOpen(false)
+    setRestrictedOpen(true)
+  }, [])
+
+  // 들어올 때 서버 이용 제한을 다시 확인. 제한 중이면 시트
+  useEffect(() => {
+    let stale = false
+    syncRestriction()
+      .then((next) => {
+        // 기기 값으로 띄웠는데 풀렸으면 닫음
+        if (!stale) setRestrictedOpen(isRestricted(next))
+      })
+      .catch(() => {})
+    return () => {
+      stale = true
+    }
+  }, [])
 
   // 기기에 임시 글이 없으면 서버 임시 글(다른 기기에서 저장)을 불러옴. 그사이 쓰기 시작했으면 덮지 않음
   const typedRef = useRef(false)
@@ -154,9 +178,12 @@ function WritePage() {
     } catch (error) {
       setSaving(false)
       const code = getErrorCode(error)
-      // 이용 제한은 서버 문구로. 기한은 이용 제한 API 연동 때 시트로
-      if (code === 'COMMUNITY_40301') setToast(getErrorMessage(error) ?? '지금은 글을 쓸 수 없어요')
-      else if (code === 'POST_40401') setToast('이미 지워진 글이에요')
+      // 그사이 이용 제한이 걸렸으면 서버 기한 · 사유를 받아 시트로
+      if (code === 'COMMUNITY_40301') {
+        void syncRestriction()
+          .catch(() => null)
+          .finally(() => setRestrictedOpen(true))
+      } else if (code === 'POST_40401') setToast('이미 지워진 글이에요')
       else setToast('글을 올리지 못했어요. 잠시 후 다시 시도해 주세요')
     }
   }
@@ -288,7 +315,7 @@ function WritePage() {
         <BottomSheet label="게시판 선택" onClose={closeBoard}>
           <h2 className="text-t4 text-grey-900">어느 게시판에 올릴까요?</h2>
           <ul className="grid grid-cols-2 gap-2">
-            {BOARD_ORDER.filter((board) => !PREPARING_BOARDS.includes(board)).map((board) => (
+            {BOARD_ORDER.map((board) => (
               <li key={board}>
                 <button
                   type="button"
@@ -343,12 +370,28 @@ function WritePage() {
           />
         ))}
 
-      {restrictedOpen && restrictedUntil && (
+      {restrictedOpen && (
         <RestrictedSheet
-          until={new Date(restrictedUntil)}
+          until={restriction?.until ? new Date(restriction.until) : null}
+          reason={restriction?.reason ?? null}
+          appealed={!!restriction?.appealed}
           onPolicy={() => navigate(ROUTES.COMMUNITY_POLICY)}
-          onAppeal={() => setToast(COMING_SOON)}
+          onAppeal={() => {
+            setRestrictedOpen(false)
+            setAppealOpen(true)
+          }}
           onClose={closeRestricted}
+        />
+      )}
+      {appealOpen && (
+        <AppealSheet
+          onDone={(message, result) => {
+            // 제한이 풀렸으면 그대로 글을 쓰게 시트만 닫음
+            if (result === 'lifted') setAppealOpen(false)
+            else closeAppeal()
+            setToast(message)
+          }}
+          onClose={closeAppeal}
         />
       )}
       {warning && (

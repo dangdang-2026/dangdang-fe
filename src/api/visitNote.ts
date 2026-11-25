@@ -1,125 +1,171 @@
-import type { Criteria } from '@/types/criteria'
+import { apiClient, type BaseResponse } from '@/api/axios'
+import type { Criteria, MeasureSlotKey } from '@/types/criteria'
 import type { NoteExtraction, NoteFinding } from '@/types/visit'
+import { GLUCOSE_MAX, GLUCOSE_MIN } from '@/constants/glucose'
+import { formatDuration, formatMeasureSlots, MEASURE_SLOT_ORDER } from '@/utils/criteria'
+import { isSameDay } from '@/utils/date'
 
-const MOCK_DELAY_MS = 1200
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
-// 시각을 안 들었으면 오전·오후 대표 시각으로. 진료 탭에서 고칠 수 있음
-const DEFAULT_HOUR = { 오전: 9, 오후: 14 } as const
+// 메모엔 날짜만 있어서 새 진료 시각은 오전 9시로 두고 진료 탭에서 고침
+const DEFAULT_VISIT_HOUR = 9
 const UNCHANGED = '바뀌지 않은 것 같아요'
+const UNCLEAR = '메모만으로는 분명하지 않아요'
+const PAST_DATE = '지난 날짜예요'
+const OUT_OF_RANGE = '앱에서 고를 수 없는 시간이에요'
+const UNKNOWN_SLOT = '알 수 없는 잴 때가 섞여 있어요'
+const TARGET_OUT_OF_RANGE = '목표로 쓸 수 없는 숫자예요'
+// AI 정리는 오래 걸릴 수 있어 기본(10초)보다 길게
+const ORGANIZE_TIMEOUT_MS = 30000
+// 식후 측정 시간은 30분~3시간, 10분 단위만(식후 측정 시간 시트와 같음)
+const POST_MEAL_MIN = 30
+const POST_MEAL_MAX = 180
+const POST_MEAL_STEP = 10
 
-const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms))
-
-// 쉼표로 이어진 말도 따로 봐서 "그대로"가 옆 항목에 번지지 않게
-const splitSentences = (text: string) =>
-  text
-    .split(/[.,\n]/)
-    .map((sentence) => sentence.trim())
-    .filter(Boolean)
-
-const isKeep = (sentence: string) => /그대로|지금처럼|유지/.test(sentence)
-
-// 메모에 날짜만 있으면 올해, 이미 지났으면 내년으로
-function toVisitDate(
-  month: number,
-  day: number,
-  meridiem: string | undefined,
-  hour: number | undefined,
-  now: Date,
-) {
-  const base = meridiem === '오후' ? DEFAULT_HOUR.오후 : DEFAULT_HOUR.오전
-  const hours = hour === undefined ? base : meridiem === '오후' && hour < 12 ? hour + 12 : hour
-  const at = new Date(now.getFullYear(), month - 1, day, hours)
-  if (at < now) at.setFullYear(at.getFullYear() + 1)
-  return at
+// 백엔드 MeasureSlot → 화면 잴 때
+const SLOT_FROM_SERVER: Record<string, MeasureSlotKey> = {
+  FASTING: 'fasting',
+  BREAKFAST_AFTER: 'breakfast',
+  LUNCH_AFTER: 'lunch',
+  DINNER_AFTER: 'dinner',
+  BEDTIME: 'bedtime',
 }
 
-// 서버 연동 전 목업. 실제로는 AI가 3가지만 찾고 근거 문장을 붙여 줌
-export async function extractVisitNote(
-  text: string,
-  current: Pick<Criteria, 'postMealHours' | 'targets'>,
+// 백엔드 VisitNoteExtract.Field. FOUND는 체크된 채로, CHECK_NEEDED는 확인 필요로
+type ServerField<T> = {
+  value: T | null
+  // 메모에 있는 근거 문장 그대로
+  evidence: string | null
+  status: 'FOUND' | 'CHECK_NEEDED' | null
+} | null
+
+// 백엔드 VisitNoteExtract. 메모에 없는 칸은 null
+type ServerExtract = {
+  measureSlots: ServerField<string[]>
+  fastingTarget: ServerField<number>
+  postMealTarget: ServerField<number>
+  postMealMinutes: ServerField<number>
+  // yyyy-MM-dd
+  nextVisitDate: ServerField<string>
+  // 인슐린 · 약 문장을 AI 서버가 걸러 냄
+  insulinSkipped: boolean
+  promptVersion: string | null
+}
+
+// 백엔드 VisitNoteOrganizeResponse
+type OrganizeResponse = { noteId: number; aiExtract: ServerExtract }
+
+// 화면에 보일 값. unchanged면 지금과 같음, problem이면 체크 안 한 채로 그 이유를 보여 줌
+type Converted = { value: number | string; text: string; unchanged?: boolean; problem?: string }
+
+// 서버 칸 하나 → 결과 화면 한 줄. 값을 못 읽으면 그 칸만 빼고, 그대로 쓰면 안 되는 값은 고를 수 없게
+function toFinding<T>(
+  key: NoteFinding['key'],
+  field: ServerField<T>,
+  convert: (value: T) => Converted | null,
+): NoteFinding | null {
+  // 서버가 값 칸을 아예 빼고 보내도(undefined) 메모에 없는 것으로
+  if (!field || field.value == null) return null
+  const converted = convert(field.value)
+  if (!converted) return null
+  const { value, text, unchanged, problem } = converted
+  const needsCheck = problem ?? (field.status !== 'FOUND' ? UNCLEAR : unchanged ? UNCHANGED : null)
+  return { key, value, text, quote: field.evidence ?? '', needsCheck, blocked: !!problem }
+}
+
+// 'yyyy-MM-dd' → 그날 0시. 형식이 다르면 null
+function parseDate(date: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date)
+  if (!match) return null
+  const [, year, month, day] = match.map(Number)
+  const parsed = new Date(year, month - 1, day)
+  return parsed.getMonth() === month - 1 ? parsed : null
+}
+
+// 다음 진료일. 지금 진료일과 같은 날이면 정해 둔 시각을 지키고, 지난 날짜면 확인 필요
+function toNextVisit(date: string, nextVisitAt: string | null, now: Date): Converted | null {
+  const day = parseDate(date)
+  if (!day) return null
+  const current = nextVisitAt ? new Date(nextVisitAt) : null
+  const sameDay = !!current && isSameDay(current, day)
+  const at = sameDay ? current : new Date(day.setHours(DEFAULT_VISIT_HOUR))
+  return {
+    // 같은 날이면 서버에 저장된 값 그대로. 다시 만들면 글자가 달라져 새 진료로 잘못 볼 수 있음
+    value: sameDay && nextVisitAt ? nextVisitAt : at.toISOString(),
+    text: `${at.getMonth() + 1}월 ${at.getDate()}일 (${WEEKDAYS[at.getDay()]})`,
+    unchanged: sameDay,
+    // 오늘이라도 시각이 지났으면 방금 다녀온 진료일 수 있어 지난 날짜로
+    problem: at < now ? PAST_DATE : undefined,
+  }
+}
+
+// 목표(미만). 앱에서 적을 수 있는 정수 범위가 아니면 고를 수 없게
+function toTarget(target: number, current: number | null): Converted {
+  const valid = Number.isInteger(target) && target >= GLUCOSE_MIN && target <= GLUCOSE_MAX
+  return {
+    value: target,
+    text: `${target} 미만`,
+    unchanged: target === current,
+    problem: valid ? undefined : TARGET_OUT_OF_RANGE,
+  }
+}
+
+// 잴 때. 모르는 값은 빼고 하루 순서로, 쉼표로 이어 값으로 넘김
+function toSlots(values: string[], current: MeasureSlotKey[]): Converted | null {
+  const slots = MEASURE_SLOT_ORDER.filter((key) =>
+    values.some((value) => SLOT_FROM_SERVER[value] === key),
+  )
+  if (slots.length === 0) return null
+  const same = slots.length === current.length && slots.every((key) => current.includes(key))
+  const unknown = values.some((value) => !SLOT_FROM_SERVER[value])
+  return {
+    value: slots.join(','),
+    text: formatMeasureSlots(slots),
+    unchanged: same,
+    problem: unknown ? UNKNOWN_SLOT : undefined,
+  }
+}
+
+// 저장된 진료 메모를 서버 AI로 정리. 잴 때 · 측정 시점 · 목표 · 다음 진료일만, 약은 정리하지 않음
+export async function organizeVisitNote(
+  visitId: string,
+  noteId: string,
+  current: Pick<Criteria, 'postMealHours' | 'measureSlots' | 'targets'>,
+  nextVisitAt: string | null,
   now = new Date(),
 ): Promise<NoteExtraction> {
-  await wait(MOCK_DELAY_MS)
-
-  const findings: NoteFinding[] = []
-  let insulinQuote: string | null = null
-  const has = (key: NoteFinding['key']) => findings.some((item) => item.key === key)
-
-  for (const sentence of splitSentences(text)) {
-    // 인슐린 이름·용량은 정리하지 않음
-    if (sentence.includes('인슐린')) {
-      insulinQuote ??= sentence
-      continue
-    }
-
-    const postMeal = sentence.match(/식후\s*(?:[12]\s*시간\s*)?목표[^0-9]*(\d{2,3})/)
-    if (postMeal && !has('postMeal')) {
-      const value = Number(postMeal[1])
-      const keep = isKeep(sentence) || value === current.targets.postMeal
-      findings.push({
-        key: 'postMeal',
-        value,
-        text: `${value} 미만`,
-        quote: sentence,
-        needsCheck: keep ? UNCHANGED : null,
-      })
-    }
-
-    const hours = sentence.match(/식후\s*([12])\s*시간.*?(재|측정)/)
-    if (hours && !has('postMealHours')) {
-      const value = Number(hours[1])
-      const keep = isKeep(sentence) || value === current.postMealHours
-      findings.push({
-        key: 'postMealHours',
-        value,
-        text: `식후 ${value}시간`,
-        quote: sentence,
-        needsCheck: keep ? UNCHANGED : null,
-      })
-    }
-
-    const fasting = sentence.match(/공복[^0-9]*(\d{2,3})/)
-    if (fasting && !has('fasting')) {
-      const value = Number(fasting[1])
-      const keep = isKeep(sentence) || value === current.targets.fasting
-      findings.push({
-        key: 'fasting',
-        value,
-        text: `${value} 미만`,
-        quote: sentence,
-        needsCheck: keep ? UNCHANGED : null,
-      })
-    }
-
-    const visit = sentence.match(
-      /(\d{1,2})\s*월\s*(\d{1,2})\s*일\s*(오전|오후)?\s*(?:(\d{1,2})\s*시)?/,
-    )
-    if (visit && sentence.includes('진료') && !has('nextVisit')) {
-      const [, month, day, meridiem, hour] = visit
-      const at = toVisitDate(
-        Number(month),
-        Number(day),
-        meridiem,
-        hour ? Number(hour) : undefined,
-        now,
-      )
-      const time = hour ? `${meridiem ?? ''} ${hour}시`.trim() : (meridiem ?? '')
-      findings.push({
-        key: 'nextVisit',
-        value: at.toISOString(),
-        text: `${at.getMonth() + 1}월 ${at.getDate()}일 (${WEEKDAYS[at.getDay()]}) ${time}`.trim(),
-        quote: sentence,
-        needsCheck: null,
-      })
-    }
-  }
-
-  // 측정 시점 → 목표 → 다음 진료일 → 애매한 것 순
-  const ORDER = ['postMealHours', 'postMeal', 'fasting', 'nextVisit']
-  findings.sort(
-    (a, b) =>
-      Number(!!a.needsCheck) - Number(!!b.needsCheck) ||
-      ORDER.indexOf(a.key) - ORDER.indexOf(b.key),
+  const { data } = await apiClient.post<BaseResponse<OrganizeResponse>>(
+    `/visits/${visitId}/notes/${noteId}/organize`,
+    undefined,
+    { timeout: ORGANIZE_TIMEOUT_MS },
   )
-  return { findings, insulinQuote }
+  const extract = data.data?.aiExtract
+  if (!extract) throw new Error('진료 메모 정리 응답이 비어 있음')
+
+  const findings = [
+    toFinding('measureSlots', extract.measureSlots, (values) =>
+      toSlots(values, current.measureSlots),
+    ),
+    toFinding('postMealHours', extract.postMealMinutes, (minutes) => ({
+      value: minutes / 60,
+      text: `식후 ${formatDuration(minutes / 60)}`,
+      // 저장된 값이 소수로 반올림돼 있을 수 있어 분 단위로 비교
+      unchanged:
+        current.postMealHours !== null && minutes === Math.round(current.postMealHours * 60),
+      problem:
+        minutes < POST_MEAL_MIN || minutes > POST_MEAL_MAX || minutes % POST_MEAL_STEP !== 0
+          ? OUT_OF_RANGE
+          : undefined,
+    })),
+    toFinding('postMeal', extract.postMealTarget, (target) =>
+      toTarget(target, current.targets.postMeal),
+    ),
+    toFinding('fasting', extract.fastingTarget, (target) =>
+      toTarget(target, current.targets.fasting),
+    ),
+    toFinding('nextVisit', extract.nextVisitDate, (date) => toNextVisit(date, nextVisitAt, now)),
+  ].filter((item): item is NoteFinding => item !== null)
+
+  // 바로 바꿀 수 있는 것 먼저, 확인 필요는 아래로
+  findings.sort((a, b) => Number(!!a.needsCheck) - Number(!!b.needsCheck))
+  return { findings, insulinSkipped: extract.insulinSkipped }
 }

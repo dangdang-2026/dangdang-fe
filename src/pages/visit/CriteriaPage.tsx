@@ -2,15 +2,19 @@ import { useCallback, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import iconChevronSm from '@/assets/icons/chevron-sm.svg'
 import SubPageHeader from '@/components/common/SubPageHeader'
+import ConfirmSheet from '@/components/common/ConfirmSheet'
 import Toast from '@/components/common/Toast'
 import PostMealTimeSegment from '@/components/criteria/PostMealTimeSegment'
 import TargetField from '@/components/criteria/TargetField'
 import FoodChip from '@/components/meal/FoodChip'
+import ProfileDateSheet from '@/components/my/ProfileDateSheet'
 import { GLUCOSE_MAX, GLUCOSE_MIN } from '@/constants/glucose'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
 import { saveCriteria } from '@/stores/useCriteriaStore'
+import { useOnboardingStore } from '@/stores/useOnboardingStore'
+import { useVisitStore } from '@/stores/useVisitStore'
 import type { CriteriaPrefill, MeasureSlotKey } from '@/types/criteria'
 import {
   MEASURE_SLOT_LABEL,
@@ -20,20 +24,43 @@ import {
   isValidTarget,
   toTarget,
 } from '@/utils/criteria'
-import { formatMonthDay } from '@/utils/date'
+import { formatMonthDay, startOfDay } from '@/utils/date'
 
-// Figma C-09 진료 후 기준 반영. 오늘부터 새 버전으로 적용
+// 병원에서 흔히 듣는 목표 범위. 밖이면 한 번 더 확인
+const USUAL_MIN = 60
+const USUAL_MAX = 200
+const isUnusual = (value: number | null) =>
+  value !== null && (value < USUAL_MIN || value > USUAL_MAX)
+
+// Figma C-09 진료 후 기준 반영. 적용일(기본 오늘)부터 새 버전으로
 function CriteriaPage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.VISIT)
   const current = useCriteria()
+  const completedAt = useOnboardingStore((state) => state.completedAt)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(false)
   const closeToast = useCallback(() => setToast(false), [])
+  const today = startOfDay(new Date())
+  // 적용일 하한: 지금 기준 시작일보다 앞서면 서버 이력(적용일 순)이 꼬임. v1은 기기에선 '처음'이라 설정을 마친 날
+  const earliest = startOfDay(
+    new Date(current.version === 1 && completedAt ? completedAt : current.appliedFrom),
+  )
+  const clampDate = (date: Date) => {
+    const day = startOfDay(date)
+    return day < earliest ? earliest : day > today ? today : day
+  }
+  // 언제부터 적용할지. 기본은 지난 진료일, 없으면 오늘
+  const nextVisitAt = useVisitStore((state) => state.nextVisitAt)
+  const [effectiveFrom, setEffectiveFrom] = useState(() =>
+    clampDate(nextVisitAt && new Date(nextVisitAt) <= new Date() ? new Date(nextVisitAt) : today),
+  )
+  const [pickingDate, setPickingDate] = useState(false)
+  const [confirmUnusual, setConfirmUnusual] = useState(false)
   // 진료 후 메모 정리에서 왔으면 체크한 값으로 채움
   const prefill = (useLocation().state as { prefill?: CriteriaPrefill } | null)?.prefill ?? {}
   const [hours, setHours] = useState(prefill.postMealHours ?? current.postMealHours ?? 1)
-  const [slots, setSlots] = useState<MeasureSlotKey[]>(current.measureSlots)
+  const [slots, setSlots] = useState<MeasureSlotKey[]>(prefill.measureSlots ?? current.measureSlots)
   const [fasting, setFasting] = useState(String(prefill.fasting ?? current.targets.fasting ?? ''))
   const [postMeal, setPostMeal] = useState(
     String(prefill.postMeal ?? current.targets.postMeal ?? ''),
@@ -51,11 +78,20 @@ function CriteriaPage() {
     setSlots((prev) => (prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]))
   }
 
+  const unusual = isUnusual(draft.targets.fasting) || isUnusual(draft.targets.postMeal)
+
   const handleSave = async () => {
     if (saving) return
+    // 60~200 밖이면 들은 숫자가 맞는지 한 번 더
+    if (unusual && !confirmUnusual) {
+      setConfirmUnusual(true)
+      return
+    }
+    setConfirmUnusual(false)
     setSaving(true)
     try {
-      await saveCriteria({ ...draft, source: '진료 후 직접 입력' })
+      // 고른 뒤 기준이 바뀌었을 수 있어 저장 직전에 한 번 더 맞춤. 오늘이어도 같은 날을 보냄
+      await saveCriteria({ ...draft, source: '진료 후 직접 입력' }, clampDate(effectiveFrom))
     } catch {
       setToast(true)
       return
@@ -114,6 +150,11 @@ function CriteriaPage() {
               onChange={setPostMeal}
             />
           </div>
+          {isValid && (
+            <p className="text-grey-500 text-xs leading-normal">
+              {USUAL_MIN}~{USUAL_MAX} 밖의 숫자면 한 번 더 확인해요
+            </p>
+          )}
           {!isValid && (
             <p className="text-t7 text-red-500">
               {slots.length === 0
@@ -140,7 +181,16 @@ function CriteriaPage() {
             </ul>
           )}
           <p className="text-grey-500 text-xs leading-normal">
-            {formatMonthDay(new Date())}부터 적용 · 이전 기록은 그때 기준으로 표시해요
+            {formatMonthDay(effectiveFrom)}부터 적용 ·{' '}
+            <button
+              type="button"
+              className="text-grey-700 font-bold underline"
+              onClick={() => setPickingDate(true)}
+            >
+              바꾸기
+            </button>
+            <br />
+            이전 기록은 그때 기준으로 표시해요
           </p>
         </section>
       </div>
@@ -155,6 +205,39 @@ function CriteriaPage() {
           이 기준으로 바꾸기
         </button>
       </div>
+      {pickingDate && (
+        <ProfileDateSheet
+          title="언제부터 적용할까요?"
+          description="진료일을 골라 주세요. 그날 기록부터 새 기준으로 세요."
+          initialDate={effectiveFrom}
+          today={today}
+          pick="past"
+          submitLabel={(date) => `${formatMonthDay(date)}부터 적용`}
+          onSave={(date) => {
+            setEffectiveFrom(clampDate(date))
+            setPickingDate(false)
+          }}
+          onClose={() => setPickingDate(false)}
+        />
+      )}
+      {confirmUnusual && (
+        <ConfirmSheet
+          title="병원에서 들은 숫자가 맞나요?"
+          summary={[
+            ...(draft.targets.fasting !== null
+              ? [{ label: '공복 목표', value: `${draft.targets.fasting} mg/dL 미만` }]
+              : []),
+            ...(draft.targets.postMeal !== null
+              ? [{ label: '식후 목표', value: `${draft.targets.postMeal} mg/dL 미만` }]
+              : []),
+          ]}
+          description="보통 듣는 범위(60~200)와 달라요. 맞으면 그대로 저장해요."
+          confirmLabel="맞아요, 저장할게요"
+          loading={saving}
+          onConfirm={() => void handleSave()}
+          onClose={() => setConfirmUnusual(false)}
+        />
+      )}
       {toast && (
         <Toast
           message="기준을 저장하지 못했어요. 잠시 후 다시 시도해 주세요"

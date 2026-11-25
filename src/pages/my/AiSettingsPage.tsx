@@ -3,6 +3,7 @@ import iconInfo from '@/assets/icons/info-grey.svg'
 import iconCamera from '@/assets/icons/my/ai-camera.svg'
 import iconSparkle from '@/assets/icons/my/ai-sparkle.svg'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import ConfirmSheet from '@/components/common/ConfirmSheet'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import Switch from '@/components/common/Switch'
 import Toast from '@/components/common/Toast'
@@ -23,6 +24,26 @@ const FEATURES: { key: AiFeature; icon: string; title: string }[] = [
   { key: 'photo', icon: iconCamera, title: '사진으로 음식 후보 찾기' },
   { key: 'chat', icon: iconSparkle, title: '당당이에게 내 기록 보여 주기' },
 ]
+
+// 끌 때 확인 시트. 당당이 기록 보기는 Figma에 없어 사진과 같은 틀로
+const TURN_OFF: Record<AiFeature, { title: string; description: string }> = {
+  photo: {
+    title: '사진 음식 찾기를 끌까요?',
+    description:
+      '끄면 이 기능의 동의도 함께 철회돼요. 음식 이름은 직접 적을 수 있고, 이미 보낸 사진은 남기지 않아요.',
+  },
+  chat: {
+    title: '당당이 기록 보기를 끌까요?',
+    description:
+      '끄면 이 기능의 동의도 함께 철회돼요. 당당이는 내 기록 없이 일반 질문에만 답하고, 이미 보낸 내용은 남기지 않아요.',
+  },
+}
+
+// 예: 2026년 10월 14일
+const formatKoreanDate = (iso: string) => {
+  const date = new Date(iso)
+  return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`
+}
 
 // 예: 2026.10.14
 const formatDot = (iso: string) => {
@@ -48,6 +69,16 @@ function AiSettingsPage() {
   const [clearing, setClearing] = useState(false)
   const closeClearing = useCallback(() => setClearing(false), [])
   const consents = { photo, chat }
+  // 끄기 전에 확인받는 기능
+  const [turningOff, setTurningOff] = useState<AiFeature | null>(null)
+
+  const saveFeature = (key: AiFeature, checked: boolean) => {
+    const title = FEATURES.find((feature) => feature.key === key)?.title ?? ''
+    const save = key === 'photo' ? savePhotoConsent : saveChatConsent
+    save(checked)
+      .then(() => setToast(`${title}를 ${checked ? '켰어요' : '껐어요'}`))
+      .catch(() => setToast('설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요'))
+  }
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-13 pb-[max(--spacing(12.5),env(safe-area-inset-bottom))] break-keep">
@@ -70,11 +101,9 @@ function AiSettingsPage() {
               checked={!!consents[key]?.agreed}
               label={title}
               onChange={(checked) => {
-                const done = `${title}를 ${checked ? '켰어요' : '껐어요'}`
-                const save = key === 'photo' ? savePhotoConsent : saveChatConsent
-                save(checked)
-                  .then(() => setToast(done))
-                  .catch(() => setToast('설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요'))
+                // 끄면 동의 철회라 한 번 더 확인
+                if (checked) saveFeature(key, true)
+                else setTurningOff(key)
               }}
             />
           </div>
@@ -151,6 +180,28 @@ function AiSettingsPage() {
               .catch(() => setToast('대화를 지우지 못했어요. 잠시 후 다시 시도해 주세요'))
           }}
           onClose={closeClearing}
+        />
+      )}
+      {turningOff && (
+        <ConfirmSheet
+          title={TURN_OFF[turningOff].title}
+          summary={[
+            {
+              label: '기능',
+              value: FEATURES.find((feature) => feature.key === turningOff)?.title ?? '',
+            },
+            ...(consents[turningOff]?.agreed
+              ? [{ label: '동의한 날', value: formatKoreanDate(consents[turningOff].at) }]
+              : []),
+          ]}
+          description={<p className="text-t7">{TURN_OFF[turningOff].description}</p>}
+          confirmLabel="끄고 동의 철회하기"
+          danger
+          onConfirm={() => {
+            saveFeature(turningOff, false)
+            setTurningOff(null)
+          }}
+          onClose={() => setTurningOff(null)}
         />
       )}
       {toast && <Toast message={toast} onClose={closeToast} />}

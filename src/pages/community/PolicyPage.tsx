@@ -29,7 +29,11 @@ const RULES = [
     title: '개인정보 노출',
     description: '실명·연락처·진료 기록 사진은 올리지 마세요',
   },
-  { icon: iconPolicyAbuse, title: '비방·혐오·성적인 글' },
+  {
+    icon: iconPolicyAbuse,
+    title: '비방·혐오·성적인 글',
+    description: '특정인을 깎아내리거나 혐오·성적 표현이 담긴 글',
+  },
 ]
 
 const STEPS = ['글 가림', '작성자에게 알림', '반복 시 이용 제한']
@@ -46,7 +50,8 @@ function PolicyPage() {
         <div className="flex flex-col gap-2">
           <h2 className="text-t3 text-grey-900">함께 지키는 커뮤니티 약속</h2>
           <p className="text-grey-600 text-sm leading-relaxed">
-            같은 길을 걷는 산모끼리 안전하게 이야기할 수 있도록 아래 글은 가려요.
+            같은 길을 걷는 산모끼리 안전하게 이야기할 수 있도록 아래 글은 가려요. 올린 글은 규칙과
+            AI(미국 OpenAI)로 먼저 확인해요.
           </p>
         </div>
 
@@ -56,7 +61,7 @@ function PolicyPage() {
               <img src={icon} alt="" width={20} height={20} className="shrink-0" />
               <div className="flex flex-col gap-0.5">
                 <p className="text-t6 text-grey-900 leading-snug font-bold">{title}</p>
-                {description && <p className="text-t7 text-grey-600">{description}</p>}
+                <p className="text-t7 text-grey-600">{description}</p>
               </div>
             </li>
           ))}
@@ -77,6 +82,20 @@ function PolicyPage() {
           가려진 글이 억울하면 글 메뉴 › 이의 신청으로 알려 주세요. 다른 사람 글은 ⋮ › 신고하기로
           알려 주세요. 제한 기간 기준은 운영하며 정하고 바뀌면 미리 알려요.
         </p>
+
+        {/* 자해 · 산후 우울 · 응급이 걱정되는 글은 가리기보다 도움부터 */}
+        <h3 className="text-t6 text-grey-900 leading-snug font-bold">
+          위험해 보이는 글은 도움부터 연결해요
+        </h3>
+        <p className="text-t7 text-grey-600 leading-relaxed">
+          자해·산후 우울·응급이 걱정되는 글은 AI와 운영자가 확인하고, 작성자에게 도움 받을 곳을 먼저
+          알려요.
+          <br />
+          <br />
+          · 자살예방 상담 109 · 응급 119
+          <br />· 정신건강 위기 상담 1577-0199
+        </p>
+        <p className="text-t7 text-grey-600 leading-relaxed">시행일: 2026년 12월 1일 · 버전 1.0</p>
       </div>
     </main>
   )

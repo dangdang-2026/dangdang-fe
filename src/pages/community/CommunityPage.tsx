@@ -29,6 +29,7 @@ import { usePostList } from '@/hooks/usePostList'
 import { syncCommunityProfile, useCommunityStore } from '@/stores/useCommunityStore'
 import { getAnnouncementLabel, useAnnouncement, useOpenAnnouncement } from '@/hooks/useAnnouncement'
 import type { PostSort } from '@/types/community'
+import { formatShortDate, parseDateKey } from '@/utils/date'
 
 type Category = { key: string; label: string; icon: string; onClick: () => void }
 
@@ -60,6 +61,10 @@ function CommunityPage() {
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
   const closeNickname = useCallback(() => setNicknameOpen(false), [])
+  // 소식에 연결된 카드 요약. 내려간 카드는 수가 0이라 없는 걸로
+  const linkedCard =
+    announcement?.card && announcement.card.slideCount > 0 ? announcement.card : null
+  const linkedCheckedOn = parseDateKey(linkedCard?.checkedOn ?? null)
 
   // 글쓰기는 닉네임을 정한 뒤에
   const startWriting = () => {
@@ -218,7 +223,11 @@ function CommunityPage() {
                       onClick={() => openAnnouncement(announcement)}
                     >
                       <span className="rounded-tag text-caption text-grey-800 flex size-14 shrink-0 items-start bg-white p-2 font-bold">
-                        {announcement.kind === 'AD' ? 'AD' : '소식'}
+                        {announcement.kind === 'AD'
+                          ? 'AD'
+                          : linkedCard
+                            ? `${linkedCard.slideCount}장`
+                            : '소식'}
                       </span>
                       <span className="flex min-w-0 flex-col gap-0.5">
                         <span className="text-caption text-grey-800 flex items-center gap-1 font-bold">
@@ -228,6 +237,16 @@ function CommunityPage() {
                         <span className="text-grey-900 truncate text-sm leading-snug font-bold">
                           {announcement.title}
                         </span>
+                        {linkedCard && (
+                          <span className="text-caption text-grey-700 font-normal">
+                            {[
+                              `출처 ${linkedCard.sourceCount}`,
+                              linkedCheckedOn && `확인일 ${formatShortDate(linkedCheckedOn)}`,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                        )}
                       </span>
                     </button>
                     <button

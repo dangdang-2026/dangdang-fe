@@ -74,10 +74,16 @@ export async function getVisitQuestions(visitId: string) {
 }
 
 // 진료 질문 등록(500자). sortOrder를 안 보내면 맨 뒤
-export async function createVisitQuestion(visitId: string, content: string, sortOrder?: number) {
+// chatMessageId: 당당이 「물어볼 말 정리」 답 번호. 서버가 확인하고 source CHATBOT, 아니면 404 VISIT_40405
+export async function createVisitQuestion(
+  visitId: string,
+  content: string,
+  sortOrder?: number,
+  chatMessageId?: string,
+) {
   const { data } = await apiClient.post<BaseResponse<VisitQuestionResponse>>(
     `/visits/${visitId}/questions`,
-    { content, sortOrder },
+    { content, sortOrder, chatMessageId: chatMessageId ? Number(chatMessageId) : undefined },
   )
   if (!data.data) throw new Error('진료 질문 등록 응답이 비어 있음')
   return data.data

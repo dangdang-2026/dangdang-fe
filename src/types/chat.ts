@@ -37,7 +37,16 @@ export type ChatCallAction = 'CALL_HOSPITAL' | 'CALL_119' | 'CALL_109' | 'CALL_1
 export type ChatMessage =
   | { id: string; from: 'user'; text: string }
   | { id: string; from: 'bot'; kind: 'records'; text: string; card: ServerRecordsCard }
-  | { id: string; from: 'bot'; kind: 'draft'; intro: string; text: string; added: boolean }
+  // chatMessageId: 서버 「물어볼 말 정리」 답 번호. 앱이 직접 만든 정리 카드는 없음
+  | {
+      id: string
+      from: 'bot'
+      kind: 'draft'
+      intro: string
+      text: string
+      added: boolean
+      chatMessageId?: string
+    }
   | {
       id: string
       from: 'bot'

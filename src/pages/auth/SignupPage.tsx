@@ -11,7 +11,7 @@ import iconToastOffline from '@/assets/icons/auth/toast-offline.svg'
 import AuthField, { type FieldHelper } from '@/components/auth/AuthField'
 import AuthHeader from '@/components/auth/AuthHeader'
 import AuthToast from '@/components/auth/AuthToast'
-import EmailVerifyStep from '@/components/auth/EmailVerifyStep'
+import EmailVerifyStep, { type FirstSend } from '@/components/auth/EmailVerifyStep'
 import NewPasswordFields from '@/components/auth/NewPasswordFields'
 import { ROUTES } from '@/constants/routes'
 import { useFinishLogin } from '@/hooks/useFinishLogin'
@@ -27,7 +27,7 @@ const STEP_COUNT = 3
 type EmailStatus =
   { kind: 'empty' | 'format' | 'available' | 'taken' | 'kakao' } | { kind: 'typo'; domain: string }
 
-type ToastKind = 'offline' | 'limit' | 'failed'
+type ToastKind = 'offline' | 'limit' | 'failed' | 'wait'
 
 const TOAST: Record<ToastKind, { icon: string; message: string }> = {
   offline: {
@@ -41,6 +41,10 @@ const TOAST: Record<ToastKind, { icon: string; message: string }> = {
   failed: {
     icon: iconToastAlert,
     message: '인증번호를 보내지 못했어요. 잠시 후 다시 시도해 주세요',
+  },
+  wait: {
+    icon: iconToastAlert,
+    message: '인증번호는 1분에 한 번 받을 수 있어요. 잠시 후 다시 시도해 주세요',
   },
 }
 
@@ -66,8 +70,8 @@ function SignupPage() {
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState<ToastKind | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
-  // 인증번호를 보낸 시각. 있으면 인증 단계
-  const [sentAt, setSentAt] = useState<number | null>(null)
+  // 처음 보낸 결과. 있으면 인증 단계
+  const [firstSend, setFirstSend] = useState<FirstSend | null>(null)
 
   const emailStatus = emailCheck?.email === email ? emailCheck.status : null
   const nameEmpty = submitted && !name.trim()
@@ -129,24 +133,28 @@ function SignupPage() {
     setLoading(true)
     try {
       const result = await sendVerifyCode(trimmedEmail)
-      if (result.status === 'ok') setSentAt(result.sentAt)
+      if (result.status === 'ok') setFirstSend({ ...result, status: 'sent' })
+      // 60초 안에 다시 누름. 앞 번호를 쓸 수 있는지(메일 실패 · 5번 틀림) 몰라 기다렸다 새로 받게
+      else if (result.status === 'wait') setToast('wait')
+      // 메일 서버 오류면 인증 화면에서 다시 받게
+      else if (result.status === 'mailFailed') setFirstSend(result)
       else if (result.status === 'limit') setToast('limit')
       else setEmailCheck({ email: trimmedEmail, status: { kind: 'taken' } })
     } catch {
-      // 메일 발송 실패(AUTH_50202)·네트워크 오류
+      // 네트워크 오류
       setToast('failed')
     } finally {
       setLoading(false)
     }
   }
 
-  if (sentAt !== null) {
-    const backToForm = () => setSentAt(null)
+  if (firstSend !== null) {
+    const backToForm = () => setFirstSend(null)
     return (
       <EmailVerifyStep
-        key={sentAt}
+        key={firstSend.resendAt}
         email={email}
-        sentAt={sentAt}
+        firstSend={firstSend}
         onBack={backToForm}
         onChangeEmail={() => {
           backToForm()
@@ -233,18 +241,20 @@ function SignupPage() {
       <form noValidate className="mt-8 flex flex-1 flex-col" onSubmit={submit}>
         <div className="mb-6 flex flex-col gap-4">
           <AuthField
-            label="이름"
+            label="부를 이름"
             inputId="signup-name"
             invalid={nameEmpty}
             helper={
-              nameEmpty ? { icon: iconAlert, text: '이름을 입력해 주세요', tone: 'error' } : null
+              nameEmpty
+                ? { icon: iconAlert, text: '부를 이름을 입력해 주세요', tone: 'error' }
+                : null
             }
           >
             <input
               ref={nameRef}
               id="signup-name"
-              autoComplete="name"
-              placeholder="이름을 입력해 주세요"
+              autoComplete="nickname"
+              placeholder="예: 지수 (실명이 아니어도 돼요)"
               maxLength={NAME_MAX}
               value={name}
               aria-invalid={nameEmpty}
@@ -254,7 +264,7 @@ function SignupPage() {
             {name && (
               <button
                 type="button"
-                aria-label="이름 지우기"
+                aria-label="부를 이름 지우기"
                 className="hidden shrink-0 peer-focus:block"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {

@@ -9,6 +9,8 @@ const TERMS = [
   { title: '개인정보 처리방침', to: ROUTES.LEGAL_PRIVACY },
   { title: '이용약관', to: ROUTES.LEGAL_TERMS },
   { title: '민감정보 수집·이용 동의', to: ROUTES.LEGAL_SENSITIVE },
+  { title: '국외 이전 안내', to: ROUTES.LEGAL_TRANSFER },
+  { title: '커뮤니티 운영정책', to: ROUTES.COMMUNITY_POLICY },
 ]
 
 // Figma M-11 약관 · 고지. 누르면 N-01·N-03·N-04 문서로
@@ -26,8 +28,12 @@ function TermsPage() {
             당당은 의료기기가 아니에요
           </h2>
           <p className="text-t7 text-grey-600">
-            병원에서 받은 기준대로 기록하고 알림을 받도록 돕는 앱이에요. 진단·처방을 하거나
-            혈당·식단을 판단하지 않아요. 몸 상태가 걱정되면 다니는 병원에 문의해 주세요.
+            병원에서 받은 기준대로 기록하고
+            <br />
+            알림을 받도록 돕는 앱이에요.
+            <br />
+            진단·처방을 하거나 혈당·식단을 판단하지 않아요.
+            <br />몸 상태가 걱정되면 다니는 병원에 문의해 주세요.
           </p>
         </section>
 

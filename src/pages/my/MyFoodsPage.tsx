@@ -1,7 +1,9 @@
 import { useCallback, useState } from 'react'
+import { useNavigate } from 'react-router'
 import iconChevronMd from '@/assets/icons/chevron-md.svg'
 import iconPrivate from '@/assets/icons/private.svg'
 import BottomSheet from '@/components/common/BottomSheet'
+import ConfirmSheet from '@/components/common/ConfirmSheet'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import Toast from '@/components/common/Toast'
 import MyFoodForm from '@/components/meal/MyFoodForm'
@@ -21,12 +23,10 @@ function describeMyFood(food: MyFood) {
   return food.portion ? `${basis} · 자주 ${formatPortion(food.portion, food.unit)}` : basis
 }
 
-// 을·를만. 이름을 따옴표로 감쌀 때
-const particleOf = (word: string) => withObjectParticle(word).slice(word.length)
-
 // Figma M-13 내 음식 · M-17 고치기 · M-18 지우기 확인
 function MyFoodsPage() {
   const goBack = useGoBack(ROUTES.MY)
+  const navigate = useNavigate()
   const { myFoods, updateMyFood, removeMyFood } = useFoodStore()
   const [editing, setEditing] = useState<MyFood | null>(null)
   const [deleting, setDeleting] = useState<MyFood | null>(null)
@@ -44,10 +44,19 @@ function MyFoodsPage() {
 
         {myFoods.length === 0 ? (
           <div className="border-grey-200 flex flex-col items-center gap-1 rounded-2xl border px-4 py-8 text-center">
-            <p className="text-t6 text-grey-900 font-bold">아직 직접 추가한 음식이 없어요</p>
+            <p className="text-t6 text-grey-900 font-bold">아직 내 음식이 없어요</p>
             <p className="text-t7 text-grey-500">
-              식사 기록에서 찾는 음식이 없으면 내 음식으로 추가할 수 있어요
+              식사 기록에서 ‘직접 추가’한 음식이
+              <br />
+              여기에 모여요.
             </p>
+            <button
+              type="button"
+              className="text-t7 bg-grey-100 text-grey-800 rounded-tag mt-3 px-4 py-2 font-bold"
+              onClick={() => navigate(ROUTES.RECORDS)}
+            >
+              식사 기록으로 가기
+            </button>
           </div>
         ) : (
           <ul className="border-grey-200 divide-grey-100 divide-y rounded-2xl border">
@@ -97,38 +106,30 @@ function MyFoodsPage() {
       )}
 
       {deleting && (
-        <BottomSheet label="내 음식 지우기" onClose={closeDelete}>
-          <div className="flex flex-col gap-2">
-            <h2 className="text-t4 text-grey-900">
-              ‘{deleting.name}’{particleOf(deleting.name)} 지울까요?
-            </h2>
-            <p className="text-body-2 text-grey-700 font-normal">
-              이미 남긴 끼니 기록은 그대로예요.
-              <br />
-              다음부터 음식 검색에 나오지 않아요.
-            </p>
-          </div>
-          <div className="mt-4 flex flex-col gap-4">
-            <button
-              type="button"
-              className="text-subtitle-1 bg-primary h-14 rounded-xl leading-none text-white"
-              onClick={() => {
-                removeMyFood(deleting.name)
-                setDeleting(null)
-                setToast(`${withObjectParticle(deleting.name)} 지웠어요`)
-              }}
-            >
-              지우기
-            </button>
-            <button
-              type="button"
-              className="text-grey-600 py-1 text-sm leading-normal"
-              onClick={closeDelete}
-            >
-              취소
-            </button>
-          </div>
-        </BottomSheet>
+        <ConfirmSheet
+          title="이 음식을 지울까요?"
+          summary={[
+            { label: '음식', value: deleting.name },
+            {
+              label: '보통 양',
+              value: [
+                formatPortion(deleting.portion ?? 'one', deleting.unit),
+                deleting.nutrition?.grams && `${deleting.nutrition.grams} g`,
+              ]
+                .filter(Boolean)
+                .join(' · '),
+            },
+          ]}
+          description={'이미 남긴 끼니 기록은 그대로예요.\n다음부터 음식 검색에 나오지 않아요.'}
+          confirmLabel="지우기"
+          danger
+          onConfirm={() => {
+            removeMyFood(deleting.name)
+            setDeleting(null)
+            setToast(`${withObjectParticle(deleting.name)} 지웠어요`)
+          }}
+          onClose={closeDelete}
+        />
       )}
 
       {toast && <Toast message={toast} onClose={closeToast} />}

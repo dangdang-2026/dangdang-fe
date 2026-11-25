@@ -1,9 +1,11 @@
 import { Navigate, Routes, Route, useLocation } from 'react-router'
+import AlertBanner from '@/components/common/AlertBanner'
 import SplashScreen from '@/components/onboarding/SplashScreen'
 import { ROUTES } from '@/constants/routes'
 import { SPLASH_TOTAL_MS } from '@/constants/splashMotion'
 import { getAnnouncementLabel, useAnnouncement, useOpenAnnouncement } from '@/hooks/useAnnouncement'
 import { useMeasureReminder } from '@/hooks/useMeasureReminder'
+import { useNotificationStream } from '@/hooks/useNotificationStream'
 import { useSessionCheck } from '@/hooks/useSessionCheck'
 import { useTimeout } from '@/hooks/useTimeout'
 import OnboardingGate from '@/layouts/OnboardingGate'
@@ -49,6 +51,7 @@ import DataPage from '@/pages/my/DataPage'
 import MyCriteriaPage from '@/pages/my/MyCriteriaPage'
 import MealGuidePage from '@/pages/my/MealGuidePage'
 import MyFoodsPage from '@/pages/my/MyFoodsPage'
+import MealSettingsPage from '@/pages/my/MealSettingsPage'
 import MyPage from '@/pages/my/MyPage'
 import NicknamePage from '@/pages/my/NicknamePage'
 import NotificationsPage from '@/pages/my/NotificationsPage'
@@ -57,6 +60,7 @@ import ProfilePage from '@/pages/my/ProfilePage'
 import TermsPage from '@/pages/my/TermsPage'
 import DueDatePage from '@/pages/onboarding/DueDatePage'
 import IntroPage from '@/pages/onboarding/IntroPage'
+import HomeScreenPage from '@/pages/onboarding/HomeScreenPage'
 import SlotsPage from '@/pages/onboarding/SlotsPage'
 import TermsAgreePage from '@/pages/onboarding/TermsAgreePage'
 import CheckGuidePage from '@/pages/postpartum/CheckGuidePage'
@@ -69,6 +73,10 @@ import TourPage from '@/pages/onboarding/TourPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 import PrivacyPolicyPage from '@/pages/legal/PrivacyPolicyPage'
 import SensitiveConsentPage from '@/pages/legal/SensitiveConsentPage'
+import MarketingConsentPage from '@/pages/legal/MarketingConsentPage'
+import PrivacyVersionsPage from '@/pages/legal/PrivacyVersionsPage'
+import BlockedPage from '@/pages/my/BlockedPage'
+import ContactPage from '@/pages/my/ContactPage'
 import ServiceTermsPage from '@/pages/legal/ServiceTermsPage'
 import TransferNoticePage from '@/pages/legal/TransferNoticePage'
 
@@ -87,6 +95,8 @@ function App() {
   // 앱이 열려 있는 동안 측정 알림 · 알림 누르면 혈당 입력
   useMeasureReminder()
   useSessionCheck()
+  // 로그인한 동안 새 알림 실시간 받기
+  useNotificationStream()
   const completed = useOnboardingStore((state) => state.completed)
   // 앱을 열 때 한 번. 설정을 마친 뒤엔 당당 소식 한 장과 함께
   const splash = useSplashStore((state) => state.visible)
@@ -99,6 +109,8 @@ function App() {
 
   return (
     <>
+      {/* 앱 안 알림 배너. 화면 위에 떠서 어느 화면에서나 보임 */}
+      <AlertBanner />
       {splash && (
         <SplashScreen
           revisit={completed}
@@ -130,11 +142,14 @@ function App() {
         <Route path={ROUTES.ONBOARDING_TIMING} element={<TimingPage />} />
         <Route path={ROUTES.ONBOARDING_SLOTS} element={<SlotsPage />} />
         <Route path={ROUTES.ONBOARDING_DUE_DATE} element={<DueDatePage />} />
+        <Route path={ROUTES.ONBOARDING_HOME_SCREEN} element={<HomeScreenPage />} />
         {/* 약관 문서는 가입 전에도 봄 */}
         <Route path={ROUTES.LEGAL_PRIVACY} element={<PrivacyPolicyPage />} />
         <Route path={ROUTES.LEGAL_TERMS} element={<ServiceTermsPage />} />
         <Route path={ROUTES.LEGAL_SENSITIVE} element={<SensitiveConsentPage />} />
         <Route path={ROUTES.LEGAL_TRANSFER} element={<TransferNoticePage />} />
+        <Route path={ROUTES.LEGAL_MARKETING} element={<MarketingConsentPage />} />
+        <Route path={ROUTES.LEGAL_PRIVACY_VERSIONS} element={<PrivacyVersionsPage />} />
         <Route element={<OnboardingGate />}>
           <Route path={ROUTES.ONBOARDING_TOUR} element={<TourPage />} />
           <Route element={<TabLayout />}>
@@ -164,6 +179,7 @@ function App() {
           <Route path={ROUTES.MY_MEAL_GUIDE} element={<MealGuidePage />} />
           <Route path={ROUTES.MY_NOTIFICATIONS} element={<NotificationsPage />} />
           <Route path={ROUTES.MY_FOODS} element={<MyFoodsPage />} />
+          <Route path={ROUTES.MY_MEAL_SETTINGS} element={<MealSettingsPage />} />
           <Route path={ROUTES.MY_TERMS} element={<TermsPage />} />
           <Route path={ROUTES.MY_PASSWORD} element={<PasswordChangePage />} />
           <Route path={ROUTES.MY_DATA} element={<DataPage />} />
@@ -179,6 +195,8 @@ function App() {
           <Route path={ROUTES.MY_COMMUNITY} element={<CommunitySettingsPage />} />
           <Route path={ROUTES.MY_NICKNAME} element={<NicknamePage />} />
           <Route path={ROUTES.MY_COMMUNITY_ACTIVITY} element={<CommunityActivityPage />} />
+          <Route path={ROUTES.MY_BLOCKED} element={<BlockedPage />} />
+          <Route path={ROUTES.MY_CONTACT} element={<ContactPage />} />
           <Route path={ROUTES.COMMUNITY_POST} element={<PostDetailPage />} />
           <Route path={ROUTES.COMMUNITY_WRITE} element={<WritePage />} />
           <Route path={ROUTES.COMMUNITY_POLICY} element={<PolicyPage />} />

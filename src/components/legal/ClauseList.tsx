@@ -1,14 +1,13 @@
 import { useState, type ReactNode } from 'react'
 import iconChevDown from '@/assets/icons/legal/chev-down.svg'
 import iconChevUp from '@/assets/icons/legal/chev-up.svg'
+import LegalTable, { type LegalRow } from '@/components/legal/LegalTable'
 
 export type Clause = {
   title: string
   description?: string
   // 펼쳤을 때 본문. 없으면 확정 전 안내
   body?: ReactNode
-  // 본문 대신 다른 문서로 이동. 예: 제6조 국외 이전
-  onOpen?: () => void
 }
 
 type ClauseListProps = {
@@ -26,15 +25,15 @@ function ClauseList({ clauses }: ClauseListProps) {
 
   return (
     <ul className="flex w-full flex-col">
-      {clauses.map(({ title, description, body, onOpen }) => {
+      {clauses.map(({ title, description, body }) => {
         const open = opened.includes(title)
         return (
           <li key={title} className="flex flex-col">
             <button
               type="button"
-              aria-expanded={onOpen ? undefined : open}
+              aria-expanded={open}
               className="border-grey-100 flex items-center gap-2.5 border-b py-3.5 text-left"
-              onClick={() => (onOpen ? onOpen() : toggle(title))}
+              onClick={() => toggle(title)}
             >
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className={`text-body-2 text-grey-900 ${open ? 'font-bold' : ''}`}>
@@ -68,6 +67,35 @@ export function ClauseParagraphs({ lines }: { lines: string[] }) {
       {lines.map((line) => (
         <p key={line}>{line}</p>
       ))}
+    </div>
+  )
+}
+
+type ClauseBodyProps = {
+  lines?: string[]
+  rows?: LegalRow[]
+  // 표 아래 덧붙이는 한 줄
+  note?: string
+  // 맨 아래 다른 문서로 가는 링크
+  link?: { label: string; onClick: () => void }
+}
+
+// 조항 본문: 문단 → 두 칸 표 → 덧붙임 순서(N-02 · N-07)
+export function ClauseBody({ lines, rows, note, link }: ClauseBodyProps) {
+  return (
+    <div className="flex flex-col gap-3">
+      {lines && <ClauseParagraphs lines={lines} />}
+      {rows && <LegalTable rows={rows} />}
+      {note && <p className="text-grey-600 text-xs leading-normal">{note}</p>}
+      {link && (
+        <button
+          type="button"
+          className="text-t7 text-grey-700 self-start font-medium underline"
+          onClick={link.onClick}
+        >
+          {link.label} ›
+        </button>
+      )}
     </div>
   )
 }

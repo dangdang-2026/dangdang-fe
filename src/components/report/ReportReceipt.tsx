@@ -1,5 +1,6 @@
 import dashedLine from '@/assets/images/report/dashed-line.svg'
 import receiptEdge from '@/assets/images/report/receipt-edge.svg'
+import { toDateKey } from '@/utils/date'
 import type { Report } from '@/utils/report'
 
 type ReportReceiptProps = {
@@ -9,19 +10,22 @@ type ReportReceiptProps = {
   title: string
   criteriaLines: string[]
   questionCount: number
+  // 바닥글 생성일
+  createdAt: Date
 }
 
 function Divider() {
   return <img src={dashedLine} alt="" height={2} className="h-0.5 w-full" />
 }
 
-// Figma C-06 영수증 모양 리포트 요약. 원값 표는 PDF에만 담음
+// Figma C-06 영수증 모양 리포트 요약. 원값 표는 PDF · 인쇄에만 담음
 function ReportReceipt({
   report,
   periodLabel,
   title,
   criteriaLines,
   questionCount,
+  createdAt,
 }: ReportReceiptProps) {
   const stats = [
     ['측정', report.measured],
@@ -30,7 +34,8 @@ function ReportReceipt({
   ] as const
   const details = [
     ['70 미만', report.lows.length ? `${report.lows.length}번` : '없음'],
-    ['원값 표', 'PDF 1쪽 아래'],
+    // 사진은 이 카드만 담아서 원값 표가 있는 곳(PDF · 인쇄)을 알려 줌
+    ['원값 표 · 인슐린', 'PDF · 인쇄에서 확인'],
     ['물어볼 것', `${questionCount}개`],
   ]
 
@@ -94,6 +99,12 @@ function ReportReceipt({
         </dl>
         <p className="text-grey-800 text-xs leading-normal font-medium">
           해석이나 권고 없이 기록만 담았어요
+        </p>
+        {/* 의료기기로 오해하지 않게 화면 · 사진에도 늘 넣음 */}
+        <p className="text-grey-500 text-xs leading-normal">
+          당당 앱 · {toDateKey(createdAt)} 생성
+          <br />
+          환자 본인 입력 기록 · 의료기기 아님
         </p>
       </article>
       {/* 영수증 아래 물결 */}

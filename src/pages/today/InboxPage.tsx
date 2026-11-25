@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router'
 import iconEditGrey from '@/assets/icons/edit-grey.svg'
 import iconCalendarOff from '@/assets/icons/notification/calendar-off.svg'
 import iconCalendarOn from '@/assets/icons/notification/calendar-on.svg'
@@ -14,7 +13,8 @@ import WarmBackground from '@/components/common/WarmBackground'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
-import { readInboxItem, syncInbox, useInboxStore } from '@/stores/useInboxStore'
+import { useOpenInboxItem } from '@/hooks/useOpenInboxItem'
+import { syncInbox, useInboxStore } from '@/stores/useInboxStore'
 import type { InboxItem, InboxType } from '@/types/notification'
 import { diffInDays, formatTime } from '@/utils/date'
 
@@ -25,15 +25,6 @@ const ICON: Record<InboxType, { on: string; off: string }> = {
   visitToday: { on: iconStethOn, off: iconStethOff },
   visitNote: { on: iconEditOn, off: iconEditGrey },
   postpartum: { on: iconCalendarOn, off: iconCalendarOff },
-}
-
-// 서버 주소가 없을 때 가는 곳. 측정 알림은 홈에서 혈당 입력 시트를 바로 엶
-const TARGET: Record<InboxType, { to: string; state?: object }> = {
-  measure: { to: ROUTES.TODAY, state: { openGlucose: true } },
-  visitBefore: { to: ROUTES.VISIT_REPORT },
-  visitToday: { to: ROUTES.VISIT_REPORT },
-  visitNote: { to: ROUTES.VISIT_NOTE },
-  postpartum: { to: ROUTES.POSTPARTUM_CHECK },
 }
 
 const getGroupLabel = (daysAgo: number) =>
@@ -85,7 +76,7 @@ function InboxRow({ item, onOpen }: InboxRowProps) {
 
 // Figma H-15 알림함. 받은 알림을 오늘·어제로 묶어 보기
 function InboxPage() {
-  const navigate = useNavigate()
+  const openItem = useOpenInboxItem()
   const goBack = useGoBack(ROUTES.TODAY)
   const now = useNow()
   const items = useInboxStore((state) => state.items)
@@ -100,17 +91,6 @@ function InboxPage() {
     const group = groups.find((entry) => entry.label === label)
     if (group) group.items.push(item)
     else groups.push({ label, items: [item] })
-  }
-
-  const handleOpen = (item: InboxItem) => {
-    readInboxItem(item.id)
-    // 서버가 준 주소가 있으면 그리로. 측정 알림은 혈당 입력 시트를 열고 열람 처리까지 됨
-    if (item.link) {
-      navigate(item.link)
-      return
-    }
-    const { to, state } = TARGET[item.type]
-    navigate(to, { state })
   }
 
   return (
@@ -130,7 +110,7 @@ function InboxPage() {
               <h2 className="text-grey-700 text-sm leading-normal font-bold">{group.label}</h2>
               <div className="rounded-banner flex flex-col bg-white px-4.5 py-1.5">
                 {group.items.map((item) => (
-                  <InboxRow key={item.id} item={item} onOpen={() => handleOpen(item)} />
+                  <InboxRow key={item.id} item={item} onOpen={() => openItem(item)} />
                 ))}
               </div>
             </section>

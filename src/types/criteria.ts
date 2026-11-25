@@ -21,6 +21,7 @@ export type Criteria = {
 
 // 진료 후 메모 정리에서 체크한 값. 기준 바꾸기 화면을 이 값으로 채워 열기
 export type CriteriaPrefill = {
+  measureSlots?: MeasureSlotKey[]
   postMealHours?: number
   fasting?: number
   postMeal?: number

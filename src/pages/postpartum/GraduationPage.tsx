@@ -58,9 +58,21 @@ function GraduationPage() {
           임신 중 기록은 보관함에 그대로 남아 있어요. 측정·인슐린 알림은 멈췄어요.
         </p>
 
+        {/* 출산 뒤 마음이 힘들 때 바로 걸 수 있게 */}
+        <p className="text-t7 text-grey-700 mt-auto text-center font-medium">
+          마음이 힘들 땐{' '}
+          <a href="tel:109" className="font-bold text-blue-500 underline">
+            109
+          </a>{' '}
+          ·{' '}
+          <a href="tel:15770199" className="font-bold text-blue-500 underline">
+            1577-0199
+          </a>
+        </p>
+
         <button
           type="button"
-          className="bg-primary rounded-key mt-auto py-4 text-base leading-snug font-bold text-white"
+          className="bg-primary rounded-key -mt-2 py-4 text-base leading-snug font-bold text-white"
           onClick={() => navigate(ROUTES.TODAY, { replace: true })}
         >
           홈으로

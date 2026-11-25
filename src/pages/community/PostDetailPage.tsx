@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import iconCommentChevron from '@/assets/icons/chevron-right.svg'
 import { useNavigate, useParams } from 'react-router'
-import { getErrorCode, getErrorMessage } from '@/api/axios'
+import { getErrorCode } from '@/api/axios'
 import { deletePost, getPost } from '@/api/posts'
+import { report } from '@/api/reports'
 import iconBack from '@/assets/icons/back.svg'
 import iconAvatar from '@/assets/icons/community/avatar-lg.svg'
 import iconCommentBar from '@/assets/icons/community/comment-bar.svg'
@@ -22,6 +23,7 @@ import CommentItem from '@/components/community/CommentItem'
 import PollCard from '@/components/community/PollCard'
 import PostMoreSheet from '@/components/community/PostMoreSheet'
 import ReportSheet from '@/components/community/ReportSheet'
+import AppealSheet from '@/components/community/AppealSheet'
 import RestrictedSheet from '@/components/community/RestrictedSheet'
 import { BOARD_LABEL, MY_AUTHOR_ID } from '@/constants/community'
 import { ROUTES } from '@/constants/routes'
@@ -29,8 +31,12 @@ import { useGoBack } from '@/hooks/useGoBack'
 import { useMyAuthor } from '@/hooks/useMyAuthor'
 import { useNow } from '@/hooks/useNow'
 import {
+  blockOnServer,
+  canBlock,
   eraseComment,
+  isRestricted,
   loadComments,
+  syncRestriction,
   toggleLikeComment,
   toggleLikePost,
   useCommunityStore,
@@ -44,8 +50,6 @@ import {
   formatRelativeTime,
   getBestComment,
 } from '@/utils/community'
-
-const COMING_SOON = '다음 업데이트에서 열려요'
 
 type LoadState = 'loading' | 'done' | 'gone' | 'error'
 
@@ -99,11 +103,9 @@ function PostDetailPage() {
   const now = useNow()
   const me = useMyAuthor()
   const post = useCommunityStore((state) => state.posts.find((item) => item.id === id))
-  const restrictedUntil = useCommunityStore((state) => state.restrictedUntil)
+  const restriction = useCommunityStore((state) => state.restriction)
   const blockedAuthors = useCommunityStore((state) => state.blockedAuthors)
   const removePost = useCommunityStore((state) => state.removePost)
-  const reportPost = useCommunityStore((state) => state.reportPost)
-  const blockAuthor = useCommunityStore((state) => state.blockAuthor)
   const [moreOpen, setMoreOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
   const [confirming, setConfirming] = useState<Confirming | null>(null)
@@ -115,6 +117,12 @@ function PostDetailPage() {
   const closeComposer = useCallback(() => setComposing(null), [])
   const closeDelete = useCallback(() => setDeletingId(null), [])
   const closeRestricted = useCallback(() => setRestrictedOpen(false), [])
+  const [appealOpen, setAppealOpen] = useState(false)
+  // 이의 신청을 닫으면 글쓰기처럼 제한 시트로 돌아옴
+  const closeAppeal = useCallback(() => {
+    setAppealOpen(false)
+    setRestrictedOpen(true)
+  }, [])
   const closeMore = useCallback(() => setMoreOpen(false), [])
   const closeReport = useCallback(() => setReportOpen(false), [])
   const closeConfirming = useCallback(() => setConfirming(null), [])
@@ -184,8 +192,13 @@ function PostDetailPage() {
   // 닉네임을 정해야 댓글을 남길 수 있음
   const startComment = (target: Composing) => {
     if (!me) setToast('커뮤니티 첫 화면에서 닉네임을 먼저 정해 주세요')
-    else if (restrictedUntil && new Date(restrictedUntil) > new Date()) setRestrictedOpen(true)
-    else setComposing(target)
+    // 기기에 제한이 남아 있으면 서버에서 풀렸는지 다시 확인
+    else if (isRestricted(restriction)) {
+      syncRestriction().then(
+        (next) => (isRestricted(next) ? setRestrictedOpen(true) : setComposing(target)),
+        () => setRestrictedOpen(true),
+      )
+    } else setComposing(target)
   }
 
   const share = async () => {
@@ -352,12 +365,18 @@ function PostDetailPage() {
                   setToast(composing.parentId ? '답글을 남겼어요' : '댓글을 남겼어요')
                 } catch (error) {
                   const code = getErrorCode(error)
+                  // 그사이 이용 제한이 걸렸으면 서버 기한 · 사유를 받아 시트로
+                  if (code === 'COMMUNITY_40301') {
+                    setComposing(null)
+                    void syncRestriction()
+                      .catch(() => null)
+                      .finally(() => setRestrictedOpen(true))
+                    return
+                  }
                   setToast(
-                    code === 'COMMUNITY_40301'
-                      ? (getErrorMessage(error) ?? '지금은 댓글을 쓸 수 없어요')
-                      : code === 'COMMENT_40401' || code === 'POST_40401'
-                        ? '지워진 글이나 댓글이에요'
-                        : '댓글을 남기지 못했어요. 잠시 후 다시 시도해 주세요',
+                    code === 'COMMENT_40401' || code === 'POST_40401'
+                      ? '지워진 글이나 댓글이에요'
+                      : '댓글을 남기지 못했어요. 잠시 후 다시 시도해 주세요',
                   )
                 }
               }}
@@ -416,12 +435,28 @@ function PostDetailPage() {
           onClose={closeDelete}
         />
       )}
-      {restrictedOpen && restrictedUntil && (
+      {restrictedOpen && (
         <RestrictedSheet
-          until={new Date(restrictedUntil)}
+          until={restriction?.until ? new Date(restriction.until) : null}
+          reason={restriction?.reason ?? null}
+          appealed={!!restriction?.appealed}
           onPolicy={() => navigate(ROUTES.COMMUNITY_POLICY)}
-          onAppeal={() => setToast(COMING_SOON)}
+          onAppeal={() => {
+            setRestrictedOpen(false)
+            setAppealOpen(true)
+          }}
           onClose={closeRestricted}
+        />
+      )}
+      {appealOpen && (
+        <AppealSheet
+          onDone={(message, result) => {
+            // 제한이 풀렸으면 시트만 닫고, 아니면 접수됨이 보이게 제한 시트로
+            if (result === 'lifted') setAppealOpen(false)
+            else closeAppeal()
+            setToast(message)
+          }}
+          onClose={closeAppeal}
         />
       )}
       {moreOpen && (
@@ -430,7 +465,11 @@ function PostDetailPage() {
           onEdit={fromMore(() => navigate(`${ROUTES.COMMUNITY_WRITE}?edit=${post.id}`))}
           onDelete={fromMore(() => setConfirming('delete'))}
           onReport={fromMore(() => setReportOpen(true))}
-          onBlock={fromMore(() => setConfirming('block'))}
+          onBlock={fromMore(() =>
+            canBlock(post.author)
+              ? setConfirming('block')
+              : setToast('익명이나 탈퇴한 회원의 글은 안 보기로 할 수 없어요'),
+          )}
           onCopyLink={fromMore(copyLink)}
           onClose={closeMore}
         />
@@ -438,9 +477,20 @@ function PostDetailPage() {
       {reportOpen && (
         <ReportSheet
           onSubmit={(reason) => {
-            reportPost(post.id, reason)
             setReportOpen(false)
-            setToast('신고했어요. 운영정책에 따라 확인할게요.')
+            report('POST', post.id, reason).then(
+              () => setToast('신고했어요. 운영정책에 따라 확인할게요.'),
+              (error) => {
+                const code = getErrorCode(error)
+                setToast(
+                  code === 'REPORT_40001'
+                    ? '내 글은 신고할 수 없어요'
+                    : code === 'POST_40401'
+                      ? '이미 지워진 글이에요'
+                      : '신고하지 못했어요. 잠시 후 다시 시도해 주세요',
+                )
+              },
+            )
           }}
           onClose={closeReport}
         />
@@ -475,8 +525,11 @@ function PostDetailPage() {
           description="이 사람의 글과 댓글이 보이지 않아요. 마이 › 커뮤니티 설정에서 다시 볼 수 있어요."
           confirmLabel="안 보기"
           onConfirm={() => {
-            blockAuthor(post.author)
-            goBack()
+            setConfirming(null)
+            // 서버에 차단한 뒤 나감. 못 하면 글에 남아 안내
+            blockOnServer(post.author).then(goBack, () =>
+              setToast('안 보기로 하지 못했어요. 잠시 후 다시 시도해 주세요'),
+            )
           }}
           onClose={closeConfirming}
         />

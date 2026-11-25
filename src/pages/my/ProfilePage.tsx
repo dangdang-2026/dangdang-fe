@@ -1,6 +1,8 @@
-import { useCallback, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
-import { saveDueDate, updateName } from '@/api/me'
+import { startKakaoLogin } from '@/api/auth'
+import { getMe, saveDueDate, updateName, type Me } from '@/api/me'
+import iconConnected from '@/assets/icons/my/check-connected.svg'
 import iconInfoSm from '@/assets/icons/info-sm.svg'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import Toast from '@/components/common/Toast'
@@ -42,13 +44,29 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-// Figma M-02 내 정보
+function Connected() {
+  return (
+    <span className="text-t7 flex items-center gap-0.5 font-medium text-green-700">
+      <img src={iconConnected} alt="" width={24} height={24} />
+      연결됨
+    </span>
+  )
+}
+
+// Figma M-02 · M-02b 내 정보
 function ProfilePage() {
   const navigate = useNavigate()
   const location = useLocation()
   const goBack = useGoBack(ROUTES.MY)
-  // 비밀번호는 이메일로 가입한 계정만 있음
-  const hasPassword = useAuthStore((state) => state.account?.method === 'email')
+  const loginMethod = useAuthStore((state) => state.account?.method)
+  // 서버의 로그인 방식별 연결 여부. 못 받거나 운영 서버에 아직 없으면 로그인한 방식만 보여 줌
+  const [loginMethods, setLoginMethods] = useState<Me['loginMethods'] | null>(null)
+  useEffect(() => {
+    getMe()
+      .then((me) => setLoginMethods(me.loginMethods ?? null))
+      .catch(() => {})
+  }, [])
+  const methods = loginMethods ?? { email: loginMethod === 'email', kakao: loginMethod === 'kakao' }
   const { name, dueDate, diagnosisDate, deliveryDate, updateProfile } = useProfileStore()
   const [nameDraft, setNameDraft] = useState(name)
   const [editing, setEditing] = useState<DateField | null>(null)
@@ -171,15 +189,55 @@ function ProfilePage() {
         </section>
       )}
 
-      {hasPassword && (
-        <button
-          type="button"
-          className="text-body-2 text-grey-700 mt-21 leading-normal"
-          onClick={() => navigate(ROUTES.MY_PASSWORD)}
-        >
-          비밀번호 바꾸기 ›
-        </button>
-      )}
+      <div className="mt-6">
+        <Field label="로그인 방식">
+          <div className="bg-grey-50 flex flex-col rounded-2xl pr-3 pl-4">
+            {methods.email && (
+              <div className="flex h-13 items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <span className="text-grey-900 text-base font-medium">이메일</span>
+                  <Connected />
+                </span>
+                <button
+                  type="button"
+                  className="text-grey-700 flex h-11 items-center pr-1 pl-2 text-sm font-medium"
+                  onClick={() => navigate(ROUTES.MY_PASSWORD)}
+                >
+                  비밀번호 바꾸기 ›
+                </button>
+              </div>
+            )}
+            {methods.email && (methods.kakao || loginMethods) && (
+              <div className="bg-grey-200 h-px" />
+            )}
+            {methods.kakao ? (
+              <div className="flex h-13 items-center gap-2">
+                <span className="text-grey-900 text-base font-medium">카카오</span>
+                <Connected />
+              </div>
+            ) : (
+              // 연결하기는 서버가 연결 여부를 알려 줄 때만
+              loginMethods && (
+                <div className="flex h-13 items-center justify-between">
+                  <span className="text-grey-900 text-base font-medium">카카오</span>
+                  <button
+                    type="button"
+                    className="border-grey-200 text-grey-900 rounded-tag flex h-9 items-center border bg-white px-3.5 text-sm font-bold"
+                    onClick={() =>
+                      startKakaoLogin({ purpose: 'link', returnTo: ROUTES.MY_PROFILE })
+                    }
+                  >
+                    연결하기
+                  </button>
+                </div>
+              )
+            )}
+          </div>
+          {!methods.email && (
+            <p className="text-t7 text-grey-600">카카오로 로그인해서 비밀번호가 없어요</p>
+          )}
+        </Field>
+      </div>
 
       {editing && (
         <ProfileDateSheet

@@ -46,8 +46,8 @@ function TourHomeStage({ eating }: TourHomeStageProps) {
             meal={TOUR_LUNCH}
             dueAt={TOUR_DUE_AT}
             now={TOUR_NOW}
-            onInputGlucose={noop}
             onWriteMeal={noop}
+            onEditStart={noop}
           />
         ) : (
           <BeforeMealHero

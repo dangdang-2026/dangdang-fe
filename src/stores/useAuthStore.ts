@@ -13,7 +13,10 @@ type AuthState = {
   account: AuthAccount | null
   // 로그인 화면 '최근 로그인' 표시용. 로그아웃해도 남김
   lastMethod: LoginMethod | null
+  // 이메일로 로그인했는데 카카오가 안 연결돼 있으면 오늘 화면에서 한 번 연결 권함
+  kakaoLinkOffer: boolean
   login: (account: AuthAccount) => void
+  setKakaoLinkOffer: (offer: boolean) => void
   logout: () => void
 }
 
@@ -23,8 +26,10 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       account: null,
       lastMethod: null,
+      kakaoLinkOffer: false,
       login: (account) => set({ account, lastMethod: account.method }),
-      logout: () => set({ account: null }),
+      setKakaoLinkOffer: (kakaoLinkOffer) => set({ kakaoLinkOffer }),
+      logout: () => set({ account: null, kakaoLinkOffer: false }),
     }),
     { name: 'dangdang-auth' },
   ),

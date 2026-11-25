@@ -48,10 +48,10 @@ type NutritionEditScreenProps = {
 
 // Figma F-18 영양값 직접 고치기. 저울로 잰 무게나 포장지 영양성분표 값으로 바꿈
 function NutritionEditScreen({ item, edit, onSave, onClose }: NutritionEditScreenProps) {
-  const { food, portion } = item
+  const { food, portion, grams: itemGrams } = item
   const nutrition = food.nutrition!
-  const base = scaleNutrition(nutrition, portion)
-  const baseGrams = Math.round(nutrition.grams * getPortionFactor(portion))
+  const base = scaleNutrition(nutrition, portion, itemGrams)
+  const baseGrams = itemGrams ?? Math.round(nutrition.grams * getPortionFactor(portion))
 
   // 처음 값으로를 누르면 식약처 값부터 다시
   const [fromBase, setFromBase] = useState(!edit)

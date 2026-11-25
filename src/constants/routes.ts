@@ -5,6 +5,7 @@ export const ROUTES = {
   ONBOARDING_SLOTS: '/start/slots',
   ONBOARDING_DUE_DATE: '/start/due-date',
   ONBOARDING_TOUR: '/start/tour',
+  ONBOARDING_HOME_SCREEN: '/start/home-screen',
   LOGIN: '/login',
   SIGNUP: '/signup',
   PASSWORD_FIND: '/password/find',
@@ -42,6 +43,7 @@ export const ROUTES = {
   MY_MEAL_GUIDE: '/my/criteria/meal-guide',
   MY_NOTIFICATIONS: '/my/notifications',
   MY_FOODS: '/my/foods',
+  MY_MEAL_SETTINGS: '/my/meal-settings',
   MY_TERMS: '/my/terms',
   MY_PASSWORD: '/my/password',
   MY_DATA: '/my/data',
@@ -52,6 +54,8 @@ export const ROUTES = {
   LEGAL_TERMS: '/legal/terms',
   LEGAL_SENSITIVE: '/legal/sensitive',
   LEGAL_TRANSFER: '/legal/transfer',
+  LEGAL_MARKETING: '/legal/marketing',
+  LEGAL_PRIVACY_VERSIONS: '/legal/privacy/versions',
   POSTPARTUM_DELIVERY: '/postpartum/delivery',
   POSTPARTUM_CHECK: '/postpartum/check',
   POSTPARTUM_CHECK_RESULT: '/postpartum/check/result',
@@ -61,6 +65,8 @@ export const ROUTES = {
   MY_COMMUNITY: '/my/community',
   MY_NICKNAME: '/my/community/nickname',
   MY_COMMUNITY_ACTIVITY: '/my/community/activity',
+  MY_BLOCKED: '/my/community/blocked',
+  MY_CONTACT: '/my/contact',
 } as const
 
 export const communityBoardPath = (board: string) => `/community/board/${board}`

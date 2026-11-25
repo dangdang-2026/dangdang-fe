@@ -4,8 +4,8 @@ import iconCross from '@/assets/icons/auth/cross.svg'
 import { checkPassword } from '@/utils/auth'
 
 const RULES = [
-  { key: 'length', label: '8자 이상' },
-  { key: 'mix', label: '영문·숫자 포함' },
+  { key: 'length', label: '8~64자' },
+  { key: 'mix', label: '영문과 숫자 모두 포함' },
 ] as const
 
 type PasswordChecksProps = {
@@ -19,7 +19,7 @@ function PasswordChecks({ password, submitted }: PasswordChecksProps) {
   const checks = checkPassword(password)
 
   return (
-    <p className="text-body-3 flex gap-3">
+    <p className="text-body-3 flex flex-wrap gap-x-3">
       {RULES.map(({ key, label }) => {
         const met = checks[key]
         const failed = !met && submitted
@@ -40,6 +40,7 @@ function PasswordChecks({ password, submitted }: PasswordChecksProps) {
           </span>
         )
       })}
+      <span className="text-grey-600">특수문자도 쓸 수 있어요</span>
     </p>
   )
 }

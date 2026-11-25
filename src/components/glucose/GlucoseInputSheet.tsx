@@ -1,16 +1,23 @@
-import { useState } from 'react'
-import iconChevronRight from '@/assets/icons/chevron-right.svg'
+import { useState, type KeyboardEvent } from 'react'
+import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router'
 import iconClock from '@/assets/icons/clock-sm.svg'
 import iconInfo from '@/assets/icons/info.svg'
-import iconPhone from '@/assets/icons/phone.svg'
 import BottomSheet from '@/components/common/BottomSheet'
+import EmergencyBlock from '@/components/common/EmergencyBlock'
+import ContactCriteriaCard from '@/components/glucose/ContactCriteriaCard'
 import GlucoseKeypad from '@/components/glucose/GlucoseKeypad'
+import MeasuredTimePicker from '@/components/glucose/MeasuredTimePicker'
 import TargetChip from '@/components/glucose/TargetChip'
-import { GLUCOSE_MAX_DIGITS, ON_TIME_MS } from '@/constants/glucose'
+import ContactMemoSheet from '@/components/my/ContactMemoSheet'
+import { GLUCOSE_LOW, GLUCOSE_MAX_DIGITS, ON_TIME_MS } from '@/constants/glucose'
+import { ROUTES } from '@/constants/routes'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { saveRecord } from '@/stores/useGlucoseStore'
+import { useProfileStore } from '@/stores/useProfileStore'
+import type { MeasureSlotKey } from '@/types/criteria'
 import type { GlucoseRecord, MeasureTarget } from '@/types/glucose'
-import { getCriteriaAt } from '@/utils/criteria'
+import { MEASURE_SLOT_LABEL, getCriteriaAt } from '@/utils/criteria'
 import { formatMonthDay, formatTime } from '@/utils/date'
 import { compareToTarget, getSlotLabel, getTarget, isValidGlucose } from '@/utils/glucose'
 
@@ -18,6 +25,8 @@ type GlucoseInputSheetProps = {
   target: MeasureTarget
   onClose: () => void
   onSaved: (record: GlucoseRecord) => void
+  // 10분 뒤 다시. 없으면 버튼 안 보임
+  onSnooze?: () => void
   // 지난 날 나중에 채울 때 측정 시각. 없으면 지금
   backfillAt?: Date
 }
@@ -33,25 +42,86 @@ function getMeasuredLabel(measuredAt: Date, dueAt?: string) {
   return `${time} · ${minutes}분 ${diff > 0 ? '늦게' : '일찍'}`
 }
 
+// 식사를 시작한 시각 = 측정 예정 - 식후 시간. 모르면 예정 시각
+function getMealStart(dueAt: string | undefined, hours: number | null) {
+  const due = dueAt ? new Date(dueAt) : new Date()
+  return new Date(due.getTime() - (hours ?? 0) * 60 * 60 * 1000)
+}
+
 // Figma G-01~G-08 혈당 입력 바텀시트
-function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInputSheetProps) {
-  const [measuredAt] = useState(() => backfillAt ?? new Date())
+// 시점 칩 하나 → 측정 대상. 식후는 그 끼니
+const SLOT_TARGET: Record<MeasureSlotKey, MeasureTarget> = {
+  fasting: { slot: 'fasting' },
+  breakfast: { slot: 'post-meal', mealType: 'breakfast' },
+  lunch: { slot: 'post-meal', mealType: 'lunch' },
+  dinner: { slot: 'post-meal', mealType: 'dinner' },
+  bedtime: { slot: 'bedtime' },
+}
+
+const isSameSlot = (a: MeasureTarget, b: MeasureTarget) =>
+  a.slot === b.slot && (a.slot !== 'post-meal' || a.mealType === b.mealType)
+
+function GlucoseInputSheet({
+  target: initialTarget,
+  onClose,
+  onSaved,
+  onSnooze,
+  backfillAt,
+}: GlucoseInputSheetProps) {
+  const navigate = useNavigate()
+  // 지금 잴 끼니가 없어 시간대로 짐작했으면 시점을 고를 수 있게(Figma G-06)
+  const guessed = !initialTarget.mealId
+  const [target, setTarget] = useState(initialTarget)
+  // 시트를 연 시각. 늦게 잼이면 잰 시각을 이 앞으로 고름
+  const [openedAt] = useState(() => backfillAt ?? new Date())
+  const [measuredAt, setMeasuredAt] = useState(openedAt)
+  const late =
+    !backfillAt &&
+    !!target.dueAt &&
+    openedAt.getTime() - new Date(target.dueAt).getTime() > ON_TIME_MS
   const [digits, setDigits] = useState('')
   const [triedSave, setTriedSave] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveFailed, setSaveFailed] = useState(false)
+  // 연락 기준 펼침. 직접 누르기 전엔 높음 · 낮음일 때 저절로 펼침
+  const [contactOpen, setContactOpen] = useState<boolean | null>(null)
+  const [memoSheet, setMemoSheet] = useState(false)
+  const contactMemo = useProfileStore((state) => state.contactMemo)
+  const updateProfile = useProfileStore((state) => state.updateProfile)
   // 측정 시각에 적용되는 기준(지난 날 채우기면 그날 기준)
   const criteria = getCriteriaAt(
     useCriteriaStore((state) => state.versions),
     measuredAt,
   )
 
+  // 공복 · 세 끼 식후는 늘, 자기 전은 병원 기준에 있을 때만
+  const slotOptions: MeasureSlotKey[] = [
+    'fasting',
+    'breakfast',
+    'lunch',
+    'dinner',
+    ...(criteria.measureSlots.includes('bedtime') ? (['bedtime'] as const) : []),
+  ]
+  // 방향키로 앞뒤 시점을 고르고 그 칩으로 포커스. Tab은 고른 칩 하나만 거침
+  const moveSlot = (event: KeyboardEvent<HTMLDivElement>) => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key]
+    if (!step) return
+    event.preventDefault()
+    const index = slotOptions.findIndex((key) => isSameSlot(target, SLOT_TARGET[key]))
+    const next = (index + step + slotOptions.length) % slotOptions.length
+    setTarget(SLOT_TARGET[slotOptions[next]])
+    const radios = event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')
+    radios[next]?.focus()
+  }
   const value = Number(digits)
   const goal = getTarget(target.slot, criteria.targets, criteria.postMealHours)
   const comparison = compareToTarget(value, goal)
   // 세 자리부터 또는 저장 시도 후 비교 결과 표시
   const showResult = digits.length >= 3 || triedSave
   const isInvalid = showResult && comparison === 'invalid'
+  // 70 미만은 목표가 없어도 안내
+  const isLow = showResult && comparison !== 'invalid' && value < GLUCOSE_LOW
+  const contactExpanded = contactOpen ?? (isLow || (showResult && comparison === 'high'))
 
   const handleDigit = (digit: string) => {
     setDigits((prev) => {
@@ -63,7 +133,8 @@ function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInpu
 
   const handleSave = async () => {
     if (saving) return
-    if (!isValidGlucose(value)) {
+    // 두 자리 낮은 값은 안내를 아직 못 봤으니 먼저 보여 주고 한 번 더 누르면 저장
+    if (!isValidGlucose(value) || (value < GLUCOSE_LOW && !showResult)) {
       setTriedSave(true)
       return
     }
@@ -85,7 +156,9 @@ function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInpu
       <div className="flex items-center justify-between">
         <div className="flex flex-col items-start gap-1">
           <h2 className="text-t4 text-grey-900">
-            {getSlotLabel(target.slot, target.mealType, criteria.postMealHours)}
+            {guessed
+              ? '언제 잰 혈당인가요?'
+              : getSlotLabel(target.slot, target.mealType, criteria.postMealHours)}
           </h2>
           <p className="text-grey-800 flex items-center gap-1 rounded-full bg-yellow-50 px-2.5 py-1 text-xs leading-normal font-bold">
             <img src={iconClock} alt="" width={12} height={12} />
@@ -93,43 +166,91 @@ function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInpu
             {getMeasuredLabel(measuredAt, target.dueAt)}
           </p>
         </div>
-        {/* 알림 연동 전이라 시트만 닫음. 지난 날 채우기엔 없음 */}
-        {!backfillAt && (
+        {/* 지난 날 채우기엔 없음 */}
+        {onSnooze && !backfillAt && (
           <button
             type="button"
             className="bg-grey-100 text-t7 text-grey-600 rounded-full px-3 py-2 font-bold"
-            onClick={onClose}
+            onClick={onSnooze}
           >
             10분 뒤 다시
           </button>
         )}
       </div>
 
+      {guessed && (
+        <div
+          className="grid grid-cols-4 gap-2"
+          role="radiogroup"
+          aria-label="측정 시점"
+          onKeyDown={moveSlot}
+        >
+          {slotOptions.map((key) => {
+            const selected = isSameSlot(target, SLOT_TARGET[key])
+            return (
+              <button
+                key={key}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                tabIndex={selected ? 0 : -1}
+                className={`h-11 rounded-xl text-sm font-medium ${
+                  selected ? 'bg-grey-900 text-white' : 'bg-grey-100 text-grey-700'
+                }`}
+                onClick={() => setTarget(SLOT_TARGET[key])}
+              >
+                {MEASURE_SLOT_LABEL[key]}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       <div className="flex flex-col items-center gap-1.5 py-3.5">
         <p className="flex items-baseline gap-1.5" aria-live="polite">
           <span className={`text-display ${numberColor}`}>{digits || '0'}</span>
           <span className="text-grey-400 text-base leading-normal font-medium">mg/dL</span>
         </p>
-        {showResult && <TargetChip comparison={comparison} target={goal} />}
+        {showResult && (
+          <TargetChip
+            comparison={comparison}
+            target={goal}
+            low={isLow}
+            hasMemo={!!contactMemo}
+            onSetTarget={() => {
+              onClose()
+              navigate(ROUTES.MY_CRITERIA)
+            }}
+          />
+        )}
       </div>
 
-      <button
-        type="button"
-        className="bg-grey-50 flex items-center gap-2.5 rounded-2xl px-4 py-3 text-left"
-      >
-        <img src={iconPhone} alt="" width={18} height={18} />
-        <span className="text-grey-700 flex-1 text-sm leading-normal font-medium">
-          병원에서 들은 연락 기준
-        </span>
-        <img src={iconChevronRight} alt="" width={18} height={18} />
-      </button>
+      {/* 70 미만이면 접지 않는 위급 안내로 */}
+      {isLow ? (
+        <EmergencyBlock onWriteMemo={() => setMemoSheet(true)} />
+      ) : (
+        <ContactCriteriaCard
+          expanded={contactExpanded}
+          onToggle={() => setContactOpen(!contactExpanded)}
+          onWriteMemo={() => setMemoSheet(true)}
+        />
+      )}
 
       <GlucoseKeypad
         onDigit={handleDigit}
         onDelete={() => setDigits((prev) => prev.slice(0, -1))}
       />
 
-      {showResult && comparison === 'high' && (
+      {late && (
+        <MeasuredTimePicker
+          now={openedAt}
+          earliest={getMealStart(target.dueAt, criteria.postMealHours)}
+          value={measuredAt}
+          onChange={setMeasuredAt}
+        />
+      )}
+
+      {showResult && (comparison === 'high' || (isLow && goal !== null)) && (
         <p className="text-grey-500 flex items-center justify-center gap-1.5 text-xs leading-normal">
           <img src={iconInfo} alt="" width={14} height={14} />
           목표는 병원에서 들은 대로 직접 적은 값이에요.
@@ -151,6 +272,20 @@ function GlucoseInputSheet({ target, onClose, onSaved, backfillAt }: GlucoseInpu
       >
         저장
       </button>
+
+      {/* 혈당 시트 안에서 열어도 화면 기준으로 뜨게 body로 */}
+      {memoSheet &&
+        createPortal(
+          <ContactMemoSheet
+            initialMemo={contactMemo}
+            onSave={(memo) => {
+              updateProfile({ contactMemo: memo })
+              setMemoSheet(false)
+            }}
+            onClose={() => setMemoSheet(false)}
+          />,
+          document.body,
+        )}
     </BottomSheet>
   )
 }
