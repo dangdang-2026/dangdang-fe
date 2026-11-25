@@ -64,6 +64,16 @@ function MyCriteriaPage() {
   const [slots, setSlots] = useState(criteria.measureSlots)
   const [fasting, setFasting] = useState(String(criteria.targets.fasting ?? ''))
   const [postMeal, setPostMeal] = useState(String(criteria.targets.postMeal ?? ''))
+  // 서버에서 기준을 새로 받으면(앱 열 때 · 다른 기기) 고치던 값도 새 기준으로. 옛 값으로 덮어쓰지 않게
+  const criteriaKey = `${criteria.version}|${criteria.appliedFrom}`
+  const [draftKey, setDraftKey] = useState(criteriaKey)
+  if (draftKey !== criteriaKey) {
+    setDraftKey(criteriaKey)
+    setHours(criteria.postMealHours)
+    setSlots(criteria.measureSlots)
+    setFasting(String(criteria.targets.fasting ?? ''))
+    setPostMeal(String(criteria.targets.postMeal ?? ''))
+  }
   const [editingMemo, setEditingMemo] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
