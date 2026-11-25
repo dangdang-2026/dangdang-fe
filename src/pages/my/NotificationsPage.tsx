@@ -5,7 +5,9 @@ import { hasServerPush, sendTestPush, syncPushSubscription, unsubscribePush } fr
 import iconAlertMd from '@/assets/icons/alert-md.svg'
 import iconCheckBlue from '@/assets/icons/check-blue.svg'
 import notificationFace from '@/assets/images/dangdang/notification.svg'
+import ConfirmSheet from '@/components/common/ConfirmSheet'
 import SubPageHeader from '@/components/common/SubPageHeader'
+import NotificationGuideSheet from '@/components/my/NotificationGuideSheet'
 import Switch from '@/components/common/Switch'
 import Toast from '@/components/common/Toast'
 import { ROUTES } from '@/constants/routes'
@@ -36,9 +38,8 @@ const PERMISSION_LABEL: Record<Permission, string> = {
   unsupported: '이 브라우저는 알림을 지원하지 않아요',
 }
 
-// 권한을 못 받았을 때 안내
-const PERMISSION_TOAST: Record<Exclude<Permission, 'granted'>, string> = {
-  denied: '알림 권한이 꺼져 있어요. 설정에서 켜 주세요',
+// 권한을 못 받았을 때 안내. 거절이면 켜는 방법 시트로
+const PERMISSION_TOAST: Record<Exclude<Permission, 'granted' | 'denied'>, string> = {
   default: '알림 권한을 켜야 받을 수 있어요',
   unsupported: '이 브라우저는 알림을 지원하지 않아요',
 }
@@ -72,6 +73,10 @@ function NotificationsPage() {
   const [permission, setPermission] = useState(readPermission)
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
+  // 측정 알림 끄기 확인 · 알림 켜는 방법
+  const [confirmOff, setConfirmOff] = useState(false)
+  const [guide, setGuide] = useState(false)
+  const closeGuide = useCallback(() => setGuide(false), [])
 
   const previewText = hideOnLockScreen
     ? '확인할 일이 있어요'
@@ -110,13 +115,20 @@ function NotificationsPage() {
   const askPermission = async () => {
     const next = permission === 'default' ? await Notification.requestPermission() : permission
     setPermission(next)
-    if (next !== 'granted') setToast(PERMISSION_TOAST[next])
+    if (next === 'denied') setGuide(true)
+    else if (next !== 'granted') setToast(PERMISSION_TOAST[next])
     return next === 'granted'
   }
 
   const changeSetting = async (key: keyof NotificationSettings, checked: boolean) => {
     // 권한 없이 측정 알림을 켜면 알림이 안 와서 권한부터 받음
     if (key === 'measure' && checked && !(await askPermission())) return
+    // 측정 알림을 끄면 진료 기록이 빌 수 있어 한 번 더 확인
+    if (key === 'measure' && !checked && !confirmOff) {
+      setConfirmOff(true)
+      return
+    }
+    setConfirmOff(false)
     try {
       await saveNotificationSettings({ [key]: checked })
     } catch {
@@ -236,16 +248,29 @@ function NotificationsPage() {
             />
             <StatusRow ok={false} text="저전력 모드에서는 알림이 늦을 수 있어요" />
           </ul>
+          {/* 권한을 거절했으면 브라우저가 다시 안 물어봐서 켜는 방법부터 */}
           <button
             type="button"
             className="bg-grey-100 text-grey-900 h-12 rounded-xl text-base leading-none font-bold tracking-tight"
-            onClick={sendTest}
+            onClick={permission === 'denied' ? () => setGuide(true) : sendTest}
           >
-            테스트 알림 보내기
+            {permission === 'denied' ? '켜는 방법 보기' : '테스트 알림 보내기'}
           </button>
         </section>
       </div>
 
+      {confirmOff && (
+        <ConfirmSheet
+          title="측정 알림을 끌까요?"
+          description={
+            '끄면 식사 뒤 측정 알림이 오지 않아요.\n진료 때 볼 기록이 비어 있을 수 있어요.'
+          }
+          confirmLabel="알림 끄기"
+          onConfirm={() => void changeSetting('measure', false)}
+          onClose={() => setConfirmOff(false)}
+        />
+      )}
+      {guide && <NotificationGuideSheet onClose={closeGuide} />}
       {toast && <Toast message={toast} onClose={closeToast} />}
     </main>
   )

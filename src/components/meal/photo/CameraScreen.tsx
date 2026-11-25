@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import iconCloseWhite from '@/assets/icons/meal/close-white.svg'
+import iconClose from '@/assets/icons/meal/close.svg'
 import iconShutter from '@/assets/icons/meal/shutter.svg'
 import Switch from '@/components/common/Switch'
 import { useAiStore } from '@/stores/useAiStore'
@@ -30,6 +31,8 @@ function CameraScreen({ mealLabel, onCapture, onWriteName, onClose }: CameraScre
   const setSaveToAlbum = useAiStore((state) => state.setSaveToAlbum)
   // 카메라가 없거나 권한을 거절하면 앨범만
   const [failed, setFailed] = useState(() => !navigator.mediaDevices?.getUserMedia)
+  // 카메라 권한을 거절함 → 설정에서 켜는 법(F-09)
+  const [denied, setDenied] = useState(false)
   const [ready, setReady] = useState(false)
   // 찍은 직후 멈춘 화면(스탬프·저장 안내)
   const [captured, setCaptured] = useState<Captured | null>(null)
@@ -47,7 +50,10 @@ function CameraScreen({ mealLabel, onCapture, onWriteName, onClose }: CameraScre
         if (videoRef.current) videoRef.current.srcObject = media
         setReady(true)
       })
-      .catch(() => setFailed(true))
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'NotAllowedError') setDenied(true)
+        setFailed(true)
+      })
     return () => {
       cancelled = true
       stream?.getTracks().forEach((track) => track.stop())
@@ -92,6 +98,81 @@ function CameraScreen({ mealLabel, onCapture, onWriteName, onClose }: CameraScre
   const pickAlbum = (event: ChangeEvent<HTMLInputElement>) => {
     const photo = event.target.files?.[0]
     if (photo) onCapture(photo)
+  }
+
+  const albumInput = (
+    <input
+      ref={albumRef}
+      type="file"
+      accept="image/*"
+      aria-label="앨범에서 사진 고르기"
+      className="hidden"
+      onChange={pickAlbum}
+    />
+  )
+
+  // Figma F-09 카메라 권한이 꺼져 있음. 이름으로 적거나 앨범에서 고름
+  if (denied) {
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="fixed inset-0 z-60 bg-white"
+      >
+        <div className="mx-auto flex h-full w-full max-w-107.5 flex-col pt-12.5">
+          <header className="relative flex h-14 shrink-0 items-center px-4">
+            <button type="button" aria-label="닫기" onClick={onClose}>
+              <img src={iconClose} alt="" width={24} height={24} />
+            </button>
+            <h1 className="text-subtitle-1 text-grey-900 absolute left-1/2 -translate-x-1/2">
+              {title}
+            </h1>
+          </header>
+          <div className="flex flex-1 flex-col px-5 pt-6">
+            <h2 className="text-t3 text-grey-900">카메라를 쓸 수 없어요</h2>
+            <p className="text-t6 text-grey-700 mt-2.5">
+              카메라 권한이 꺼져 있어요.
+              <br />
+              설정에서 켜면 바로 찍을 수 있어요.
+            </p>
+            <div className="rounded-key bg-grey-100 text-grey-700 mt-7 flex flex-col gap-3.5 p-4 text-sm">
+              <p className="text-t6 text-grey-900 font-bold">설정에서 켜는 법</p>
+              <p className="flex flex-col gap-0.5">
+                <span className="font-bold">iPhone · Safari</span>
+                <span>설정 › Safari › 카메라 › 허용</span>
+              </p>
+              <p className="flex flex-col gap-0.5">
+                <span className="font-bold">Android · Chrome</span>
+                <span>주소창 오른쪽 ⋮ › 설정 › 사이트 설정 › 카메라 › 허용</span>
+              </p>
+            </div>
+            <p className="text-t7 text-grey-600 mt-4">
+              사진첩 권한이 꺼져 있어도 기록은 그대로 남아요.
+              <br />
+              사진첩 저장만 건너뛰어요.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 px-5 pt-3 pb-[max(--spacing(7),env(safe-area-inset-bottom))]">
+            <button
+              type="button"
+              className="text-subtitle-1 bg-primary h-14 rounded-xl leading-none font-bold text-white"
+              onClick={onWriteName}
+            >
+              이름으로 적기
+            </button>
+            <button
+              type="button"
+              className="text-subtitle-1 border-grey-200 text-grey-900 h-14 rounded-xl border bg-white leading-none font-bold"
+              onClick={() => albumRef.current?.click()}
+            >
+              앨범에서 고르기
+            </button>
+          </div>
+        </div>
+        {albumInput}
+      </div>
+    )
   }
 
   return (
@@ -223,14 +304,7 @@ function CameraScreen({ mealLabel, onCapture, onWriteName, onClose }: CameraScre
         </div>
       </div>
 
-      <input
-        ref={albumRef}
-        type="file"
-        accept="image/*"
-        aria-label="앨범에서 사진 고르기"
-        className="hidden"
-        onChange={pickAlbum}
-      />
+      {albumInput}
     </div>
   )
 }

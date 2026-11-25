@@ -4,6 +4,7 @@ import { canServerPush, subscribePush } from '@/api/push'
 import { openReminder, snoozeReminder } from '@/api/reminders'
 import EmergencyBlock from '@/components/common/EmergencyBlock'
 import Toast from '@/components/common/Toast'
+import NotificationDeniedSheet from '@/components/today/NotificationDeniedSheet'
 import KakaoLinkSheet from '@/components/auth/KakaoLinkSheet'
 import { linkKakao, startKakaoLogin } from '@/api/auth'
 import { useAuthStore } from '@/stores/useAuthStore'
@@ -74,9 +75,6 @@ const HEADER_TITLE: Partial<Record<HeroState['kind'], string>> = {
   'all-done': '오늘 하루 수고했어요',
 }
 
-// 이미 거절한 알림 권한은 브라우저가 다시 안 물어봐서 설정 안내
-const PERMISSION_DENIED_TOAST = '알림 권한이 꺼져 있어요. 설정에서 켜 주세요'
-
 // 이 주수부터 입원·출산 입구(H-14)
 const BIRTH_ENTRY_WEEKS = 37
 
@@ -139,6 +137,8 @@ function TodayPage() {
   const [memoSheet, setMemoSheet] = useState(false)
   const [birthSheet, setBirthSheet] = useState(false)
   const [permissionSheet, setPermissionSheet] = useState(false)
+  // 이미 거절한 알림 권한은 브라우저가 다시 안 물어봐서 설정에서 켜는 법
+  const [deniedSheet, setDeniedSheet] = useState(false)
   const permissionAsked = useNotificationStore((state) => state.permissionAsked)
   const measureNotification = useNotificationStore((state) => state.measure)
   const markPermissionAsked = useNotificationStore((state) => state.markPermissionAsked)
@@ -237,7 +237,7 @@ function TodayPage() {
     if (Notification.permission === 'denied') {
       markPermissionAsked()
       setPermissionSheet(false)
-      setToast(PERMISSION_DENIED_TOAST)
+      setDeniedSheet(true)
       return
     }
     const permission = await Notification.requestPermission()
@@ -259,7 +259,7 @@ function TodayPage() {
       return
     }
     if (Notification.permission === 'denied') {
-      setToast(PERMISSION_DENIED_TOAST)
+      setDeniedSheet(true)
       return
     }
     setPermissionSheet(true)
@@ -531,6 +531,7 @@ function TodayPage() {
           onClose={() => setKakaoLinkOffer(false)}
         />
       )}
+      {deniedSheet && <NotificationDeniedSheet onClose={() => setDeniedSheet(false)} />}
       {permissionSheet && (
         <NotificationPermissionSheet
           onAllow={allowNotification}
