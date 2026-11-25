@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
-import { LOGIN_MAX_FAILURES, loginWithEmail, startKakaoLogin } from '@/api/auth'
+import { LOGIN_LOCK_MINUTES, LOGIN_MAX_FAILURES, loginWithEmail, startKakaoLogin } from '@/api/auth'
 import iconAlert from '@/assets/icons/auth/alert.svg'
 import iconCapsLock from '@/assets/icons/auth/caps-lock.svg'
 import iconClear from '@/assets/icons/auth/clear.svg'
@@ -18,18 +18,16 @@ import AuthField, { type FieldHelper } from '@/components/auth/AuthField'
 import AuthHeader from '@/components/auth/AuthHeader'
 import AuthToast from '@/components/auth/AuthToast'
 import EmailAccountSheet from '@/components/auth/EmailAccountSheet'
-import KakaoAccountSheet from '@/components/auth/KakaoAccountSheet'
 import { ROUTES } from '@/constants/routes'
 import { useFinishLogin } from '@/hooks/useFinishLogin'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { EMAIL_ACCOUNT_EXISTS, EMAIL_PATTERN } from '@/utils/auth'
+import { formatMeridiemTime } from '@/utils/date'
 
 type EmailError = 'empty' | 'format'
 type PasswordError =
-  | { kind: 'empty' }
-  | { kind: 'wrong'; failures: number | null }
-  | { kind: 'locked'; minutes: number }
+  { kind: 'empty' } | { kind: 'wrong'; remaining: number | null } | { kind: 'locked'; until: Date }
 type ToastKind = 'kakaoCancel' | 'kakaoFail' | 'offline' | 'signedUp' | 'loginFailed'
 
 // 가입은 됐는데 자동 로그인이 실패해 넘어올 때 받는 값
@@ -87,7 +85,6 @@ function LoginPage() {
   const [passwordFocused, setPasswordFocused] = useState(false)
   const [capsLock, setCapsLock] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [kakaoSheet, setKakaoSheet] = useState(false)
   const [emailAccountSheet, setEmailAccountSheet] = useState(
     () => searchParams.get('error') === EMAIL_ACCOUNT_EXISTS,
   )
@@ -102,6 +99,16 @@ function LoginPage() {
   }, [searchParams, setSearchParams])
 
   const locked = passwordError?.kind === 'locked'
+  // 잠금이 풀리는 시각이 되면 다시 로그인할 수 있게
+  const lockedUntil = passwordError?.kind === 'locked' ? passwordError.until.getTime() : null
+  useEffect(() => {
+    if (lockedUntil === null) return
+    const timer = window.setTimeout(
+      () => setPasswordError(null),
+      Math.max(lockedUntil - Date.now(), 0),
+    )
+    return () => window.clearTimeout(timer)
+  }, [lockedUntil])
 
   const findPassword = () => navigate(ROUTES.PASSWORD_FIND)
   const signUp = () => navigate(ROUTES.SIGNUP)
@@ -112,7 +119,6 @@ function LoginPage() {
       setToast('offline')
       return
     }
-    setKakaoSheet(false)
     setEmailAccountSheet(false)
     startKakaoLogin({ selectAccount })
   }
@@ -141,10 +147,9 @@ function LoginPage() {
     try {
       const result = await loginWithEmail(trimmed, password)
       if (result.status === 'ok') await finish('email', trimmed, result.profile)
-      else if (result.status === 'kakao') setKakaoSheet(true)
       else if (result.status === 'wrong')
-        setPasswordError({ kind: 'wrong', failures: result.failures })
-      else setPasswordError({ kind: 'locked', minutes: result.minutes })
+        setPasswordError({ kind: 'wrong', remaining: result.remaining })
+      else setPasswordError({ kind: 'locked', until: result.until })
     } catch {
       // 서버 오류·네트워크 오류
       setToast('loginFailed')
@@ -168,8 +173,7 @@ function LoginPage() {
           }
         : null
 
-  const findAction = { label: '비밀번호 찾기', onClick: findPassword }
-  // 계정 노출을 막으려고 이메일·비밀번호 중 어느 쪽이 틀렸는지 밝히지 않음
+  // 계정 노출을 막으려고 이메일·비밀번호 중 어느 쪽이 틀렸는지, 카카오 계정인지 밝히지 않음
   const passwordHelper: FieldHelper | null =
     passwordError?.kind === 'empty'
       ? { icon: iconAlert, text: '비밀번호를 입력해 주세요', tone: 'error' }
@@ -177,18 +181,17 @@ function LoginPage() {
         ? {
             icon: iconAlert,
             text:
-              passwordError.failures === null
-                ? '이메일 또는 비밀번호가 맞지 않아요'
-                : `이메일 또는 비밀번호가 맞지 않아요 (${passwordError.failures}/${LOGIN_MAX_FAILURES})`,
+              passwordError.remaining === null
+                ? '이메일 또는 비밀번호가 맞지 않아요.'
+                : `이메일 또는 비밀번호가 맞지 않아요.
+${passwordError.remaining}번 더 틀리면 ${LOGIN_LOCK_MINUTES}분 동안 잠겨요.`,
             tone: 'error',
-            action: findAction,
           }
         : passwordError?.kind === 'locked'
           ? {
               icon: iconLock,
-              text: `${LOGIN_MAX_FAILURES}번 틀려서 ${passwordError.minutes}분 동안 로그인할 수 없어요.`,
+              text: `${LOGIN_MAX_FAILURES}번 틀려서 ${formatMeridiemTime(passwordError.until)}까지 로그인할 수 없어요.`,
               tone: 'error',
-              action: findAction,
             }
           : passwordFocused && capsLock
             ? { icon: iconCapsLock, text: 'Caps Lock이 켜져 있어요', tone: 'info' }
@@ -316,6 +319,16 @@ function LoginPage() {
         </button>
       </form>
 
+      {/* 틀리거나 잠기면 카카오 가입자도 같은 문구라 카카오 로그인 길을 함께 보여 줌 */}
+      {(passwordError?.kind === 'wrong' || locked) && (
+        <p className="bg-grey-50 rounded-key mt-3 flex h-12 items-center justify-between px-4 text-sm leading-normal">
+          <span className="text-grey-700">카카오로 가입하셨나요?</span>
+          <button type="button" className="text-grey-900 font-bold" onClick={() => loginKakao()}>
+            카카오 로그인 ›
+          </button>
+        </p>
+      )}
+
       <p className="mt-5 flex items-center justify-center gap-3.5">
         <button
           type="button"
@@ -357,9 +370,6 @@ function LoginPage() {
         가입할 때 쓴 방법으로 로그인해 주세요
       </p>
 
-      {kakaoSheet && (
-        <KakaoAccountSheet onKakao={() => loginKakao()} onClose={() => setKakaoSheet(false)} />
-      )}
       {emailAccountSheet && (
         <EmailAccountSheet
           onEmailLogin={() => {

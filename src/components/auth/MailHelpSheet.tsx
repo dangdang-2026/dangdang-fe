@@ -3,6 +3,8 @@ import BottomSheet from '@/components/common/BottomSheet'
 
 type MailHelpSheetProps = {
   email: string
+  // 오늘 더 받을 수 있는 횟수. 모르면 null
+  remainingSends: number | null
   canResend: boolean
   onResend: () => void
   onChangeEmail: () => void
@@ -10,16 +12,26 @@ type MailHelpSheetProps = {
 }
 
 // Figma V-09 메일이 안 와요: 스팸함 · 주소 확인 · 다시 받기 안내
-function MailHelpSheet({ email, canResend, onResend, onChangeEmail, onClose }: MailHelpSheetProps) {
+function MailHelpSheet({
+  email,
+  remainingSends,
+  canResend,
+  onResend,
+  onChangeEmail,
+  onClose,
+}: MailHelpSheetProps) {
   const tips = [
     { title: '스팸함·프로모션함을 확인해 주세요', body: '메일이 그쪽으로 분류될 때가 있어요.' },
     {
       title: '이메일 주소를 확인해 주세요',
-      body: `${email} — 틀렸다면 「이메일 바꾸기」를 눌러 주세요.`,
+      body: `${email} 으로 보냈어요.\n주소가 틀렸다면 「이메일 바꾸기」를 눌러 주세요.`,
     },
     {
       title: '인증번호를 다시 받을 수 있어요',
-      body: `하루에 ${VERIFY_MAX_SENDS}번까지 받을 수 있어요.`,
+      body:
+        remainingSends === null
+          ? `하루에 ${VERIFY_MAX_SENDS}번까지 받을 수 있어요.`
+          : `오늘 ${remainingSends}번 더 받을 수 있어요.`,
     },
   ]
 
@@ -29,7 +41,7 @@ function MailHelpSheet({ email, canResend, onResend, onChangeEmail, onClose }: M
       {tips.map((tip) => (
         <div key={tip.title} className="flex flex-col gap-0.5 py-2.5">
           <p className="text-grey-900 text-base leading-normal font-bold">{tip.title}</p>
-          <p className="text-grey-600 text-sm leading-normal">{tip.body}</p>
+          <p className="text-grey-600 text-sm leading-normal whitespace-pre-line">{tip.body}</p>
         </div>
       ))}
       <button
