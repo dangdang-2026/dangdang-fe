@@ -3,7 +3,9 @@ import { ROUTES } from '@/constants/routes'
 // @ 없음, 도메인 없음, 한글·특수문자 포함은 형식 오류
 export const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
 
+// 서버 규칙: 8~64자, 영문 · 숫자 모두, 키보드 문자(특수문자 포함)만. 한글 · 띄어쓰기 안 됨
 export const PASSWORD_MIN = 8
+export const PASSWORD_MAX = 64
 
 // 자주 틀리는 도메인 → 맞는 도메인
 const DOMAIN_TYPOS: Record<string, string> = {
@@ -30,18 +32,23 @@ export function replaceDomain(email: string, domain: string) {
   return `${email.split('@')[0]}@${domain}`
 }
 
+// invalid: 띄어쓰기면 space, 한글 등 키보드 밖 글자면 letter
 export function checkPassword(password: string) {
   return {
-    length: password.length >= PASSWORD_MIN,
+    length: password.length >= PASSWORD_MIN && password.length <= PASSWORD_MAX,
     mix: /[A-Za-z]/.test(password) && /\d/.test(password),
-    space: /\s/.test(password),
+    invalid: /\s/.test(password)
+      ? ('space' as const)
+      : /[^\x21-\x7E]/.test(password)
+        ? ('letter' as const)
+        : null,
   }
 }
 
 // 조건을 다 맞추고 확인 칸까지 같아야 제출 가능
 export function isNewPasswordValid(password: string, confirm: string) {
   const checks = checkPassword(password)
-  return checks.length && checks.mix && !checks.space && confirm === password
+  return checks.length && checks.mix && !checks.invalid && confirm === password
 }
 
 // 카카오 로그인이 이메일 계정과 겹쳐 로그인 화면이 K-07 시트를 띄우는 error 값

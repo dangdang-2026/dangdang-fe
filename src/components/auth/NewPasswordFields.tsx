@@ -49,7 +49,9 @@ function NewPasswordFields({
 
   const checks = checkPassword(password)
   const passwordInvalid =
-    !!passwordError || checks.space || (submitted && (!password || !checks.length || !checks.mix))
+    !!passwordError ||
+    !!checks.invalid ||
+    (submitted && (!password || !checks.length || !checks.mix))
   const confirmEmpty = submitted && !confirm
   const confirmMatch = !!confirm && confirm === password
   const confirmMismatch = (confirmLeft || submitted) && !!confirm && !confirmMatch
@@ -60,13 +62,15 @@ function NewPasswordFields({
 
   const passwordHelper: FieldHelper | null = passwordError
     ? { icon: iconAlert, text: passwordError, tone: 'error' }
-    : checks.space
+    : checks.invalid === 'space'
       ? { icon: iconAlert, text: '비밀번호에는 띄어쓰기를 쓸 수 없어요', tone: 'error' }
-      : submitted && !password
-        ? { icon: iconAlert, text: '비밀번호를 입력해 주세요', tone: 'error' }
-        : passwordFocused && capsLock
-          ? { icon: iconCapsLock, text: 'Caps Lock이 켜져 있어요', tone: 'info' }
-          : null
+      : checks.invalid === 'letter'
+        ? { icon: iconAlert, text: '비밀번호에는 한글을 쓸 수 없어요', tone: 'error' }
+        : submitted && !password
+          ? { icon: iconAlert, text: '비밀번호를 입력해 주세요', tone: 'error' }
+          : passwordFocused && capsLock
+            ? { icon: iconCapsLock, text: 'Caps Lock이 켜져 있어요', tone: 'info' }
+            : null
 
   const confirmHelper: FieldHelper | null = confirmEmpty
     ? { icon: iconAlert, text: '비밀번호를 한 번 더 입력해 주세요', tone: 'error' }
@@ -94,7 +98,7 @@ function NewPasswordFields({
           id={passwordId}
           type={showPassword ? 'text' : 'password'}
           autoComplete="new-password"
-          placeholder="8자 이상, 영문·숫자"
+          placeholder="8~64자, 영문·숫자"
           value={password}
           aria-invalid={passwordInvalid}
           aria-describedby={passwordHelper ? `${passwordId}-helper` : undefined}

@@ -272,7 +272,7 @@ ${passwordError.remaining}번 더 틀리면 ${LOGIN_LOCK_MINUTES}분 동안 잠�
               id="login-password"
               type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
-              placeholder="8자 이상, 영문·숫자"
+              placeholder="비밀번호를 입력해 주세요"
               value={password}
               disabled={locked}
               aria-invalid={!!passwordError}
