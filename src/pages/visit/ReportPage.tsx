@@ -283,6 +283,7 @@ function ReportPage() {
             title={title}
             criteriaLines={criteriaLines}
             questionCount={questions.length}
+            createdAt={now}
           />
         </div>
 

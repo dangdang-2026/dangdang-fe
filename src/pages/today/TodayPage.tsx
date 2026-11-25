@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { canServerPush, subscribePush } from '@/api/push'
 import { openReminder, snoozeReminder } from '@/api/reminders'
+import EmergencyBlock from '@/components/common/EmergencyBlock'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
@@ -22,6 +23,7 @@ import VisitCard from '@/components/today/VisitCard'
 import WaitingMeasureCard from '@/components/today/WaitingMeasureCard'
 import MealWriteFlow from '@/components/meal/MealWriteFlow'
 import PostpartumToday from '@/components/postpartum/PostpartumToday'
+import { GLUCOSE_LOW, JUST_SAVED_MS } from '@/constants/glucose'
 import { ROUTES } from '@/constants/routes'
 import { useFoods } from '@/hooks/useFoods'
 import { useNow } from '@/hooks/useNow'
@@ -142,6 +144,19 @@ function TodayPage() {
   const heroState = getHeroState(meals, records, criteria.postMealHours, now, criteria.measureSlots)
   const waitingMeasure = !hospitalized && WAITING_KINDS.includes(heroState.kind)
   const firstDay = heroState.kind === 'first-day'
+  // 가장 최근에 입력한 기록이 70 미만이고 입력한 지 30분 안이면 위급 안내. 늦게 채운 기록도 입력 시각 기준
+  const lastEntered = records.reduce<GlucoseRecord | null>((latest, record) => {
+    const at = new Date(record.enteredAt ?? record.measuredAt).getTime()
+    return !latest || at > new Date(latest.enteredAt ?? latest.measuredAt).getTime()
+      ? record
+      : latest
+  }, null)
+  const showLowBlock =
+    !hospitalized &&
+    !!lastEntered &&
+    lastEntered.value < GLUCOSE_LOW &&
+    now.getTime() - new Date(lastEntered.enteredAt ?? lastEntered.measuredAt).getTime() <
+      JUST_SAVED_MS
   // 출산 예정일이 가까우면 입원·출산 입구. 입원 중이면 안 보임
   const nearDue = !hospitalized && (getPregnancyAge(dueDate, now)?.weeks ?? 0) >= BIRTH_ENTRY_WEEKS
   // 저녁 이후 놓친 식후 측정은 오늘 기록에 나중에 채우기 줄로
@@ -365,6 +380,12 @@ function TodayPage() {
           />
         )}
       </div>
+      {/* 낮은 값을 입력한 직후 30분은 위급 안내 그대로. 입원 중이면 숨김 */}
+      {showLowBlock && (
+        <div className="mt-5">
+          <EmergencyBlock onWriteMemo={() => setMemoSheet(true)} />
+        </div>
+      )}
       {nearDue && (
         <div className="mt-5">
           <BirthEntryCard onOpen={() => setBirthSheet(true)} />

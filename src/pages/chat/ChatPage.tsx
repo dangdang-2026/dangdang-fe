@@ -261,7 +261,7 @@ function ChatPage() {
       case 'risk':
         return (
           <div key={message.id} className="flex flex-col gap-2.5">
-            <RiskCard text={message.text} actions={message.actions} />
+            <RiskCard text={message.text} actions={message.actions} dose={message.dose} />
             {/* 약 용량은 진료 때 잊지 않게 물어볼 말로 */}
             {message.dose && (
               <ChatActionButton primary onClick={() => addDraftMessage(message.question)}>

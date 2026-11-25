@@ -151,6 +151,13 @@ function VisitNoteResultPage() {
       </div>
 
       <div className="mt-5 mb-8 flex flex-col gap-5">
+        {findings.length > 0 && (
+          <p className="bg-grey-100 rounded-key text-grey-700 p-4 text-sm leading-normal">
+            AI가 찾은 내용이에요.
+            <br />
+            병원에서 들은 것과 같은지 확인해 주세요.
+          </p>
+        )}
         {findings.map((finding) => (
           <FindingItem
             key={finding.key}

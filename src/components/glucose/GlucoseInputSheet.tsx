@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import iconClock from '@/assets/icons/clock-sm.svg'
 import iconInfo from '@/assets/icons/info.svg'
 import BottomSheet from '@/components/common/BottomSheet'
+import EmergencyBlock from '@/components/common/EmergencyBlock'
 import ContactCriteriaCard from '@/components/glucose/ContactCriteriaCard'
 import GlucoseKeypad from '@/components/glucose/GlucoseKeypad'
 import MeasuredTimePicker from '@/components/glucose/MeasuredTimePicker'
@@ -147,11 +148,16 @@ function GlucoseInputSheet({
         )}
       </div>
 
-      <ContactCriteriaCard
-        expanded={contactExpanded}
-        onToggle={() => setContactOpen(!contactExpanded)}
-        onWriteMemo={() => setMemoSheet(true)}
-      />
+      {/* 70 미만이면 접지 않는 위급 안내로 */}
+      {isLow ? (
+        <EmergencyBlock onWriteMemo={() => setMemoSheet(true)} />
+      ) : (
+        <ContactCriteriaCard
+          expanded={contactExpanded}
+          onToggle={() => setContactOpen(!contactExpanded)}
+          onWriteMemo={() => setMemoSheet(true)}
+        />
+      )}
 
       <GlucoseKeypad
         onDigit={handleDigit}

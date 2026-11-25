@@ -3,7 +3,6 @@ import { isAxiosError } from 'axios'
 import { useNavigate } from 'react-router'
 import { getErrorCode } from '@/api/axios'
 import { organizeVisitNote } from '@/api/visitNote'
-import iconSparkle from '@/assets/icons/sparkle.svg'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import Toast from '@/components/common/Toast'
@@ -112,11 +111,15 @@ function VisitNotePage() {
         onChange={(event) => setNote(event.target.value)}
       />
 
-      <p className="bg-grey-50 text-t7 text-grey-700 mt-5 mb-8 flex items-start gap-2 rounded-xl px-3.5 py-3 leading-relaxed">
-        <img src={iconSparkle} alt="" width={18} height={18} className="shrink-0" />
-        AI를 켜 두면 잴 때·측정 시점·목표 수치·다음 진료일만 찾아서 보여 드려요. 인슐린 이름·용량은
-        정리하지 않아요.
-      </p>
+      {/* 해외 전송 고지는 늘 보이게. 이름 빼기는 서버가 아직 안 해서 그 문장은 뺌 */}
+      <div className="bg-grey-100 rounded-key text-grey-700 mt-5 mb-8 flex flex-col gap-2 p-4 text-sm leading-normal">
+        <p>메모 글이 AI 서버(해외)로 보내져 정리돼요.</p>
+        <p>
+          측정 시점·목표 수치·다음 진료일만 찾고
+          <br />
+          인슐린 이름·용량은 정리하지 않아요.
+        </p>
+      </div>
 
       <div className="mt-auto flex gap-2">
         <button
