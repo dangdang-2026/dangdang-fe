@@ -28,7 +28,20 @@ function KakaoCallbackPage() {
     if (!code || !stateOk) return void fail('invalid_request')
 
     loginWithKakao(code)
-      .then((result) => (result === 'ok' ? finish('kakao') : fail(EMAIL_ACCOUNT_EXISTS)))
+      .then((result) => {
+        if (result.status === 'loggedIn') return finish('kakao')
+        // 처음 보는 카카오는 소개 화면에서 가입 확인
+        if (result.status === 'needsSignup') {
+          return navigate(`${ROUTES.ONBOARDING}?${new URLSearchParams({ kakao: 'signup' })}`, {
+            replace: true,
+          })
+        }
+        // 같은 이메일 계정이 있으면 로그인 화면에 이메일을 채워 두고 안내
+        navigate(`${ROUTES.LOGIN}?${new URLSearchParams({ error: EMAIL_ACCOUNT_EXISTS })}`, {
+          replace: true,
+          state: { email: result.email, maskedEmail: result.maskedEmail },
+        })
+      })
       .catch(() => fail('server_error'))
   }, [searchParams, navigate, finish])
 

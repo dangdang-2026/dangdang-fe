@@ -68,16 +68,63 @@ export function consumeKakaoState(state: string | null) {
   return !!saved && saved === state
 }
 
-// 인가 코드를 서버가 카카오 토큰으로 바꾸고 ACCESS_TOKEN·REFRESH_TOKEN 쿠키를 심음
-// 같은 이메일로 가입한 이메일 계정이 있으면 서버가 합치지 않음(AUTH_40902) → K-07 안내
-export async function loginWithKakao(code: string): Promise<'ok' | 'emailAccount'> {
+// 가입 · 연결에 한 번 쓰는 카카오 토큰. 서버 유효 시간 10분
+const KAKAO_PENDING_KEY = 'kakao-pending'
+const KAKAO_PENDING_MS = 10 * 60 * 1000
+
+function savePendingKakao(token: string) {
+  sessionStorage.setItem(
+    KAKAO_PENDING_KEY,
+    JSON.stringify({ token, expiresAt: Date.now() + KAKAO_PENDING_MS }),
+  )
+}
+
+// 10분이 지났거나 없으면 null
+export function getPendingKakaoToken(): string | null {
   try {
-    await apiClient.post('/auth/kakao', { code, redirectUri: KAKAO_REDIRECT_URI })
-  } catch (error) {
-    if (getErrorCode(error) === 'AUTH_40902') return 'emailAccount'
-    throw error
+    const saved = JSON.parse(sessionStorage.getItem(KAKAO_PENDING_KEY) ?? 'null') as {
+      token: string
+      expiresAt: number
+    } | null
+    return saved && saved.expiresAt > Date.now() ? saved.token : null
+  } catch {
+    return null
   }
-  return 'ok'
+}
+
+export function clearPendingKakao() {
+  sessionStorage.removeItem(KAKAO_PENDING_KEY)
+}
+
+// 백엔드 KakaoLoginResponse
+type KakaoLoginResponse = {
+  result: 'LOGGED_IN' | 'NEEDS_SIGNUP' | 'EMAIL_ACCOUNT_EXISTS'
+  kakaoToken: string | null
+  email: string | null
+  maskedEmail: string | null
+}
+
+export type KakaoLoginResult =
+  | { status: 'loggedIn' }
+  | { status: 'needsSignup' }
+  | { status: 'emailAccount'; email: string; maskedEmail: string }
+
+// 인가 코드를 서버에 넘김. 쿠키는 이미 가입 · 연결된 카카오일 때만 옴
+// 처음 보는 카카오면 가입 확인, 같은 이메일 계정이 있으면 이메일 로그인 안내. 둘 다 토큰을 들고 감
+export async function loginWithKakao(code: string): Promise<KakaoLoginResult> {
+  const { data } = await apiClient.post<BaseResponse<KakaoLoginResponse>>('/auth/kakao', {
+    code,
+    redirectUri: KAKAO_REDIRECT_URI,
+  })
+  const body = data.data
+  if (!body) throw new Error('카카오 로그인 응답이 비어 있음')
+  clearPendingKakao()
+  if (body.result === 'LOGGED_IN') return { status: 'loggedIn' }
+  if (body.kakaoToken) savePendingKakao(body.kakaoToken)
+  if (body.result === 'EMAIL_ACCOUNT_EXISTS') {
+    return { status: 'emailAccount', email: body.email ?? '', maskedEmail: body.maskedEmail ?? '' }
+  }
+  return { status: 'needsSignup' }
 }
 
 export type EmailOwner = 'none' | 'email' | 'kakao'

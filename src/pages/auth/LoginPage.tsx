@@ -31,7 +31,8 @@ type PasswordError =
 type ToastKind = 'kakaoCancel' | 'kakaoFail' | 'offline' | 'signedUp' | 'loginFailed'
 
 // 가입은 됐는데 자동 로그인이 실패해 넘어올 때 받는 값
-type LoginLocationState = { signedUp?: boolean; email?: string } | null
+// 방금 가입했거나 카카오 이메일과 같은 계정이 있으면 이메일을 채워 둠. maskedEmail은 카카오 안내 시트용
+type LoginLocationState = { signedUp?: boolean; email?: string; maskedEmail?: string } | null
 
 const TOAST: Record<ToastKind, { icon: string; message: string }> = {
   signedUp: { icon: iconToastInfo, message: '가입됐어요. 로그인해 주세요' },
@@ -76,7 +77,6 @@ function LoginPage() {
   const finish = useFinishLogin()
 
   const emailRef = useRef<HTMLInputElement>(null)
-  // 방금 가입한 이메일은 채워 둠
   const [email, setEmail] = useState(signedUp?.email ?? '')
   const [password, setPassword] = useState('')
   const [emailError, setEmailError] = useState<EmailError | null>(null)
@@ -85,6 +85,8 @@ function LoginPage() {
   const [passwordFocused, setPasswordFocused] = useState(false)
   const [capsLock, setCapsLock] = useState(false)
   const [loading, setLoading] = useState(false)
+  // 주소의 error를 지우면 state도 사라져 처음 값만 들고 있음
+  const [maskedEmail] = useState(signedUp?.maskedEmail)
   const [emailAccountSheet, setEmailAccountSheet] = useState(
     () => searchParams.get('error') === EMAIL_ACCOUNT_EXISTS,
   )
@@ -372,11 +374,13 @@ ${passwordError.remaining}번 더 틀리면 ${LOGIN_LOCK_MINUTES}분 동안 잠�
 
       {emailAccountSheet && (
         <EmailAccountSheet
+          maskedEmail={maskedEmail}
           onEmailLogin={() => {
             setEmailAccountSheet(false)
             emailRef.current?.focus()
           }}
           onOtherKakao={() => loginKakao(true)}
+          onFindPassword={findPassword}
           onClose={() => setEmailAccountSheet(false)}
         />
       )}
