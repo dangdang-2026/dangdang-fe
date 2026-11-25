@@ -241,20 +241,15 @@ function ReportPage() {
     const text = formatReportText({ report, title, periodLabel, criteriaLines, questions })
     keepReport()
     setShareOpen(false)
-    const node = receiptRef.current
+    // 이미지를 지금 만들면 누른 직후가 아니라 공유 창이 막혀서, 미리 만든 게 있을 때만 파일로
     try {
-      const blob =
-        photo.current?.key === photoKey
-          ? photo.current.blob
-          : node
-            ? await createReportImage(node)
-            : null
+      const blob = photo.current?.key === photoKey ? photo.current.blob : null
       if (blob) {
         const result = await shareReportImage(blob, `${fileName}.png`)
         if (result !== 'unsupported') return
       }
     } catch {
-      // 이미지를 못 만들면 글로
+      // 파일 공유가 막히면 글로
     }
     try {
       if (navigator.share) {

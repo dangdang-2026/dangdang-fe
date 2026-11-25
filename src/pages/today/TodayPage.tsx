@@ -45,6 +45,7 @@ import {
   saveMealStart,
   useGlucoseStore,
 } from '@/stores/useGlucoseStore'
+import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { useInboxStore } from '@/stores/useInboxStore'
 import { saveNotificationSettings, useNotificationStore } from '@/stores/useNotificationStore'
 import { useVisitStore } from '@/stores/useVisitStore'
@@ -56,6 +57,7 @@ import type {
   NutritionEdits,
   Portion,
 } from '@/types/glucose'
+import { getCriteriaAt } from '@/utils/criteria'
 import { formatTime, isSameDay, startOfDay } from '@/utils/date'
 import { formatPregnancyAge, getPregnancyAge } from '@/utils/pregnancy'
 import { formatVisitDay, getHomeVisitCard } from '@/utils/visit'
@@ -101,6 +103,7 @@ function TodayPage() {
   const addInsulin = useGlucoseStore((state) => state.addInsulin)
   const foods = useFoods()
   const criteria = useCriteria()
+  const criteriaVersions = useCriteriaStore((state) => state.versions)
   const navigate = useNavigate()
   const location = useLocation()
   // 알림함·측정 알림(앱 밖에서 열면 서버 주소대로 ?sheet=glucose)을 누르고 오면 혈당 입력 시트부터
@@ -184,9 +187,14 @@ function TodayPage() {
       JUST_SAVED_MS
   const showLowBlock = justEntered && !!lastEntered && lastEntered.value < GLUCOSE_LOW
   // 목표보다 높은 값이면 연락 메모 안내(H-06c). 목표를 안 적었으면 비교하지 않음
-  const lastTarget = lastEntered
-    ? getTarget(lastEntered.slot, criteria.targets, criteria.postMealHours)
+  // 잰 날의 기준으로 비교(지난 기록을 채운 경우)
+  const lastCriteria = lastEntered
+    ? getCriteriaAt(criteriaVersions, new Date(lastEntered.measuredAt))
     : null
+  const lastTarget =
+    lastEntered && lastCriteria
+      ? getTarget(lastEntered.slot, lastCriteria.targets, lastCriteria.postMealHours)
+      : null
   const showHighCard =
     justEntered &&
     !!lastEntered &&
@@ -338,10 +346,27 @@ function TodayPage() {
   // 시작 시각 고치기. 같은 날 그 시각으로, 지금보다 늦으면 안 됨. 서버가 식후 알림도 다시 잡음
   const changeMealStart = async (meal: Meal, time: string) => {
     setEditingStart(null)
+    // 서버에 아직 안 간 끼니는 고친 값이 동기화로 되돌아갈 수 있어 막음
+    if (meal.pending) {
+      setToast('아직 저장 중이에요. 잠시 후 다시 고쳐 주세요')
+      return
+    }
     const [hours, minutes] = time.split(':').map(Number)
-    const startedAt = new Date(meal.startedAt)
-    startedAt.setHours(hours, minutes, 0, 0)
-    if (startedAt.getTime() > Date.now()) {
+    const original = new Date(meal.startedAt)
+    // 자정을 넘나들 수 있어 전날 · 그날 · 다음 날 중 원래 시각에 가장 가까운, 지금보다 이른 시각
+    const startedAt = [-1, 0, 1]
+      .map((offset) => {
+        const date = new Date(original)
+        date.setDate(date.getDate() + offset)
+        date.setHours(hours, minutes, 0, 0)
+        return date
+      })
+      .filter((date) => date.getTime() <= Date.now())
+      .sort(
+        (a, b) =>
+          Math.abs(a.getTime() - original.getTime()) - Math.abs(b.getTime() - original.getTime()),
+      )[0]
+    if (!startedAt) {
       setToast('지금보다 늦은 시각은 고를 수 없어요')
       return
     }

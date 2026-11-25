@@ -13,6 +13,7 @@ import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
 import { saveCriteria } from '@/stores/useCriteriaStore'
+import { useOnboardingStore } from '@/stores/useOnboardingStore'
 import type { CriteriaPrefill, MeasureSlotKey } from '@/types/criteria'
 import {
   MEASURE_SLOT_LABEL,
@@ -35,6 +36,7 @@ function CriteriaPage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.VISIT)
   const current = useCriteria()
+  const completedAt = useOnboardingStore((state) => state.completedAt)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(false)
   const closeToast = useCallback(() => setToast(false), [])
@@ -202,8 +204,11 @@ function CriteriaPage() {
           pick="past"
           submitLabel={(date) => `${formatMonthDay(date)}부터 적용`}
           onSave={(date) => {
-            // 지금 기준보다 앞선 날은 이력 순서가 꼬여서 지금 기준 시작일로 맞춤
-            const earliest = startOfDay(new Date(current.appliedFrom))
+            // 지금 기준보다 앞선 날은 서버 이력(적용일 순)이 꼬여서 지금 기준 시작일로 맞춤
+            // v1은 기기에선 '처음'이라 설정을 마친 날을 씀
+            const earliest = startOfDay(
+              new Date(current.version === 1 && completedAt ? completedAt : current.appliedFrom),
+            )
             setEffectiveFrom(date < earliest ? earliest : startOfDay(date))
             setPickingDate(false)
           }}
