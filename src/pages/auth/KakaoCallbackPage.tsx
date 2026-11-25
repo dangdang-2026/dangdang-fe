@@ -99,7 +99,7 @@ function KakaoCallbackPage() {
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-white">
-      <p className="text-grey-500 animate-pulse text-sm">카카오 로그인 중이에요</p>
+      <p className="text-grey-500 animate-pulse text-sm">카카오 확인 중이에요</p>
     </main>
   )
 }
