@@ -27,6 +27,7 @@ export function useFinishLogin() {
   const resetOnboarding = useOnboardingStore((state) => state.reset)
   const updateProfile = useProfileStore((state) => state.updateProfile)
   const login = useAuthStore((state) => state.login)
+  const setKakaoLinkOffer = useAuthStore((state) => state.setKakaoLinkOffer)
 
   // 서버를 못 보면 기기에 남은 설정으로 판단
   const goByDevice = () =>
@@ -57,6 +58,8 @@ export function useFinishLogin() {
       updateProfile({ name: me.displayName, hospitalized: me.pregnancyState === 'HOSPITALIZED' })
       // 카카오는 로그인 응답에 이메일이 없어 /me 값으로 채움
       if (!email && me.email) login({ method, email: me.email })
+      // 이메일 로그인인데 카카오가 안 연결돼 있으면 오늘 화면에서 연결 권함
+      setKakaoLinkOffer(method === 'email' && me.loginMethods?.kakao === false)
       // 식사·혈당 기록은 서버 값으로. 새 계정이면 기기에 남은 다른 계정 기록도 비워짐
       syncMeals().catch(() => {})
       syncRecords().catch(() => {})

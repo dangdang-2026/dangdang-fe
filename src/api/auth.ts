@@ -45,12 +45,20 @@ export async function logoutFromServer() {
 const KAKAO_REDIRECT_URI =
   import.meta.env.VITE_KAKAO_REDIRECT_URI || `${window.location.origin}/auth/kakao/callback`
 const KAKAO_STATE_KEY = 'kakao-oauth-state'
+const KAKAO_PURPOSE_KEY = 'kakao-oauth-purpose'
+
+// login: 카카오로 로그인 · 가입, link: 로그인한 계정에 카카오 연결
+export type KakaoPurpose = 'login' | 'link'
 
 // 카카오 인가 페이지로 이동. state로 남이 만든 콜백 요청을 걸러냄
 // selectAccount면 카카오계정을 다시 고르게 함(K-07 다른 카카오계정으로 시작하기)
-export function startKakaoLogin({ selectAccount = false } = {}) {
+export function startKakaoLogin({
+  selectAccount = false,
+  purpose = 'login',
+}: { selectAccount?: boolean; purpose?: KakaoPurpose } = {}) {
   const state = crypto.randomUUID()
   sessionStorage.setItem(KAKAO_STATE_KEY, state)
+  sessionStorage.setItem(KAKAO_PURPOSE_KEY, purpose)
   const params = new URLSearchParams({
     client_id: import.meta.env.VITE_KAKAO_REST_API_KEY,
     redirect_uri: KAKAO_REDIRECT_URI,
@@ -61,11 +69,13 @@ export function startKakaoLogin({ selectAccount = false } = {}) {
   window.location.assign(`https://kauth.kakao.com/oauth/authorize?${params}`)
 }
 
-// 보낸 state와 같은지 확인. 한 번 쓰면 지움
-export function consumeKakaoState(state: string | null) {
+// 보낸 state와 같으면 무엇 하러 갔는지, 다르면 null. 한 번 쓰면 지움
+export function consumeKakaoState(state: string | null): KakaoPurpose | null {
   const saved = sessionStorage.getItem(KAKAO_STATE_KEY)
+  const purpose = sessionStorage.getItem(KAKAO_PURPOSE_KEY) === 'link' ? 'link' : 'login'
   sessionStorage.removeItem(KAKAO_STATE_KEY)
-  return !!saved && saved === state
+  sessionStorage.removeItem(KAKAO_PURPOSE_KEY)
+  return !!saved && saved === state ? purpose : null
 }
 
 // 가입 · 연결에 한 번 쓰는 카카오 토큰. 서버 유효 시간 10분
@@ -147,6 +157,34 @@ export async function signUpWithKakao(): Promise<KakaoSignupResult> {
     await apiClient.post('/auth/kakao/signup', { kakaoToken })
   } catch (error) {
     const result = KAKAO_SIGNUP_ERRORS[getErrorCode(error) ?? '']
+    if (!result) throw error
+    if (result === 'expired') clearPendingKakao()
+    return result
+  }
+  clearPendingKakao()
+  return 'ok'
+}
+
+// expired: 토큰 10분 지남 · 이미 씀(카카오를 새로 거쳐야 함), connected: 이미 연결됨, linked: 이 카카오가 다른 계정에 연결됨
+export type KakaoLinkResult = 'ok' | 'expired' | 'connected' | 'linked'
+
+const KAKAO_LINK_ERRORS: Record<string, Exclude<KakaoLinkResult, 'ok'>> = {
+  AUTH_40011: 'expired',
+  AUTH_40904: 'connected',
+  AUTH_40903: 'linked',
+}
+
+// 로그인한 계정에 카카오 연결. 받아 둔 토큰이 있으면 그걸로, 없으면 카카오를 다녀온 인가 코드로
+export async function linkKakao(code?: string): Promise<KakaoLinkResult> {
+  const kakaoToken = code ? null : getPendingKakaoToken()
+  if (!code && !kakaoToken) return 'expired'
+  try {
+    await apiClient.post(
+      '/me/kakao',
+      code ? { code, redirectUri: KAKAO_REDIRECT_URI } : { kakaoToken },
+    )
+  } catch (error) {
+    const result = KAKAO_LINK_ERRORS[getErrorCode(error) ?? '']
     if (!result) throw error
     if (result === 'expired') clearPendingKakao()
     return result

@@ -4,6 +4,10 @@ import { canServerPush, subscribePush } from '@/api/push'
 import { openReminder, snoozeReminder } from '@/api/reminders'
 import EmergencyBlock from '@/components/common/EmergencyBlock'
 import Toast from '@/components/common/Toast'
+import KakaoLinkSheet from '@/components/auth/KakaoLinkSheet'
+import { linkKakao, startKakaoLogin } from '@/api/auth'
+import { useAuthStore } from '@/stores/useAuthStore'
+import { KAKAO_LINK_TOAST, type KakaoLinkOutcome } from '@/utils/auth'
 import WarmBackground from '@/components/common/WarmBackground'
 import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
 import InsulinSheet from '@/components/insulin/InsulinSheet'
@@ -119,7 +123,18 @@ function TodayPage() {
   }, [reminderId])
   const hasUnread = useInboxStore((state) => state.items.some((item) => !item.readAt))
   const [writingMeal, setWritingMeal] = useState<Meal | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
+  // 카카오 연결을 다녀오면 결과 토스트
+  const kakaoLinkOutcome = (location.state as { kakaoLink?: KakaoLinkOutcome } | null)?.kakaoLink
+  const [toast, setToast] = useState<string | null>(() =>
+    kakaoLinkOutcome ? KAKAO_LINK_TOAST[kakaoLinkOutcome] : null,
+  )
+  // 새로 고침 · 뒤로 가기로 토스트가 다시 뜨지 않게 주소의 state를 지움
+  useEffect(() => {
+    if (kakaoLinkOutcome) navigate(location.pathname, { replace: true, state: null })
+  }, [kakaoLinkOutcome, navigate, location.pathname])
+  const kakaoLinkOffer = useAuthStore((state) => state.kakaoLinkOffer)
+  const setKakaoLinkOffer = useAuthStore((state) => state.setKakaoLinkOffer)
+  const [linking, setLinking] = useState(false)
   const [insulinSheet, setInsulinSheet] = useState(false)
   const [memoSheet, setMemoSheet] = useState(false)
   const [birthSheet, setBirthSheet] = useState(false)
@@ -299,6 +314,22 @@ function TodayPage() {
   }
   const closeMealSheet = useCallback(() => setWritingMeal(null), [])
   const closeToast = useCallback(() => setToast(null), [])
+
+  // 받아 둔 카카오 토큰이 있으면 바로 연결, 없거나 10분 지났으면 카카오를 다녀와서 연결
+  const linkKakaoAccount = async () => {
+    if (linking) return
+    setLinking(true)
+    try {
+      const result = await linkKakao()
+      if (result === 'expired') return startKakaoLogin({ purpose: 'link' })
+      setKakaoLinkOffer(false)
+      setToast(KAKAO_LINK_TOAST[result])
+    } catch {
+      setToast(KAKAO_LINK_TOAST.failed)
+    } finally {
+      setLinking(false)
+    }
+  }
 
   // 다시 연결하기. 아직 끊겨 있으면 알려 줌
   const retryConnection = () => {
@@ -490,6 +521,14 @@ function TodayPage() {
             setToast('연락 기준 메모를 저장했어요')
           }}
           onClose={() => setMemoSheet(false)}
+        />
+      )}
+      {/* 다른 시트가 없을 때만 */}
+      {kakaoLinkOffer && !sheetTarget && !permissionSheet && (
+        <KakaoLinkSheet
+          loading={linking}
+          onLink={() => void linkKakaoAccount()}
+          onClose={() => setKakaoLinkOffer(false)}
         />
       )}
       {permissionSheet && (

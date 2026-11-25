@@ -44,3 +44,14 @@ export function isNewPasswordValid(password: string, confirm: string) {
 
 // 카카오 로그인이 이메일 계정과 겹쳐 로그인 화면이 K-07 시트를 띄우는 error 값
 export const EMAIL_ACCOUNT_EXISTS = 'email_account_exists'
+
+// 카카오 연결 결과 → 오늘 화면 토스트. 서버 문구와 같게
+export type KakaoLinkOutcome = 'ok' | 'connected' | 'linked' | 'expired' | 'cancel' | 'failed'
+export const KAKAO_LINK_TOAST: Record<KakaoLinkOutcome, string> = {
+  ok: '카카오를 연결했어요. 다음부터 카카오로 바로 로그인할 수 있어요',
+  connected: '이미 카카오가 연결돼 있어요',
+  linked: '이 카카오 계정은 다른 당당 계정에 이미 연결돼 있어요. 그 계정으로 로그인해 주세요',
+  expired: '카카오 확인 시간이 지났어요. 다시 연결해 주세요',
+  cancel: '카카오 연결을 취소했어요',
+  failed: '카카오를 연결하지 못했어요. 잠시 후 다시 시도해 주세요',
+}

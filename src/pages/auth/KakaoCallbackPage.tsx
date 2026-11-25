@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { consumeKakaoState, loginWithKakao } from '@/api/auth'
+import { consumeKakaoState, linkKakao, loginWithKakao } from '@/api/auth'
 import { ROUTES } from '@/constants/routes'
 import { useFinishLogin } from '@/hooks/useFinishLogin'
-import { EMAIL_ACCOUNT_EXISTS } from '@/utils/auth'
+import { useAuthStore } from '@/stores/useAuthStore'
+import { EMAIL_ACCOUNT_EXISTS, type KakaoLinkOutcome } from '@/utils/auth'
 
 // 카카오 인가 후 돌아오는 주소. 코드를 서버에 넘기고 이메일 로그인과 같은 흐름으로
 function KakaoCallbackPage() {
@@ -23,9 +24,25 @@ function KakaoCallbackPage() {
 
     const code = searchParams.get('code')
     const error = searchParams.get('error')
-    const stateOk = consumeKakaoState(searchParams.get('state'))
+    const purpose = consumeKakaoState(searchParams.get('state'))
+
+    // 로그인한 계정에 카카오 연결이면 결과를 오늘 화면 토스트로
+    if (purpose === 'link') {
+      const done = (kakaoLink: KakaoLinkOutcome) => {
+        // 연결 권하기는 한 번만. 다녀오면 결과와 상관없이 다시 안 띄움
+        useAuthStore.getState().setKakaoLinkOffer(false)
+        navigate(ROUTES.TODAY, { replace: true, state: { kakaoLink } })
+      }
+      if (error) return void done(error === 'access_denied' ? 'cancel' : 'failed')
+      if (!code) return void done('failed')
+      linkKakao(code)
+        .then(done)
+        .catch(() => done('failed'))
+      return
+    }
+
     if (error) return void fail(error)
-    if (!code || !stateOk) return void fail('invalid_request')
+    if (!code || !purpose) return void fail('invalid_request')
 
     loginWithKakao(code)
       .then((result) => {
