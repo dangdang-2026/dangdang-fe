@@ -4,6 +4,7 @@ import iconPlusSquare from '@/assets/icons/notice/plus-square.svg'
 import iconShield from '@/assets/icons/notice/shield.svg'
 import noticeCharacter from '@/assets/images/notice/character.svg'
 import BottomSheet from '@/components/common/BottomSheet'
+import { isInstalledApp } from '@/utils/device'
 
 const STEPS = [
   {
@@ -28,19 +29,29 @@ type NotificationPermissionSheetProps = {
   onSkip: () => void
 }
 
-// Figma E-01 첫 식사 시작 때 한 번만: 홈 화면 추가 → 알림 허용 안내
+// Figma E-01 첫 식사 시작 때 한 번만: 홈 화면 추가 → 알림 허용 안내. 홈 화면 앱이면 알림 허용만
 function NotificationPermissionSheet({ onAllow, onSkip }: NotificationPermissionSheetProps) {
+  const installed = isInstalledApp()
+  const steps = installed ? [] : STEPS
+  const notes = installed ? NOTES.slice(1) : NOTES
   return (
     <BottomSheet label="알림 허용" onClose={onSkip}>
       <div className="flex items-center justify-between">
-        <h2 className="text-t4 text-grey-900">
-          측정 시간에 알려 드리려면
-          <br />두 가지가 필요해요
-        </h2>
+        {installed ? (
+          <div className="flex flex-col gap-1.5">
+            <h2 className="text-t4 text-grey-900">알림을 허용해 주세요</h2>
+            <p className="text-t6 text-grey-700">다음 창에서 ‘허용’을 눌러 주세요</p>
+          </div>
+        ) : (
+          <h2 className="text-t4 text-grey-900">
+            측정 시간에 알려 드리려면
+            <br />두 가지가 필요해요
+          </h2>
+        )}
         <img src={noticeCharacter} alt="" width={72} height={72} />
       </div>
 
-      {STEPS.map((step) => (
+      {steps.map((step) => (
         <div key={step.title} className="rounded-banner bg-grey-50 flex items-center gap-3.5 p-4">
           <span className="shadow-card flex size-11 shrink-0 items-center justify-center rounded-full bg-white">
             <img src={step.icon} alt="" width={22} height={22} />
@@ -54,7 +65,7 @@ function NotificationPermissionSheet({ onAllow, onSkip }: NotificationPermission
         </div>
       ))}
 
-      {NOTES.map((note) => (
+      {notes.map((note) => (
         <p
           key={note.text}
           className="text-grey-600 flex items-start gap-2 px-1 text-xs leading-normal"
@@ -76,7 +87,7 @@ function NotificationPermissionSheet({ onAllow, onSkip }: NotificationPermission
         className="text-subtitle-1 bg-grey-100 text-grey-900 h-14 rounded-xl leading-none"
         onClick={onSkip}
       >
-        나중에 할게요 · 알림 없이 기록만
+        {installed ? '나중에 할게요' : '나중에 할게요 · 알림 없이 기록만'}
       </button>
     </BottomSheet>
   )

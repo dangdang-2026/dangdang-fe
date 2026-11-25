@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useEffectEvent, useRef, useState, type FormEvent } from 'react'
 import {
   VERIFY_CODE_LENGTH,
   VERIFY_MAX_FAILURES,
@@ -27,6 +27,9 @@ import { useNow } from '@/hooks/useNow'
 
 // 남은 시간이 이만큼 이하면 타이머를 빨갛게
 const TIMER_WARN_MS = 60 * 1000
+
+// 인증됐다는 안내를 읽을 틈을 두고 넘어감
+const AUTO_NEXT_MS = 800
 
 type VerifyStatus = 'idle' | 'wrong' | 'digits' | 'tooMany' | 'resent' | 'verified'
 
@@ -106,6 +109,8 @@ function EmailVerifyStep({
   const [sheet, setSheet] = useState(false)
   const [toast, setToast] = useState<ToastKind | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
+  // 가입 마무리 요청 중. 확인 · 자동 넘김이 겹쳐도 가입은 한 번만
+  const completingRef = useRef(false)
 
   const remaining = sentAt === null ? 0 : Math.max(0, VERIFY_TTL_MS - (now - sentAt))
   const verified = status === 'verified'
@@ -215,10 +220,12 @@ function EmailVerifyStep({
   }
 
   const complete = async () => {
+    if (completingRef.current) return
     if (!navigator.onLine) {
       setToast('offline')
       return
     }
+    completingRef.current = true
     setChecking(true)
     try {
       // 인증이 풀렸으면 시간 초과로 보여 다시 받게
@@ -229,13 +236,22 @@ function EmailVerifyStep({
     } catch {
       setToast('signUpFailed')
     } finally {
+      completingRef.current = false
       setChecking(false)
     }
   }
 
+  // Figma V-03 인증되면 확인 버튼 없이 잠깐 안내를 보여 준 뒤 다음 단계로. 실패하면 확인으로 다시
+  const autoComplete = useEffectEvent(() => void complete())
+  useEffect(() => {
+    if (!verified) return
+    const timer = window.setTimeout(autoComplete, AUTO_NEXT_MS)
+    return () => window.clearTimeout(timer)
+  }, [verified])
+
   const submit = (event: FormEvent) => {
     event.preventDefault()
-    if (checking || sending) return
+    if (checking || sending || completingRef.current) return
     if (needResend) void resend()
     else if (verified) void complete()
     else if (code.length < VERIFY_CODE_LENGTH) setStatus('digits')
@@ -248,7 +264,7 @@ function EmailVerifyStep({
     tone: 'error',
   }
   const helper: FieldHelper | null = verified
-    ? { icon: iconCheck, text: '인증됐어요', tone: 'success' }
+    ? { icon: iconCheck, text: '인증됐어요. 다음 단계로 넘어갈게요', tone: 'success' }
     : limitBlock
       ? limitHelper
       : tooMany

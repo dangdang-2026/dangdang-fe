@@ -60,6 +60,7 @@ import ProfilePage from '@/pages/my/ProfilePage'
 import TermsPage from '@/pages/my/TermsPage'
 import DueDatePage from '@/pages/onboarding/DueDatePage'
 import IntroPage from '@/pages/onboarding/IntroPage'
+import HomeScreenPage from '@/pages/onboarding/HomeScreenPage'
 import SlotsPage from '@/pages/onboarding/SlotsPage'
 import TermsAgreePage from '@/pages/onboarding/TermsAgreePage'
 import CheckGuidePage from '@/pages/postpartum/CheckGuidePage'
@@ -73,6 +74,9 @@ import NotFoundPage from '@/pages/NotFoundPage'
 import PrivacyPolicyPage from '@/pages/legal/PrivacyPolicyPage'
 import SensitiveConsentPage from '@/pages/legal/SensitiveConsentPage'
 import MarketingConsentPage from '@/pages/legal/MarketingConsentPage'
+import PrivacyVersionsPage from '@/pages/legal/PrivacyVersionsPage'
+import BlockedPage from '@/pages/my/BlockedPage'
+import ContactPage from '@/pages/my/ContactPage'
 import ServiceTermsPage from '@/pages/legal/ServiceTermsPage'
 import TransferNoticePage from '@/pages/legal/TransferNoticePage'
 
@@ -138,12 +142,14 @@ function App() {
         <Route path={ROUTES.ONBOARDING_TIMING} element={<TimingPage />} />
         <Route path={ROUTES.ONBOARDING_SLOTS} element={<SlotsPage />} />
         <Route path={ROUTES.ONBOARDING_DUE_DATE} element={<DueDatePage />} />
+        <Route path={ROUTES.ONBOARDING_HOME_SCREEN} element={<HomeScreenPage />} />
         {/* 약관 문서는 가입 전에도 봄 */}
         <Route path={ROUTES.LEGAL_PRIVACY} element={<PrivacyPolicyPage />} />
         <Route path={ROUTES.LEGAL_TERMS} element={<ServiceTermsPage />} />
         <Route path={ROUTES.LEGAL_SENSITIVE} element={<SensitiveConsentPage />} />
         <Route path={ROUTES.LEGAL_TRANSFER} element={<TransferNoticePage />} />
         <Route path={ROUTES.LEGAL_MARKETING} element={<MarketingConsentPage />} />
+        <Route path={ROUTES.LEGAL_PRIVACY_VERSIONS} element={<PrivacyVersionsPage />} />
         <Route element={<OnboardingGate />}>
           <Route path={ROUTES.ONBOARDING_TOUR} element={<TourPage />} />
           <Route element={<TabLayout />}>
@@ -189,6 +195,8 @@ function App() {
           <Route path={ROUTES.MY_COMMUNITY} element={<CommunitySettingsPage />} />
           <Route path={ROUTES.MY_NICKNAME} element={<NicknamePage />} />
           <Route path={ROUTES.MY_COMMUNITY_ACTIVITY} element={<CommunityActivityPage />} />
+          <Route path={ROUTES.MY_BLOCKED} element={<BlockedPage />} />
+          <Route path={ROUTES.MY_CONTACT} element={<ContactPage />} />
           <Route path={ROUTES.COMMUNITY_POST} element={<PostDetailPage />} />
           <Route path={ROUTES.COMMUNITY_WRITE} element={<WritePage />} />
           <Route path={ROUTES.COMMUNITY_POLICY} element={<PolicyPage />} />

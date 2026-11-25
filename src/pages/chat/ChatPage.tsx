@@ -41,6 +41,7 @@ function ChatPage() {
   const navigate = useNavigate()
   const messages = useChatStore((state) => state.messages)
   const consent = useAiStore((state) => state.chat)
+  const overseas = useAiStore((state) => state.overseas)
   const setConsent = useAiStore((state) => state.setConsent)
   const addMessage = useChatStore((state) => state.addMessage)
   const updateMessage = useChatStore((state) => state.updateMessage)
@@ -353,7 +354,14 @@ function ChatPage() {
             {loadingOlder ? '불러오는 중…' : '이전 대화 더 보기'}
           </button>
         )}
-        {loaded && messages.length === 0 && <ChatIntro onAsk={ask} />}
+        {loaded && messages.length === 0 && (
+          <ChatIntro
+            onAsk={ask}
+            recordsDeclined={consent !== null && !consent.agreed}
+            hideSuggestions={consent !== null && !consent.agreed && !overseas}
+            onOpenSettings={() => navigate(ROUTES.MY_AI)}
+          />
+        )}
         {messages.map(renderMessage)}
         {thinking && <ThinkingBubble label={thinking} />}
       </div>
