@@ -1,6 +1,7 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
 import type { Criteria, MeasureSlotKey } from '@/types/criteria'
 import { MEASURE_SLOT_ORDER } from '@/utils/criteria'
+import { toDateKey } from '@/utils/date'
 
 // 백엔드 MeasureSlot
 type ServerMeasureSlot = 'FASTING' | 'BREAKFAST_AFTER' | 'LUNCH_AFTER' | 'DINNER_AFTER' | 'BEDTIME'
@@ -75,8 +76,8 @@ export async function getCriteriaHistory() {
   return { versions: toCriteriaVersions(items), startedAt: items.at(-1)?.createdAt ?? null }
 }
 
-// 새 기준 등록. 서버는 덮어쓰지 않고 새 줄로 쌓고, 적용일은 오늘
-export async function createCriteria(criteria: CriteriaInput) {
+// 새 기준 등록. 서버는 덮어쓰지 않고 새 줄로 쌓음. 적용일을 안 주면 오늘
+export async function createCriteria(criteria: CriteriaInput, effectiveFrom?: Date) {
   await apiClient.post('/criteria-versions', {
     postMealMinutes:
       criteria.postMealHours === null ? null : Math.round(criteria.postMealHours * 60),
@@ -84,5 +85,6 @@ export async function createCriteria(criteria: CriteriaInput) {
     fastingTarget: criteria.targets.fasting,
     postMealTarget: criteria.targets.postMeal,
     sourceNote: criteria.source,
+    effectiveFrom: effectiveFrom ? toDateKey(effectiveFrom) : undefined,
   })
 }

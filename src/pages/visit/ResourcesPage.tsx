@@ -89,9 +89,10 @@ function ResourcesPage() {
               >
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5 leading-snug">
                   <span className="text-grey-600 text-xs leading-snug font-medium">
-                    {link.source}
+                    {link.source} · 확인일 {link.checkedOn}
                   </span>
                   <span className="text-t6 text-grey-900 leading-snug font-bold">{link.title}</span>
+                  <span className="text-grey-500 text-xs leading-snug">출처 · {link.domain}</span>
                 </span>
                 <img src={iconShare} alt="열기" width={18} height={18} />
               </button>

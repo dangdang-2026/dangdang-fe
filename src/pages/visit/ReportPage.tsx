@@ -17,9 +17,15 @@ import { getVisitReportPeriod, type VisitReportSave } from '@/api/visitReports'
 import { useHospitalStore } from '@/stores/useHospitalStore'
 import { keepVisitReport } from '@/stores/useReportStore'
 import { useVisitSaveStore, useVisitStore } from '@/stores/useVisitStore'
+import { useProfileStore } from '@/stores/useProfileStore'
 import { addDays, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 import { formatReportText } from '@/utils/report'
-import { createReportImage, saveReportImage } from '@/utils/reportImage'
+import {
+  createReportImage,
+  getReportFileName,
+  saveReportImage,
+  shareReportImage,
+} from '@/utils/reportImage'
 
 // 화면이 그려진 뒤 사진을 미리 만들기까지 기다리는 시간
 const PHOTO_DELAY_MS = 500
@@ -112,6 +118,7 @@ function ReportPage() {
       (hospitalParam === null
         ? (hospitals[0]?.id ?? null)
         : (hospitals.find((item) => item.name === hospitalParam)?.id ?? null)))
+  const profileName = useProfileStore((state) => state.name)
   const { report, title, periodLabel, criteriaLines } = useReportContent({
     from,
     to,
@@ -122,6 +129,7 @@ function ReportPage() {
       ? (servedPeriod.careSiteName ?? undefined)
       : (hospitalParam ?? undefined),
   })
+  const fileName = getReportFileName(hideName ? null : profileName, from, to)
 
   // 인쇄 창이 닫히면 PDF 저장 안내
   useEffect(() => {
@@ -211,10 +219,7 @@ function ReportPage() {
       // 미리 만든 게 없거나 낡았으면 지금 만듦(이때는 아이폰이 공유 창을 막으면 내려받기로)
       const blob =
         photo.current?.key === photoKey ? photo.current.blob : await createReportImage(node)
-      const result = await saveReportImage(
-        blob,
-        `당당-혈당기록-${toDateKey(from)}-${toDateKey(to)}.png`,
-      )
+      const result = await saveReportImage(blob, `${fileName}.png`)
       if (result === 'canceled') return
       keepReport()
       // 공유 창에서는 저장 대신 다른 앱으로 보낼 수도 있어 둘 다 맞는 말로
@@ -230,11 +235,27 @@ function ReportPage() {
     }
   }
 
+  // 공유하기: 리포트 이미지를 파일로. 파일 공유가 안 되면 글로 공유 · 복사
   const shareReport = async () => {
     if (waitPeriod()) return
     const text = formatReportText({ report, title, periodLabel, criteriaLines, questions })
     keepReport()
     setShareOpen(false)
+    const node = receiptRef.current
+    try {
+      const blob =
+        photo.current?.key === photoKey
+          ? photo.current.blob
+          : node
+            ? await createReportImage(node)
+            : null
+      if (blob) {
+        const result = await shareReportImage(blob, `${fileName}.png`)
+        if (result !== 'unsupported') return
+      }
+    } catch {
+      // 이미지를 못 만들면 글로
+    }
     try {
       if (navigator.share) {
         await navigator.share({ title: '진료 리포트', text })

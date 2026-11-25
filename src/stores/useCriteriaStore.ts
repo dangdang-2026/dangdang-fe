@@ -50,9 +50,10 @@ export async function syncCriteria() {
 }
 
 // 서버에 저장한 뒤 화면에 바로 반영. 서버 id는 이력을 다시 받아 채움
-export async function saveCriteria(criteria: CriteriaInput) {
-  await createCriteria(criteria)
-  useCriteriaStore.getState().addCriteria(criteria)
+// effectiveFrom: 진료일처럼 지난 날부터 적용. 없으면 오늘
+export async function saveCriteria(criteria: CriteriaInput, effectiveFrom?: Date) {
+  await createCriteria(criteria, effectiveFrom)
+  useCriteriaStore.getState().addCriteria(criteria, effectiveFrom)
   syncCriteria().catch(() => {})
 }
 

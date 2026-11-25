@@ -5,7 +5,7 @@ import SubPageHeader from '@/components/common/SubPageHeader'
 import Toast from '@/components/common/Toast'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { useCriteriaStore } from '@/stores/useCriteriaStore'
+import { saveCriteria, useCriteriaStore } from '@/stores/useCriteriaStore'
 import type { Criteria } from '@/types/criteria'
 import { formatMeasureSlots, formatPostMealHours } from '@/utils/criteria'
 import { formatMonthDay } from '@/utils/date'
@@ -14,7 +14,14 @@ import { formatMonthDay } from '@/utils/date'
 const formatGoal = (label: string, target: number | null) =>
   `${label} · ${target === null ? '목표 비어 있음' : `${target} 미만`}`
 
-function CriteriaVersionCard({ criteria, isCurrent }: { criteria: Criteria; isCurrent: boolean }) {
+type CriteriaVersionCardProps = {
+  criteria: Criteria
+  isCurrent: boolean
+  // 지난 기준이면 그 값으로 새 버전 만들기
+  onRevert?: () => void
+}
+
+function CriteriaVersionCard({ criteria, isCurrent, onRevert }: CriteriaVersionCardProps) {
   // 첫 버전은 가입 전부터 적용이라 날짜 대신 처음
   const dateLabel = criteria.version === 1 ? '처음' : formatMonthDay(new Date(criteria.appliedFrom))
 
@@ -29,10 +36,20 @@ function CriteriaVersionCard({ criteria, isCurrent }: { criteria: Criteria; isCu
           <span className="text-t7 text-grey-500">v{criteria.version}</span>
           <span className="text-grey-900 text-base leading-normal">{dateLabel}</span>
         </p>
-        {isCurrent && (
+        {isCurrent ? (
           <span className="bg-primary text-grey-900 rounded-full px-2.5 py-1 text-xs leading-normal font-bold">
             지금 기준
           </span>
+        ) : (
+          onRevert && (
+            <button
+              type="button"
+              className="text-t7 text-grey-700 bg-grey-100 rounded-tag h-7.5 px-3 font-medium"
+              onClick={onRevert}
+            >
+              이 기준으로 되돌리기
+            </button>
+          )
         )}
       </div>
       <p className="text-grey-800 text-sm leading-normal font-medium">
@@ -62,6 +79,26 @@ function CriteriaHistoryPage() {
   )
   const closeToast = useCallback(() => setToast(null), [])
   const latest = versions[versions.length - 1]
+  const [reverting, setReverting] = useState(false)
+
+  // Figma C-10 지난 기준 값 그대로 오늘부터 새 버전으로
+  const revert = async (criteria: Criteria) => {
+    if (reverting) return
+    setReverting(true)
+    try {
+      await saveCriteria({
+        postMealHours: criteria.postMealHours,
+        measureSlots: criteria.measureSlots,
+        targets: criteria.targets,
+        source: `v${criteria.version} 기준으로 되돌림`,
+      })
+      setToast(`v${criteria.version} 기준으로 되돌렸어요 · 오늘부터 적용돼요`)
+    } catch {
+      setToast('기준을 되돌리지 못했어요. 잠시 후 다시 시도해 주세요')
+    } finally {
+      setReverting(false)
+    }
+  }
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-30">
@@ -73,6 +110,7 @@ function CriteriaHistoryPage() {
             key={criteria.version}
             criteria={criteria}
             isCurrent={criteria === latest}
+            onRevert={() => void revert(criteria)}
           />
         ))}
       </ul>
