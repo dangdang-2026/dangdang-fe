@@ -9,10 +9,18 @@ type TargetChipProps = {
   low?: boolean
   // 연락 기준 메모가 있으면 확인하라고 안내
   hasMemo?: boolean
+  // 목표가 없을 때 병원 기준 정하러 가기
+  onSetTarget?: () => void
 }
 
 // Figma G-03~G-06, G-08 수치 아래 칩. 색은 목표 비교 결과만 표시
-function TargetChip({ comparison, target, low = false, hasMemo = false }: TargetChipProps) {
+function TargetChip({
+  comparison,
+  target,
+  low = false,
+  hasMemo = false,
+  onSetTarget,
+}: TargetChipProps) {
   const base = 'text-t7 flex items-center gap-1 rounded-full px-3 py-1.5 font-bold'
 
   if (low && comparison !== 'invalid') {
@@ -39,6 +47,14 @@ function TargetChip({ comparison, target, low = false, hasMemo = false }: Target
       <p className={`${base} bg-red-50 text-red-500`}>
         {GLUCOSE_MIN}~{GLUCOSE_MAX} 사이 숫자인지 확인해 주세요
       </p>
+    )
+  }
+  // Figma G-06 목표가 없으면 비교 대신 병원 기준으로 가는 링크
+  if (onSetTarget) {
+    return (
+      <button type="button" className={`${base} bg-grey-100 text-grey-700`} onClick={onSetTarget}>
+        병원 목표를 적으면 비교해 드려요 ›
+      </button>
     )
   }
   return (

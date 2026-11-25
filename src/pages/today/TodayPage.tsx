@@ -3,8 +3,10 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { canServerPush, subscribePush } from '@/api/push'
 import { openReminder, snoozeReminder } from '@/api/reminders'
 import EmergencyBlock from '@/components/common/EmergencyBlock'
+import TimeWheelSheet from '@/components/common/TimeWheelSheet'
 import Toast from '@/components/common/Toast'
 import NotificationDeniedSheet from '@/components/today/NotificationDeniedSheet'
+import HighMemoCard from '@/components/today/HighMemoCard'
 import KakaoLinkSheet from '@/components/auth/KakaoLinkSheet'
 import { linkKakao, startKakaoLogin } from '@/api/auth'
 import { useAuthStore } from '@/stores/useAuthStore'
@@ -37,7 +39,12 @@ import { useCriteria } from '@/hooks/useCriteria'
 import { snoozeOnDevice } from '@/hooks/useMeasureReminder'
 import { useTodaySync } from '@/hooks/useTodaySync'
 import { saveHospitalized, useProfileStore } from '@/stores/useProfileStore'
-import { saveMealContent, saveMealStart, useGlucoseStore } from '@/stores/useGlucoseStore'
+import {
+  editMealStart,
+  saveMealContent,
+  saveMealStart,
+  useGlucoseStore,
+} from '@/stores/useGlucoseStore'
 import { useInboxStore } from '@/stores/useInboxStore'
 import { saveNotificationSettings, useNotificationStore } from '@/stores/useNotificationStore'
 import { useVisitStore } from '@/stores/useVisitStore'
@@ -58,6 +65,8 @@ import {
   getMissedMeals,
   getNextMealType,
   getSlotLabel,
+  getTarget,
+  compareToTarget,
   isDayEnd,
   measuresAfter,
   type HeroState,
@@ -137,6 +146,8 @@ function TodayPage() {
   const [memoSheet, setMemoSheet] = useState(false)
   const [birthSheet, setBirthSheet] = useState(false)
   const [permissionSheet, setPermissionSheet] = useState(false)
+  // 시작 시각을 고치는 끼니
+  const [editingStart, setEditingStart] = useState<Meal | null>(null)
   // 이미 거절한 알림 권한은 브라우저가 다시 안 물어봐서 설정에서 켜는 법
   const [deniedSheet, setDeniedSheet] = useState(false)
   const permissionAsked = useNotificationStore((state) => state.permissionAsked)
@@ -166,12 +177,21 @@ function TodayPage() {
       ? record
       : latest
   }, null)
-  const showLowBlock =
+  const justEntered =
     !hospitalized &&
     !!lastEntered &&
-    lastEntered.value < GLUCOSE_LOW &&
     now.getTime() - new Date(lastEntered.enteredAt ?? lastEntered.measuredAt).getTime() <
       JUST_SAVED_MS
+  const showLowBlock = justEntered && !!lastEntered && lastEntered.value < GLUCOSE_LOW
+  // 목표보다 높은 값이면 연락 메모 안내(H-06c). 목표를 안 적었으면 비교하지 않음
+  const lastTarget = lastEntered
+    ? getTarget(lastEntered.slot, criteria.targets, criteria.postMealHours)
+    : null
+  const showHighCard =
+    justEntered &&
+    !!lastEntered &&
+    lastTarget !== null &&
+    compareToTarget(lastEntered.value, lastTarget) === 'high'
   // 출산 예정일이 가까우면 입원·출산 입구. 입원 중이면 안 보임
   const nearDue = !hospitalized && (getPregnancyAge(dueDate, now)?.weeks ?? 0) >= BIRTH_ENTRY_WEEKS
   // 저녁 이후 놓친 식후 측정은 오늘 기록에 나중에 채우기 줄로
@@ -315,6 +335,24 @@ function TodayPage() {
   const closeMealSheet = useCallback(() => setWritingMeal(null), [])
   const closeToast = useCallback(() => setToast(null), [])
 
+  // 시작 시각 고치기. 같은 날 그 시각으로, 지금보다 늦으면 안 됨. 서버가 식후 알림도 다시 잡음
+  const changeMealStart = async (meal: Meal, time: string) => {
+    setEditingStart(null)
+    const [hours, minutes] = time.split(':').map(Number)
+    const startedAt = new Date(meal.startedAt)
+    startedAt.setHours(hours, minutes, 0, 0)
+    if (startedAt.getTime() > Date.now()) {
+      setToast('지금보다 늦은 시각은 고를 수 없어요')
+      return
+    }
+    try {
+      await editMealStart(meal.id, startedAt)
+      setToast(`식사 시작을 ${time}로 고쳤어요`)
+    } catch {
+      setToast('시작 시각을 고치지 못했어요. 잠시 후 다시 시도해 주세요')
+    }
+  }
+
   // 받아 둔 카카오 토큰이 있으면 바로 연결, 없거나 10분 지났으면 카카오를 다녀와서 연결
   const linkKakaoAccount = async () => {
     if (linking) return
@@ -406,6 +444,7 @@ function TodayPage() {
             onInputGlucose={openGlucoseSheet}
             onSkipMeal={skipMeal}
             onWriteMeal={setWritingMeal}
+            onEditMealStart={setEditingStart}
             onFillMissed={fillMissed}
             onSnooze={snoozeMeasure}
           />
@@ -415,6 +454,11 @@ function TodayPage() {
       {showLowBlock && (
         <div className="mt-5">
           <EmergencyBlock onWriteMemo={() => setMemoSheet(true)} />
+        </div>
+      )}
+      {showHighCard && (
+        <div className="mt-5">
+          <HighMemoCard onWriteMemo={() => setMemoSheet(true)} />
         </div>
       )}
       {nearDue && (
@@ -529,6 +573,14 @@ function TodayPage() {
           loading={linking}
           onLink={() => void linkKakaoAccount()}
           onClose={() => setKakaoLinkOffer(false)}
+        />
+      )}
+      {editingStart && (
+        <TimeWheelSheet
+          title="식사 시작 시각"
+          value={formatTime(new Date(editingStart.startedAt))}
+          onDone={(time) => void changeMealStart(editingStart, time)}
+          onClose={() => setEditingStart(null)}
         />
       )}
       {deniedSheet && <NotificationDeniedSheet onClose={() => setDeniedSheet(false)} />}
