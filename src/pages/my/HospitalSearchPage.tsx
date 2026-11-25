@@ -24,6 +24,8 @@ function HospitalSearchPage() {
   const setDraft = useHospitalStore((state) => state.setDraft)
   const [query, setQuery] = useState('')
   const [search, setSearch] = useState<SearchResult | null>(null)
+  // 다시 찾기를 누르면 같은 검색어로 한 번 더
+  const [retry, setRetry] = useState(0)
   const keyword = query.trim()
   const searchable = keyword.length >= SEARCH_KEYWORD_MIN
 
@@ -46,7 +48,7 @@ function HospitalSearchPage() {
       stale = true
       window.clearTimeout(timer)
     }
-  }, [keyword, searchable])
+  }, [keyword, searchable, retry])
 
   // 지금 검색어의 결과만 보여 줌
   const current = searchable && search?.keyword === keyword ? search : null
@@ -97,18 +99,44 @@ function HospitalSearchPage() {
           />
         </label>
 
-        {notFound || failed ? (
+        {failed ? (
+          // Figma C-21c 심평원 연결이 안 됨
           <div className="flex flex-col gap-6 pt-16">
             <div className="flex flex-col items-center gap-1.5 text-center">
               <p className="text-grey-900 text-lg leading-snug font-bold">
-                {failed
-                  ? '지금은 병원을 찾을 수 없어요'
-                  : `‘${keyword}’${objectParticle(keyword)} 찾지 못했어요`}
+                병원 정보를 불러오지 못했어요
               </p>
               <p className="text-t7 text-grey-600">
-                {failed
-                  ? '잠시 후 다시 찾거나, 직접 적어 주세요.'
-                  : '이름 일부만 넣어 다시 찾거나, 직접 적어 주세요.'}
+                건강보험심사평가원 연결이 잠시 원활하지 않아요.
+                <br />
+                잠시 뒤 다시 찾거나, 병원 이름을 직접 적어 주세요.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                className="text-subtitle-1 bg-primary h-14 rounded-xl leading-none font-bold text-white"
+                onClick={() => setRetry((count) => count + 1)}
+              >
+                다시 찾기
+              </button>
+              <button
+                type="button"
+                className="text-grey-700 h-11 text-sm font-bold"
+                onClick={() => choose({ name: keyword }, true)}
+              >
+                직접 적기
+              </button>
+            </div>
+          </div>
+        ) : notFound ? (
+          <div className="flex flex-col gap-6 pt-16">
+            <div className="flex flex-col items-center gap-1.5 text-center">
+              <p className="text-grey-900 text-lg leading-snug font-bold">
+                ‘{keyword}’{objectParticle(keyword)} 찾지 못했어요
+              </p>
+              <p className="text-t7 text-grey-600">
+                이름 일부만 넣어 다시 찾거나, 직접 적어 주세요.
               </p>
             </div>
             <button

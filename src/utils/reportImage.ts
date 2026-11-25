@@ -2,6 +2,33 @@ import { getFontEmbedCSS, toBlob } from 'html-to-image'
 
 export type ReportImageResult = 'shared' | 'downloaded' | 'canceled'
 
+// Figma C-07b · C-07d 파일 이름. 예: 윤지수_혈당기록_1001-1013, 이름을 가리면 혈당기록_1001-1013
+export function getReportFileName(name: string | null, from: Date, to: Date) {
+  const monthDay = (date: Date) =>
+    `${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`
+  const base = `혈당기록_${monthDay(from)}-${monthDay(to)}`
+  // 파일 이름에 못 쓰는 글자는 뺌
+  const safeName = name?.replace(/[\\/:*?"<>|\s]/g, '')
+  return safeName ? `${safeName}_${base}` : base
+}
+
+// 리포트 이미지를 파일로 공유. 파일 공유가 안 되는 기기면 'unsupported', 시도했다 막히면 'failed'
+export async function shareReportImage(
+  blob: Blob,
+  fileName: string,
+): Promise<'shared' | 'canceled' | 'unsupported' | 'failed'> {
+  const file = new File([blob], fileName, { type: 'image/png' })
+  if (!navigator.canShare?.({ files: [file] })) return 'unsupported'
+  try {
+    await navigator.share({ files: [file], title: '진료 리포트' })
+    return 'shared'
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return 'canceled'
+    // 공유 창이 막힘(누른 직후가 아님 등). 다시 누르게 해야 함
+    return 'failed'
+  }
+}
+
 // 아이폰 · 아이패드만 공유 창(이미지 저장). 안드로이드 공유 창엔 갤러리 저장이 없어 내려받기
 const isAppleMobile = () =>
   /iPhone|iPad|iPod/.test(navigator.userAgent) ||

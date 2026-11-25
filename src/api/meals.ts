@@ -87,6 +87,11 @@ async function getMealPage(cursor: Cursor | null) {
   return data.data
 }
 
+// 식사 시작 시각 고치기. 서버가 식후 알림도 새 시각으로 다시 잡음
+export async function updateMealStart(mealId: string, startedAt: Date) {
+  await apiClient.patch(`/meals/${mealId}`, { startedAt: startedAt.toISOString() })
+}
+
 // 식사 기록 지우기. 서버가 그 끼니의 식후 알림도 취소함
 export async function deleteMeal(mealId: string) {
   await apiClient.delete(`/meals/${mealId}`)

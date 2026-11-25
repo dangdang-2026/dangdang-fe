@@ -17,9 +17,15 @@ import { getVisitReportPeriod, type VisitReportSave } from '@/api/visitReports'
 import { useHospitalStore } from '@/stores/useHospitalStore'
 import { keepVisitReport } from '@/stores/useReportStore'
 import { useVisitSaveStore, useVisitStore } from '@/stores/useVisitStore'
+import { useProfileStore } from '@/stores/useProfileStore'
 import { addDays, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 import { formatReportText } from '@/utils/report'
-import { createReportImage, saveReportImage } from '@/utils/reportImage'
+import {
+  createReportImage,
+  getReportFileName,
+  saveReportImage,
+  shareReportImage,
+} from '@/utils/reportImage'
 
 // 화면이 그려진 뒤 사진을 미리 만들기까지 기다리는 시간
 const PHOTO_DELAY_MS = 500
@@ -32,6 +38,10 @@ function ReportPage() {
   // 병원 밖으로 보낼 때 이름 빼기
   const [hideName, setHideName] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  // 파일 공유가 막혔을 때 토스트에서 다시 눌러 글로 보내기
+  const [toastAction, setToastAction] = useState<{ label: string; onClick: () => void } | null>(
+    null,
+  )
   // 사진으로 저장할 리포트 카드
   const receiptRef = useRef<HTMLDivElement>(null)
   const [savingPhoto, setSavingPhoto] = useState(false)
@@ -112,6 +122,7 @@ function ReportPage() {
       (hospitalParam === null
         ? (hospitals[0]?.id ?? null)
         : (hospitals.find((item) => item.name === hospitalParam)?.id ?? null)))
+  const profileName = useProfileStore((state) => state.name)
   const { report, title, periodLabel, criteriaLines } = useReportContent({
     from,
     to,
@@ -122,6 +133,7 @@ function ReportPage() {
       ? (servedPeriod.careSiteName ?? undefined)
       : (hospitalParam ?? undefined),
   })
+  const fileName = getReportFileName(hideName ? null : profileName, from, to)
 
   // 인쇄 창이 닫히면 PDF 저장 안내
   useEffect(() => {
@@ -211,10 +223,7 @@ function ReportPage() {
       // 미리 만든 게 없거나 낡았으면 지금 만듦(이때는 아이폰이 공유 창을 막으면 내려받기로)
       const blob =
         photo.current?.key === photoKey ? photo.current.blob : await createReportImage(node)
-      const result = await saveReportImage(
-        blob,
-        `당당-혈당기록-${toDateKey(from)}-${toDateKey(to)}.png`,
-      )
+      const result = await saveReportImage(blob, `${fileName}.png`)
       if (result === 'canceled') return
       keepReport()
       // 공유 창에서는 저장 대신 다른 앱으로 보낼 수도 있어 둘 다 맞는 말로
@@ -230,11 +239,8 @@ function ReportPage() {
     }
   }
 
-  const shareReport = async () => {
-    if (waitPeriod()) return
-    const text = formatReportText({ report, title, periodLabel, criteriaLines, questions })
-    keepReport()
-    setShareOpen(false)
+  // 글로 공유. 공유 창이 없으면 복사
+  const shareText = async (text: string) => {
     try {
       if (navigator.share) {
         await navigator.share({ title: '진료 리포트', text })
@@ -247,8 +253,32 @@ function ReportPage() {
     }
   }
 
+  // 공유하기: 리포트 이미지를 파일로. 파일 공유가 안 되는 기기면 바로 글로
+  const shareReport = async () => {
+    if (waitPeriod()) return
+    const text = formatReportText({ report, title, periodLabel, criteriaLines, questions })
+    keepReport()
+    setShareOpen(false)
+    // 이미지를 지금 만들면 누른 직후가 아니라 공유 창이 막혀서, 미리 만든 게 있을 때만 파일로
+    const blob = photo.current?.key === photoKey ? photo.current.blob : null
+    if (blob) {
+      const result = await shareReportImage(blob, `${fileName}.png`)
+      if (result === 'shared' || result === 'canceled') return
+      // 시도했다 막혔으면 공유 창을 또 못 띄우니 새로 누르게
+      if (result === 'failed') {
+        setToastAction({ label: '글로 보내기', onClick: () => void shareText(text) })
+        setToast('파일로 공유하지 못했어요')
+        return
+      }
+    }
+    await shareText(text)
+  }
+
   const closeShare = useCallback(() => setShareOpen(false), [])
-  const closeToast = useCallback(() => setToast(null), [])
+  const closeToast = useCallback(() => {
+    setToast(null)
+    setToastAction(null)
+  }, [])
 
   return (
     <>
@@ -304,7 +334,7 @@ function ReportPage() {
             onClose={closeShare}
           />
         )}
-        {toast && <Toast message={toast} onClose={closeToast} />}
+        {toast && <Toast message={toast} action={toastAction ?? undefined} onClose={closeToast} />}
       </main>
 
       {/* 인쇄할 때만 보이는 A4 리포트 */}

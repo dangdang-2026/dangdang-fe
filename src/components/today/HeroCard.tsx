@@ -18,6 +18,8 @@ type HeroCardProps = {
   onInputGlucose: () => void
   onSkipMeal: (mealId: string) => void
   onWriteMeal: (meal: Meal) => void
+  // 식사 중 카드에서 시작 시각 고치기
+  onEditMealStart: (meal: Meal) => void
   // 하루 정리에서 비어 있는 식후 측정 채우기
   onFillMissed: (meal: Meal, dueAt: Date) => void
   // 측정 알림 10분 뒤 다시
@@ -33,6 +35,7 @@ function HeroCard({
   onInputGlucose,
   onSkipMeal,
   onWriteMeal,
+  onEditMealStart,
   onFillMissed,
   onSnooze,
 }: HeroCardProps) {
@@ -55,8 +58,8 @@ function HeroCard({
           meal={state.meal}
           dueAt={state.dueAt}
           now={now}
-          onInputGlucose={onInputGlucose}
           onWriteMeal={() => onWriteMeal(state.meal)}
+          onEditStart={() => onEditMealStart(state.meal)}
         />
       )
     case 'eating-open':
@@ -66,8 +69,8 @@ function HeroCard({
           meal={state.meal}
           free={state.kind === 'eating-free'}
           postMealHours={postMealHours}
-          onInputGlucose={onInputGlucose}
           onWriteMeal={() => onWriteMeal(state.meal)}
+          onEditStart={() => onEditMealStart(state.meal)}
         />
       )
     case 'measure-time':

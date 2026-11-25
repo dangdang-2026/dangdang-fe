@@ -50,10 +50,12 @@ export async function syncCriteria() {
 }
 
 // 서버에 저장한 뒤 화면에 바로 반영. 서버 id는 이력을 다시 받아 채움
-export async function saveCriteria(criteria: CriteriaInput) {
-  await createCriteria(criteria)
-  useCriteriaStore.getState().addCriteria(criteria)
-  syncCriteria().catch(() => {})
+// effectiveFrom: 진료일처럼 지난 날부터 적용. 없으면 오늘
+export async function saveCriteria(criteria: CriteriaInput, effectiveFrom?: Date) {
+  await createCriteria(criteria, effectiveFrom)
+  useCriteriaStore.getState().addCriteria(criteria, effectiveFrom)
+  // 동기화가 끝나야 다음 저장이 이 응답에 덮이지 않음. 실패해도 저장은 된 것
+  await syncCriteria().catch(() => {})
 }
 
 // 첫 진입 설정. 1번 기준부터 다시 시작

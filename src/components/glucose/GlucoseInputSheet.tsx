@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router'
 import iconClock from '@/assets/icons/clock-sm.svg'
 import iconInfo from '@/assets/icons/info.svg'
 import BottomSheet from '@/components/common/BottomSheet'
@@ -10,11 +11,13 @@ import MeasuredTimePicker from '@/components/glucose/MeasuredTimePicker'
 import TargetChip from '@/components/glucose/TargetChip'
 import ContactMemoSheet from '@/components/my/ContactMemoSheet'
 import { GLUCOSE_LOW, GLUCOSE_MAX_DIGITS, ON_TIME_MS } from '@/constants/glucose'
+import { ROUTES } from '@/constants/routes'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { saveRecord } from '@/stores/useGlucoseStore'
 import { useProfileStore } from '@/stores/useProfileStore'
+import type { MeasureSlotKey } from '@/types/criteria'
 import type { GlucoseRecord, MeasureTarget } from '@/types/glucose'
-import { getCriteriaAt } from '@/utils/criteria'
+import { MEASURE_SLOT_LABEL, getCriteriaAt } from '@/utils/criteria'
 import { formatMonthDay, formatTime } from '@/utils/date'
 import { compareToTarget, getSlotLabel, getTarget, isValidGlucose } from '@/utils/glucose'
 
@@ -46,13 +49,29 @@ function getMealStart(dueAt: string | undefined, hours: number | null) {
 }
 
 // Figma G-01~G-08 혈당 입력 바텀시트
+// 시점 칩 하나 → 측정 대상. 식후는 그 끼니
+const SLOT_TARGET: Record<MeasureSlotKey, MeasureTarget> = {
+  fasting: { slot: 'fasting' },
+  breakfast: { slot: 'post-meal', mealType: 'breakfast' },
+  lunch: { slot: 'post-meal', mealType: 'lunch' },
+  dinner: { slot: 'post-meal', mealType: 'dinner' },
+  bedtime: { slot: 'bedtime' },
+}
+
+const isSameSlot = (a: MeasureTarget, b: MeasureTarget) =>
+  a.slot === b.slot && (a.slot !== 'post-meal' || a.mealType === b.mealType)
+
 function GlucoseInputSheet({
-  target,
+  target: initialTarget,
   onClose,
   onSaved,
   onSnooze,
   backfillAt,
 }: GlucoseInputSheetProps) {
+  const navigate = useNavigate()
+  // 지금 잴 끼니가 없어 시간대로 짐작했으면 시점을 고를 수 있게(Figma G-06)
+  const guessed = !initialTarget.mealId
+  const [target, setTarget] = useState(initialTarget)
   // 시트를 연 시각. 늦게 잼이면 잰 시각을 이 앞으로 고름
   const [openedAt] = useState(() => backfillAt ?? new Date())
   const [measuredAt, setMeasuredAt] = useState(openedAt)
@@ -75,6 +94,25 @@ function GlucoseInputSheet({
     measuredAt,
   )
 
+  // 공복 · 세 끼 식후는 늘, 자기 전은 병원 기준에 있을 때만
+  const slotOptions: MeasureSlotKey[] = [
+    'fasting',
+    'breakfast',
+    'lunch',
+    'dinner',
+    ...(criteria.measureSlots.includes('bedtime') ? (['bedtime'] as const) : []),
+  ]
+  // 방향키로 앞뒤 시점을 고르고 그 칩으로 포커스. Tab은 고른 칩 하나만 거침
+  const moveSlot = (event: KeyboardEvent<HTMLDivElement>) => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key]
+    if (!step) return
+    event.preventDefault()
+    const index = slotOptions.findIndex((key) => isSameSlot(target, SLOT_TARGET[key]))
+    const next = (index + step + slotOptions.length) % slotOptions.length
+    setTarget(SLOT_TARGET[slotOptions[next]])
+    const radios = event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]')
+    radios[next]?.focus()
+  }
   const value = Number(digits)
   const goal = getTarget(target.slot, criteria.targets, criteria.postMealHours)
   const comparison = compareToTarget(value, goal)
@@ -118,7 +156,9 @@ function GlucoseInputSheet({
       <div className="flex items-center justify-between">
         <div className="flex flex-col items-start gap-1">
           <h2 className="text-t4 text-grey-900">
-            {getSlotLabel(target.slot, target.mealType, criteria.postMealHours)}
+            {guessed
+              ? '언제 잰 혈당인가요?'
+              : getSlotLabel(target.slot, target.mealType, criteria.postMealHours)}
           </h2>
           <p className="text-grey-800 flex items-center gap-1 rounded-full bg-yellow-50 px-2.5 py-1 text-xs leading-normal font-bold">
             <img src={iconClock} alt="" width={12} height={12} />
@@ -138,13 +178,50 @@ function GlucoseInputSheet({
         )}
       </div>
 
+      {guessed && (
+        <div
+          className="grid grid-cols-4 gap-2"
+          role="radiogroup"
+          aria-label="측정 시점"
+          onKeyDown={moveSlot}
+        >
+          {slotOptions.map((key) => {
+            const selected = isSameSlot(target, SLOT_TARGET[key])
+            return (
+              <button
+                key={key}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                tabIndex={selected ? 0 : -1}
+                className={`h-11 rounded-xl text-sm font-medium ${
+                  selected ? 'bg-grey-900 text-white' : 'bg-grey-100 text-grey-700'
+                }`}
+                onClick={() => setTarget(SLOT_TARGET[key])}
+              >
+                {MEASURE_SLOT_LABEL[key]}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       <div className="flex flex-col items-center gap-1.5 py-3.5">
         <p className="flex items-baseline gap-1.5" aria-live="polite">
           <span className={`text-display ${numberColor}`}>{digits || '0'}</span>
           <span className="text-grey-400 text-base leading-normal font-medium">mg/dL</span>
         </p>
         {showResult && (
-          <TargetChip comparison={comparison} target={goal} low={isLow} hasMemo={!!contactMemo} />
+          <TargetChip
+            comparison={comparison}
+            target={goal}
+            low={isLow}
+            hasMemo={!!contactMemo}
+            onSetTarget={() => {
+              onClose()
+              navigate(ROUTES.MY_CRITERIA)
+            }}
+          />
         )}
       </div>
 
