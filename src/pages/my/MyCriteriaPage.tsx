@@ -4,6 +4,7 @@ import iconEdit from '@/assets/icons/edit.svg'
 import iconGuideEdit from '@/assets/icons/meal-guide/edit.svg'
 import iconUtensils from '@/assets/icons/meal-guide/utensils.svg'
 import iconPhone from '@/assets/icons/phone.svg'
+import ConfirmSheet from '@/components/common/ConfirmSheet'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import Toast from '@/components/common/Toast'
 import FastingTimeRow from '@/components/criteria/FastingTimeRow'
@@ -19,7 +20,7 @@ import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
 import { saveCriteria } from '@/stores/useCriteriaStore'
 import { useMealGuideStore } from '@/stores/useMealGuideStore'
 import { useProfileStore, type CareMode } from '@/stores/useProfileStore'
-import type { Criteria, MeasureSlotKey } from '@/types/criteria'
+import type { MeasureSlotKey } from '@/types/criteria'
 import {
   MEASURE_SLOT_LABEL,
   MEASURE_SLOT_ORDER,
@@ -43,9 +44,12 @@ function formatGuideMeta(receivedOn: string, place: string, hasPhoto: boolean) {
     .join(' · ')
 }
 
-type CriteriaChanges = Partial<Pick<Criteria, 'postMealHours' | 'measureSlots' | 'targets'>>
+// 예: 1시간, 아직 모르면 모름
+const formatHours = (hours: number | null) => (hours ? formatDuration(hours) : '모름')
+// 비우면 비교 안 함
+const formatTarget = (value: number | null) => (value === null ? '비교 안 함' : `${value}`)
 
-// Figma M-03 병원 기준 · 관리 모드. 바꾸면 바로 새 기준으로 저장(진료 탭 이력에 남음)
+// Figma M-03 병원 기준 · 관리 모드 · M-03b 저장 확인. 측정 시점 · 재는 때 · 목표는 모아서 저장(진료 탭 이력에 남음)
 function MyCriteriaPage() {
   const hospital = usePrimaryHospital()
   const navigate = useNavigate()
@@ -54,6 +58,10 @@ function MyCriteriaPage() {
   const criteria = useCriteria()
   const { careMode, contactMemo, updateProfile } = useProfileStore()
   const [saving, setSaving] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  // 저장 전까지 고친 값
+  const [hours, setHours] = useState(criteria.postMealHours)
+  const [slots, setSlots] = useState(criteria.measureSlots)
   const [fasting, setFasting] = useState(String(criteria.targets.fasting ?? ''))
   const [postMeal, setPostMeal] = useState(String(criteria.targets.postMeal ?? ''))
   const [editingMemo, setEditingMemo] = useState(false)
@@ -62,23 +70,55 @@ function MyCriteriaPage() {
   const closeMemo = useCallback(() => setEditingMemo(false), [])
 
   const appliedFrom = new Date(criteria.appliedFrom)
-  const postMealLabel = criteria.postMealHours
-    ? `식후 ${formatDuration(criteria.postMealHours)}`
-    : '식후'
+  const postMealLabel = hours ? `식후 ${formatDuration(hours)}` : '식후'
   const targetsValid = isValidTarget(fasting) && isValidTarget(postMeal)
+  const targets = { fasting: toTarget(fasting), postMeal: toTarget(postMeal) }
+  const hoursChanged = hours !== criteria.postMealHours
+  const slotsChanged = slots.join() !== criteria.measureSlots.join()
+  const fastingChanged = targets.fasting !== criteria.targets.fasting
+  const postMealChanged = targets.postMeal !== criteria.targets.postMeal
+  const changed = hoursChanged || slotsChanged || fastingChanged || postMealChanged
+
+  // 확인 시트 요약. 예: 식후 측정 1시간 → 2시간
+  const summary = [
+    hoursChanged && {
+      label: '식후 측정',
+      value: `${formatHours(criteria.postMealHours)} → ${formatHours(hours)}`,
+    },
+    slotsChanged && {
+      label: '재는 때',
+      value: slots.map((key) => MEASURE_SLOT_LABEL[key]).join(' · '),
+    },
+    fastingChanged && {
+      label: '공복 목표',
+      value: `${formatTarget(criteria.targets.fasting)} → ${formatTarget(targets.fasting)} mg/dL 미만`,
+    },
+    postMealChanged && {
+      label: '식후 목표',
+      value: `${formatTarget(criteria.targets.postMeal)} → ${formatTarget(targets.postMeal)} mg/dL 미만`,
+    },
+  ].filter((row) => !!row)
+  const today = new Date()
+  const notes = [
+    hoursChanged &&
+      (hours
+        ? `· 알림이 식사 시작 ${formatDuration(hours)} 뒤로 바뀌어요`
+        : '· 식후 측정 알림은 보내지 않아요'),
+    `· ${today.getMonth() + 1}월 ${today.getDate()}일 기록부터 새 기준으로 세요`,
+  ].filter(Boolean)
 
   // 같은 날 다시 바꾸면 그날 버전을 덮어씀. 저장 중엔 이전 기준 위에 겹쳐 저장하지 않게 막음
-  const save = async (changes: CriteriaChanges) => {
+  const save = async () => {
     if (saving) return
     setSaving(true)
     try {
       await saveCriteria({
         source: '마이에서 직접 입력',
-        postMealHours: criteria.postMealHours,
-        measureSlots: criteria.measureSlots,
-        targets: criteria.targets,
-        ...changes,
+        postMealHours: hours,
+        measureSlots: slots,
+        targets,
       })
+      setConfirming(false)
       setToast('병원 기준을 바꿨어요 · 진료 탭 이력에 남아요')
     } catch {
       setToast('기준을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
@@ -88,27 +128,12 @@ function MyCriteriaPage() {
   }
 
   const toggleSlot = (key: MeasureSlotKey) => {
-    const next = criteria.measureSlots.includes(key)
-      ? criteria.measureSlots.filter((item) => item !== key)
-      : [...criteria.measureSlots, key]
+    const next = slots.includes(key) ? slots.filter((item) => item !== key) : [...slots, key]
     if (next.length === 0) {
       setToast('재는 때를 하나 이상 골라 주세요')
       return
     }
-    void save({ measureSlots: MEASURE_SLOT_ORDER.filter((item) => next.includes(item)) })
-  }
-
-  // 칸을 벗어날 때 바뀐 목표만 저장
-  const saveTargets = () => {
-    if (!targetsValid) return
-    const targets = { fasting: toTarget(fasting), postMeal: toTarget(postMeal) }
-    if (
-      targets.fasting === criteria.targets.fasting &&
-      targets.postMeal === criteria.targets.postMeal
-    ) {
-      return
-    }
-    void save({ targets })
+    setSlots(MEASURE_SLOT_ORDER.filter((item) => next.includes(item)))
   }
 
   return (
@@ -118,12 +143,7 @@ function MyCriteriaPage() {
       <div className="mt-3.5 flex flex-col gap-5.5">
         <section className="flex flex-col gap-2">
           <h2 className="text-grey-700 text-sm leading-normal font-bold">측정 시점</h2>
-          <PostMealTimeSegment
-            value={criteria.postMealHours}
-            onChange={(hours) => {
-              if (hours !== criteria.postMealHours) void save({ postMealHours: hours })
-            }}
-          />
+          <PostMealTimeSegment value={hours} onChange={setHours} />
         </section>
 
         <section className="flex flex-col gap-2">
@@ -133,7 +153,7 @@ function MyCriteriaPage() {
               <FoodChip
                 key={key}
                 name={MEASURE_SLOT_LABEL[key]}
-                selected={criteria.measureSlots.includes(key)}
+                selected={slots.includes(key)}
                 onClick={() => toggleSlot(key)}
               />
             ))}
@@ -141,7 +161,7 @@ function MyCriteriaPage() {
           <p className="text-grey-600 text-xs leading-normal">
             병원에서 재라고 한 때만 켜 두면 그때만 알려 드려요
           </p>
-          {criteria.measureSlots.includes('fasting') && (
+          {slots.includes('fasting') && (
             <FastingTimeRow
               onChanged={(time) => setToast(`공복 알림을 ${formatAlarmTime(time)}로 바꿨어요`)}
               onFailed={() =>
@@ -159,13 +179,8 @@ function MyCriteriaPage() {
             </span>
           </h2>
           <div className="flex gap-2.5">
-            <TargetField label="공복" value={fasting} onChange={setFasting} onBlur={saveTargets} />
-            <TargetField
-              label={postMealLabel}
-              value={postMeal}
-              onChange={setPostMeal}
-              onBlur={saveTargets}
-            />
+            <TargetField label="공복" value={fasting} onChange={setFasting} />
+            <TargetField label={postMealLabel} value={postMeal} onChange={setPostMeal} />
           </div>
           {targetsValid ? (
             <p className="text-grey-600 text-xs leading-normal">
@@ -250,6 +265,29 @@ function MyCriteriaPage() {
         </button>
       </div>
 
+      {/* 측정 시점 · 재는 때 · 목표를 바꾸기 전엔 비활성 */}
+      <div className="sticky bottom-0 -mx-5 mt-8 bg-white px-5 pt-3 pb-[max(--spacing(7),env(safe-area-inset-bottom))]">
+        <button
+          type="button"
+          disabled={!changed || !targetsValid}
+          className="text-subtitle-1 bg-primary disabled:bg-grey-100 disabled:text-grey-400 h-14 w-full rounded-xl leading-none font-bold text-white"
+          onClick={() => setConfirming(true)}
+        >
+          저장
+        </button>
+      </div>
+
+      {confirming && (
+        <ConfirmSheet
+          title="바꾼 내용을 저장할까요?"
+          summary={summary}
+          description={notes.join('\n')}
+          confirmLabel="저장"
+          loading={saving}
+          onConfirm={() => void save()}
+          onClose={() => setConfirming(false)}
+        />
+      )}
       {editingMemo && (
         <ContactMemoSheet
           initialMemo={contactMemo}
