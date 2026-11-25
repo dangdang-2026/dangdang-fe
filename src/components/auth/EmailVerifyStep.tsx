@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useEffectEvent, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useEffectEvent, useRef, useState, type FormEvent } from 'react'
 import {
   VERIFY_CODE_LENGTH,
   VERIFY_MAX_FAILURES,
@@ -109,6 +109,8 @@ function EmailVerifyStep({
   const [sheet, setSheet] = useState(false)
   const [toast, setToast] = useState<ToastKind | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
+  // 가입 마무리 요청 중. 확인 · 자동 넘김이 겹쳐도 가입은 한 번만
+  const completingRef = useRef(false)
 
   const remaining = sentAt === null ? 0 : Math.max(0, VERIFY_TTL_MS - (now - sentAt))
   const verified = status === 'verified'
@@ -218,12 +220,12 @@ function EmailVerifyStep({
   }
 
   const complete = async () => {
-    // 자동으로 넘어가는 중에 확인을 또 눌러도 가입은 한 번만
-    if (checking) return
+    if (completingRef.current) return
     if (!navigator.onLine) {
       setToast('offline')
       return
     }
+    completingRef.current = true
     setChecking(true)
     try {
       // 인증이 풀렸으면 시간 초과로 보여 다시 받게
@@ -234,6 +236,7 @@ function EmailVerifyStep({
     } catch {
       setToast('signUpFailed')
     } finally {
+      completingRef.current = false
       setChecking(false)
     }
   }
@@ -248,7 +251,7 @@ function EmailVerifyStep({
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
-    if (checking || sending) return
+    if (checking || sending || completingRef.current) return
     if (needResend) void resend()
     else if (verified) void complete()
     else if (code.length < VERIFY_CODE_LENGTH) setStatus('digits')

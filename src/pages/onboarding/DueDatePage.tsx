@@ -10,9 +10,10 @@ import { ROUTES } from '@/constants/routes'
 import { needsHomeScreenGuide } from '@/utils/device'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useCriteria } from '@/hooks/useCriteria'
-import { saveCriteria, saveFirstCriteria } from '@/stores/useCriteriaStore'
+import { saveCriteria, saveFirstCriteria, useCriteriaStore } from '@/stores/useCriteriaStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
 import { useProfileStore } from '@/stores/useProfileStore'
+import { getCurrentCriteria } from '@/utils/criteria'
 import { parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 import { formatPregnancyAge } from '@/utils/pregnancy'
 
@@ -62,7 +63,9 @@ function DueDatePage() {
             source: '첫 진입 때 입력',
             postMealHours,
             measureSlots: answers.measureSlots,
-            targets: criteria.targets,
+            // 기다리는 사이 바뀌었을 수 있어 저장 직전 기준의 목표로
+            targets:
+              getCurrentCriteria(useCriteriaStore.getState().versions)?.targets ?? criteria.targets,
           })
         }
       } catch {
@@ -71,8 +74,10 @@ function DueDatePage() {
       } finally {
         setSaving(false)
       }
-      updateProfile({ dueDate: finalDueDate })
-      answers.setAnswers({ dueDate: finalDueDate })
+      // 건너뛰면 서버에 남은 예정일 그대로. 기기도 지우지 않음
+      const keptDueDate = finalDueDate ?? answers.dueDate
+      updateProfile({ dueDate: keptDueDate })
+      answers.setAnswers({ dueDate: keptDueDate })
       navigate(needsHomeScreenGuide() ? ROUTES.ONBOARDING_HOME_SCREEN : ROUTES.ONBOARDING_TOUR)
       return
     }

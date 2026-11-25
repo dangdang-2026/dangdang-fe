@@ -17,6 +17,8 @@ type AiState = {
   photo: AiConsent
   // 당당이에게 내 기록 보여 주기
   chat: AiConsent
+  // 국외 이전 동의. 없으면 일반 질문도 서버가 403
+  overseas: boolean
   setConsent: (feature: AiFeature, agreed: boolean, now?: Date) => void
   // F-10 찍은 사진을 날짜·시각을 찍어 내 사진첩에도 저장
   saveToAlbum: boolean
@@ -31,6 +33,7 @@ export const useAiStore = create<AiState>()(
     (set) => ({
       photo: null,
       chat: null,
+      overseas: false,
       saveToAlbum: true,
       setSaveToAlbum: (saveToAlbum) => set({ saveToAlbum }),
       setConsent: (feature, agreed, now = new Date()) =>
@@ -39,6 +42,7 @@ export const useAiStore = create<AiState>()(
         set({
           photo: { agreed: false, at: now.toISOString() },
           chat: { agreed: false, at: now.toISOString() },
+          overseas: false,
         }),
     }),
     { name: 'dangdang-ai' },
@@ -49,6 +53,8 @@ export const useAiStore = create<AiState>()(
 export async function saveChatConsent(agreed: boolean) {
   await postChatConsent(agreed)
   useAiStore.getState().setConsent('chat', agreed)
+  // 켤 때만 국외 이전도 같이. 끌 땐 그대로
+  if (agreed) useAiStore.setState({ overseas: true })
 }
 
 // 서버에 사진 AI 분석 동의를 저장한 뒤 기기에 반영
@@ -75,5 +81,6 @@ export async function syncAiConsents() {
     chat: records?.occurredAt
       ? { agreed: records.granted && !!overseas?.granted, at: records.occurredAt }
       : null,
+    overseas: !!overseas?.granted,
   })
 }

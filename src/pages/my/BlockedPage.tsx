@@ -41,7 +41,8 @@ function BlockedPage() {
     try {
       await blockOnServer(author)
     } catch {
-      setToast({ message: '되돌리지 못했어요. 잠시 후 다시 시도해 주세요' })
+      // 같은 자리에서 다시 되돌릴 수 있게
+      setToast({ message: '되돌리지 못했어요. 잠시 후 다시 시도해 주세요', undo: author })
     }
   }
 

@@ -12,11 +12,18 @@ type ChatIntroProps = {
   onAsk: (text: string) => void
   // 기록 보기 동의를 거절함. 일반 질문만 받고 설정으로 가는 줄
   recordsDeclined?: boolean
+  // 국외 이전 동의가 없어 어떤 질문도 답할 수 없으면 추천 질문을 숨김
+  hideSuggestions?: boolean
   onOpenSettings?: () => void
 }
 
 // Figma Q-02 첫 화면: 소개 + 추천 질문 · Q-02b 기록 보기 동의를 안 했으면 일반 질문만
-function ChatIntro({ onAsk, recordsDeclined = false, onOpenSettings }: ChatIntroProps) {
+function ChatIntro({
+  onAsk,
+  recordsDeclined = false,
+  hideSuggestions = false,
+  onOpenSettings,
+}: ChatIntroProps) {
   const suggestions = recordsDeclined ? CHAT_SUGGESTIONS_GENERAL : CHAT_SUGGESTIONS
   return (
     <>
@@ -34,21 +41,23 @@ function ChatIntro({ onAsk, recordsDeclined = false, onOpenSettings }: ChatIntro
           )}
         </p>
       </section>
-      <section className="flex flex-col gap-2 pt-2">
-        <h3 className="text-body-3 text-grey-600">이렇게 물어보세요</h3>
-        {suggestions.map((suggestion) => (
-          <button
-            key={suggestion.text}
-            type="button"
-            className="border-grey-200 rounded-key flex items-center gap-2.5 border py-3.5 pr-3.5 pl-4 text-left"
-            onClick={() => onAsk(suggestion.text)}
-          >
-            <img src={SUGGESTION_ICON[suggestion.icon]} alt="" width={20} height={20} />
-            <span className="text-body-2 text-grey-800 flex-1">{suggestion.text}</span>
-            <img src={iconChevron} alt="" width={16} height={16} />
-          </button>
-        ))}
-      </section>
+      {!hideSuggestions && (
+        <section className="flex flex-col gap-2 pt-2">
+          <h3 className="text-body-3 text-grey-600">이렇게 물어보세요</h3>
+          {suggestions.map((suggestion) => (
+            <button
+              key={suggestion.text}
+              type="button"
+              className="border-grey-200 rounded-key flex items-center gap-2.5 border py-3.5 pr-3.5 pl-4 text-left"
+              onClick={() => onAsk(suggestion.text)}
+            >
+              <img src={SUGGESTION_ICON[suggestion.icon]} alt="" width={20} height={20} />
+              <span className="text-body-2 text-grey-800 flex-1">{suggestion.text}</span>
+              <img src={iconChevron} alt="" width={16} height={16} />
+            </button>
+          ))}
+        </section>
+      )}
       {recordsDeclined && (
         <button
           type="button"
