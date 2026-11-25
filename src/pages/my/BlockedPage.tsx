@@ -15,13 +15,23 @@ function BlockedPage() {
   const blockedAuthors = useCommunityStore((state) => state.blockedAuthors)
   const [toast, setToast] = useState<{ message: string; undo?: BlockedAuthor } | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
+  // 다시 보기를 보내는 중인 사람. 두 번 눌러도 한 번만
+  const [pendingId, setPendingId] = useState<string | null>(null)
+  // 서버 목록처럼 최근에 안 보기 시작한 사람부터
+  const sorted = [...(blockedAuthors as BlockedAuthor[])].sort((a, b) =>
+    (b.blockedAt ?? '').localeCompare(a.blockedAt ?? ''),
+  )
 
   const unblock = async (author: BlockedAuthor) => {
+    if (pendingId) return
+    setPendingId(author.id)
     try {
       await unblockOnServer(author.id)
       setToast({ message: `${author.nickname}님 글이 다시 보여요`, undo: author })
     } catch {
       setToast({ message: '다시 보기를 하지 못했어요. 잠시 후 다시 시도해 주세요' })
+    } finally {
+      setPendingId(null)
     }
   }
 
@@ -29,7 +39,7 @@ function BlockedPage() {
   const undo = async (author: BlockedAuthor) => {
     setToast(null)
     try {
-      await blockOnServer(author as Author)
+      await blockOnServer(author)
     } catch {
       setToast({ message: '되돌리지 못했어요. 잠시 후 다시 시도해 주세요' })
     }
@@ -54,7 +64,7 @@ function BlockedPage() {
             다시 보기를 누르면 바로 다시 보여요.
           </p>
           <ul className="divide-grey-100 mt-4 flex flex-col divide-y">
-            {(blockedAuthors as BlockedAuthor[]).map((author) => (
+            {sorted.map((author) => (
               <li key={author.id} className="flex items-center gap-3 py-3.5">
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="text-body-2 text-grey-900 truncate font-bold">
@@ -69,6 +79,7 @@ function BlockedPage() {
                 <button
                   type="button"
                   className="bg-grey-100 text-grey-800 shrink-0 rounded-full px-3.5 py-1.5 text-sm leading-snug font-bold"
+                  disabled={pendingId !== null}
                   onClick={() => void unblock(author)}
                 >
                   다시 보기

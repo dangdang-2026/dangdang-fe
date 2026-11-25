@@ -45,7 +45,8 @@ type CommunityState = {
   // 이 사람 글 안 보기
   // blockedAt: 안 보기 시작한 때. 마이 › 안 보는 사람에 날짜로
   blockedAuthors: (Pick<Author, 'id' | 'nickname'> & { blockedAt?: string })[]
-  blockAuthor: (author: Author) => void
+  // blockedAt을 주면 그 날짜로(다시 보기 되돌리기), 없으면 지금
+  blockAuthor: (author: Pick<Author, 'id' | 'nickname'> & { blockedAt?: string }) => void
   unblockAuthor: (authorId: string) => void
 
   // 커뮤니티 메인에서 닫은 소식 카드. 새 카드가 걸리면 다시 보임
@@ -177,11 +178,11 @@ export const useCommunityStore = create<CommunityState>()(
       clearDraft: () => set({ draft: null }),
       removePost: (postId) =>
         set((state) => ({ posts: state.posts.filter((post) => post.id !== postId) })),
-      blockAuthor: ({ id, nickname }) =>
+      blockAuthor: ({ id, nickname, blockedAt }) =>
         set((state) => ({
           blockedAuthors: [
             ...state.blockedAuthors.filter((item) => item.id !== id),
-            { id, nickname, blockedAt: new Date().toISOString() },
+            { id, nickname, blockedAt: blockedAt ?? new Date().toISOString() },
           ],
         })),
       dismissNewsCard: (id) => set({ dismissedNewsId: id }),
@@ -306,7 +307,9 @@ export function voteOnPost(postId: string, optionId: string) {
 export const canBlock = (author: Author) => /^\d+$/.test(author.id)
 
 // 서버에 차단한 뒤 기기에서도 숨김
-export async function blockOnServer(author: Author) {
+export async function blockOnServer(
+  author: Pick<Author, 'id' | 'nickname'> & { blockedAt?: string },
+) {
   await blockProfile(author.id)
   useCommunityStore.getState().blockAuthor(author)
 }

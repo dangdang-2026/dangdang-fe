@@ -9,7 +9,8 @@ import OnboardingHeader from '@/components/onboarding/OnboardingHeader'
 import { ROUTES } from '@/constants/routes'
 import { needsHomeScreenGuide } from '@/utils/device'
 import { useGoBack } from '@/hooks/useGoBack'
-import { saveFirstCriteria } from '@/stores/useCriteriaStore'
+import { useCriteria } from '@/hooks/useCriteria'
+import { saveCriteria, saveFirstCriteria } from '@/stores/useCriteriaStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { parseDateKey, startOfDay, toDateKey } from '@/utils/date'
@@ -26,6 +27,7 @@ function DueDatePage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.ONBOARDING_SLOTS)
   const answers = useOnboardingStore()
+  const criteria = useCriteria()
   const updateProfile = useProfileStore((state) => state.updateProfile)
   const [dueDate, setDueDate] = useState(answers.dueDate)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -48,6 +50,32 @@ function DueDatePage() {
       setSaving(false)
       return
     }
+    // 홈 화면 안내에서 뒤로 와 다시 끝내면 첫 기준을 또 만들지 않음. 측정 시간 · 재는 때를 바꿨으면 그것만 새 기준으로
+    if (answers.completed) {
+      const postMealHours = answers.postMealHours ?? null
+      const changed =
+        postMealHours !== criteria.postMealHours ||
+        answers.measureSlots.join() !== criteria.measureSlots.join()
+      try {
+        if (changed) {
+          await saveCriteria({
+            source: '첫 진입 때 입력',
+            postMealHours,
+            measureSlots: answers.measureSlots,
+            targets: criteria.targets,
+          })
+        }
+      } catch {
+        setToast('기준을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+        return
+      } finally {
+        setSaving(false)
+      }
+      updateProfile({ dueDate: finalDueDate })
+      answers.setAnswers({ dueDate: finalDueDate })
+      navigate(needsHomeScreenGuide() ? ROUTES.ONBOARDING_HOME_SCREEN : ROUTES.ONBOARDING_TOUR)
+      return
+    }
     try {
       await saveFirstCriteria({
         source: '첫 진입 때 입력',
@@ -64,10 +92,9 @@ function DueDatePage() {
     updateProfile({ dueDate: finalDueDate })
     answers.setAnswers({ dueDate: finalDueDate })
     answers.complete()
-    // 아이폰은 홈 화면 앱에서만 알림이 와서 투어 전에 홈 화면 추가 안내
-    navigate(needsHomeScreenGuide() ? ROUTES.ONBOARDING_HOME_SCREEN : ROUTES.ONBOARDING_TOUR, {
-      replace: true,
-    })
+    // 아이폰은 홈 화면 앱에서만 알림이 와서 투어 전에 홈 화면 추가 안내. 안내에서 뒤로 오면 예정일로(대체하지 않음)
+    if (needsHomeScreenGuide()) navigate(ROUTES.ONBOARDING_HOME_SCREEN)
+    else navigate(ROUTES.ONBOARDING_TOUR, { replace: true })
   }
 
   return (
