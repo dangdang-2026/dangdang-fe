@@ -364,16 +364,29 @@ export async function editRecord(id: string, changes: { value: number; measuredA
   useGlucoseStore.getState().updateRecord(id, changes)
 }
 
+// 같은 끼니의 시작 시각 고치기는 차례로. 늦게 끝난 앞 요청이 마지막에 고른 시각을 덮지 않게
+const mealStartQueue = new Map<string, Promise<void>>()
+
 // 식사 시작 시각 고치기. 아직 서버에 안 간 끼니는 기기에서만
 export async function editMealStart(id: string, startedAt: Date) {
-  const meal = useGlucoseStore.getState().meals.find((item) => item.id === id)
-  if (!meal) return
-  if (!meal.pending) await updateMealStart(id, startedAt)
-  useGlucoseStore.setState((state) => ({
-    meals: state.meals
-      .map((item) => (item.id === id ? { ...item, startedAt: startedAt.toISOString() } : item))
-      .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()),
-  }))
+  const run = (mealStartQueue.get(id) ?? Promise.resolve())
+    .catch(() => {})
+    .then(async () => {
+      const meal = useGlucoseStore.getState().meals.find((item) => item.id === id)
+      if (!meal) return
+      if (!meal.pending) await updateMealStart(id, startedAt)
+      useGlucoseStore.setState((state) => ({
+        meals: state.meals
+          .map((item) => (item.id === id ? { ...item, startedAt: startedAt.toISOString() } : item))
+          .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()),
+      }))
+    })
+  mealStartQueue.set(id, run)
+  try {
+    await run
+  } finally {
+    if (mealStartQueue.get(id) === run) mealStartQueue.delete(id)
+  }
 }
 
 // 서버에서 지운 뒤 기기에서도 뺌. 아직 서버에 안 간 끼니는 기기에서만
