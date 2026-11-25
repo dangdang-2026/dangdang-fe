@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { canServerPush, subscribePush } from '@/api/push'
 import { openReminder, snoozeReminder } from '@/api/reminders'
+import EmergencyBlock from '@/components/common/EmergencyBlock'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
@@ -22,6 +23,7 @@ import VisitCard from '@/components/today/VisitCard'
 import WaitingMeasureCard from '@/components/today/WaitingMeasureCard'
 import MealWriteFlow from '@/components/meal/MealWriteFlow'
 import PostpartumToday from '@/components/postpartum/PostpartumToday'
+import { GLUCOSE_LOW } from '@/constants/glucose'
 import { ROUTES } from '@/constants/routes'
 import { useFoods } from '@/hooks/useFoods'
 import { useNow } from '@/hooks/useNow'
@@ -365,6 +367,12 @@ function TodayPage() {
           />
         )}
       </div>
+      {/* 낮은 값을 저장한 직후에도 위급 안내를 그대로 */}
+      {heroState.kind === 'saved' && heroState.record.value < GLUCOSE_LOW && (
+        <div className="mt-5">
+          <EmergencyBlock onWriteMemo={() => setMemoSheet(true)} />
+        </div>
+      )}
       {nearDue && (
         <div className="mt-5">
           <BirthEntryCard onOpen={() => setBirthSheet(true)} />
