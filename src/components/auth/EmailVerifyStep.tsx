@@ -193,6 +193,8 @@ function EmailVerifyStep({
       // 받아 둔 번호가 있으면 그 번호는 그대로 쓰게 알림만
       if (codeUsable) setToast('sendFailed')
       else {
+        // 무효가 된 번호(5번 틀림 · 시간 초과)가 다시 열리지 않게 받아 둔 번호를 비움
+        setSentAt(null)
         setMailFailed(true)
         setStatus('idle')
       }

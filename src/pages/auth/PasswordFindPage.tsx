@@ -83,7 +83,8 @@ function PasswordFindPage() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
-    if (loading || limit) return
+    // 보내는 중 · 오늘 횟수 초과 · 60초 대기 중엔 보내지 않음
+    if (loading || limit || waitMs > 0) return
     const trimmed = email.trim()
     setEmail(trimmed)
     const error: EmailError | null = !trimmed
@@ -189,6 +190,8 @@ function PasswordFindPage() {
               autoComplete="email"
               placeholder="name@email.com"
               value={email}
+              // 보내는 동안 바꾸면 앞 요청 결과가 새 이메일에 붙지 않게
+              disabled={loading}
               aria-invalid={!!emailError}
               aria-describedby={helper ? 'find-email-helper' : undefined}
               className="text-input text-grey-900 placeholder:text-grey-500 caret-primary peer min-w-0 flex-1 bg-transparent outline-none"
@@ -205,7 +208,7 @@ function PasswordFindPage() {
                 if (trimmed && !EMAIL_PATTERN.test(trimmed)) setEmailError('format')
               }}
             />
-            {email && (
+            {email && !loading && (
               <button
                 type="button"
                 aria-label="이메일 지우기"
@@ -241,12 +244,16 @@ function PasswordFindPage() {
 
         <button
           type="submit"
-          disabled={limit}
+          disabled={limit || waitMs > 0}
           aria-busy={loading}
           className="text-subtitle-1 bg-primary disabled:bg-grey-100 disabled:text-grey-400 relative mt-auto h-14 shrink-0 rounded-xl leading-none text-white"
         >
           <span className={loading ? 'opacity-0' : undefined}>
-            {limit ? '내일 다시 받을 수 있어요' : '재설정 링크 보내기'}
+            {limit
+              ? '내일 다시 받을 수 있어요'
+              : waitMs > 0
+                ? `${formatWait(waitMs)} 후 다시 받기`
+                : '재설정 링크 보내기'}
           </span>
           {loading && (
             <img

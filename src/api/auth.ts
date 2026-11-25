@@ -127,28 +127,28 @@ export type SendCodeResult =
   // AUTH_42901 하루 발송 횟수 초과
   | { status: 'limit' }
 
-// 기다릴 시각. 서버가 남은 초를 안 주면 정책 값(60초)
-const waitUntil = (seconds: number | undefined, now: number) =>
-  now + (seconds ?? RESEND_WAIT_MS / 1000) * 1000
+// 기다릴 시각. 응답을 받은 때부터 셈(요청이 늦어도 서버 대기보다 짧아지지 않게). 남은 초가 없으면 정책 값(60초)
+const waitUntil = (seconds: number | undefined) =>
+  Date.now() + (seconds ?? RESEND_WAIT_MS / 1000) * 1000
 
-// 인증번호 메일 발송. 타이머는 받은 시각부터 셈
+// 인증번호 메일 발송. 번호 유효 시간은 요청한 때부터 셈(실제보다 길게 보이지 않게)
 export async function sendVerifyCode(email: string): Promise<SendCodeResult> {
-  const now = Date.now()
+  const requestedAt = Date.now()
   try {
     const { data } = await apiClient.post<BaseResponse<EmailCodeSendResponse>>('/auth/email/code', {
       email,
     })
     return {
       status: 'ok',
-      sentAt: now,
-      resendAt: waitUntil(data.data?.resendAfterSeconds, now),
+      sentAt: requestedAt,
+      resendAt: waitUntil(data.data?.resendAfterSeconds),
       remainingSends: data.data?.remainingSends ?? null,
     }
   } catch (error) {
     const code = getErrorCode(error)
     const retry = getErrorData<AuthRetryInfo>(error)?.retryAfterSeconds
-    if (code === 'AUTH_42904') return { status: 'wait', resendAt: waitUntil(retry, now) }
-    if (code === 'AUTH_50202') return { status: 'mailFailed', resendAt: waitUntil(retry, now) }
+    if (code === 'AUTH_42904') return { status: 'wait', resendAt: waitUntil(retry) }
+    if (code === 'AUTH_50202') return { status: 'mailFailed', resendAt: waitUntil(retry) }
     if (code === 'AUTH_40901') return { status: 'taken' }
     if (code === 'AUTH_42901') return { status: 'limit' }
     throw error
@@ -222,19 +222,18 @@ export type ResetRequestResult =
 
 // 가입 여부와 상관없이 같은 응답(계정 노출 방지). 이메일로 가입한 계정에만 링크 발급
 export async function requestPasswordReset(email: string): Promise<ResetRequestResult> {
-  const now = Date.now()
   try {
     await apiClient.post('/auth/password/reset/request', { email })
   } catch (error) {
     const code = getErrorCode(error)
     if (code === 'AUTH_42904') {
       const retry = getErrorData<AuthRetryInfo>(error)?.retryAfterSeconds
-      return { status: 'wait', resendAt: waitUntil(retry, now) }
+      return { status: 'wait', resendAt: waitUntil(retry) }
     }
     if (code === 'AUTH_42903') return { status: 'limit' }
     throw error
   }
-  return { status: 'ok', resendAt: now + RESEND_WAIT_MS }
+  return { status: 'ok', resendAt: waitUntil(undefined) }
 }
 
 export type ResetPasswordResult = { status: 'ok' } | { status: 'same' } | { status: 'expired' }
