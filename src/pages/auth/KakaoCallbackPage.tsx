@@ -1,10 +1,24 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { consumeKakaoReturn, consumeKakaoState, linkKakao, loginWithKakao } from '@/api/auth'
+import {
+  consumeKakaoReturn,
+  consumeKakaoState,
+  consumeWithdrawPosts,
+  deleteAccount,
+  linkKakao,
+  loginWithKakao,
+} from '@/api/auth'
+import { getErrorCode } from '@/api/axios'
 import { ROUTES } from '@/constants/routes'
 import { useFinishLogin } from '@/hooks/useFinishLogin'
 import { useAuthStore } from '@/stores/useAuthStore'
-import { EMAIL_ACCOUNT_EXISTS, KAKAO_LINK_TOAST, type KakaoLinkOutcome } from '@/utils/auth'
+import {
+  EMAIL_ACCOUNT_EXISTS,
+  KAKAO_LINK_TOAST,
+  KAKAO_WITHDRAW_TOAST,
+  restartAfterWithdraw,
+  type KakaoLinkOutcome,
+} from '@/utils/auth'
 
 // 카카오 인가 후 돌아오는 주소. 코드를 서버에 넘기고 이메일 로그인과 같은 흐름으로
 function KakaoCallbackPage() {
@@ -26,6 +40,22 @@ function KakaoCallbackPage() {
     const error = searchParams.get('error')
     const purpose = consumeKakaoState(searchParams.get('state'))
     const returnTo = consumeKakaoReturn()
+
+    // 카카오 가입자 탈퇴 본인 확인이면 바로 탈퇴. 막히면 데이터 화면으로 돌아가 알림
+    if (purpose === 'withdraw') {
+      const posts = consumeWithdrawPosts()
+      const back = (reason: string) =>
+        navigate(returnTo ?? ROUTES.MY_DATA, {
+          replace: true,
+          state: { toast: KAKAO_WITHDRAW_TOAST[reason] ?? KAKAO_WITHDRAW_TOAST.failed },
+        })
+      if (error) return void back(error === 'access_denied' ? 'cancel' : 'failed')
+      if (!code) return void back('failed')
+      deleteAccount({ kakaoCode: code }, posts)
+        .then(restartAfterWithdraw)
+        .catch((reason) => back(getErrorCode(reason) ?? 'failed'))
+      return
+    }
 
     // 로그인한 계정에 카카오 연결이면 결과를 오늘 화면 토스트로
     if (purpose === 'link') {

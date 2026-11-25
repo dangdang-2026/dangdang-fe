@@ -48,8 +48,9 @@ const KAKAO_STATE_KEY = 'kakao-oauth-state'
 const KAKAO_PURPOSE_KEY = 'kakao-oauth-purpose'
 const KAKAO_RETURN_KEY = 'kakao-oauth-return'
 
-// login: 카카오로 로그인 · 가입, link: 로그인한 계정에 카카오 연결
-export type KakaoPurpose = 'login' | 'link'
+// login: 카카오로 로그인 · 가입, link: 로그인한 계정에 카카오 연결, withdraw: 카카오 가입자 탈퇴 본인 확인
+export type KakaoPurpose = 'login' | 'link' | 'withdraw'
+const KAKAO_PURPOSES: KakaoPurpose[] = ['login', 'link', 'withdraw']
 
 // 카카오 인가 페이지로 이동. state로 남이 만든 콜백 요청을 걸러냄
 // selectAccount면 카카오계정을 다시 고르게 함(K-07 다른 카카오계정으로 시작하기)
@@ -77,7 +78,8 @@ export function startKakaoLogin({
 // 보낸 state와 같으면 무엇 하러 갔는지, 다르면 null. 한 번 쓰면 지움
 export function consumeKakaoState(state: string | null): KakaoPurpose | null {
   const saved = sessionStorage.getItem(KAKAO_STATE_KEY)
-  const purpose = sessionStorage.getItem(KAKAO_PURPOSE_KEY) === 'link' ? 'link' : 'login'
+  const savedPurpose = sessionStorage.getItem(KAKAO_PURPOSE_KEY) as KakaoPurpose | null
+  const purpose = savedPurpose && KAKAO_PURPOSES.includes(savedPurpose) ? savedPurpose : 'login'
   sessionStorage.removeItem(KAKAO_STATE_KEY)
   sessionStorage.removeItem(KAKAO_PURPOSE_KEY)
   return !!saved && saved === state ? purpose : null
@@ -396,13 +398,33 @@ export async function changePassword(current: string, next: string): Promise<Cha
 // 탈퇴할 때 커뮤니티 글·댓글을 지울지, '탈퇴한 회원'으로 남길지
 export type CommunityPostsOnLeave = 'delete' | 'keep'
 
-// 회원 탈퇴(M-08). 이메일 가입자만 비밀번호, 틀리면 400 USER_40003. 성공하면 서버가 쿠키를 지움
+// 탈퇴 본인 확인. 비밀번호가 있는 계정(이메일 가입)은 비밀번호, 카카오 가입자는 카카오를 다녀온 인가 코드
+export type WithdrawProof = { password: string } | { kakaoCode: string }
+
+// 회원 탈퇴(M-08). 비밀번호가 틀리면 USER_40003, 다른 카카오 계정이면 USER_40301. 성공하면 서버가 쿠키를 지움
 export async function deleteAccount(
-  password: string | null,
+  proof: WithdrawProof,
   posts: CommunityPostsOnLeave,
 ): Promise<void> {
   await apiClient.post('/me/withdrawal', {
-    password: password ?? undefined,
+    ...('password' in proof
+      ? { password: proof.password }
+      : { kakaoCode: proof.kakaoCode, redirectUri: KAKAO_REDIRECT_URI }),
     keepPosts: posts === 'keep',
   })
+}
+
+// 카카오를 다녀오는 동안 고른 글 처리 방식을 들고 있음
+const WITHDRAW_POSTS_KEY = 'kakao-withdraw-posts'
+
+// 카카오 가입자 탈퇴: 카카오 로그인을 한 번 더 하고 돌아와서 탈퇴
+export function startKakaoWithdraw(posts: CommunityPostsOnLeave, returnTo: string) {
+  sessionStorage.setItem(WITHDRAW_POSTS_KEY, posts)
+  startKakaoLogin({ purpose: 'withdraw', returnTo })
+}
+
+export function consumeWithdrawPosts(): CommunityPostsOnLeave {
+  const posts = sessionStorage.getItem(WITHDRAW_POSTS_KEY)
+  sessionStorage.removeItem(WITHDRAW_POSTS_KEY)
+  return posts === 'keep' ? 'keep' : 'delete'
 }

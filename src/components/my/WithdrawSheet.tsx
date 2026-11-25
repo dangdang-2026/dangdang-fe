@@ -20,7 +20,7 @@ const POST_OPTIONS: { value: CommunityPostsOnLeave; title: string; description: 
 
 type WithdrawSheetProps = {
   loading: boolean
-  // 이메일 가입자는 지금 비밀번호를 받음
+  // 비밀번호가 있는 계정은 지금 비밀번호, 아니면 카카오로 한 번 더 확인
   needsPassword: boolean
   // 서버가 비밀번호가 틀리다고 함
   wrongPassword: boolean
@@ -129,13 +129,21 @@ function WithdrawSheet({
         </AuthField>
       )}
 
+      {!needsPassword && (
+        <p className="text-t7 text-grey-600">
+          카카오로 가입한 계정이라 카카오 로그인을 한 번 더 해서 본인인지 확인해요
+        </p>
+      )}
+
       <button
         type="button"
         aria-busy={loading}
         className="text-subtitle-1 bg-primary relative mt-6 h-14 rounded-xl leading-none text-white"
         onClick={submit}
       >
-        <span className={loading ? 'opacity-0' : undefined}>탈퇴하기</span>
+        <span className={loading ? 'opacity-0' : undefined}>
+          {needsPassword ? '탈퇴하기' : '카카오로 확인하고 탈퇴하기'}
+        </span>
         {loading && (
           <img
             src={iconLoading}

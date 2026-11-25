@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router'
-import { deleteAccount, type CommunityPostsOnLeave } from '@/api/auth'
+import { useLocation, useNavigate } from 'react-router'
+import { deleteAccount, startKakaoWithdraw, type CommunityPostsOnLeave } from '@/api/auth'
 import { getErrorCode } from '@/api/axios'
+import { getMe } from '@/api/me'
 import iconDownload from '@/assets/icons/download.svg'
 import iconFileGrey from '@/assets/icons/file-grey.svg'
 import iconCamera from '@/assets/icons/my/data-camera.svg'
@@ -18,6 +19,7 @@ import { useReportContent } from '@/hooks/useReportContent'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
+import { restartAfterWithdraw } from '@/utils/auth'
 import { startOfDay } from '@/utils/date'
 
 type DataRow = {
@@ -33,13 +35,24 @@ type DataRow = {
 function DataPage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.MY)
-  // 이메일 가입자만 탈퇴할 때 비밀번호를 받음
-  const needsPassword = useAuthStore((state) => state.account?.method === 'email')
+  const location = useLocation()
+  // 비밀번호가 있는 계정(이메일 가입)은 카카오로 로그인했어도 비밀번호로, 카카오 가입자는 카카오로 확인
+  const loggedInByEmail = useAuthStore((state) => state.account?.method === 'email')
+  const [hasPassword, setHasPassword] = useState<boolean | null>(null)
+  useEffect(() => {
+    getMe()
+      .then((me) => setHasPassword(me.loginMethods?.email ?? null))
+      .catch(() => {})
+  }, [])
+  const needsPassword = hasPassword ?? loggedInByEmail
   const [withdrawSheet, setWithdrawSheet] = useState(false)
   const [withdrawing, setWithdrawing] = useState(false)
   const [wrongPassword, setWrongPassword] = useState(false)
   const clearWrongPassword = useCallback(() => setWrongPassword(false), [])
-  const [toast, setToast] = useState<string | null>(null)
+  // 카카오 확인을 다녀왔는데 탈퇴가 막히면 이유를 알림
+  const [toast, setToast] = useState<string | null>(
+    () => (location.state as { toast?: string } | null)?.toast ?? null,
+  )
   const closeToast = useCallback(() => setToast(null), [])
 
   // 내 기록 PDF: 첫 기록(또는 설정을 마친 날)부터 오늘까지 전체 기간
@@ -104,19 +117,19 @@ function DataPage() {
       return
     }
     setWithdrawing(true)
+    if (password === null) {
+      startKakaoWithdraw(posts, ROUTES.MY_DATA)
+      return
+    }
     try {
-      await deleteAccount(password, posts)
+      await deleteAccount({ password }, posts)
     } catch (error) {
       setWithdrawing(false)
       if (getErrorCode(error) === 'USER_40003') setWrongPassword(true)
       else setToast('탈퇴하지 못했어요. 잠시 후 다시 시도해 주세요')
       return
     }
-    // 탈퇴 즉시 기기에 남은 기록도 모두 지우고 처음 화면으로 새로 열기
-    Object.keys(localStorage)
-      .filter((key) => key.startsWith('dangdang-'))
-      .forEach((key) => localStorage.removeItem(key))
-    window.location.replace(ROUTES.ONBOARDING)
+    restartAfterWithdraw()
   }
 
   return (

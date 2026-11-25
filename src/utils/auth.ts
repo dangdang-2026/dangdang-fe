@@ -1,3 +1,5 @@
+import { ROUTES } from '@/constants/routes'
+
 // @ 없음, 도메인 없음, 한글·특수문자 포함은 형식 오류
 export const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
 
@@ -54,4 +56,21 @@ export const KAKAO_LINK_TOAST: Record<KakaoLinkOutcome, string> = {
   expired: '카카오 확인 시간이 지났어요. 다시 연결해 주세요',
   cancel: '카카오 연결을 취소했어요',
   failed: '카카오를 연결하지 못했어요. 잠시 후 다시 시도해 주세요',
+}
+
+// 탈퇴 즉시 기기에 남은 기록도 모두 지우고 처음 화면으로 새로 열기
+export function restartAfterWithdraw() {
+  Object.keys(localStorage)
+    .filter((key) => key.startsWith('dangdang-'))
+    .forEach((key) => localStorage.removeItem(key))
+  window.location.replace(ROUTES.ONBOARDING)
+}
+
+// 카카오로 본인 확인한 탈퇴가 막혔을 때 데이터 화면 토스트. 서버 문구와 같게
+export const KAKAO_WITHDRAW_TOAST: Record<string, string> = {
+  USER_40301: '지금 로그인한 카카오 계정과 달라요. 이 계정의 카카오로 확인해 주세요',
+  USER_40004: '카카오로 한 번 더 확인해 주세요',
+  AUTH_40006: '카카오 확인에 실패했어요. 다시 시도해 주세요',
+  cancel: '카카오 확인을 취소해서 탈퇴하지 않았어요',
+  failed: '탈퇴하지 못했어요. 잠시 후 다시 시도해 주세요',
 }
