@@ -46,6 +46,7 @@ const KAKAO_REDIRECT_URI =
   import.meta.env.VITE_KAKAO_REDIRECT_URI || `${window.location.origin}/auth/kakao/callback`
 const KAKAO_STATE_KEY = 'kakao-oauth-state'
 const KAKAO_PURPOSE_KEY = 'kakao-oauth-purpose'
+const KAKAO_RETURN_KEY = 'kakao-oauth-return'
 
 // login: 카카오로 로그인 · 가입, link: 로그인한 계정에 카카오 연결
 export type KakaoPurpose = 'login' | 'link'
@@ -55,10 +56,14 @@ export type KakaoPurpose = 'login' | 'link'
 export function startKakaoLogin({
   selectAccount = false,
   purpose = 'login',
-}: { selectAccount?: boolean; purpose?: KakaoPurpose } = {}) {
+  returnTo,
+}: { selectAccount?: boolean; purpose?: KakaoPurpose; returnTo?: string } = {}) {
   const state = crypto.randomUUID()
   sessionStorage.setItem(KAKAO_STATE_KEY, state)
   sessionStorage.setItem(KAKAO_PURPOSE_KEY, purpose)
+  // 연결을 마치고 돌아갈 화면. 없으면 오늘
+  if (returnTo) sessionStorage.setItem(KAKAO_RETURN_KEY, returnTo)
+  else sessionStorage.removeItem(KAKAO_RETURN_KEY)
   const params = new URLSearchParams({
     client_id: import.meta.env.VITE_KAKAO_REST_API_KEY,
     redirect_uri: KAKAO_REDIRECT_URI,
@@ -76,6 +81,13 @@ export function consumeKakaoState(state: string | null): KakaoPurpose | null {
   sessionStorage.removeItem(KAKAO_STATE_KEY)
   sessionStorage.removeItem(KAKAO_PURPOSE_KEY)
   return !!saved && saved === state ? purpose : null
+}
+
+// 카카오를 다녀온 뒤 돌아갈 앱 안 주소. 한 번 쓰면 지움
+export function consumeKakaoReturn(): string | null {
+  const path = sessionStorage.getItem(KAKAO_RETURN_KEY)
+  sessionStorage.removeItem(KAKAO_RETURN_KEY)
+  return path?.startsWith('/') && !path.startsWith('//') ? path : null
 }
 
 // 가입 · 연결에 한 번 쓰는 카카오 토큰. 서버 유효 시간 10분

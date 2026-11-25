@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { consumeKakaoState, linkKakao, loginWithKakao } from '@/api/auth'
+import { consumeKakaoReturn, consumeKakaoState, linkKakao, loginWithKakao } from '@/api/auth'
 import { ROUTES } from '@/constants/routes'
 import { useFinishLogin } from '@/hooks/useFinishLogin'
 import { useAuthStore } from '@/stores/useAuthStore'
-import { EMAIL_ACCOUNT_EXISTS, type KakaoLinkOutcome } from '@/utils/auth'
+import { EMAIL_ACCOUNT_EXISTS, KAKAO_LINK_TOAST, type KakaoLinkOutcome } from '@/utils/auth'
 
 // 카카오 인가 후 돌아오는 주소. 코드를 서버에 넘기고 이메일 로그인과 같은 흐름으로
 function KakaoCallbackPage() {
@@ -25,13 +25,18 @@ function KakaoCallbackPage() {
     const code = searchParams.get('code')
     const error = searchParams.get('error')
     const purpose = consumeKakaoState(searchParams.get('state'))
+    const returnTo = consumeKakaoReturn()
 
     // 로그인한 계정에 카카오 연결이면 결과를 오늘 화면 토스트로
     if (purpose === 'link') {
       const done = (kakaoLink: KakaoLinkOutcome) => {
         // 연결 권하기는 한 번만. 다녀오면 결과와 상관없이 다시 안 띄움
         useAuthStore.getState().setKakaoLinkOffer(false)
-        navigate(ROUTES.TODAY, { replace: true, state: { kakaoLink } })
+        // 오늘 화면은 kakaoLink, 마이 화면들은 toast로 알림
+        navigate(returnTo ?? ROUTES.TODAY, {
+          replace: true,
+          state: { kakaoLink, toast: KAKAO_LINK_TOAST[kakaoLink] },
+        })
       }
       if (error) return void done(error === 'access_denied' ? 'cancel' : 'failed')
       if (!code) return void done('failed')
