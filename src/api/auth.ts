@@ -127,6 +127,34 @@ export async function loginWithKakao(code: string): Promise<KakaoLoginResult> {
   return { status: 'needsSignup' }
 }
 
+// expired: 토큰 10분 지남 · 이미 씀, noEmail: 카카오 이메일 인증 안 됨
+// emailAccount: 같은 이메일 계정 있음, linked: 이 카카오가 다른 계정에 연결됨
+export type KakaoSignupResult = 'ok' | 'expired' | 'noEmail' | 'emailAccount' | 'linked'
+
+const KAKAO_SIGNUP_ERRORS: Record<string, Exclude<KakaoSignupResult, 'ok'>> = {
+  AUTH_40011: 'expired',
+  GLOBAL_40001: 'expired',
+  AUTH_40012: 'noEmail',
+  AUTH_40902: 'emailAccount',
+  AUTH_40903: 'linked',
+}
+
+// 처음 보는 카카오로 가입. 성공하면 쿠키가 오고 토큰은 서버에서 쓰여 없어짐
+export async function signUpWithKakao(): Promise<KakaoSignupResult> {
+  const kakaoToken = getPendingKakaoToken()
+  if (!kakaoToken) return 'expired'
+  try {
+    await apiClient.post('/auth/kakao/signup', { kakaoToken })
+  } catch (error) {
+    const result = KAKAO_SIGNUP_ERRORS[getErrorCode(error) ?? '']
+    if (!result) throw error
+    if (result === 'expired') clearPendingKakao()
+    return result
+  }
+  clearPendingKakao()
+  return 'ok'
+}
+
 export type EmailOwner = 'none' | 'email' | 'kakao'
 
 // 백엔드 EmailAvailabilityResponse
