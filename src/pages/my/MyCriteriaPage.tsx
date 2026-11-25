@@ -64,8 +64,15 @@ function MyCriteriaPage() {
   const [slots, setSlots] = useState(criteria.measureSlots)
   const [fasting, setFasting] = useState(String(criteria.targets.fasting ?? ''))
   const [postMeal, setPostMeal] = useState(String(criteria.targets.postMeal ?? ''))
-  // 서버에서 기준을 새로 받으면(앱 열 때 · 다른 기기) 고치던 값도 새 기준으로. 옛 값으로 덮어쓰지 않게
-  const criteriaKey = `${criteria.version}|${criteria.appliedFrom}`
+  // 서버에서 기준을 새로 받으면(앱 열 때 · 다른 기기) 고치던 값도 새 기준으로. 같은 날 바뀌면 버전이 같아 값까지 봄
+  const criteriaKey = [
+    criteria.version,
+    criteria.appliedFrom,
+    criteria.postMealHours,
+    criteria.measureSlots.join(),
+    criteria.targets.fasting,
+    criteria.targets.postMeal,
+  ].join('|')
   const [draftKey, setDraftKey] = useState(criteriaKey)
   if (draftKey !== criteriaKey) {
     setDraftKey(criteriaKey)
@@ -171,7 +178,8 @@ function MyCriteriaPage() {
           <p className="text-grey-600 text-xs leading-normal">
             병원에서 재라고 한 때만 켜 두면 그때만 알려 드려요
           </p>
-          {slots.includes('fasting') && (
+          {/* 알림 시각은 바로 저장돼서 저장된 기준에 공복이 있을 때만 */}
+          {criteria.measureSlots.includes('fasting') && (
             <FastingTimeRow
               onChanged={(time) => setToast(`공복 알림을 ${formatAlarmTime(time)}로 바꿨어요`)}
               onFailed={() =>
