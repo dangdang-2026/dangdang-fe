@@ -92,7 +92,7 @@ export function restartAfterSensitiveWithdraw() {
 // 이 기기 기록의 주인 계정. 로그아웃하면 다른 계정 기록과 함께 지움
 export const DEVICE_OWNER_KEY = 'dangdang-owner'
 
-// 로그아웃하면 지우는 이 계정 저장소. 로그인 방식 · 알림 설정(권한 물어봤는지)은 기기 설정이라 남김
+// 로그아웃하면 지우는 이 계정 저장소. 로그인 방식은 기기 설정이라 남김
 const ACCOUNT_STORES = [
   ...HEALTH_STORES,
   'dangdang-foods',
@@ -116,8 +116,24 @@ function clearAndLeave(keys: string[], to: string, broadcastKey?: string) {
   window.location.replace(to)
 }
 
+// 알림 설정은 서버 값이라 비우고 권한 물어봤는지(기기 값)만 남김
+const NOTIFICATION_STORE = 'dangdang-notification'
+function keepDeviceNotificationOnly() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(NOTIFICATION_STORE) ?? 'null')
+    if (!saved?.state) return
+    localStorage.setItem(
+      NOTIFICATION_STORE,
+      JSON.stringify({ ...saved, state: { permissionAsked: !!saved.state.permissionAsked } }),
+    )
+  } catch {
+    localStorage.removeItem(NOTIFICATION_STORE)
+  }
+}
+
 // 로그아웃 뒤 이 계정 기록을 기기에서 지우고 처음 화면으로. 다음 사람이 앞 계정 정보를 못 보게
 export function leaveAfterLogout() {
+  keepDeviceNotificationOnly()
   clearAndLeave(ACCOUNT_STORES, ROUTES.ONBOARDING, LOGOUT_KEY)
 }
 
@@ -126,7 +142,10 @@ export function listenForConsentRestart() {
   const onStorage = (event: StorageEvent) => {
     if (!event.newValue) return
     if (event.key === CONSENT_RESTART_KEY) clearAndLeave(HEALTH_STORES, ROUTES.ONBOARDING_TERMS)
-    if (event.key === LOGOUT_KEY) clearAndLeave(ACCOUNT_STORES, ROUTES.ONBOARDING)
+    if (event.key === LOGOUT_KEY) {
+      keepDeviceNotificationOnly()
+      clearAndLeave(ACCOUNT_STORES, ROUTES.ONBOARDING)
+    }
   }
   window.addEventListener('storage', onStorage)
   return () => window.removeEventListener('storage', onStorage)

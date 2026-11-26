@@ -159,8 +159,22 @@ export const useGlucoseStore = create<GlucoseState>()(
   ),
 )
 
+// 보내는 중인 식사. 로그인 동기화와 로그아웃 전 보내기가 겹쳐도 한 번만 등록
+const sendingMeals = new Map<string, Promise<boolean>>()
+
 // 기기에만 있던 식사를 서버에 보내고 서버 id로 바꿈. 실패하면 pending 그대로
-async function sendPendingMeal(meal: Meal, offline: boolean) {
+function sendPendingMeal(meal: Meal, offline: boolean) {
+  const sending = sendingMeals.get(meal.id)
+  if (sending) return sending
+  // 그사이 이미 보냈으면 다시 등록하지 않음
+  const latest = useGlucoseStore.getState().meals.find((item) => item.id === meal.id)
+  if (!latest?.pending) return Promise.resolve(!!latest)
+  const job = registerMeal(latest, offline).finally(() => sendingMeals.delete(meal.id))
+  sendingMeals.set(meal.id, job)
+  return job
+}
+
+async function registerMeal(meal: Meal, offline: boolean) {
   try {
     const saved = await createMeal(meal.type, new Date(meal.startedAt), offline)
     useGlucoseStore.setState((state) => ({
@@ -177,9 +191,9 @@ async function sendPendingMeal(meal: Meal, offline: boolean) {
     }))
     // 못 보낸 사이 적은 음식도 이어서 보냄
     void pushMealItems(saved.id)
-    // 못 보낸 사이 건너뛴 끼니면 서버에도 건너뜀으로(놓친 측정 · 알림 정리)
+    // 못 보낸 사이 건너뛴 끼니면 서버에도 건너뜀으로(놓친 측정 · 알림 정리). 실패해도 식사 등록은 그대로
     const current = useGlucoseStore.getState().meals.find((item) => item.id === saved.id)
-    if (current?.skipped) void sendSkip(saved.id)
+    if (current?.skipped) await sendSkip(saved.id)
     return true
   } catch {
     return false

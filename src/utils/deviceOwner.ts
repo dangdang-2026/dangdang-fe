@@ -34,6 +34,7 @@ export function claimDevice(userId: number) {
     useGlucoseStore.setState({
       meals: [],
       records: [],
+      deletedRecords: [],
       insulins: [],
       syncedUserId: null,
       insulinSyncedUserId: null,

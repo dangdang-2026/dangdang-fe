@@ -59,6 +59,8 @@ async function showMeasureNotification(meal: Meal, hours: number | null, hide: b
     ],
   }
   const registration = await navigator.serviceWorker?.getRegistration()
+  // 기다리는 사이 로그아웃했으면 안 띄움
+  if (!useAuthStore.getState().account) return
   if (registration) return registration.showNotification('당당', options)
   // Service Worker가 없으면(개발 서버) 버튼 없이 기본 알림
   const notification = new Notification('당당', { body, tag: options.tag, icon: options.icon })
