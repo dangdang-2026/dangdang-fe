@@ -1,6 +1,6 @@
-import axios, { type InternalAxiosRequestConfig } from 'axios'
+import axios, { type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '@/stores/useAuthStore'
-import { restartForConsent } from '@/utils/auth'
+import { leaveAfterLogout, restartForConsent } from '@/utils/auth'
 import { clearPendingKakao } from '@/utils/kakaoPending'
 
 // 서버 공통 응답. 실패면 errorCode가 붙음
@@ -48,25 +48,62 @@ let refreshing: Promise<void> | null = null
 
 const REFRESH_URL = '/auth/refresh'
 
+// 다른 탭과도 차례로 재발급. 같은 refresh 쿠키로 동시에 보내 한쪽이 401을 받지 않게
+const postRefresh = () =>
+  navigator.locks
+    ? navigator.locks.request('dangdang-refresh', () => apiClient.post(REFRESH_URL))
+    : apiClient.post(REFRESH_URL)
+
+// 재발급이 서버 오류로 연달아 실패한 횟수. 이만큼이면 복구할 길이 없어 로그인을 풂(끊김은 세지 않음)
+const MAX_REFRESH_SERVER_FAILURES = 3
+let refreshServerFailures = 0
+
+// 같이 기다린 요청이 여럿이어도 재발급 한 번에 한 번만 셈
 function refreshToken() {
-  refreshing ??= apiClient
-    .post(REFRESH_URL)
-    .then(() => undefined)
+  refreshing ??= postRefresh()
+    .then(() => {
+      refreshServerFailures = 0
+    })
+    .catch((error: unknown) => {
+      const status = axios.isAxiosError(error) ? error.response?.status : undefined
+      if (status !== undefined && status >= 500) refreshServerFailures += 1
+      throw error
+    })
     .finally(() => {
       refreshing = null
     })
   return refreshing
 }
 
-// 세션이 끝나 로그인을 풂. 마이 로그아웃처럼 이 기기 푸시 구독 · 카카오 대기 토큰도 정리. OnboardingGate가 시작 화면으로 보냄
-function signOutOnDevice() {
-  if (!useAuthStore.getState().account) return
+// 세션이 끝났는지 한 번 더 확인. 다른 탭이 먼저 재발급했으면 쿠키가 새로 바뀌어 통과
+async function sessionStillAlive() {
+  try {
+    await apiClient.get('/me', { retried: true } as AxiosRequestConfig)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// 기기 푸시 구독을 끊으며 기다리는 최대 시간
+const UNSUBSCRIBE_WAIT_MS = 1500
+let signingOut = false
+
+// 세션이 끝나면 마이 로그아웃처럼 정리하고 시작 화면으로
+async function signOutOnDevice() {
+  if (signingOut || !useAuthStore.getState().account) return
+  signingOut = true
   useAuthStore.getState().logout()
   clearPendingKakao()
-  // 쿠키가 끝나 서버 구독 삭제는 못 함(다시 재발급을 부름). 기기 구독만 끊으면 서버가 보낼 때 정리됨
-  void import('@/api/push')
-    .then(({ unsubscribePush }) => unsubscribePush({ server: false }))
-    .catch(() => {})
+  // 서버 구독 삭제는 쿠키가 끝나 못 함. 기기 구독만 끊으면 서버가 보낼 때 정리됨. 순환 import라 동적으로
+  await Promise.race([
+    import('@/api/push')
+      .then(({ unsubscribePush }) => unsubscribePush({ server: false }))
+      .catch(() => {}),
+    new Promise((resolve) => window.setTimeout(resolve, UNSUBSCRIBE_WAIT_MS)),
+  ])
+  // 이 계정 기록을 지우고 다른 탭에도 알림
+  leaveAfterLogout()
 }
 
 apiClient.interceptors.response.use(
@@ -94,9 +131,14 @@ apiClient.interceptors.response.use(
     try {
       await refreshToken()
     } catch (refreshError) {
-      // 재발급도 만료 · 사용됨(401)일 때만 로그인 풂. 끊김 · 서버 오류면 로그인 유지
-      if (axios.isAxiosError(refreshError) && refreshError.response?.status === 401) {
-        signOutOnDevice()
+      const status = axios.isAxiosError(refreshError) ? refreshError.response?.status : undefined
+      // 만료 · 사용됨(401)이어도 다른 탭이 먼저 재발급했을 수 있어 한 번 더 확인
+      if (status === 401) {
+        if (await sessionStillAlive()) return apiClient(config)
+        void signOutOnDevice()
+      } else if (refreshServerFailures >= MAX_REFRESH_SERVER_FAILURES) {
+        // 서버 오류가 계속되면 로그인을 풀어 다시 로그인하게. 끊김(응답 없음)이면 로그인 유지
+        void signOutOnDevice()
       }
       throw error
     }
