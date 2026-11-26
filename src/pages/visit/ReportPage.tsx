@@ -14,13 +14,17 @@ import { useNow } from '@/hooks/useNow'
 import { useRangeSync } from '@/hooks/useRangeSync'
 import { useReportContent } from '@/hooks/useReportContent'
 import { getErrorCode } from '@/api/axios'
-import { getVisitReportPeriod, type VisitReportSave } from '@/api/visitReports'
+import {
+  getSavedReportMissed,
+  getVisitReportPeriod,
+  type VisitReportSave,
+} from '@/api/visitReports'
 import { useHospitalStore } from '@/stores/useHospitalStore'
 import { keepVisitReport } from '@/stores/useReportStore'
 import { useVisitSaveStore, useVisitStore } from '@/stores/useVisitStore'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { addDays, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
-import { formatReportText } from '@/utils/report'
+import { formatReportText, type ReportMissed } from '@/utils/report'
 import {
   createReportImage,
   getReportFileName,
@@ -79,6 +83,7 @@ function ReportPage() {
         to: Date
         careSiteName: string | null
         careSiteId: string | null
+        missed: ReportMissed | null
       }
     | { key: string; undecided: true }
     | { key: string; failedTry: number }
@@ -124,11 +129,32 @@ function ReportPage() {
         ? (hospitals[0]?.id ?? null)
         : (hospitals.find((item) => item.name === hospitalParam)?.id ?? null)))
   const profileName = useProfileStore((state) => state.name)
+  // 다시 연 저장 리포트의 빈칸(놓친 측정 알림). 진료용은 위 기간 응답에 같이 옴
+  const reportId = searchParams.get('reportId')
+  const [savedMissed, setSavedMissed] = useState<{
+    id: string
+    missed: ReportMissed | null
+  } | null>(null)
+  useEffect(() => {
+    if (!reportId || reportVisitId) return
+    let canceled = false
+    getSavedReportMissed(reportId)
+      .then((missed) => {
+        if (!canceled) setSavedMissed({ id: reportId, missed })
+      })
+      // 못 받으면 기기 기록으로 빈칸을 셈
+      .catch(() => {})
+    return () => {
+      canceled = true
+    }
+  }, [reportId, reportVisitId])
+  const missed = servedPeriod?.missed ?? (savedMissed?.id === reportId ? savedMissed.missed : null)
   // 리포트 기간 기록을 서버와 맞춤. 앱 켤 때 받지 않는 31일보다 오래된 기록도 반영
   useRangeSync(from, to)
   const { report, title, periodLabel, criteriaLines } = useReportContent({
     from,
     to,
+    missed,
     hideName,
     hospitalId,
     // 진료용은 그 진료 일정의 병원으로(병원이 없으면 대표 병원)
@@ -196,6 +222,7 @@ function ReportPage() {
     lateEntries: report.lateEntries,
     slots: report.slots.map(({ label, outOfTarget, total }) => [label, outOfTarget, total]),
     lows: report.lows.length,
+    highs: report.highs.length,
     questions: questions.length,
   })
   useEffect(() => {

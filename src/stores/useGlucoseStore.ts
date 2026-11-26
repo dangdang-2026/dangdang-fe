@@ -9,15 +9,31 @@ import {
   type InsulinInput,
 } from '@/api/insulin'
 import { applyMealItems, toMealContent } from '@/api/mealItems'
-import { createMeal, deleteMeal, getAllMeals, updateMealStart, type ServerMeal } from '@/api/meals'
-import { createReading, deleteReading, getAllReadings, updateReading } from '@/api/readings'
-import { getRecords } from '@/api/records'
+import {
+  createMeal,
+  deleteMeal,
+  getAllMeals,
+  restoreMeal as restoreMealApi,
+  skipMealMeasure,
+  updateMealStart,
+  type ServerMeal,
+} from '@/api/meals'
+import {
+  createReading,
+  deleteReading,
+  getAllReadings,
+  restoreReading,
+  updateReading,
+  type ReadingChanges,
+} from '@/api/readings'
+import { deleteRecordsRange, getRecords } from '@/api/records'
 import type {
   GlucoseRecord,
   InsulinRecord,
   Meal,
   MealType,
   MeasureTarget,
+  MeterLimit,
   NutritionEdits,
   Portion,
 } from '@/types/glucose'
@@ -42,7 +58,7 @@ type GlucoseState = {
   setMealPhotoInfo: (mealId: string, info: Pick<Meal, 'aiCandidates' | 'portions'>) => void
   // 서버에 저장된 기록을 기기에 추가
   addRecord: (record: GlucoseRecord) => void
-  updateRecord: (id: string, changes: { value: number; measuredAt: string }, now?: Date) => void
+  updateRecord: (id: string, changes: { value?: number; measuredAt: string }, now?: Date) => void
   deleteRecord: (id: string, now?: Date) => void
   // 지운 기록. 화면·리포트에선 빼고 기록용으로만 보관
   deletedRecords: (GlucoseRecord & { deletedAt: string })[]
@@ -113,7 +129,9 @@ export const useGlucoseStore = create<GlucoseState>()(
             record.id === id
               ? {
                   ...record,
-                  ...changes,
+                  // 값을 안 보냈으면(HI · LO 그대로 시각만) 값은 그대로
+                  ...(changes.value !== undefined && { value: changes.value }),
+                  measuredAt: changes.measuredAt,
                   editedAt: now.toISOString(),
                   original: record.original ?? {
                     value: record.value,
@@ -159,6 +177,9 @@ async function sendPendingMeal(meal: Meal, offline: boolean) {
     }))
     // 못 보낸 사이 적은 음식도 이어서 보냄
     void pushMealItems(saved.id)
+    // 못 보낸 사이 건너뛴 끼니면 서버에도 건너뜀으로(놓친 측정 · 알림 정리)
+    const current = useGlucoseStore.getState().meals.find((item) => item.id === saved.id)
+    if (current?.skipped) void sendSkip(saved.id)
     return true
   } catch {
     return false
@@ -174,7 +195,7 @@ const getKnownFoods = () => {
 // 서버 식사를 기기 식사에 합침. 기기에서 고치고 못 보낸 음식은 기기 값, 아니면 서버 항목
 export function mergeServerMeal(server: ServerMeal, local?: Meal): Meal {
   const { items, ...base } = server
-  const meal: Meal = local ? { ...local, ...base } : { ...base, skipped: false }
+  const meal: Meal = local ? { ...local, ...base } : { skipped: false, ...base }
   if (!items || meal.itemsPending) return meal
   // 항목 API 전에 기기에만 적은 음식은 서버로 옮김
   if (items.length === 0) return meal.foods?.length ? { ...meal, itemsPending: true } : meal
@@ -264,8 +285,12 @@ async function sendPendingMeals() {
 
 // 못 보낸 음식 · 양을 서버 식사에 다시 붙임
 async function pushUnsentItems() {
-  const unsent = useGlucoseStore.getState().meals.filter((meal) => meal.itemsPending)
-  await Promise.all(unsent.map((meal) => pushMealItems(meal.id)))
+  const { meals } = useGlucoseStore.getState()
+  await Promise.all([
+    ...meals.filter((meal) => meal.itemsPending).map((meal) => pushMealItems(meal.id)),
+    // 못 보낸 건너뛰기도 다시(서버가 식후 알림을 계속 보내지 않게)
+    ...meals.filter((meal) => meal.skipPending && !meal.pending).map((meal) => sendSkip(meal.id)),
+  ])
 }
 
 // 받는 사이 지운 · 고친 인슐린. 늦게 온 응답이 되살리거나 고치기 전 값으로 덮지 않게
@@ -357,7 +382,12 @@ async function syncInsulinsOnce(userId: number) {
 }
 
 // 서버에 등록한 뒤 기기에 반영. 서버에 있는 식사면 끼니도 서버에 연결, 못 보낸 식사면 기기에서만
-export async function saveRecord(target: MeasureTarget, value: number, measuredAt: Date) {
+// value가 HI · LO면 혈당계 글자로 저장
+export async function saveRecord(
+  target: MeasureTarget,
+  value: number | MeterLimit,
+  measuredAt: Date,
+) {
   const meal = useGlucoseStore.getState().meals.find((item) => item.id === target.mealId)
   const serverMealId = meal && !meal.pending ? meal.id : undefined
   const saved = await createReading(target, value, measuredAt, serverMealId)
@@ -512,10 +542,39 @@ export async function syncServerRange<T extends ServerRangeData>(load: () => Pro
   return data
 }
 
-// 서버에서 고친 뒤 기기에 반영. 처음 값(original)은 기기에서 남김
-export async function editRecord(id: string, changes: { value: number; measuredAt: string }) {
-  await updateReading(id, changes)
-  useGlucoseStore.getState().updateRecord(id, changes)
+// 서버가 다시 판정한 값으로 바꿈. 시점을 안 바꾸면 끼니 연결 · 처음 값은 기기 값 유지, 충돌(409)이면 다시 받고 던짐
+export async function editRecord(id: string, changes: ReadingChanges) {
+  const before = useGlucoseStore.getState().records.find((record) => record.id === id)
+  try {
+    const saved = await updateReading(id, changes)
+    useGlucoseStore.getState().updateRecord(id, changes)
+    useGlucoseStore.setState((state) => ({
+      records: state.records.map((record) =>
+        record.id === id
+          ? {
+              ...record,
+              ...saved,
+              mealId: changes.target ? saved.mealId : (saved.mealId ?? record.mealId),
+              mealType: changes.target
+                ? (changes.target.mealType ?? saved.mealType)
+                : (saved.mealType ?? record.mealType),
+            }
+          : record,
+      ),
+    }))
+  } catch (error) {
+    if (getErrorCode(error) === 'READING_40903') {
+      // 옮기려던 날과 원래 날을 둘 다 다시 받음(옛 값이 원래 날에 남지 않게)
+      const days = [changes.measuredAt, before?.measuredAt].flatMap((iso) =>
+        iso ? [startOfDay(new Date(iso))] : [],
+      )
+      const unique = days.filter(
+        (day, index) => days.findIndex((other) => other.getTime() === day.getTime()) === index,
+      )
+      await Promise.all(unique.map((day) => syncRange(day, day).catch(() => {})))
+    }
+    throw error
+  }
 }
 
 // 같은 끼니의 시작 시각 고치기는 차례로. 늦게 끝난 앞 요청이 마지막에 고른 시각을 덮지 않게
@@ -547,11 +606,109 @@ export async function editMealStart(id: string, startedAt: Date) {
 export async function removeMeal(id: string) {
   const meal = useGlucoseStore.getState().meals.find((item) => item.id === id)
   if (meal && !meal.pending) await deleteMeal(id)
+  if (meal) {
+    removedMeals.set(id, meal)
+    // 되돌릴 수 있는 5분이 지나면 잊음
+    window.setTimeout(() => removedMeals.delete(id), UNDO_MS)
+  }
   useGlucoseStore.setState((state) => ({ meals: state.meals.filter((item) => item.id !== id) }))
+}
+
+// 지운 식사. 5분 안 되돌리면 기기에만 있던 음식 · 양 · 건너뜀을 다시 붙임
+const removedMeals = new Map<string, Meal>()
+// 서버가 지운 기록을 되돌려 주는 시간(5분)
+const UNDO_MS = 5 * 60 * 1000
+
+// 지운 식사 되돌리기. 서버가 되살린 식사에 기기 정보를 합쳐 다시 넣음
+export async function restoreMeal(id: string) {
+  const server = await restoreMealApi(id)
+  const local = removedMeals.get(id)
+  removedMeals.delete(id)
+  if (!server) return
+  useGlucoseStore.setState((state) => ({
+    meals: [...state.meals.filter((item) => item.id !== id), mergeServerMeal(server, local)].sort(
+      (a, b) => toTime(a.startedAt) - toTime(b.startedAt),
+    ),
+  }))
 }
 
 // 서버에서 지운 뒤 기기에서도 뺌
 export async function removeRecord(id: string) {
   await deleteReading(id)
   useGlucoseStore.getState().deleteRecord(id)
+}
+
+// 지운 혈당 되돌리기. 서버 기록으로 다시 넣고 처음 값 · 끼니 연결은 지우기 전 기기 값 유지
+export async function restoreRecord(id: string) {
+  const saved = await restoreReading(id)
+  useGlucoseStore.setState((state) => {
+    const before = state.deletedRecords.find((record) => record.id === id)
+    const record = {
+      ...before,
+      ...saved,
+      mealId: saved.mealId ?? before?.mealId,
+      mealType: saved.mealType ?? before?.mealType,
+    }
+    delete (record as { deletedAt?: string }).deletedAt
+    return {
+      records: [...state.records.filter((item) => item.id !== id), record].sort(
+        (a, b) => toTime(a.measuredAt) - toTime(b.measuredAt),
+      ),
+      deletedRecords: state.deletedRecords.filter((item) => item.id !== id),
+    }
+  })
+}
+
+// 기간 골라 지우기. 서버에서 지운 뒤 기기의 그 기간 혈당 · 식사 · 인슐린도 뺌(못 보낸 식사 포함)
+export async function removeRecordsRange(from: Date, to: Date) {
+  const result = await deleteRecordsRange(from, to)
+  const start = startOfDay(from).getTime()
+  const end = addDays(startOfDay(to), 1).getTime()
+  const inRange = (iso: string) => {
+    const time = toTime(iso)
+    return time >= start && time < end
+  }
+  useGlucoseStore.setState((state) => ({
+    meals: state.meals.filter((meal) => !inRange(meal.startedAt)),
+    records: state.records.filter((record) => !inRange(record.measuredAt)),
+    insulins: state.insulins.filter((insulin) => !inRange(insulin.takenAt)),
+  }))
+  return result
+}
+
+// 이번 끼니는 건너뛸게요. 기기에 먼저 남기고 서버에 저장(measured: 이미 잼 · later: 다음 동기화 때)
+export async function saveSkipMeal(mealId: string): Promise<'saved' | 'measured' | 'later'> {
+  useGlucoseStore.getState().skipMeal(mealId)
+  const meal = useGlucoseStore.getState().meals.find((item) => item.id === mealId)
+  if (!meal || meal.pending) return 'later'
+  return sendSkip(mealId)
+}
+
+// 건너뛰기 보내기. 실패하면 skipPending으로 두고, 이미 쟀다고(409) 하면 건너뜀을 되돌림
+async function sendSkip(mealId: string): Promise<'saved' | 'measured' | 'later'> {
+  const patch = (changes: Partial<Meal>) =>
+    useGlucoseStore.setState((state) => ({
+      meals: state.meals.map((item) => (item.id === mealId ? { ...item, ...changes } : item)),
+    }))
+  try {
+    await skipMealMeasure(mealId)
+    patch({ skipPending: undefined })
+    return 'saved'
+  } catch (error) {
+    if (getErrorCode(error) === 'MEAL_40905') {
+      patch({ skipped: false, skipPending: undefined })
+      return 'measured'
+    }
+    patch({ skipPending: true })
+    return 'later'
+  }
+}
+
+// from~to(오늘까지)를 31일씩 차례로 서버와 맞춤. 지난 날짜 기준으로 서버가 다시 판정한 뒤 등. 실패한 구간은 건너뜀
+export async function syncLongRange(from: Date, to: Date) {
+  const end = startOfDay(to)
+  for (let chunk = startOfDay(from); chunk <= end; chunk = addDays(chunk, RANGE_MAX_DAYS)) {
+    const chunkEnd = addDays(chunk, RANGE_MAX_DAYS - 1)
+    await syncRange(chunk, chunkEnd < end ? chunkEnd : end).catch(() => {})
+  }
 }

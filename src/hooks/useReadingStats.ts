@@ -3,7 +3,12 @@ import { getReadingStats } from '@/api/readings'
 import { parseDateKey, toDateKey } from '@/utils/date'
 import type { DateRange, PeriodStats, StatsSlot } from '@/utils/stats'
 
-type StatsResult = { current: PeriodStats; previous: PeriodStats | null }
+// firstRecordDate: 서버가 아는 첫 기록일(다른 기기 포함). 없으면 null
+type StatsResult = {
+  current: PeriodStats
+  previous: PeriodStats | null
+  firstRecordDate: Date | null
+}
 
 // 공복·식후, 기간이 바뀔 때마다 서버 통계를 받음. 다른 조건의 이전 결과는 보여 주지 않음
 export function useReadingStats(slot: StatsSlot, range: DateRange) {

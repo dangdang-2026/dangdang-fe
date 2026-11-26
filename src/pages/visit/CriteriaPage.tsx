@@ -13,6 +13,7 @@ import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
 import { saveCriteria } from '@/stores/useCriteriaStore'
+import { syncLongRange } from '@/stores/useGlucoseStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import type { CriteriaPrefill, MeasureSlotKey } from '@/types/criteria'
@@ -91,7 +92,10 @@ function CriteriaPage() {
     setSaving(true)
     try {
       // 고른 뒤 기준이 바뀌었을 수 있어 저장 직전에 한 번 더 맞춤. 오늘이어도 같은 날을 보냄
-      await saveCriteria({ ...draft, source: '진료 후 직접 입력' }, clampDate(effectiveFrom))
+      const appliedFrom = clampDate(effectiveFrom)
+      await saveCriteria({ ...draft, source: '진료 후 직접 입력' }, appliedFrom)
+      // 지난 날짜부터면 서버가 그날부터 잰 기록을 새 기준으로 다시 판정해서, 그 기간 판정을 다시 받음
+      if (appliedFrom < today) void syncLongRange(appliedFrom, today)
     } catch {
       setToast(true)
       return
@@ -190,7 +194,10 @@ function CriteriaPage() {
               바꾸기
             </button>
             <br />
-            이전 기록은 그때 기준으로 표시해요
+            {/* 어제 이전부터 적용하면 서버가 그날부터 잰 혈당도 새 기준으로 다시 판정 */}
+            {effectiveFrom < today
+              ? `${formatMonthDay(effectiveFrom)}부터 잰 기록도 새 기준으로 다시 세요`
+              : '이전 기록은 그때 기준으로 표시해요'}
           </p>
         </section>
       </div>

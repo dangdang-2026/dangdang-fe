@@ -4,7 +4,7 @@ import { ROUTES } from '@/constants/routes'
 import { useFoods } from '@/hooks/useFoods'
 import type { Food, GlucoseRecord, InsulinRecord, Meal } from '@/types/glucose'
 import { formatTime } from '@/utils/date'
-import { getSlotLabel } from '@/utils/glucose'
+import { formatGlucose, getSlotLabel } from '@/utils/glucose'
 import { formatInsulinLabel } from '@/utils/insulin'
 import { formatMealLabel } from '@/utils/meal'
 
@@ -22,7 +22,8 @@ type TimelineItem = {
   id: string
   at: Date
   label: string
-  value?: number
+  // 혈당 수치. HI · LO면 그 글자
+  value?: string
   // 비어 있는 측정 자리(값 대신 —)
   blank?: boolean
 }
@@ -45,7 +46,7 @@ function toTimeline(
       id: record.id,
       at: new Date(record.measuredAt),
       label: getSlotLabel(record.slot, record.mealType, hours),
-      value: record.value,
+      value: formatGlucose(record),
     })),
     ...insulins.map((insulin) => ({
       id: insulin.id,

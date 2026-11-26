@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import { getErrorCode } from '@/api/axios'
 import { canServerPush, subscribePush } from '@/api/push'
 import { openReminder, snoozeReminder } from '@/api/reminders'
 import EmergencyBlock from '@/components/common/EmergencyBlock'
@@ -44,6 +45,7 @@ import {
   saveMealContent,
   saveInsulin,
   saveMealStart,
+  saveSkipMeal,
   useGlucoseStore,
 } from '@/stores/useGlucoseStore'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
@@ -56,13 +58,14 @@ import { formatTime, isSameDay, startOfDay } from '@/utils/date'
 import { formatPregnancyAge, getPregnancyAge } from '@/utils/pregnancy'
 import { formatVisitDay, getHomeVisitCard } from '@/utils/visit'
 import {
+  formatGlucose,
   getHeroState,
   getMeasureTarget,
   getMissedMeals,
   getNextMealType,
   getSlotLabel,
   getTarget,
-  compareToTarget,
+  isAboveTarget,
   isDayEnd,
   measuresAfter,
   type HeroState,
@@ -93,7 +96,6 @@ function TodayPage() {
   const meals = useGlucoseStore((state) => state.meals)
   const records = useGlucoseStore((state) => state.records)
   const insulins = useGlucoseStore((state) => state.insulins)
-  const skipMeal = useGlucoseStore((state) => state.skipMeal)
   const foods = useFoods()
   const criteria = useCriteria()
   const criteriaVersions = useCriteriaStore((state) => state.versions)
@@ -189,10 +191,7 @@ function TodayPage() {
       ? getTarget(lastEntered.slot, lastCriteria.targets, lastCriteria.postMealHours)
       : null
   const showHighCard =
-    justEntered &&
-    !!lastEntered &&
-    lastTarget !== null &&
-    compareToTarget(lastEntered.value, lastTarget) === 'high'
+    justEntered && !!lastEntered && lastTarget !== null && isAboveTarget(lastEntered, lastTarget)
   // 출산 예정일이 가까우면 입원·출산 입구. 입원 중이면 안 보임
   const nearDue = !hospitalized && (getPregnancyAge(dueDate, now)?.weeks ?? 0) >= BIRTH_ENTRY_WEEKS
   // 저녁 이후 놓친 식후 측정은 오늘 기록에 나중에 채우기 줄로
@@ -357,8 +356,13 @@ function TodayPage() {
     try {
       await editMealStart(meal.id, startedAt)
       setToast(`식사 시작을 ${time}로 고쳤어요`)
-    } catch {
-      setToast('시작 시각을 고치지 못했어요. 잠시 후 다시 시도해 주세요')
+    } catch (error) {
+      // 식후 혈당을 잰 시각보다 늦게 고치면 서버가 거절(MEAL_40008)
+      setToast(
+        getErrorCode(error) === 'MEAL_40008'
+          ? '식후 혈당을 잰 시각보다 늦게는 고칠 수 없어요'
+          : '시작 시각을 고치지 못했어요. 잠시 후 다시 시도해 주세요',
+      )
     }
   }
 
@@ -387,7 +391,7 @@ function TodayPage() {
   const handleSaved = (record: GlucoseRecord) => {
     closeGlucoseSheet()
     const label = getSlotLabel(record.slot, record.mealType, criteria.postMealHours)
-    setToast(`${label} ${record.value} 저장했어요`)
+    setToast(`${label} ${formatGlucose(record)} 저장했어요`)
   }
 
   const handleMealSaved = (
@@ -451,7 +455,12 @@ function TodayPage() {
             postMealHours={criteria.postMealHours}
             onStartMeal={() => void handleStartMeal()}
             onInputGlucose={openGlucoseSheet}
-            onSkipMeal={skipMeal}
+            onSkipMeal={(mealId) => {
+              // 다른 기기에서 이미 식후 혈당을 적었으면 건너뛰지 않고 알림
+              void saveSkipMeal(mealId).then((result) => {
+                if (result === 'measured') setToast('이 끼니 식후 혈당은 이미 적었어요')
+              })
+            }}
             onWriteMeal={setWritingMeal}
             onEditMealStart={setEditingStart}
             onFillMissed={fillMissed}

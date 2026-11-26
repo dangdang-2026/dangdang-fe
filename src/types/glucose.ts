@@ -25,6 +25,8 @@ export type Meal = {
   portions?: Record<string, Portion>
   // 고친 음식을 서버 항목에 아직 못 맞춤. 동기화 때 다시 보냄
   itemsPending?: boolean
+  // 건너뛰기를 서버에 아직 못 보냄. 동기화 때 다시 보냄
+  skipPending?: boolean
 }
 
 // 양: 반 · 1 · 1.5
@@ -88,7 +90,23 @@ export type GlucoseRecord = {
   original?: { value: number; measuredAt: string }
   // 서버가 붙인 잰 날짜의 병원 기준 id
   criteriaId?: number
+  // 서버 판정. undefined면 서버 값을 아직 못 받음(화면이 기준으로 계산), null이면 서버가 판정 안 함(목표 · 재야 할 시각 없음)
+  targetValue?: number | null
+  aboveTarget?: boolean | null
+  expectedAt?: string | null
+  timing?: ReadingTiming | null
+  // 서버가 남긴 처음 값. 값을 안 고쳤거나 처음 값으로 되돌렸으면 null
+  originalValue?: number | null
+  originalMeterLimit?: MeterLimit | null
+  // 혈당계에 HI · LO가 떠서 그 글자로 적음. value에는 혈당계 끝값(HI 600 · LO 20)
+  meterLimit?: MeterLimit | null
 }
+
+// 백엔드 ReadingTiming. 재야 할 시각과 비교(±15분)
+export type ReadingTiming = 'EARLY' | 'ON_TIME' | 'LATE'
+
+// 백엔드 MeterLimit. 혈당계가 잴 수 없을 만큼 높음 · 낮음
+export type MeterLimit = 'HI' | 'LO'
 
 // 입력 시트에 넘기는 측정 시점 정보
 export type MeasureTarget = {

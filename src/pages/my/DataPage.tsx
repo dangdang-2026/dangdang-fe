@@ -3,27 +3,31 @@ import { useLocation, useNavigate } from 'react-router'
 import { deleteAccount, startKakaoWithdraw, type CommunityPostsOnLeave } from '@/api/auth'
 import { getErrorCode } from '@/api/axios'
 import { getSensitiveConsentAt, withdrawSensitiveConsent } from '@/api/consent'
+import { getRecordCalendar } from '@/api/records'
 import { getMe } from '@/api/me'
 import iconDownload from '@/assets/icons/download.svg'
 import iconFileGrey from '@/assets/icons/file-grey.svg'
 import iconCamera from '@/assets/icons/my/data-camera.svg'
 import iconInfo from '@/assets/icons/my/data-info.svg'
 import iconShield from '@/assets/icons/my/data-shield.svg'
+import iconTrash from '@/assets/icons/my/data-trash.svg'
 import iconChevron from '@/assets/icons/nav-next.svg'
 import ConfirmSheet from '@/components/common/ConfirmSheet'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import Toast from '@/components/common/Toast'
 import ReportDocument from '@/components/report/ReportDocument'
+import RecordDeleteRangeSheet from '@/components/my/RecordDeleteRangeSheet'
 import WithdrawSheet from '@/components/my/WithdrawSheet'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
 import { useReportContent } from '@/hooks/useReportContent'
 import { useAuthStore } from '@/stores/useAuthStore'
-import { useGlucoseStore } from '@/stores/useGlucoseStore'
+import { removeRecordsRange, useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
 import { restartAfterSensitiveWithdraw, restartAfterWithdraw } from '@/utils/auth'
 import { formatKoreanDate, startOfDay } from '@/utils/date'
+import type { DateRange } from '@/utils/stats'
 
 type DataRow = {
   icon: string
@@ -114,6 +118,38 @@ function DataPage() {
     window.print()
   }
 
+  // 기간 골라 지우기. 지운 뒤 개수를 알림
+  const [deleteRange, setDeleteRange] = useState(false)
+  // 서버가 아는 첫 기록일. 기기엔 최근 31일만 받아 둬서 전체 기간은 이 날부터 지움
+  const [serverFirst, setServerFirst] = useState<Date | null>(null)
+  const openDeleteRange = () => {
+    setDeleteRange(true)
+    getRecordCalendar(startOfDay(now))
+      .then((calendar) => setServerFirst(calendar.firstRecordDate))
+      .catch(() => {})
+  }
+  const deleteStart = startOfDay(
+    new Date(Math.min(firstAt, serverFirst ? serverFirst.getTime() : firstAt)),
+  )
+  const [deletingRange, setDeletingRange] = useState(false)
+  const confirmDeleteRange = async (range: DateRange) => {
+    if (deletingRange) return
+    setDeletingRange(true)
+    try {
+      const {
+        readings,
+        meals: mealCount,
+        insulins,
+      } = await removeRecordsRange(range.from, range.to)
+      setDeleteRange(false)
+      setToast(`혈당 ${readings}개·식사 ${mealCount}개·인슐린 ${insulins}개를 지웠어요`)
+    } catch {
+      setToast('기록을 지우지 못했어요. 잠시 후 다시 시도해 주세요')
+    } finally {
+      setDeletingRange(false)
+    }
+  }
+
   const openTerms = () => navigate(ROUTES.MY_TERMS)
   const rows: DataRow[] = [
     {
@@ -122,6 +158,13 @@ function DataPage() {
       title: '내 기록 PDF 받기',
       description: '전체 기간 · 이 기기에서 만들어요',
       onClick: printRecords,
+    },
+    {
+      icon: iconTrash,
+      tone: 'yellow',
+      title: '기록 지우기',
+      description: '기간을 골라 지워요',
+      onClick: openDeleteRange,
     },
     {
       icon: iconShield,
@@ -238,6 +281,15 @@ function DataPage() {
               setWithdrawSheet(false)
               setWrongPassword(false)
             }}
+          />
+        )}
+        {deleteRange && (
+          <RecordDeleteRangeSheet
+            today={startOfDay(now)}
+            start={deleteStart}
+            loading={deletingRange}
+            onDelete={(range) => void confirmDeleteRange(range)}
+            onClose={() => setDeleteRange(false)}
           />
         )}
         {withdrawConsent && (

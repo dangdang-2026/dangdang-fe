@@ -6,7 +6,7 @@ import { useProfileStore } from '@/stores/useProfileStore'
 import { getCriteriaAt } from '@/utils/criteria'
 import { formatMonthDay } from '@/utils/date'
 import { formatPregnancyRange } from '@/utils/pregnancy'
-import { buildReport, formatCriteria } from '@/utils/report'
+import { buildReport, formatCriteria, type ReportMissed } from '@/utils/report'
 
 type ReportContentParams = {
   from: Date
@@ -17,6 +17,8 @@ type ReportContentParams = {
   hospitalName?: string
   // 고른 병원 번호. 이름이 같은 병원이 있어도 그 병원으로
   hospitalId?: string | null
+  // 서버 리포트 빈칸(놓친 측정 알림). 없으면 기기 기록으로 셈
+  missed?: ReportMissed | null
 }
 
 // 진료 리포트(C-06)·내 기록 PDF(M-07) 공통 내용: 집계 + 제목 + 기간 + 기준 줄
@@ -26,6 +28,7 @@ export function useReportContent({
   hideName = false,
   hospitalName,
   hospitalId,
+  missed,
 }: ReportContentParams) {
   const primary = usePrimaryHospital()
   // 고른 병원을 병원 목록에서 찾음. 이름만 남고 목록에 없으면(지움 · 이름 바뀜) 그 이름 그대로, 안 골랐으면 대표 병원
@@ -46,7 +49,7 @@ export function useReportContent({
   const name = useProfileStore((state) => state.name)
   const dueDate = useProfileStore((state) => state.dueDate)
 
-  const report = buildReport({ records, meals, from, to, versions })
+  const report = buildReport({ records, meals, from, to, versions, missed })
   const pregnancy = formatPregnancyRange(dueDate, from, to)
   const periodLabel = `${formatMonthDay(from)} – ${formatMonthDay(to)}${pregnancy ? ` · ${pregnancy}` : ''}`
   const title = hideName ? '혈당 기록' : `${name} 님 혈당 기록`
