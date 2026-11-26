@@ -6,7 +6,7 @@ import { syncMyFoods } from '@/stores/useFoodStore'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { syncBlocks, syncCommunityProfile, syncRestriction } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
-import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
+import { syncGlucose } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncMealGuide } from '@/stores/useMealGuideStore'
 import { syncMealSettings } from '@/stores/useMealSettingsStore'
@@ -47,9 +47,8 @@ export function useSessionCheck() {
               onboarding.complete(startedAt ?? undefined)
             }
           }),
-          syncMeals(),
+          syncGlucose(me.userId),
           syncMyFoods(),
-          syncRecords(),
           syncInbox(),
           // 식사 안내 받은 곳 · 진료 일정 병원 · 예전 리포트 병원 번호는 병원 목록이 있어야 해서 병원 다음에
           syncHospitals().finally(() =>

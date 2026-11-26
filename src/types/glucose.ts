@@ -101,16 +101,20 @@ export type MeasureTarget = {
 
 export type TargetComparison = 'in-range' | 'high' | 'off' | 'invalid'
 
-// 인슐린 종류: 식사 때(속효성) · 자기 전(지속형) · 직접 적기
+// 인슐린 종류: 식사 때(속효성) · 자기 전(지속형). custom은 서버 연동 전 기기에만 남은 직접 적기
 export type InsulinKind = 'meal' | 'bedtime' | 'custom'
 
 // 인슐린 모드에서 맞은 기록. 알림 없이 기록만
 export type InsulinRecord = {
   id: string
   kind: InsulinKind
+  // 식사 때 인슐린의 끼니. 서버 연동 전 기록엔 없음
+  mealType?: MealType
   // 직접 적은 이름. kind가 custom일 때만
   name?: string
   units: number
   takenAt: string
   editedAt?: string
+  // 서버에 저장된 기록. 없으면 기기에만 있는 예전 기록
+  server?: boolean
 }

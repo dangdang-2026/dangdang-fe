@@ -42,6 +42,7 @@ import { saveHospitalized, useProfileStore } from '@/stores/useProfileStore'
 import {
   editMealStart,
   saveMealContent,
+  saveInsulin,
   saveMealStart,
   useGlucoseStore,
 } from '@/stores/useGlucoseStore'
@@ -49,14 +50,7 @@ import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { useInboxStore } from '@/stores/useInboxStore'
 import { saveNotificationSettings, useNotificationStore } from '@/stores/useNotificationStore'
 import { useVisitStore } from '@/stores/useVisitStore'
-import type {
-  GlucoseRecord,
-  InsulinKind,
-  Meal,
-  MeasureTarget,
-  NutritionEdits,
-  Portion,
-} from '@/types/glucose'
+import type { GlucoseRecord, Meal, MeasureTarget, NutritionEdits, Portion } from '@/types/glucose'
 import { getCriteriaAt } from '@/utils/criteria'
 import { formatTime, isSameDay, startOfDay } from '@/utils/date'
 import { formatPregnancyAge, getPregnancyAge } from '@/utils/pregnancy'
@@ -100,7 +94,6 @@ function TodayPage() {
   const records = useGlucoseStore((state) => state.records)
   const insulins = useGlucoseStore((state) => state.insulins)
   const skipMeal = useGlucoseStore((state) => state.skipMeal)
-  const addInsulin = useGlucoseStore((state) => state.addInsulin)
   const foods = useFoods()
   const criteria = useCriteria()
   const criteriaVersions = useCriteriaStore((state) => state.versions)
@@ -292,14 +285,6 @@ function TodayPage() {
     }
     setPermissionSheet(true)
   }
-
-  // 같은 종류로 마지막에 적은 단위. 새로 적을 때 시작값
-  const lastUnits: Partial<Record<InsulinKind, number>> = {}
-  ;[...insulins]
-    .sort((a, b) => new Date(a.takenAt).getTime() - new Date(b.takenAt).getTime())
-    .forEach((insulin) => {
-      lastUnits[insulin.kind] = insulin.units
-    })
 
   // 식사 적기는 오늘 마지막 끼니. 아직 없으면 식사 시작부터
   const writeLatestMeal = () => {
@@ -555,11 +540,14 @@ function TodayPage() {
       )}
       {insulinSheet && (
         <InsulinSheet
-          lastUnits={lastUnits}
-          onSave={(input) => {
-            addInsulin(input)
-            setInsulinSheet(false)
-            setToast(`인슐린 ${input.units}단위 기록했어요`)
+          onSave={async (input) => {
+            try {
+              await saveInsulin(input)
+              setInsulinSheet(false)
+              setToast(`인슐린 ${input.units}단위 기록했어요`)
+            } catch {
+              setToast('인슐린을 기록하지 못했어요. 잠시 후 다시 시도해 주세요')
+            }
           }}
           onClose={() => setInsulinSheet(false)}
         />

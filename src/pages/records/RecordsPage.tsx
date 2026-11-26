@@ -18,12 +18,16 @@ import { useNow } from '@/hooks/useNow'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useWeekRecordsSync } from '@/hooks/useWeekRecordsSync'
 import {
+  editInsulin,
+  removeInsulin,
   removeMeal,
   removeRecord,
   saveMealContent,
   useGlucoseStore,
 } from '@/stores/useGlucoseStore'
 import ConfirmSheet from '@/components/common/ConfirmSheet'
+import { getErrorCode } from '@/api/axios'
+import type { InsulinInput } from '@/api/insulin'
 import type {
   GlucoseRecord,
   InsulinRecord,
@@ -33,6 +37,7 @@ import type {
   Portion,
 } from '@/types/glucose'
 import {
+  formatMonthDay,
   formatMonthDayWeekday,
   formatTime,
   isSameDay,
@@ -41,6 +46,7 @@ import {
   toDateKey,
 } from '@/utils/date'
 import { getBackfillTarget, getMeasureTarget, getSlotLabel } from '@/utils/glucose'
+import { formatInsulinLabel } from '@/utils/insulin'
 
 type InputSheet = { target: MeasureTarget; backfillAt?: Date }
 
@@ -48,8 +54,8 @@ function RecordsPage() {
   const meals = useGlucoseStore((state) => state.meals)
   const records = useGlucoseStore((state) => state.records)
   const insulins = useGlucoseStore((state) => state.insulins)
-  const updateInsulin = useGlucoseStore((state) => state.updateInsulin)
   const [editingInsulin, setEditingInsulin] = useState<InsulinRecord | null>(null)
+  const [deletingInsulin, setDeletingInsulin] = useState<InsulinRecord | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [inputSheet, setInputSheet] = useState<InputSheet | null>(null)
   const [editing, setEditing] = useState<GlucoseRecord | null>(null)
@@ -166,6 +172,46 @@ function RecordsPage() {
     }
   }
 
+  // 서버 연동 전 기기에만 남은 기록은 보기만
+  const selectInsulin = (insulin: InsulinRecord) => {
+    if (insulin.server) setEditingInsulin(insulin)
+    else setToast('예전에 기기에만 적은 기록이라 고칠 수 없어요')
+  }
+
+  // 다른 기기에서 이미 지운 기록이면 따로 알림
+  const insulinFailToast = (error: unknown, action: string) =>
+    setToast(
+      getErrorCode(error) === 'INSULIN_40401'
+        ? '이미 지운 기록이에요'
+        : `인슐린 기록을 ${action} 못했어요. 잠시 후 다시 시도해 주세요`,
+    )
+
+  const handleInsulinEdited = async (input: InsulinInput) => {
+    if (!editingInsulin) return
+    try {
+      await editInsulin(editingInsulin.id, input)
+      setEditingInsulin(null)
+      setToast('인슐린 기록을 고쳤어요')
+    } catch (error) {
+      insulinFailToast(error, '고치지')
+      if (getErrorCode(error) === 'INSULIN_40401') setEditingInsulin(null)
+    }
+  }
+
+  const handleInsulinDeleted = async () => {
+    if (!deletingInsulin || removing) return
+    setRemoving(true)
+    try {
+      await removeInsulin(deletingInsulin.id)
+      setToast('인슐린 기록을 지웠어요')
+    } catch (error) {
+      insulinFailToast(error, '지우지')
+    } finally {
+      setRemoving(false)
+      setDeletingInsulin(null)
+    }
+  }
+
   return (
     <main className="px-5 pt-15.5">
       <WarmBackground />
@@ -209,7 +255,7 @@ function RecordsPage() {
               allMeals={meals}
               onSelectRecord={setEditing}
               onSelectMeal={setEditingMeal}
-              onSelectInsulin={setEditingInsulin}
+              onSelectInsulin={selectInsulin}
             />
           ) : (
             <EmptyRecordCard
@@ -277,12 +323,34 @@ function RecordsPage() {
       {editingInsulin && (
         <InsulinSheet
           record={editingInsulin}
-          onSave={(input) => {
-            updateInsulin(editingInsulin.id, input)
+          onSave={handleInsulinEdited}
+          onDelete={() => {
+            setDeletingInsulin(editingInsulin)
             setEditingInsulin(null)
-            setToast('인슐린 기록을 고쳤어요')
           }}
           onClose={() => setEditingInsulin(null)}
+        />
+      )}
+      {deletingInsulin && (
+        <ConfirmSheet
+          title="이 기록을 지울까요?"
+          detail={
+            <div className="flex flex-col gap-1">
+              <p className="text-grey-700 text-sm font-medium">
+                {formatMonthDay(new Date(deletingInsulin.takenAt))}{' '}
+                {formatTime(new Date(deletingInsulin.takenAt))} · 인슐린
+              </p>
+              <p className="text-grey-900 text-lg font-bold">
+                {formatInsulinLabel(deletingInsulin).replace('인슐린 · ', '')}
+              </p>
+            </div>
+          }
+          description="지운 기록은 진료 리포트에서도 빠져요."
+          confirmLabel="지우기"
+          danger
+          loading={removing}
+          onConfirm={() => void handleInsulinDeleted()}
+          onClose={() => setDeletingInsulin(null)}
         />
       )}
       {toast && <Toast message={toast} onClose={closeToast} />}
