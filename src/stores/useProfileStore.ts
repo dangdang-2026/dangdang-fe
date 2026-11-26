@@ -14,6 +14,7 @@ import {
   graduate,
   updateDeliveryDate,
   updateHospitalization,
+  updateMeasurementPause,
   type PregnancyState,
 } from '@/api/pregnancy'
 import { MOCK_USER } from '@/mocks/user'
@@ -47,6 +48,8 @@ export type Profile = {
   contactMemo: string
   // 입원 중이면 측정 알림 멈춤
   hospitalized: boolean
+  // 다른 상황이에요를 골라 측정 알림만 멈춤(서버 PAUSED)
+  paused: boolean
   // YYYY-MM-DD. 있으면 산후 모드
   deliveryDate: string | null
   // YYYY-MM-DD. 산후 검사일을 이날 다시 물어봄
@@ -68,6 +71,7 @@ export const useProfileStore = create<ProfileState>()(
       careMode: 'diet',
       contactMemo: '',
       hospitalized: false,
+      paused: false,
       deliveryDate: null,
       checkRemindAt: null,
       postpartumChecks: [],
@@ -85,6 +89,16 @@ export async function saveHospitalized(hospitalized: boolean) {
     if (hospitalized || getErrorCode(error) !== 'PREGNANCY_40901') throw error
   }
   useProfileStore.getState().updateProfile({ hospitalized })
+}
+
+// 다른 상황이에요 · 다시 켜기를 서버에 저장한 뒤 기기에 반영. 다시 켜기인데 서버가 멈춘 상태가 아니면(409) 그대로 끔
+export async function savePaused(paused: boolean) {
+  try {
+    await updateMeasurementPause(paused)
+  } catch (error) {
+    if (paused || getErrorCode(error) !== 'PREGNANCY_40901') throw error
+  }
+  useProfileStore.getState().updateProfile({ paused })
 }
 
 // 산후 홈(출산일 · 다시 물어볼 날)과 검사 목록(지난 검사 포함)을 기기에 반영. 산후가 아니면 409
@@ -140,6 +154,7 @@ export async function saveDeliveryDate(deliveryDate: string) {
   useProfileStore.getState().updateProfile({
     deliveryDate: saved.deliveryDate ?? deliveryDate,
     hospitalized: false,
+    paused: false,
     checkRemindAt: null,
   })
 }

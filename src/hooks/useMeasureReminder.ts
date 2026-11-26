@@ -68,7 +68,9 @@ export function useMeasureReminder() {
   const records = useGlucoseStore((state) => state.records)
   const { postMealHours, measureSlots } = useCriteria()
   const { measure, remind, hideOnLockScreen } = useNotificationStore()
-  const paused = useProfileStore((state) => state.hospitalized || !!state.deliveryDate)
+  const paused = useProfileStore(
+    (state) => state.hospitalized || state.paused || !!state.deliveryDate,
+  )
 
   useEffect(() => {
     const pending = getPendingMeal(meals, records, postMealHours, new Date(), measureSlots)

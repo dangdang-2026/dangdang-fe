@@ -4,7 +4,7 @@ import iconCheckOn from '@/assets/icons/postpartum/check-on.svg'
 import sheetCharacter from '@/assets/images/postpartum/sheet-character.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 
-export type BirthOrHospital = 'hospital' | 'birth'
+export type BirthOrHospital = 'hospital' | 'birth' | 'other'
 
 const OPTIONS: { value: BirthOrHospital; title: string; description: string }[] = [
   {
@@ -12,7 +12,12 @@ const OPTIONS: { value: BirthOrHospital; title: string; description: string }[] 
     title: '입원했어요',
     description: '알림만 잠시 멈춰요. 퇴원하면 다시 켤 수 있어요.',
   },
-  { value: 'birth', title: '출산했어요', description: '출산일을 적고 산후 모드로 바꿔요.' },
+  { value: 'birth', title: '출산했어요', description: '출산일을 적고 산후 관리로 바뀌어요.' },
+  {
+    value: 'other',
+    title: '다른 상황이에요',
+    description: '알림만 멈춰요. 다음 일은 천천히 정해요.',
+  },
 ]
 
 type BirthOrHospitalSheetProps = {
@@ -20,18 +25,18 @@ type BirthOrHospitalSheetProps = {
   onClose: () => void
 }
 
-// Figma E-03 출산·입원했어요: 입원이면 알림만 멈추고, 출산이면 출산일 입력으로
+// Figma E-03 지금 어떤 상황인가요: 입원 · 다른 상황이면 알림만 멈추고, 출산이면 출산일 입력으로
 function BirthOrHospitalSheet({ onNext, onClose }: BirthOrHospitalSheetProps) {
   const [choice, setChoice] = useState<BirthOrHospital | null>(null)
 
   return (
     <BottomSheet label="출산·입원" onClose={onClose}>
       <div className="flex items-center justify-between">
-        <h2 className="text-t4 text-grey-900">출산·입원하셨나요?</h2>
+        <h2 className="text-t4 text-grey-900">지금 어떤 상황인가요?</h2>
         <img src={sheetCharacter} alt="" width={64} height={64} />
       </div>
       <p className="text-t6 text-grey-600">
-        측정·인슐린 알림을 바로 멈출게요.
+        고르면 측정·인슐린 알림을 바로 멈출게요.
         <br />
         지금까지의 기록은 그대로 남아요.
       </p>

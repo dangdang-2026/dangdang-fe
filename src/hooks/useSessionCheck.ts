@@ -37,7 +37,11 @@ export function useSessionCheck() {
           return
         }
         // 다른 기기에서 바꾼 입원 상태도 서버 값으로
-        updateProfile({ name: me.displayName, hospitalized: me.pregnancyState === 'HOSPITALIZED' })
+        updateProfile({
+          name: me.displayName,
+          hospitalized: me.pregnancyState === 'HOSPITALIZED',
+          paused: me.pregnancyState === 'PAUSED',
+        })
         // 이메일 채우기 전에 로그인한 카카오 계정도 열 때 채움
         login({ method, email: me.email })
         // 다른 계정이 남긴 못 보낸 리포트를 이 계정으로 보내지 않게 주인 확인

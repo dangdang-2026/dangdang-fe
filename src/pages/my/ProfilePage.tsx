@@ -11,7 +11,7 @@ import BirthOrHospitalSheet from '@/components/postpartum/BirthOrHospitalSheet'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useAuthStore } from '@/stores/useAuthStore'
-import { saveHospitalized, useProfileStore } from '@/stores/useProfileStore'
+import { saveHospitalized, savePaused, useProfileStore } from '@/stores/useProfileStore'
 import { parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 
 type DateField = 'dueDate' | 'diagnosisDate'
@@ -255,12 +255,12 @@ function ProfilePage() {
               navigate(ROUTES.POSTPARTUM_DELIVERY)
               return
             }
-            // 입원은 서버가 알림만 멈추고 홈에서 바로 보여 줌
-            saveHospitalized(true)
+            // 입원 · 다른 상황은 서버가 알림만 멈추고 홈에서 바로 보여 줌
+            ;(choice === 'other' ? savePaused(true) : saveHospitalized(true))
               .then(() => navigate(ROUTES.TODAY))
               .catch(() => {
                 setBirthSheet(false)
-                setToast('입원 상태를 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+                setToast('상황을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
               })
           }}
           onClose={() => setBirthSheet(false)}

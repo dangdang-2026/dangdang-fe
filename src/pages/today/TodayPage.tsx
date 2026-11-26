@@ -39,7 +39,7 @@ import { useOnline } from '@/hooks/useOnline'
 import { useCriteria } from '@/hooks/useCriteria'
 import { snoozeOnDevice } from '@/hooks/useMeasureReminder'
 import { useTodaySync } from '@/hooks/useTodaySync'
-import { saveHospitalized, useProfileStore } from '@/stores/useProfileStore'
+import { saveHospitalized, savePaused, useProfileStore } from '@/stores/useProfileStore'
 import {
   editMealStart,
   saveMealContent,
@@ -153,7 +153,10 @@ function TodayPage() {
   const markPermissionAsked = useNotificationStore((state) => state.markPermissionAsked)
   const name = useProfileStore((state) => state.name)
   const dueDate = useProfileStore((state) => state.dueDate)
-  const hospitalized = useProfileStore((state) => state.hospitalized)
+  const inHospital = useProfileStore((state) => state.hospitalized)
+  // 다른 상황이에요로 알림만 멈춤. 입원과 같이 측정 카드 대신 알림 멈춤 카드
+  const measurePaused = useProfileStore((state) => state.paused)
+  const hospitalized = inHospital || measurePaused
   const deliveryDate = useProfileStore((state) => state.deliveryDate)
   const updateProfile = useProfileStore((state) => state.updateProfile)
   const insulinMode = useProfileStore((state) => state.careMode === 'insulin')
@@ -439,8 +442,9 @@ function TodayPage() {
       <div className={online ? 'mt-6' : 'mt-3.5'}>
         {hospitalized ? (
           <HospitalHero
+            variant={measurePaused && !inHospital ? 'paused' : 'hospital'}
             onResume={() => {
-              saveHospitalized(false)
+              ;(measurePaused && !inHospital ? savePaused(false) : saveHospitalized(false))
                 .then(() => setToast('측정 알림을 다시 켰어요'))
                 .catch(() => setToast('알림을 다시 켜지 못했어요. 잠시 후 다시 시도해 주세요'))
             }}
@@ -568,11 +572,11 @@ function TodayPage() {
               navigate(ROUTES.POSTPARTUM_DELIVERY)
               return
             }
-            // 입원은 서버가 알림만 멈추고 홈에서 바로 보여 줌. 두 번 보내지 않게 시트 먼저 닫음
+            // 입원 · 다른 상황은 서버가 알림만 멈추고 홈에서 바로 보여 줌. 두 번 보내지 않게 시트 먼저 닫음
             setBirthSheet(false)
-            saveHospitalized(true)
+            ;(choice === 'other' ? savePaused(true) : saveHospitalized(true))
               .then(() => setToast('측정 알림을 멈췄어요'))
-              .catch(() => setToast('입원 상태를 저장하지 못했어요. 잠시 후 다시 시도해 주세요'))
+              .catch(() => setToast('상황을 저장하지 못했어요. 잠시 후 다시 시도해 주세요'))
           }}
           onClose={() => setBirthSheet(false)}
         />

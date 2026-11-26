@@ -55,7 +55,11 @@ export function useFinishLogin() {
       startReports(me.userId)
       const reportAccount = getReportAccount()
       // 입원 상태도 이 계정 값으로
-      updateProfile({ name: me.displayName, hospitalized: me.pregnancyState === 'HOSPITALIZED' })
+      updateProfile({
+        name: me.displayName,
+        hospitalized: me.pregnancyState === 'HOSPITALIZED',
+        paused: me.pregnancyState === 'PAUSED',
+      })
       // 카카오는 로그인 응답에 이메일이 없어 /me 값으로 채움
       if (!email && me.email) login({ method, email: me.email })
       // 이메일 로그인인데 카카오가 안 연결돼 있으면 오늘 화면에서 연결 권함. 방금 가입한 계정(약관 전)은 빼고
