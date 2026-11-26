@@ -182,6 +182,14 @@ export const saveCareMode = (careMode: CareMode) =>
 export const saveContactMemo = (contactMemo: string) =>
   saveCareField('contactMemo', contactMemo, () => updateContactMemo(contactMemo))
 
+// /me 출산예정일을 기기에. 다른 상황이면 서버가 가려서, 서버에 없는데 이 계정이 기기에 적어 뒀으면 그대로
+export function syncDueDate(me: Me, ownsLocal: boolean) {
+  if (me.dueDate === undefined || me.pregnancyState === 'PAUSED') return
+  const { dueDate, updateProfile } = useProfileStore.getState()
+  if (me.dueDate === null && dueDate && ownsLocal) return
+  updateProfile({ dueDate: me.dueDate })
+}
+
 // 서버에 입원 상태를 저장한 뒤 기기에 반영. 다시 켜기인데 서버가 이미 입원 중이 아니면(409) 그대로 끔
 export async function saveHospitalized(hospitalized: boolean) {
   try {

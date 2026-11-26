@@ -27,7 +27,8 @@ function IntroPage() {
   const [signing, setSigning] = useState(false)
   const [signupError, setSignupError] = useState<KakaoSignupError | null>(null)
 
-  if (loggedIn && completed) return <Navigate to={ROUTES.TODAY} replace />
+  // 가입 · 로그인 중엔 내 정보를 받기 전이라 넘기지 않음(앞 계정 기록 노출 방지)
+  if (loggedIn && completed && !signing) return <Navigate to={ROUTES.TODAY} replace />
 
   const closeSignupSheet = () => {
     setSignupSheet(false)

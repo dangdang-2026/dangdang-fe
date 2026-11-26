@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { getMe, getMeDueDate } from '@/api/me'
+import { getMe } from '@/api/me'
 import { syncPushSubscription } from '@/api/push'
 import { syncAiConsents } from '@/stores/useAiStore'
 import { syncMyFoods } from '@/stores/useFoodStore'
@@ -15,7 +15,13 @@ import { syncQuestions, syncVisitNote, syncVisits } from '@/stores/useVisitStore
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
-import { syncCareProfile, syncPostpartum, useProfileStore } from '@/stores/useProfileStore'
+import {
+  syncCareProfile,
+  syncDueDate,
+  syncPostpartum,
+  useProfileStore,
+} from '@/stores/useProfileStore'
+import { claimDevice } from '@/utils/deviceOwner'
 import { listenForConsentRestart, restartForConsent } from '@/utils/auth'
 
 // 앱을 열 때 한 번 서버 로그인 확인. 스플래시 동안 뒤에서 돌아 기다리지 않음
@@ -36,16 +42,17 @@ export function useSessionCheck() {
           restartForConsent()
           return
         }
+        // 기기 주인을 이 계정으로. 다른 계정 기록이면 먼저 비움
+        const owned = claimDevice(me.userId)
         // 다른 기기에서 바꾼 입원 상태도 서버 값으로
         updateProfile({
           name: me.displayName,
-          // 출산예정일도 서버 값으로. 새 기기에서 다시 적지 않게
-          ...(getMeDueDate(me) !== undefined && { dueDate: getMeDueDate(me) }),
           hospitalized: me.pregnancyState === 'HOSPITALIZED',
           paused: me.pregnancyState === 'PAUSED',
         })
-        // 다른 기기에서 바꾼 진단일 · 관리 모드 · 연락 메모도. 로그인이 이어진 기기라 먼저 적어 둔 값은 이 계정 것
-        void syncCareProfile(me, true)
+        // 출산예정일 · 진단일 · 관리 모드 · 연락 메모도 서버 값으로
+        syncDueDate(me, owned)
+        void syncCareProfile(me, owned)
         // 이메일 채우기 전에 로그인한 카카오 계정도 열 때 채움
         login({ method, email: me.email })
         // 다른 계정이 남긴 못 보낸 리포트를 이 계정으로 보내지 않게 주인 확인

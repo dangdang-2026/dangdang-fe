@@ -361,10 +361,8 @@ export function syncRange(from: Date, to: Date) {
 export async function syncGlucose(userId: number) {
   const { syncedUserId, insulinSyncedUserId } = useGlucoseStore.getState()
   if (syncedUserId !== userId) {
-    // 다른 계정 기록은 바로 비움. 그 계정이 못 보낸 식사가 이 계정으로 올라가지 않게
-    if (syncedUserId !== null) {
-      useGlucoseStore.setState({ meals: [], records: [], insulins: [], insulinSyncedUserId: null })
-    }
+    // 다른 계정 인슐린은 바로 비움. 다른 계정 식사 · 혈당은 로그인 때(claimDevice) 비움
+    if (syncedUserId !== null) useGlucoseStore.setState({ insulins: [], insulinSyncedUserId: null })
     // 인슐린이 실패해도 혈당 · 식사는 받아 둔 것으로
     await Promise.all([syncMeals(), syncRecords(), syncInsulinsOnce(userId)])
     useGlucoseStore.setState({ syncedUserId: userId })
