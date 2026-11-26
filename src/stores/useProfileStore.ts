@@ -36,6 +36,8 @@ export type PostpartumCheck = {
   date: string
   // 전날 저녁 · 당일 아침 알림
   remind: ('eve' | 'morning')[]
+  // 검사 받는 곳. 안 적었으면 null
+  place: string | null
   memo: string | null
 }
 
@@ -120,7 +122,7 @@ export async function syncPostpartum(pregnancyState: PregnancyState | null) {
     .updateProfile({ deliveryDate: null, checkRemindAt: null, postpartumChecks: [] })
 }
 
-type CheckInput = Pick<PostpartumCheck, 'name' | 'date' | 'remind'>
+type CheckInput = Pick<PostpartumCheck, 'name' | 'date' | 'remind' | 'place'>
 
 // 서버에 검사 일정을 등록(id 없음) · 수정한 뒤 기기에 반영. 날짜를 적었으니 다시 물어보지 않음
 export async function savePostpartumCheck(input: CheckInput, id?: string) {
