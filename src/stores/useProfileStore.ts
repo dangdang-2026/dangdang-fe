@@ -133,16 +133,6 @@ export async function syncCareProfile(me: Me, ownsLegacy: boolean) {
   useProfileStore.getState().updateProfile({ careSyncedUserId: me.userId })
 }
 
-// 로그아웃하면 관리 정보를 비움. 다음에 로그인한 계정으로 올라가지 않게
-export function clearCareProfile() {
-  useProfileStore.getState().updateProfile({
-    diagnosisDate: null,
-    careMode: 'diet',
-    contactMemo: '',
-    careSyncedUserId: null,
-  })
-}
-
 type CareKey = 'diagnosisDate' | 'careMode' | 'contactMemo'
 
 // 칸마다 저장 순서 · 서버가 마지막으로 받아 준 값. 겹친 저장이 실패해도 확정 안 된 값으로 되돌리지 않게

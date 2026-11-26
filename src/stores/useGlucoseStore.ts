@@ -283,6 +283,12 @@ async function sendPendingMeals() {
   for (const meal of pending) await sendPendingMeal(meal, true)
 }
 
+// 로그아웃 전에 못 보낸 식사 · 음식 · 건너뛰기를 한 번 보냄. 기기 기록을 지우기 전에 이 계정으로
+export async function sendUnsentGlucose() {
+  await sendPendingMeals()
+  await pushUnsentItems()
+}
+
 // 못 보낸 음식 · 양을 서버 식사에 다시 붙임
 async function pushUnsentItems() {
   const { meals } = useGlucoseStore.getState()
@@ -355,8 +361,10 @@ export function syncRange(from: Date, to: Date) {
 export async function syncGlucose(userId: number) {
   const { syncedUserId, insulinSyncedUserId } = useGlucoseStore.getState()
   if (syncedUserId !== userId) {
-    // 다른 계정 인슐린은 예전 기록까지 바로 비움. 혈당 · 식사는 전부 받으며 바뀜
-    if (syncedUserId !== null) useGlucoseStore.setState({ insulins: [], insulinSyncedUserId: null })
+    // 다른 계정 기록은 바로 비움. 그 계정이 못 보낸 식사가 이 계정으로 올라가지 않게
+    if (syncedUserId !== null) {
+      useGlucoseStore.setState({ meals: [], records: [], insulins: [], insulinSyncedUserId: null })
+    }
     // 인슐린이 실패해도 혈당 · 식사는 받아 둔 것으로
     await Promise.all([syncMeals(), syncRecords(), syncInsulinsOnce(userId)])
     useGlucoseStore.setState({ syncedUserId: userId })
