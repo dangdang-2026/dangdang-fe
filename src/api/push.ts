@@ -61,11 +61,12 @@ export function syncPushSubscription() {
 }
 
 // 측정 알림을 끄거나 로그아웃하면 서버 구독을 끊고 브라우저 구독도 지움
-export async function unsubscribePush() {
+// server: false면 서버 구독 삭제는 건너뜀(세션이 끝나 요청을 못 보낼 때)
+export async function unsubscribePush({ server = true }: { server?: boolean } = {}) {
   const id = localStorage.getItem(SUBSCRIPTION_ID_KEY)
   if (id) {
     // 이미 끊겼거나 다른 계정 구독이면 404라 그냥 넘어감
-    await apiClient.delete(`/push-subscriptions/${id}`).catch(() => {})
+    if (server) await apiClient.delete(`/push-subscriptions/${id}`).catch(() => {})
     localStorage.removeItem(SUBSCRIPTION_ID_KEY)
   }
   if (!('serviceWorker' in navigator)) return

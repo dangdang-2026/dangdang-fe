@@ -1,6 +1,7 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { restartForConsent } from '@/utils/auth'
+import { clearPendingKakao } from '@/utils/kakaoPending'
 
 // 서버 공통 응답. 실패면 errorCode가 붙음
 export type BaseResponse<T> = {
@@ -45,14 +46,27 @@ const REFRESH_CODES = ['AUTH_40101', 'AUTH_40102']
 // Refresh 토큰은 한 번 쓰면 버려져서 동시에 만료된 요청들이 재발급 하나를 같이 기다림
 let refreshing: Promise<void> | null = null
 
+const REFRESH_URL = '/auth/refresh'
+
 function refreshToken() {
   refreshing ??= apiClient
-    .post('/auth/refresh')
+    .post(REFRESH_URL)
     .then(() => undefined)
     .finally(() => {
       refreshing = null
     })
   return refreshing
+}
+
+// 세션이 끝나 로그인을 풂. 마이 로그아웃처럼 이 기기 푸시 구독 · 카카오 대기 토큰도 정리. OnboardingGate가 시작 화면으로 보냄
+function signOutOnDevice() {
+  if (!useAuthStore.getState().account) return
+  useAuthStore.getState().logout()
+  clearPendingKakao()
+  // 쿠키가 끝나 서버 구독 삭제는 못 함(다시 재발급을 부름). 기기 구독만 끊으면 서버가 보낼 때 정리됨
+  void import('@/api/push')
+    .then(({ unsubscribePush }) => unsubscribePush({ server: false }))
+    .catch(() => {})
 }
 
 apiClient.interceptors.response.use(
@@ -65,7 +79,13 @@ apiClient.interceptors.response.use(
       restartForConsent()
       throw error
     }
-    if (!config || config.retried || !REFRESH_CODES.includes(getErrorCode(error) ?? '')) {
+    // 재발급 요청 자체는 다시 재발급하지 않음(자기 자신을 기다려 멈추지 않게)
+    if (
+      !config ||
+      config.retried ||
+      config.url === REFRESH_URL ||
+      !REFRESH_CODES.includes(getErrorCode(error) ?? '')
+    ) {
       throw error
     }
 
@@ -73,9 +93,11 @@ apiClient.interceptors.response.use(
     config.retried = true
     try {
       await refreshToken()
-    } catch {
-      // Refresh도 만료·사용됨(40103)이면 로그인 풂. OnboardingGate가 시작 화면으로 보냄
-      useAuthStore.getState().logout()
+    } catch (refreshError) {
+      // 재발급도 만료 · 사용됨(401)일 때만 로그인 풂. 끊김 · 서버 오류면 로그인 유지
+      if (axios.isAxiosError(refreshError) && refreshError.response?.status === 401) {
+        signOutOnDevice()
+      }
       throw error
     }
     return apiClient(config)

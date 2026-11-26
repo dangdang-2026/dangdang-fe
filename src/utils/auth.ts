@@ -1,4 +1,5 @@
 import { ROUTES } from '@/constants/routes'
+import { clearPendingKakao } from '@/utils/kakaoPending'
 
 // @ 없음, 도메인 없음, 한글·특수문자 포함은 형식 오류
 export const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
@@ -65,8 +66,13 @@ export const KAKAO_LINK_TOAST: Record<KakaoLinkOutcome, string> = {
   failed: '카카오를 연결하지 못했어요. 잠시 후 다시 시도해 주세요',
 }
 
-// 탈퇴 즉시 기기에 남은 기록도 모두 지우고 처음 화면으로 새로 열기
-export function restartAfterWithdraw() {
+// 탈퇴 즉시 기기 푸시 구독 · 카카오 대기 토큰 · 남은 기록을 모두 지우고 처음 화면으로 새로 열기
+export async function restartAfterWithdraw() {
+  clearPendingKakao()
+  // 계정이 지워져 서버 구독 삭제는 못 함. 기기 구독만 끊음
+  await import('@/api/push')
+    .then(({ unsubscribePush }) => unsubscribePush({ server: false }))
+    .catch(() => {})
   Object.keys(localStorage)
     .filter((key) => key.startsWith('dangdang-'))
     .forEach((key) => localStorage.removeItem(key))
