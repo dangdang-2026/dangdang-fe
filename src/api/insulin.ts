@@ -97,3 +97,17 @@ export async function updateInsulinLog(id: string, input: InsulinInput) {
 export async function deleteInsulinLog(id: string) {
   await apiClient.delete(`/insulin-logs/${id}`)
 }
+
+// 같은 종류(식사 때면 같은 끼니까지) 중 가장 최근 기록 1건. 없으면 null
+export async function getLatestInsulin(kind: InsulinInput['kind'], mealType?: MealType) {
+  const { data } = await apiClient.get<BaseResponse<InsulinLogResponse | null>>(
+    '/insulin-logs/latest',
+    {
+      params: {
+        insulinType: kind === 'meal' ? 'MEAL' : 'BEDTIME',
+        mealSlot: kind === 'meal' && mealType ? MEAL_SLOT[mealType] : undefined,
+      },
+    },
+  )
+  return data.data ? fromServerInsulin(data.data) : null
+}

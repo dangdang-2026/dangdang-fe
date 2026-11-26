@@ -1,16 +1,16 @@
-import { useState } from 'react'
-import type { InsulinInput } from '@/api/insulin'
+import { useEffect, useState } from 'react'
+import { getLatestInsulin, type InsulinInput } from '@/api/insulin'
 import iconCheck from '@/assets/icons/insulin/check.svg'
 import iconClock from '@/assets/icons/insulin/clock.svg'
 import iconMinus from '@/assets/icons/insulin/minus.svg'
 import iconPlus from '@/assets/icons/insulin/plus.svg'
-import iconTrash from '@/assets/icons/trash.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import TimeWheelSheet from '@/components/common/TimeWheelSheet'
 import type { InsulinRecord, MealType } from '@/types/glucose'
 import {
   INSULIN_KIND_LABEL,
   INSULIN_MEAL_LABEL,
+  formatLastInsulin,
   formatTakenAt,
   guessMealType,
 } from '@/utils/insulin'
@@ -61,6 +61,24 @@ function InsulinSheet({ record, onSave, onDelete, onClose }: InsulinSheetProps) 
   const units = Number(unitsText)
   const blank = unitsText === '' || units === 0
   const now = new Date()
+
+  // 새로 적을 때만 같은 종류 · 끼니의 지난 기록을 받아 둠. 고른 칩이 바뀌면 다시
+  const lastKey = kind === 'meal' ? `meal-${mealType}` : kind
+  const [last, setLast] = useState<{ key: string; record: InsulinRecord } | null>(null)
+  useEffect(() => {
+    if (record) return
+    let canceled = false
+    getLatestInsulin(kind, kind === 'meal' ? mealType : undefined)
+      .then((found) => {
+        if (!canceled && found) setLast({ key: lastKey, record: found })
+      })
+      // 못 받으면 지난 기록 줄 없이 그대로 적음
+      .catch(() => {})
+    return () => {
+      canceled = true
+    }
+  }, [record, kind, mealType, lastKey])
+  const lastRecord = last?.key === lastKey ? last.record : null
 
   const canSave = !blank && !saving
   const step = (delta: number) => {
@@ -170,6 +188,22 @@ function InsulinSheet({ record, onSave, onDelete, onClose }: InsulinSheetProps) 
         {stepButton(1, iconPlus, '1단위 늘리기')}
       </div>
 
+      {/* 지난 기록 단위를 그대로 채움. 권장량이 아니라 내가 적었던 값 */}
+      {lastRecord && (
+        <div className="rounded-key bg-grey-100 flex h-12 items-center justify-between gap-2 px-4">
+          <p className="text-grey-700 min-w-0 truncate text-sm">
+            지난 기록 · {formatLastInsulin(lastRecord, now)}
+          </p>
+          <button
+            type="button"
+            className="flex h-11 shrink-0 items-center px-1 text-sm font-bold text-yellow-600"
+            onClick={() => setUnitsText(toUnitsText(String(lastRecord.units)))}
+          >
+            불러오기
+          </button>
+        </div>
+      )}
+
       {record && (
         <p className="text-body-3 text-grey-700 rounded-key bg-grey-100 px-4 py-3.5">
           처방받은 단위와 같은지 한 번 더 확인해 주세요
@@ -219,10 +253,10 @@ function InsulinSheet({ record, onSave, onDelete, onClose }: InsulinSheetProps) 
           <button
             type="button"
             disabled={saving}
-            className="text-t6 flex items-center justify-center gap-1.5 font-bold text-red-500"
+            className="text-t6 flex h-11 items-center justify-center font-medium text-red-700"
             onClick={onDelete}
           >
-            <img src={iconTrash} alt="" width={16} height={16} />이 기록 삭제
+            이 기록 지우기
           </button>
         )}
       </div>

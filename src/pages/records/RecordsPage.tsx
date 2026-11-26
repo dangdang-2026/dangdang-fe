@@ -37,6 +37,7 @@ import type {
   Portion,
 } from '@/types/glucose'
 import {
+  formatMonthDay,
   formatMonthDayWeekday,
   formatTime,
   isSameDay,
@@ -332,14 +333,19 @@ function RecordsPage() {
       )}
       {deletingInsulin && (
         <ConfirmSheet
-          title="인슐린 기록을 지울까요?"
-          summary={[
-            {
-              label: '인슐린',
-              value: `${formatTime(new Date(deletingInsulin.takenAt))} · ${formatInsulinLabel(deletingInsulin).replace('인슐린 · ', '')}`,
-            },
-          ]}
-          description="지운 기록은 오늘 화면과 기록에서 사라져요."
+          title="이 기록을 지울까요?"
+          detail={
+            <div className="flex flex-col gap-1">
+              <p className="text-grey-700 text-sm font-medium">
+                {formatMonthDay(new Date(deletingInsulin.takenAt))}{' '}
+                {formatTime(new Date(deletingInsulin.takenAt))} · 인슐린
+              </p>
+              <p className="text-grey-900 text-lg font-bold">
+                {formatInsulinLabel(deletingInsulin).replace('인슐린 · ', '')}
+              </p>
+            </div>
+          }
+          description="지운 기록은 진료 리포트에서도 빠져요."
           confirmLabel="지우기"
           danger
           loading={removing}

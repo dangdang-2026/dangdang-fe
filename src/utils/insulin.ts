@@ -51,3 +51,20 @@ export function formatTakenAt(date: Date, now: Date) {
       : `${date.getMonth() + 1}월 ${date.getDate()}일`
   return `${day} ${partOfDay(date.getHours())} ${formatTime(date)}`
 }
+
+// 지난 기록 줄. 예: 어제 저녁 식사 때 6단위 · 10월 12일 자기 전 8단위
+export function formatLastInsulin(record: InsulinRecord, now: Date) {
+  const date = new Date(record.takenAt)
+  const day = isSameDay(date, now)
+    ? '오늘'
+    : isSameDay(date, addDays(now, -1))
+      ? '어제'
+      : `${date.getMonth() + 1}월 ${date.getDate()}일`
+  const kind =
+    record.kind === 'meal' && record.mealType
+      ? `${INSULIN_MEAL_LABEL[record.mealType]} 때`
+      : record.kind === 'custom'
+        ? (record.name ?? '직접 입력')
+        : SHORT_LABEL[record.kind]
+  return `${day} ${kind} ${record.units}단위`
+}
