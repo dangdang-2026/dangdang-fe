@@ -86,27 +86,65 @@ const HEALTH_STORES = [
   'dangdang-onboarding',
 ]
 export function restartAfterSensitiveWithdraw() {
-  clearAndLeave(HEALTH_STORES, ROUTES.ONBOARDING_TERMS)
+  clearAndLeave(HEALTH_STORES, ROUTES.ONBOARDING_TERMS, CONSENT_RESTART_KEY)
 }
 
-// 다른 탭에 「건강 기록 지우고 가입 동의로」를 알리는 키. 값은 알린 시각
+// 이 기기 기록의 주인 계정. 로그아웃하면 다른 계정 기록과 함께 지움
+export const DEVICE_OWNER_KEY = 'dangdang-owner'
+
+// 로그아웃하면 지우는 이 계정 저장소. 로그인 방식은 기기 설정이라 남김
+const ACCOUNT_STORES = [
+  ...HEALTH_STORES,
+  'dangdang-foods',
+  'dangdang-community',
+  'dangdang-meal-settings',
+  'dangdang-ai',
+  DEVICE_OWNER_KEY,
+]
+
+// 다른 탭에 알리는 키(값은 알린 시각)
 const CONSENT_RESTART_KEY = 'dangdang-consent-restart'
+const LOGOUT_KEY = 'dangdang-logout'
 
 // 지우고 옮김. 떠나기 전 끝난 요청이 기기 저장을 다시 써도 페이지를 닫을 때 한 번 더 지움
-// broadcast면 열려 있는 다른 탭도 같은 일을 하게 알림(그 탭이 지운 기록을 다시 쓰지 않게)
-function clearAndLeave(keys: string[], to: string, broadcast = true) {
+// broadcastKey가 있으면 열려 있는 다른 탭도 같은 일을 하게 알림(그 탭이 지운 기록을 다시 쓰지 않게)
+function clearAndLeave(keys: string[], to: string, broadcastKey?: string) {
   const clear = () => keys.forEach((key) => localStorage.removeItem(key))
   clear()
-  if (broadcast) localStorage.setItem(CONSENT_RESTART_KEY, String(Date.now()))
+  if (broadcastKey) localStorage.setItem(broadcastKey, String(Date.now()))
   window.addEventListener('pagehide', clear)
   window.location.replace(to)
 }
 
-// 다른 탭에서 철회 · 동의 없음으로 기록을 지우면 이 탭도 지우고 가입 동의로. 앱 전체에서 한 번 켬
+// 알림 설정은 서버 값이라 비우고 권한 물어봤는지(기기 값)만 남김
+const NOTIFICATION_STORE = 'dangdang-notification'
+function keepDeviceNotificationOnly() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(NOTIFICATION_STORE) ?? 'null')
+    if (!saved?.state) return
+    localStorage.setItem(
+      NOTIFICATION_STORE,
+      JSON.stringify({ ...saved, state: { permissionAsked: !!saved.state.permissionAsked } }),
+    )
+  } catch {
+    localStorage.removeItem(NOTIFICATION_STORE)
+  }
+}
+
+// 로그아웃 뒤 이 계정 기록을 기기에서 지우고 처음 화면으로. 다음 사람이 앞 계정 정보를 못 보게
+export function leaveAfterLogout() {
+  keepDeviceNotificationOnly()
+  clearAndLeave(ACCOUNT_STORES, ROUTES.ONBOARDING, LOGOUT_KEY)
+}
+
+// 다른 탭에서 철회 · 동의 없음 · 로그아웃으로 기록을 지우면 이 탭도 같이. 앱 전체에서 한 번 켬
 export function listenForConsentRestart() {
   const onStorage = (event: StorageEvent) => {
-    if (event.key === CONSENT_RESTART_KEY && event.newValue) {
-      clearAndLeave(HEALTH_STORES, ROUTES.ONBOARDING_TERMS, false)
+    if (!event.newValue) return
+    if (event.key === CONSENT_RESTART_KEY) clearAndLeave(HEALTH_STORES, ROUTES.ONBOARDING_TERMS)
+    if (event.key === LOGOUT_KEY) {
+      keepDeviceNotificationOnly()
+      clearAndLeave(ACCOUNT_STORES, ROUTES.ONBOARDING)
     }
   }
   window.addEventListener('storage', onStorage)
@@ -117,7 +155,7 @@ export function listenForConsentRestart() {
 // 이미 첫 진입 설정 중이면 그대로. 다시 동의하면 기록은 서버에서 전부 다시 받음
 export function restartForConsent() {
   if (window.location.pathname.startsWith(ROUTES.ONBOARDING)) return
-  clearAndLeave(HEALTH_STORES, ROUTES.ONBOARDING_TERMS)
+  clearAndLeave(HEALTH_STORES, ROUTES.ONBOARDING_TERMS, CONSENT_RESTART_KEY)
 }
 
 // 카카오로 본인 확인한 탈퇴가 막혔을 때 데이터 화면 토스트. 서버 문구와 같게

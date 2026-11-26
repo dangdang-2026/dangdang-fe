@@ -25,7 +25,6 @@ import {
   undoDeliveryDate,
   type PregnancyState,
 } from '@/api/pregnancy'
-import { MOCK_USER } from '@/mocks/user'
 
 // 관리 모드: 식사·운동 / 인슐린 함께 / 먹는 약 함께
 export type CareMode = 'diet' | 'insulin' | 'oral'
@@ -77,7 +76,8 @@ type ProfileState = Profile & {
 export const useProfileStore = create<ProfileState>()(
   persist(
     (set) => ({
-      name: MOCK_USER.name,
+      // 로그인하면 /me 이름으로 채움
+      name: '',
       dueDate: null,
       diagnosisDate: null,
       careMode: 'diet',
@@ -133,16 +133,6 @@ export async function syncCareProfile(me: Me, ownsLegacy: boolean) {
   useProfileStore.getState().updateProfile({ careSyncedUserId: me.userId })
 }
 
-// 로그아웃하면 관리 정보를 비움. 다음에 로그인한 계정으로 올라가지 않게
-export function clearCareProfile() {
-  useProfileStore.getState().updateProfile({
-    diagnosisDate: null,
-    careMode: 'diet',
-    contactMemo: '',
-    careSyncedUserId: null,
-  })
-}
-
 type CareKey = 'diagnosisDate' | 'careMode' | 'contactMemo'
 
 // 칸마다 저장 순서 · 서버가 마지막으로 받아 준 값. 겹친 저장이 실패해도 확정 안 된 값으로 되돌리지 않게
@@ -191,6 +181,14 @@ export const saveCareMode = (careMode: CareMode) =>
 
 export const saveContactMemo = (contactMemo: string) =>
   saveCareField('contactMemo', contactMemo, () => updateContactMemo(contactMemo))
+
+// /me 출산예정일을 기기에. 다른 상황이면 서버가 가려서, 서버에 없는데 이 계정이 기기에 적어 뒀으면 그대로
+export function syncDueDate(me: Me, ownsLocal: boolean) {
+  if (me.dueDate === undefined || me.pregnancyState === 'PAUSED') return
+  const { dueDate, updateProfile } = useProfileStore.getState()
+  if (me.dueDate === null && dueDate && ownsLocal) return
+  updateProfile({ dueDate: me.dueDate })
+}
 
 // 서버에 입원 상태를 저장한 뒤 기기에 반영. 다시 켜기인데 서버가 이미 입원 중이 아니면(409) 그대로 끔
 export async function saveHospitalized(hospitalized: boolean) {

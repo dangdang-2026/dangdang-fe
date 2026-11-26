@@ -42,7 +42,9 @@ function TodayHeader({
           {pregnancyLabel ?? formatMonthDayWeekday(date)}
           {visitLabel && ` · ${visitLabel}`}
         </p>
-        <h1 className="text-title-2 text-grey-900">{title ?? `${name}님, ${greeting}`}</h1>
+        <h1 className="text-title-2 text-grey-900">
+          {title ?? (name ? `${name}님, ${greeting}` : greeting)}
+        </h1>
       </div>
       <div className="flex gap-2">
         {onCalendar && (

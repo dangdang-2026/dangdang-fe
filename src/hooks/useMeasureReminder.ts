@@ -4,6 +4,7 @@ import { hasServerPush } from '@/api/push'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { canShowAlertBanner } from '@/hooks/useNotificationStream'
+import { useAuthStore } from '@/stores/useAuthStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useNotificationStore } from '@/stores/useNotificationStore'
 import { useProfileStore } from '@/stores/useProfileStore'
@@ -58,6 +59,8 @@ async function showMeasureNotification(meal: Meal, hours: number | null, hide: b
     ],
   }
   const registration = await navigator.serviceWorker?.getRegistration()
+  // 기다리는 사이 로그아웃했으면 안 띄움
+  if (!useAuthStore.getState().account) return
   if (registration) return registration.showNotification('당당', options)
   // Service Worker가 없으면(개발 서버) 버튼 없이 기본 알림
   const notification = new Notification('당당', { body, tag: options.tag, icon: options.icon })
@@ -77,10 +80,12 @@ export function useMeasureReminder() {
   const paused = useProfileStore(
     (state) => state.hospitalized || state.paused || !!state.deliveryDate,
   )
+  // 로그아웃한 동안엔 기기 측정 알림을 안 띄움
+  const loggedIn = useAuthStore((state) => !!state.account)
 
   useEffect(() => {
     const pending = getPendingMeal(meals, records, postMealHours, new Date(), measureSlots)
-    if (!pending || !measure || paused) return
+    if (!pending || !measure || paused || !loggedIn) return
     const { meal, dueAt } = pending
     // 서버에 있는 식사이고 이 기기가 푸시를 받으면 서버가 알림·재알림을 보내 기기 알림은 안 띄움
     const serverPush = !meal.pending && hasServerPush()
@@ -144,7 +149,17 @@ export function useMeasureReminder() {
       window.removeEventListener('measure-snooze', scheduleSnooze)
       navigator.serviceWorker?.removeEventListener('message', handleMessage)
     }
-  }, [meals, records, postMealHours, measureSlots, measure, remind, hideOnLockScreen, paused])
+  }, [
+    meals,
+    records,
+    postMealHours,
+    measureSlots,
+    measure,
+    remind,
+    hideOnLockScreen,
+    paused,
+    loggedIn,
+  ])
 
   // 알림을 누르면 오늘 탭 혈당 입력 시트로. 서버 알림은 주소(reminderId 포함) 그대로 열어 열람 처리
   useEffect(() => {

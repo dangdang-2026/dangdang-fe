@@ -7,11 +7,14 @@ import introCharacter from '@/assets/images/onboarding/intro-character.svg'
 import KakaoSignupSheet, { type KakaoSignupError } from '@/components/auth/KakaoSignupSheet'
 import { ROUTES } from '@/constants/routes'
 import { useFinishLogin } from '@/hooks/useFinishLogin'
+import { useStatusBarColor } from '@/hooks/useStatusBarColor'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
 
 // Figma S-02 서비스 소개. 로그인·설정을 다 마쳤으면 바로 홈으로
 function IntroPage() {
+  // 맨 위 노란 그라데이션 시작색과 상태 바를 이어 줌
+  useStatusBarColor('--color-intro-from')
   const navigate = useNavigate()
   const loggedIn = useAuthStore((state) => state.account !== null)
   const completed = useOnboardingStore((state) => state.completed)
@@ -24,7 +27,8 @@ function IntroPage() {
   const [signing, setSigning] = useState(false)
   const [signupError, setSignupError] = useState<KakaoSignupError | null>(null)
 
-  if (loggedIn && completed) return <Navigate to={ROUTES.TODAY} replace />
+  // 가입 · 로그인 중엔 내 정보를 받기 전이라 넘기지 않음(앞 계정 기록 노출 방지)
+  if (loggedIn && completed && !signing) return <Navigate to={ROUTES.TODAY} replace />
 
   const closeSignupSheet = () => {
     setSignupSheet(false)

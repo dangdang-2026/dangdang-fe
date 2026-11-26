@@ -1,5 +1,8 @@
-// 탭 화면 전체 배경. 탭 바 뒤까지 채우도록 고정
+import { useStatusBarColor } from '@/hooks/useStatusBarColor'
+
+// 탭 화면 전체 배경. 탭 바 뒤까지 채우도록 고정, 상태 바도 맨 위 색(yellow-50)으로
 function WarmBackground() {
+  useStatusBarColor('--color-yellow-50')
   return (
     <div
       aria-hidden

@@ -8,7 +8,7 @@ import { syncMyFoods } from '@/stores/useFoodStore'
 import { useAuthStore, type LoginMethod } from '@/stores/useAuthStore'
 import { syncBlocks, syncCommunityProfile, syncRestriction } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
-import { syncGlucose, useGlucoseStore } from '@/stores/useGlucoseStore'
+import { syncGlucose } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncMealGuide } from '@/stores/useMealGuideStore'
 import { syncMealSettings } from '@/stores/useMealSettingsStore'
@@ -17,21 +17,22 @@ import { syncQuestions, syncVisitNote, syncVisits } from '@/stores/useVisitStore
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
-import { syncCareProfile, syncPostpartum, useProfileStore } from '@/stores/useProfileStore'
+import {
+  syncCareProfile,
+  syncDueDate,
+  syncPostpartum,
+  useProfileStore,
+} from '@/stores/useProfileStore'
+import { claimDevice } from '@/utils/deviceOwner'
 
 // 로그인·가입을 마치면 계정을 남기고, 서버 약관 동의 여부로 약관 화면 또는 홈으로
 export function useFinishLogin() {
   const navigate = useNavigate()
-  const completed = useOnboardingStore((state) => state.completed)
   const completeOnboarding = useOnboardingStore((state) => state.complete)
   const resetOnboarding = useOnboardingStore((state) => state.reset)
   const updateProfile = useProfileStore((state) => state.updateProfile)
   const login = useAuthStore((state) => state.login)
   const setKakaoLinkOffer = useAuthStore((state) => state.setKakaoLinkOffer)
-
-  // 서버를 못 보면 기기에 남은 설정으로 판단
-  const goByDevice = () =>
-    navigate(completed ? ROUTES.TODAY : ROUTES.ONBOARDING_TERMS, { replace: true })
 
   return async (method: LoginMethod, email: string | null = null, profile?: AccountProfile) => {
     login({ method, email })
@@ -55,14 +56,17 @@ export function useFinishLogin() {
       // 못 보낸 리포트 저장은 이 계정 것일 때만 이어서 보냄
       startReports(me.userId)
       const reportAccount = getReportAccount()
+      // 기기 주인을 이 계정으로. 다른 계정 기록이면 받기 전에 비움
+      const owned = claimDevice(me.userId)
       // 입원 상태도 이 계정 값으로
       updateProfile({
         name: me.displayName,
         hospitalized: me.pregnancyState === 'HOSPITALIZED',
         paused: me.pregnancyState === 'PAUSED',
       })
-      // 진단일 · 관리 모드 · 연락 메모도 서버 값으로. 기기 기록이 이 계정 것일 때만 먼저 적어 둔 값을 올림
-      void syncCareProfile(me, useGlucoseStore.getState().syncedUserId === me.userId)
+      // 출산예정일 · 진단일 · 관리 모드 · 연락 메모도 서버 값으로
+      syncDueDate(me, owned)
+      void syncCareProfile(me, owned)
       // 카카오는 로그인 응답에 이메일이 없어 /me 값으로 채움
       if (!email && me.email) login({ method, email: me.email })
       // 이메일 로그인인데 카카오가 안 연결돼 있으면 오늘 화면에서 연결 권함. 방금 가입한 계정(약관 전)은 빼고
@@ -113,12 +117,8 @@ export function useFinishLogin() {
       }
       // 알림 설정을 받은 뒤 측정 알림이 켜져 있으면 이 기기를 구독 등록
       void settingsSynced.then(syncPushSubscription)
-      // 병원 기준은 서버 값으로. 못 받으면 기기 값으로 판단
-      const criteria = await syncCriteria().catch(() => null)
-      if (!criteria) {
-        navigate(completed ? ROUTES.TODAY : ROUTES.ONBOARDING_TIMING, { replace: true })
-        return
-      }
+      // 병원 기준은 서버 값으로. 두 번 못 받으면 첫 설정으로 보내지 않고 로그인 실패(기준 중복 저장 방지)
+      const criteria = await syncCriteria().catch(() => syncCriteria())
       // 서버에 기준이 있으면 다른 기기에서 설정을 마친 계정
       if (criteria.versions.length > 0) {
         completeOnboarding(criteria.startedAt ?? undefined)
@@ -128,8 +128,10 @@ export function useFinishLogin() {
       // 기준이 없으면 기기에 남은 다른 계정 설정은 비우고 측정 시점부터
       resetOnboarding()
       navigate(ROUTES.ONBOARDING_TIMING, { replace: true })
-    } catch {
-      goByDevice()
+    } catch (error) {
+      // 내 정보 · 기준을 못 받으면 로그인을 풀고 화면이 실패 안내
+      useAuthStore.getState().logout()
+      throw error
     }
   }
 }

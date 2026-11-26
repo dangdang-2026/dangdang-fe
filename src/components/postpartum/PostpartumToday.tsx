@@ -106,7 +106,9 @@ function PostpartumToday({ name, deliveryDate, now }: PostpartumTodayProps) {
       <div className="pt-4">
         <header className="flex flex-col gap-5.5">
           <p className="text-body-3 text-grey-600">{formatSinceDelivery(delivered, now)}</p>
-          <h1 className="text-title-2 text-grey-900 leading-snug">{name}님, 몸은 좀 어떠세요?</h1>
+          <h1 className="text-title-2 text-grey-900 leading-snug">
+            {name ? `${name}님, 몸은 좀 어떠세요?` : '몸은 좀 어떠세요?'}
+          </h1>
         </header>
         <div className="mt-5.5">
           <CheckScheduleCard

@@ -28,6 +28,8 @@ export type Me = {
   pregnancyState: PregnancyState | null
   // 로그인 방식별 연결 여부. 운영 서버 배포 전엔 없을 수 있음
   loginMethods?: { email: boolean; kakao: boolean }
+  // 출산예정일(YYYY-MM-DD). 안 적었거나 다른 상황(PAUSED)이면 null
+  dueDate?: string | null
 } & Partial<CareProfileResponse>
 
 // 백엔드 NameUpdateResponse

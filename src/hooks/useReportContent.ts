@@ -52,7 +52,7 @@ export function useReportContent({
   const report = buildReport({ records, meals, from, to, versions, missed })
   const pregnancy = formatPregnancyRange(dueDate, from, to)
   const periodLabel = `${formatMonthDay(from)} – ${formatMonthDay(to)}${pregnancy ? ` · ${pregnancy}` : ''}`
-  const title = hideName ? '혈당 기록' : `${name} 님 혈당 기록`
+  const title = hideName || !name ? '혈당 기록' : `${name} 님 혈당 기록`
   // 기준 줄은 마지막 날 기준
   const { targets, postMealHours } = getCriteriaAt(versions, to)
   const criteria = formatCriteria(targets, postMealHours)
