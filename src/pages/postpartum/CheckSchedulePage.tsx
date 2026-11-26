@@ -10,6 +10,7 @@ import ProfileDateSheet from '@/components/my/ProfileDateSheet'
 import ChoiceChip from '@/components/postpartum/ChoiceChip'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
+import { useHospitalStore } from '@/stores/useHospitalStore'
 import {
   deletePostpartumCheck,
   savePostpartumCheck,
@@ -27,6 +28,8 @@ type Draft = {
   // YYYY-MM-DD
   date: string | null
   remind: Remind[]
+  placePreset: string | null
+  customPlace: string
 }
 
 function Section({ label, children }: { label: string; children: ReactNode }) {
@@ -67,10 +70,21 @@ function CheckSchedulePage() {
   const [remind, setRemind] = useState<Remind[]>(
     draft?.remind ?? editing?.remind ?? ['eve', 'morning'],
   )
+  // 장소 칩은 등록한 병원 이름. 새 일정은 대표 병원부터
+  const hospitals = useHospitalStore((state) => state.hospitals)
+  const placePresets = [...new Set(hospitals.map((item) => item.name))]
+  const initialPlace = editing ? (editing.place ?? '') : (placePresets[0] ?? '')
+  const [placePreset, setPlacePreset] = useState<string | null>(
+    draft ? draft.placePreset : placePresets.includes(initialPlace) ? initialPlace : null,
+  )
+  const [customPlace, setCustomPlace] = useState(
+    draft?.customPlace ?? (placePresets.includes(initialPlace) ? '' : initialPlace),
+  )
   const [picking, setPicking] = useState(false)
   const today = startOfDay(new Date())
 
   const name = preset ?? customName.trim()
+  const place = (placePreset ?? customPlace.trim()) || null
   const canSave = !!date && !!name && !saving
 
   const toggleRemind = (key: Remind) =>
@@ -79,7 +93,14 @@ function CheckSchedulePage() {
     )
 
   const openGuide = () => {
-    const current: Draft = { preset, customName, date: date ? toDateKey(date) : null, remind }
+    const current: Draft = {
+      preset,
+      customName,
+      date: date ? toDateKey(date) : null,
+      remind,
+      placePreset,
+      customPlace,
+    }
     navigate(`${location.pathname}${location.search}`, {
       replace: true,
       state: { draft: current },
@@ -90,7 +111,7 @@ function CheckSchedulePage() {
   const save = () => {
     if (!date || !name || saving) return
     setSaving(true)
-    savePostpartumCheck({ name, date: toDateKey(date), remind }, editing?.id)
+    savePostpartumCheck({ name, date: toDateKey(date), remind, place }, editing?.id)
       .then(() => navigate(ROUTES.TODAY, { replace: true }))
       .catch(() => {
         setToast('검사 일정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
@@ -111,7 +132,7 @@ function CheckSchedulePage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-13 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-2 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
       <SubPageHeader title="산후 검사 일정" onBack={goBack} />
 
       <div className="mt-3 flex flex-col gap-1.5">
@@ -158,6 +179,33 @@ function CheckSchedulePage() {
             </span>
             <img src={iconCalendar} alt="" width={20} height={20} />
           </button>
+        </Section>
+
+        <Section label="어디서 하나요?">
+          <div className="flex flex-wrap gap-2">
+            {placePresets.map((item) => (
+              <ChoiceChip
+                key={item}
+                selected={placePreset === item}
+                onClick={() => setPlacePreset(item)}
+              >
+                {item}
+              </ChoiceChip>
+            ))}
+            <ChoiceChip selected={placePreset === null} onClick={() => setPlacePreset(null)}>
+              직접 적기
+            </ChoiceChip>
+          </div>
+          {placePreset === null && (
+            <input
+              value={customPlace}
+              maxLength={50}
+              aria-label="검사 장소"
+              placeholder="병원 이름을 적어 주세요 (안 적어도 돼요)"
+              className="bg-grey-50 text-grey-900 placeholder:text-grey-400 rounded-key focus:ring-primary px-4 py-3.5 text-base leading-snug font-medium outline-none focus:ring-2"
+              onChange={(event) => setCustomPlace(event.target.value)}
+            />
+          )}
         </Section>
 
         <Section label="미리 알려 드릴까요?">

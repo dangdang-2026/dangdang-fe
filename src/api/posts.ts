@@ -50,6 +50,13 @@ type PostSummaryResponse = {
   commentCount: number
   reacted: boolean
   hasPoll: boolean
+  // 인기 목록 카드 아래 베스트 댓글 한 줄(앞 60자). 없으면 null
+  bestComment?: {
+    id: string
+    excerpt: string
+    author: AuthorResponse
+    reactionCount: number
+  } | null
 }
 
 export type PostListResponse = {
@@ -70,6 +77,7 @@ export function toAuthor(author: AuthorResponse, fallbackId: string) {
     id: author.isMine ? MY_AUTHOR_ID : (author.profileId ?? `anon-${fallbackId}`),
     nickname: author.displayName,
     pregnancyWeek: toWeek(author.weekBadge),
+    badge: author.weekBadge,
   }
 }
 
@@ -88,7 +96,18 @@ export function toPost(item: PostSummaryResponse): Post | null {
     likes: item.reactionCount,
     liked: item.reacted,
     commentCount: item.commentCount,
+    // 목록엔 댓글이 없어서 인기 카드의 베스트 댓글만 한 줄로. 상세 댓글과 섞지 않음
     comments: [],
+    bestComment: item.bestComment
+      ? {
+          id: item.bestComment.id,
+          author: toAuthor(item.bestComment.author, `c${item.bestComment.id}`),
+          body: item.bestComment.excerpt,
+          createdAt: item.createdAt,
+          likes: item.bestComment.reactionCount,
+          best: true,
+        }
+      : null,
     poll: item.hasPoll ? [] : undefined,
   }
 }

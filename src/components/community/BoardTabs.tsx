@@ -76,7 +76,7 @@ function BoardTabs({ active, onSelect }: BoardTabsProps) {
           />
           <section
             aria-label="카테고리"
-            className="absolute top-0 left-1/2 w-full max-w-107.5 -translate-x-1/2 rounded-b-3xl bg-white pt-12.5"
+            className="absolute top-0 left-1/2 w-full max-w-107.5 -translate-x-1/2 rounded-b-3xl bg-white pt-1.5"
           >
             <div className="flex flex-col gap-1 pt-3 pr-4 pb-7 pl-5">
               <div className="flex items-center justify-between pb-2">

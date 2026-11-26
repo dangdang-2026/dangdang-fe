@@ -28,7 +28,8 @@ function ContactMemoSheet({ initialMemo, onSave, onClose }: ContactMemoSheetProp
           aria-label="연락 기준 메모"
           placeholder="예: 같은 시점에 계속 높게 나오면 외래로 전화하기"
           className="text-grey-900 placeholder:text-grey-400 resize-none bg-transparent text-base leading-normal font-medium outline-none"
-          onChange={(event) => setMemo(event.target.value)}
+          // 서버가 한 줄만 받아 줄바꿈은 띄어쓰기로
+          onChange={(event) => setMemo(event.target.value.replace(/[\r\n]+/g, ' '))}
         />
         <span className="text-grey-400 self-end text-xs leading-normal">
           {memo.length}/{MEMO_MAX_LENGTH}

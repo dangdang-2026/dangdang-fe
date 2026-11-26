@@ -81,7 +81,7 @@ function CommunitySettingsPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-30">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-2 pb-30">
       <SubPageHeader title="커뮤니티 설정" onBack={goBack} />
 
       <div className="mt-3 flex flex-col gap-4">

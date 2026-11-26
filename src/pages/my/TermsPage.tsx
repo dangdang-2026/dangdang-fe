@@ -19,7 +19,7 @@ function TermsPage() {
   const goBack = useGoBack(ROUTES.MY)
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-30">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-2 pb-30">
       <SubPageHeader title="약관 · 고지" onBack={goBack} />
 
       <div className="mt-2.5 flex flex-col gap-3.5">

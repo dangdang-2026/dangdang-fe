@@ -23,6 +23,7 @@ import CommentItem from '@/components/community/CommentItem'
 import PollCard from '@/components/community/PollCard'
 import PostMoreSheet from '@/components/community/PostMoreSheet'
 import ReportSheet from '@/components/community/ReportSheet'
+import CrisisReportedSheet from '@/components/community/CrisisReportedSheet'
 import AppealSheet from '@/components/community/AppealSheet'
 import RestrictedSheet from '@/components/community/RestrictedSheet'
 import { BOARD_LABEL, MY_AUTHOR_ID } from '@/constants/community'
@@ -33,6 +34,7 @@ import { useNow } from '@/hooks/useNow'
 import {
   blockOnServer,
   canBlock,
+  isAnonymousAuthor,
   eraseComment,
   isRestricted,
   loadComments,
@@ -43,7 +45,7 @@ import {
   voteOnPost,
   writeComment,
 } from '@/stores/useCommunityStore'
-import type { CommunityComment } from '@/types/community'
+import type { CommunityComment, Post } from '@/types/community'
 import {
   formatAuthorWeek,
   formatCount,
@@ -102,12 +104,17 @@ function PostDetailPage() {
   const goBack = useGoBack(ROUTES.COMMUNITY)
   const now = useNow()
   const me = useMyAuthor()
-  const post = useCommunityStore((state) => state.posts.find((item) => item.id === id))
+  const livePost = useCommunityStore((state) => state.posts.find((item) => item.id === id))
+  // 익명 글을 안 보기로 해 목록에서 빠져도 나가는 동안은 그 글을 그대로 보여 줌
+  const [leavingPost, setLeavingPost] = useState<Post | null>(null)
+  const post = livePost ?? leavingPost ?? undefined
   const restriction = useCommunityStore((state) => state.restriction)
   const blockedAuthors = useCommunityStore((state) => state.blockedAuthors)
   const removePost = useCommunityStore((state) => state.removePost)
   const [moreOpen, setMoreOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
+  // 걱정되는 글 신고 완료 시트
+  const [crisisReported, setCrisisReported] = useState(false)
   const [confirming, setConfirming] = useState<Confirming | null>(null)
   const [restrictedOpen, setRestrictedOpen] = useState(false)
   const [composing, setComposing] = useState<Composing | null>(null)
@@ -138,7 +145,7 @@ function PostDetailPage() {
           ? '글을 불러오지 못했어요. 잠시 후 다시 시도해 주세요'
           : '글을 불러오는 중이에요'
     return (
-      <main className="pt-12.5">
+      <main className="pt-1.5">
         <header className="flex h-14 items-center px-4">
           <button type="button" aria-label="뒤로" onClick={goBack}>
             <img src={iconBack} alt="" width={24} height={24} />
@@ -215,7 +222,7 @@ function PostDetailPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white pt-12.5 pb-24">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white pt-1.5 pb-24">
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between bg-white px-4">
         <button type="button" aria-label="뒤로" onClick={goBack}>
           <img src={iconBack} alt="" width={24} height={24} />
@@ -466,9 +473,10 @@ function PostDetailPage() {
           onDelete={fromMore(() => setConfirming('delete'))}
           onReport={fromMore(() => setReportOpen(true))}
           onBlock={fromMore(() =>
-            canBlock(post.author)
+            // 익명 글도 그 글로 안 볼 수 있음. 탈퇴한 회원은 서버가 막음
+            canBlock(post.author) || isAnonymousAuthor(post.author)
               ? setConfirming('block')
-              : setToast('익명이나 탈퇴한 회원의 글은 안 보기로 할 수 없어요'),
+              : setToast('탈퇴한 회원의 글은 안 보기로 할 수 없어요'),
           )}
           onCopyLink={fromMore(copyLink)}
           onClose={closeMore}
@@ -479,7 +487,11 @@ function PostDetailPage() {
           onSubmit={(reason) => {
             setReportOpen(false)
             report('POST', post.id, reason).then(
-              () => setToast('신고했어요. 운영정책에 따라 확인할게요.'),
+              // 걱정되는 글은 먼저 확인한다는 안내와 상담 전화를 시트로
+              () =>
+                reason === 'crisis'
+                  ? setCrisisReported(true)
+                  : setToast('신고했어요. 운영정책에 따라 확인할게요.'),
               (error) => {
                 const code = getErrorCode(error)
                 setToast(
@@ -495,6 +507,7 @@ function PostDetailPage() {
           onClose={closeReport}
         />
       )}
+      {crisisReported && <CrisisReportedSheet onClose={() => setCrisisReported(false)} />}
       {confirming === 'delete' && (
         <ConfirmDialog
           title="이 글을 지울까요?"
@@ -521,15 +534,25 @@ function PostDetailPage() {
       )}
       {confirming === 'block' && (
         <ConfirmDialog
-          title={`${post.author.nickname}님 글을 안 볼까요?`}
-          description="이 사람의 글과 댓글이 보이지 않아요. 마이 › 커뮤니티 설정에서 다시 볼 수 있어요."
+          title={
+            isAnonymousAuthor(post.author)
+              ? '이 익명 글쓴이의 글을 안 볼까요?'
+              : `${post.author.nickname}님 글을 안 볼까요?`
+          }
+          description={
+            isAnonymousAuthor(post.author)
+              ? '이 사람의 익명 글과 댓글이 보이지 않아요. 마이 › 커뮤니티 설정에서 다시 볼 수 있어요.'
+              : '이 사람의 글과 댓글이 보이지 않아요. 마이 › 커뮤니티 설정에서 다시 볼 수 있어요.'
+          }
           confirmLabel="안 보기"
           onConfirm={() => {
             setConfirming(null)
+            setLeavingPost(post)
             // 서버에 차단한 뒤 나감. 못 하면 글에 남아 안내
-            blockOnServer(post.author).then(goBack, () =>
-              setToast('안 보기로 하지 못했어요. 잠시 후 다시 시도해 주세요'),
-            )
+            blockOnServer(post.author, post.id).then(goBack, () => {
+              setLeavingPost(null)
+              setToast('안 보기로 하지 못했어요. 잠시 후 다시 시도해 주세요')
+            })
           }}
           onClose={closeConfirming}
         />

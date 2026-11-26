@@ -90,7 +90,7 @@ function VisitNotePage() {
   const closeConsent = useCallback(() => setConsentOpen(false), [])
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-13 pb-[max(--spacing(7.5),env(safe-area-inset-bottom))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-2 pb-[max(--spacing(7.5),env(safe-area-inset-bottom))]">
       {/* 정리하는 동안 떠나면 끝난 뒤 결과 화면으로 끌려와서 막음 */}
       <SubPageHeader title="진료 후 메모" onBack={() => !loading && goBack()} />
 

@@ -312,7 +312,7 @@ function ReportPage() {
 
   return (
     <>
-      <main className="bg-grey-100 relative mx-auto min-h-dvh w-full max-w-107.5 px-5 pt-13 pb-30 print:hidden">
+      <main className="bg-grey-100 relative mx-auto min-h-dvh w-full max-w-107.5 px-5 pt-2 pb-30 print:hidden">
         {/* 위쪽 노란 띠 */}
         <div
           aria-hidden

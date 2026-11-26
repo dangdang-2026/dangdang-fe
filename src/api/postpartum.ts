@@ -8,6 +8,7 @@ export type PostpartumTestResponse = {
   testDate: string
   remindDayBefore: boolean
   remindSameDay: boolean
+  placeName: string | null
   resultNote: string | null
 }
 
@@ -21,6 +22,7 @@ export function toPostpartumCheck(test: PostpartumTestResponse): PostpartumCheck
       ...(test.remindDayBefore ? ['eve' as const] : []),
       ...(test.remindSameDay ? ['morning' as const] : []),
     ],
+    place: test.placeName || null,
     memo: test.resultNote,
   }
 }
@@ -59,31 +61,30 @@ export async function getPostpartumTests() {
   return (data.data ?? []).map(toPostpartumCheck)
 }
 
-// 화면 검사 → 서버 요청 칸
-const toTestRequest = (check: Pick<PostpartumCheck, 'name' | 'date' | 'remind'>) => ({
+type TestInput = Pick<PostpartumCheck, 'name' | 'date' | 'remind' | 'place'>
+
+// 화면 검사 → 서버 요청 칸. 장소를 비우면 ""로 보내 지움(등록 땐 안 보냄)
+const toTestRequest = (check: TestInput) => ({
   name: check.name,
   testDate: check.date,
   remindDayBefore: check.remind.includes('eve'),
   remindSameDay: check.remind.includes('morning'),
+  placeName: check.place ?? '',
 })
 
 // 산후 검사 등록. 산후가 아니면 409
-export async function createPostpartumTest(
-  check: Pick<PostpartumCheck, 'name' | 'date' | 'remind'>,
-) {
+export async function createPostpartumTest(check: TestInput) {
+  const { placeName, ...request } = toTestRequest(check)
   const { data } = await apiClient.post<BaseResponse<PostpartumTestResponse>>(
     '/postpartum/tests',
-    toTestRequest(check),
+    placeName ? { ...request, placeName } : request,
   )
   if (!data.data) throw new Error('산후 검사 등록 응답이 비어 있음')
   return toPostpartumCheck(data.data)
 }
 
 // 산후 검사 수정. 날짜를 바꾸면 서버가 알림을 다시 예약함
-export async function updatePostpartumTest(
-  id: string,
-  check: Pick<PostpartumCheck, 'name' | 'date' | 'remind'>,
-) {
+export async function updatePostpartumTest(id: string, check: TestInput) {
   const { data } = await apiClient.patch<BaseResponse<PostpartumTestResponse>>(
     `/postpartum/tests/${id}`,
     toTestRequest(check),

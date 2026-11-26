@@ -1,14 +1,27 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getErrorCode } from '@/api/axios'
-import { blockProfile, getBlockedProfiles, unblockProfile } from '@/api/blocks'
+import {
+  blockPostAuthor,
+  blockProfile,
+  getBlockedProfiles,
+  unblockEntry,
+  unblockProfile,
+} from '@/api/blocks'
 import { getMyCommunityProfile } from '@/api/communityProfile'
 import { appealRestriction, getRestriction, type Restriction } from '@/api/restriction'
 import { createComment, deleteComment, getComments } from '@/api/comments'
 import { deletePostDraft, savePostDraft, votePoll } from '@/api/posts'
 import { reactComment, reactPost } from '@/api/reactions'
-import { MY_AUTHOR_ID } from '@/constants/community'
+import { ANONYMOUS_NICKNAME, MY_AUTHOR_ID } from '@/constants/community'
 import type { Author, CommunityComment, Post, PostDraft } from '@/types/community'
+
+// 안 보는 사람 한 줄. 익명으로 막은 줄은 anonymous · blockId(그 줄로만 풂)
+export type BlockedAuthor = Pick<Author, 'id' | 'nickname'> & {
+  blockedAt?: string
+  blockId?: string
+  anonymous?: boolean
+}
 
 type CommunityState = {
   // 커뮤니티 첫 진입에 정함. 안 정했으면 null
@@ -44,9 +57,9 @@ type CommunityState = {
   removePost: (postId: string) => void
   // 이 사람 글 안 보기
   // blockedAt: 안 보기 시작한 때. 마이 › 안 보는 사람에 날짜로
-  blockedAuthors: (Pick<Author, 'id' | 'nickname'> & { blockedAt?: string })[]
+  blockedAuthors: BlockedAuthor[]
   // blockedAt을 주면 그 날짜로(다시 보기 되돌리기), 없으면 지금
-  blockAuthor: (author: Pick<Author, 'id' | 'nickname'> & { blockedAt?: string }) => void
+  blockAuthor: (author: BlockedAuthor) => void
   unblockAuthor: (authorId: string) => void
 
   // 커뮤니티 메인에서 닫은 소식 카드. 새 카드가 걸리면 다시 보임
@@ -178,11 +191,11 @@ export const useCommunityStore = create<CommunityState>()(
       clearDraft: () => set({ draft: null }),
       removePost: (postId) =>
         set((state) => ({ posts: state.posts.filter((post) => post.id !== postId) })),
-      blockAuthor: ({ id, nickname, blockedAt }) =>
+      blockAuthor: (author) =>
         set((state) => ({
           blockedAuthors: [
-            ...state.blockedAuthors.filter((item) => item.id !== id),
-            { id, nickname, blockedAt: blockedAt ?? new Date().toISOString() },
+            ...state.blockedAuthors.filter((item) => item.id !== author.id),
+            { ...author, blockedAt: author.blockedAt ?? new Date().toISOString() },
           ],
         })),
       dismissNewsCard: (id) => set({ dismissedNewsId: id }),
@@ -303,21 +316,32 @@ export function voteOnPost(postId: string, optionId: string) {
   })
 }
 
-// 서버 프로필 id가 있는 글쓴이만 차단할 수 있음. 익명 · 탈퇴한 회원 · 나는 안 됨
-export const canBlock = (author: Author) => /^\d+$/.test(author.id)
+// 서버 프로필 id가 있는 글쓴이는 프로필로 차단. 익명은 글로(isAnonymousAuthor), 탈퇴한 회원 · 나는 안 됨
+export const canBlock = (author: Pick<Author, 'id'>) => /^\d+$/.test(author.id)
 
-// 서버에 차단한 뒤 기기에서도 숨김
-export async function blockOnServer(
-  author: Pick<Author, 'id' | 'nickname'> & { blockedAt?: string },
-) {
-  await blockProfile(author.id)
-  useCommunityStore.getState().blockAuthor(author)
+// 익명 글쓴이. 서버가 프로필 번호 없이 「익명 산모」로 줌(탈퇴한 회원과 구분)
+export const isAnonymousAuthor = (author: Author) =>
+  author.id.startsWith('anon-') && author.nickname === ANONYMOUS_NICKNAME
+
+// 서버에 차단한 뒤 기기에서도 숨김. 익명 글은 그 글로 차단하고 목록을 다시 받음(익명 줄은 프로필을 몰라서)
+export async function blockOnServer(author: BlockedAuthor, postId?: string) {
+  if (canBlock(author)) {
+    await blockProfile(author.id)
+    useCommunityStore.getState().blockAuthor(author)
+    return
+  }
+  if (!postId) throw new Error('차단할 글이 없음')
+  await blockPostAuthor(postId)
+  useCommunityStore.getState().removePost(postId)
+  // 목록은 기다리지 않고 다시 받음
+  syncBlocks().catch(() => {})
 }
 
-// 서버에서 풀고 기기에서도 다시 보이게
-export async function unblockOnServer(authorId: string) {
-  await unblockProfile(authorId)
-  useCommunityStore.getState().unblockAuthor(authorId)
+// 서버에서 풀고 기기에서도 다시 보이게. 「익명 사용자」 줄은 그 줄 번호로만 풂
+export async function unblockOnServer(author: BlockedAuthor) {
+  if (author.anonymous && author.blockId) await unblockEntry(author.blockId)
+  else await unblockProfile(author.id)
+  useCommunityStore.getState().unblockAuthor(author.id)
 }
 
 // 서버 차단 목록으로 맞춤. 연동 전 기기 차단은 가짜 글쓴이라 버림

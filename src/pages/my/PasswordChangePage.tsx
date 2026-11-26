@@ -88,7 +88,7 @@ function PasswordChangePage() {
         : null
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-13 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-2 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
       <SubPageHeader title="비밀번호 바꾸기" onBack={goBack} />
 
       <div className="mt-5.5 flex flex-col gap-1.5">

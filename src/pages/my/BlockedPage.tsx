@@ -3,11 +3,13 @@ import SubPageHeader from '@/components/common/SubPageHeader'
 import Toast from '@/components/common/Toast'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
-import { blockOnServer, unblockOnServer, useCommunityStore } from '@/stores/useCommunityStore'
-import type { Author } from '@/types/community'
+import {
+  blockOnServer,
+  unblockOnServer,
+  useCommunityStore,
+  type BlockedAuthor,
+} from '@/stores/useCommunityStore'
 import { formatMonthDay } from '@/utils/date'
-
-type BlockedAuthor = Pick<Author, 'id' | 'nickname'> & { blockedAt?: string }
 
 // Figma M-27 안 보는 사람 · M-27b 다시 보기 뒤 되돌리기 · M-27c 아무도 없음
 function BlockedPage() {
@@ -26,8 +28,14 @@ function BlockedPage() {
     if (pendingId) return
     setPendingId(author.id)
     try {
-      await unblockOnServer(author.id)
-      setToast({ message: `${author.nickname}님 글이 다시 보여요`, undo: author })
+      await unblockOnServer(author)
+      // 익명 줄은 그 글이 없어 다시 막을 수 없어 되돌리기 없음
+      setToast({
+        message: author.anonymous
+          ? '익명 사용자 글이 다시 보여요'
+          : `${author.nickname}님 글이 다시 보여요`,
+        undo: author.anonymous ? undefined : author,
+      })
     } catch {
       setToast({ message: '다시 보기를 하지 못했어요. 잠시 후 다시 시도해 주세요' })
     } finally {
@@ -47,7 +55,7 @@ function BlockedPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-30">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-2 pb-30">
       <SubPageHeader title="안 보는 사람" onBack={goBack} />
 
       {blockedAuthors.length === 0 ? (
@@ -66,7 +74,7 @@ function BlockedPage() {
           </p>
           <ul className="divide-grey-100 mt-4 flex flex-col divide-y">
             {sorted.map((author) => (
-              <li key={author.id} className="flex items-center gap-3 py-3.5">
+              <li key={author.blockId ?? author.id} className="flex items-center gap-3 py-3.5">
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="text-body-2 text-grey-900 truncate font-bold">
                     {author.nickname}

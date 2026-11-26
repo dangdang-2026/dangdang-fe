@@ -45,3 +45,6 @@ export const MY_AUTHOR_ID = 'me'
 // 투표 항목 수. 최소 2개, 최대 5개
 export const POLL_MIN_OPTIONS = 2
 export const POLL_MAX_OPTIONS = 5
+
+// 서버가 익명 글쓴이에 붙이는 이름
+export const ANONYMOUS_NICKNAME = '익명 산모'

@@ -211,7 +211,7 @@ function DataPage() {
 
   return (
     <>
-      <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-[max(--spacing(9),env(safe-area-inset-bottom))] print:hidden">
+      <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-2 pb-[max(--spacing(9),env(safe-area-inset-bottom))] print:hidden">
         <SubPageHeader title="데이터 · 개인정보" onBack={goBack} />
 
         <ul className="rounded-banner bg-grey-50 mt-2.5 px-4.5 py-2">

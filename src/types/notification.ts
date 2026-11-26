@@ -1,5 +1,6 @@
-// 받은 알림 종류. 인슐린 알림은 없음
-export type InboxType = 'measure' | 'visitBefore' | 'visitToday' | 'visitNote' | 'postpartum'
+// 받은 알림 종류. 인슐린 알림은 없음, marketing은 광고 받기 동의 · 거부 결과
+export type InboxType =
+  'measure' | 'visitBefore' | 'visitToday' | 'visitNote' | 'postpartum' | 'marketing'
 
 // 알림함에 쌓인 받은 알림 한 건
 export type InboxItem = {

@@ -46,7 +46,7 @@ function ResourcesPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-10">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-2 pb-10">
       <SubPageHeader title="공식 자료" onBack={goBack} />
 
       <div className="mt-3 flex flex-col gap-1.5">
