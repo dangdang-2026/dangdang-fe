@@ -6,7 +6,7 @@ import { useFoodSearch, useFoods } from '@/hooks/useFoods'
 import { useFoodStore } from '@/stores/useFoodStore'
 import { MY_FOOD_UNIT } from '@/api/myFoods'
 import type { MyFood, Portion } from '@/types/glucose'
-import { findFood, formatPortion, looksLikeStaple } from '@/utils/meal'
+import { findFood, formatPortion } from '@/utils/meal'
 
 const PORTIONS: Portion[] = ['half', 'one', 'one-half']
 const SIMILAR_LIMIT = 3
@@ -58,9 +58,9 @@ function MyFoodForm({ initialName, editing, onBack, onAdd, onDelete }: MyFoodFor
   const similarFoods =
     similarTo && !suggested.includes(similarTo) ? [similarTo, ...suggested] : suggested
   const trimmed = name.trim()
-  // 비슷한 음식을 고르면 그 음식 기준, 아니면 이름(밥·면 등)으로 주식인지 판단
+  // 주식인지는 서버처럼 고른 비슷한 음식을 따름. 안 고르면 주식 아님
   const similar = similarTo ? findFood(similarTo, foods) : undefined
-  const staple = similar ? !!similar.staple : looksLikeStaple(trimmed)
+  const staple = !!similar?.staple
   const unit = similar?.unit ?? MY_FOOD_UNIT
   const keyword = query.trim()
   const searchResults = useFoodSearch(keyword, SEARCH_LIMIT).foods.filter(

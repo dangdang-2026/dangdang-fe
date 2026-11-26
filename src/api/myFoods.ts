@@ -22,6 +22,8 @@ export type MyFoodResponse = {
   usualGrams: number | null
   nutritionOverride: MyFoodNutrition | null
   updatedAt: string
+  // 비슷한 음식을 따른 주식 여부, 없으면 false. 배포 전 서버엔 없음
+  isStaple?: boolean
 }
 
 const QUANTITY: Record<Portion, UsualQuantity> = {
@@ -73,7 +75,7 @@ export function toMyFood(item: MyFoodResponse, known: Food[]): MyFood {
     serverId: item.id,
     name: item.name,
     unit: similar?.unit ?? MY_FOOD_UNIT,
-    staple: similar ? !!similar.staple : looksLikeStaple(item.name),
+    staple: item.isStaple ?? (similar ? !!similar.staple : looksLikeStaple(item.name)),
     similarTo: similar?.name,
     portion: item.usualQuantity ? PORTION[item.usualQuantity] : undefined,
     nutrition: n
