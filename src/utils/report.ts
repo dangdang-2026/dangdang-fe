@@ -2,7 +2,7 @@ import { MEAL_ORDER } from '@/constants/glucose'
 import type { Criteria, MeasureSlotKey } from '@/types/criteria'
 import type { GlucoseRecord, Meal, MeasureSlot, MealType } from '@/types/glucose'
 import { formatDuration, getCriteriaAt } from '@/utils/criteria'
-import { addDays, isSameDay, startOfDay } from '@/utils/date'
+import { addDays, isSameDay, startOfDay, toDateKey } from '@/utils/date'
 import {
   isAboveTarget,
   getLateMinutes,
@@ -22,12 +22,24 @@ export function formatCriteria(targets: Targets, postMealHours: number | null) {
 }
 
 const HOUR = 60 * 60 * 1000
-// 측정 후 2시간 넘어 적으면 나중 입력
-const LATE_ENTRY_MS = 2 * HOUR
+// 측정 후 30분 넘어 적으면 나중 입력(서버 enteredLate · 피그마 리포트 안내와 같음)
+const LATE_ENTRY_MS = HOUR / 2
 // 저혈당 확인 기준(mg/dL)
 export const LOW_GLUCOSE = 70
+// 높은 값 확인 기준(mg/dL). HI도 여기
+export const HIGH_GLUCOSE = 200
 
 type SlotKey = MeasureSlotKey
+
+// 서버 리포트의 빈칸(놓친 측정 알림 · 건너뛴 끼니). 기기엔 알림 기록이 없어 서버 값으로 덮음
+export type ReportMissed = {
+  total: number
+  bySlot: Partial<Record<SlotKey, number>>
+  // 'yyyy-MM-dd|잴 때' 칸마다 「–」
+  cells: Set<string>
+}
+
+export const missedCellKey = (date: Date, key: SlotKey) => `${toDateKey(date)}|${key}`
 
 // 리포트 표의 열 순서
 const SLOT_KEYS: SlotKey[] = ['fasting', ...MEAL_ORDER, 'bedtime']
@@ -63,9 +75,21 @@ export type Report = {
   blanks: number
   lateEntries: number
   // 목표가 없는 시점은 outOfTarget이 null(비교 안 함)
-  slots: { key: SlotKey; label: string; outOfTarget: number | null; total: number }[]
+  // missed: 그 잴 때 빈칸 수
+  slots: {
+    key: SlotKey
+    label: string
+    outOfTarget: number | null
+    total: number
+    missed: number
+    // 목표 밖 값(원값 그대로)
+    outValues: GlucoseRecord[]
+  }[]
   days: { date: Date; cells: Partial<Record<SlotKey, ReportCell>> }[]
+  // 원값 표에서 「–」로 보일 빈칸
+  missedCells: Set<string>
   lows: GlucoseRecord[]
+  highs: GlucoseRecord[]
 }
 
 type BuildReportParams = {
@@ -75,10 +99,19 @@ type BuildReportParams = {
   to: Date
   // 기준 버전 전체. 기록마다 그 날짜의 기준으로 비교
   versions: Criteria[]
+  // 서버 리포트 빈칸. 없으면(기간 직접 · 서버 못 받음) 기록 있는 날 빠진 잴 때를 빈칸으로
+  missed?: ReportMissed | null
 }
 
 // 기간 기록을 시점별로 모음. 해석 없이 개수·원값만
-export function buildReport({ records, meals, from, to, versions }: BuildReportParams): Report {
+export function buildReport({
+  records,
+  meals,
+  from,
+  to,
+  versions,
+  missed,
+}: BuildReportParams): Report {
   // 시점 이름·목표 유무는 리포트 마지막 날 기준
   const { targets, postMealHours } = getCriteriaAt(versions, startOfDay(to))
   const start = startOfDay(from)
@@ -110,37 +143,52 @@ export function buildReport({ records, meals, from, to, versions }: BuildReportP
     days.push({ date, cells })
   }
 
+  // 빈칸: 서버가 주면 놓친 측정 알림 그대로, 없으면 기록 있는 날 그날 기준의 재는 때 중 빠진 칸
+  const missedCells =
+    missed?.cells ??
+    new Set(
+      days
+        .filter((day) => Object.keys(day.cells).length > 0)
+        .flatMap((day) =>
+          getCriteriaAt(versions, day.date)
+            .measureSlots.filter((key) => !day.cells[key])
+            .map((key) => missedCellKey(day.date, key)),
+        ),
+    )
+  const countMissed = (key: SlotKey) =>
+    missed?.bySlot[key] ?? [...missedCells].filter((cell) => cell.endsWith(`|${key}`)).length
+
   const slots = SLOT_KEYS.map((key) => {
     const cells = days.flatMap((day) => (day.cells[key] ? [day.cells[key]] : []))
     const { slot, mealType } = toMeasureSlot(key)
     const hasTarget = getTarget(slot, targets, postMealHours) !== null
+    const out = cells.filter((cell) => cell.isOutOfTarget)
     return {
       key,
       label: getSlotLabel(slot, mealType, postMealHours),
-      outOfTarget: hasTarget ? cells.filter((cell) => cell.isOutOfTarget).length : null,
+      outOfTarget: hasTarget ? out.length : null,
       total: cells.length,
+      missed: countMissed(key),
+      outValues: out.map((cell) => cell.record),
     }
-  }).filter((slot) => slot.key !== 'bedtime' || slot.total > 0)
-
-  // 기록이 하나라도 있는 날, 그날 기준의 재는 때 중 빠진 칸
-  const blanks = days
-    .filter((day) => Object.keys(day.cells).length > 0)
-    .reduce(
-      (sum, day) =>
-        sum +
-        getCriteriaAt(versions, day.date).measureSlots.filter((key) => !day.cells[key]).length,
-      0,
-    )
+  }).filter((slot) => slot.key !== 'bedtime' || slot.total > 0 || slot.missed > 0)
 
   return {
     from: start,
     to: startOfDay(to),
     measured: inRange.length,
-    blanks,
+    blanks: missed?.total ?? missedCells.size,
     lateEntries: inRange.filter(isLateEntry).length,
     slots,
-    days: days.filter((day) => Object.keys(day.cells).length > 0),
+    // 기록이나 빈칸이 있는 날만 표에
+    days: days.filter(
+      (day) =>
+        Object.keys(day.cells).length > 0 ||
+        SLOT_KEYS.some((key) => missedCells.has(missedCellKey(day.date, key))),
+    ),
+    missedCells,
     lows: inRange.filter((record) => record.value < LOW_GLUCOSE),
+    highs: inRange.filter((record) => record.value >= HIGH_GLUCOSE),
   }
 }
 

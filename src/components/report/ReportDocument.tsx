@@ -1,5 +1,5 @@
 import { formatMonthDay, formatTime, toDateKey } from '@/utils/date'
-import { REPORT_SLOT_KEYS, type Report } from '@/utils/report'
+import { missedCellKey, REPORT_SLOT_KEYS, type Report } from '@/utils/report'
 import type { Question } from '@/types/visit'
 import { formatGlucose } from '@/utils/glucose'
 
@@ -54,16 +54,19 @@ function ReportDocument({
           나중 입력 <b>{report.lateEntries}</b>
         </p>
         <p>
-          70 미만 <b>{report.lows.length ? `${report.lows.length}번` : '없음'}</b>
+          70 미만 <b>{report.lows.length ? `${report.lows.length}번` : '없음'}</b> · 200 이상{' '}
+          <b>{report.highs.length ? `${report.highs.length}번` : '없음'}</b>
         </p>
       </section>
 
       <section>
-        <h2 className="mb-1 font-bold">시점별 목표 밖 / 측정</h2>
+        <h2 className="mb-1 font-bold">시점별 목표 밖 / 측정 · 목표 밖 값 · 빈칸</h2>
         <p className="flex flex-wrap gap-x-5">
           {report.slots.map((slot) => (
             <span key={slot.key}>
               {slot.label} <b>{slot.outOfTarget ?? '–'}</b> / {slot.total}
+              {slot.outValues.length > 0 && ` · ${slot.outValues.map(formatGlucose).join(', ')}`}
+              {` · 빈칸 ${slot.missed}`}
             </span>
           ))}
         </p>
@@ -104,7 +107,10 @@ function ReportDocument({
                           )}
                         </>
                       ) : (
-                        <span className="text-grey-400">–</span>
+                        // 「–」는 재야 했는데 안 잰 빈칸만. 잴 때가 아니면 비워 둠
+                        report.missedCells.has(missedCellKey(date, slot.key)) && (
+                          <span className="text-grey-400">–</span>
+                        )
                       )}
                     </td>
                   )
@@ -114,8 +120,8 @@ function ReportDocument({
           </tbody>
         </table>
         <p className="text-grey-600 mt-1">
-          밑줄 굵은 글씨: 적어 둔 목표 밖 · 늦게 잼: 예정보다 늦게 측정 · 나중 입력: 측정 후 시간이
-          지나 입력 · 수정됨: 입력 뒤 고친 값
+          밑줄 굵은 글씨: 적어 둔 목표 밖 · – = 빈칸 · 늦게 잼: 예정보다 늦게 측정 · 나중 입력: 측정
+          뒤 30분 넘어 적은 값 · 수정됨: 입력 뒤 고친 값
         </p>
       </section>
 

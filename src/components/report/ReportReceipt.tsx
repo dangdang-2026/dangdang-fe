@@ -34,6 +34,7 @@ function ReportReceipt({
   ] as const
   const details = [
     ['70 미만', report.lows.length ? `${report.lows.length}번` : '없음'],
+    ['200 이상', report.highs.length ? `${report.highs.length}번` : '없음'],
     // 사진은 이 카드만 담아서 원값 표가 있는 곳(PDF · 인쇄)을 알려 줌
     ['원값 표 · 인슐린', 'PDF · 인쇄에서 확인'],
     ['물어볼 것', `${questionCount}개`],
