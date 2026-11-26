@@ -9,7 +9,7 @@ import Toast from '@/components/common/Toast'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
-import { saveChatConsents, useAiStore } from '@/stores/useAiStore'
+import { saveChatConsents, syncAiConsents, useAiStore } from '@/stores/useAiStore'
 import { saveVisitNote, useVisitStore } from '@/stores/useVisitStore'
 
 const NOTE_MAX = 500
@@ -69,8 +69,8 @@ function VisitNotePage() {
     } catch (error) {
       const code = getErrorCode(error)
       if (code === 'AI_40301') {
-        // 다른 기기에서 껐을 수 있어 기기도 해외로 보내기 안 함으로
-        useAiStore.getState().setConsent('overseas', false)
+        // 다른 기기에서 껐을 수 있어 서버 동의(날짜 포함)로 다시 맞춤
+        syncAiConsents().catch(() => useAiStore.getState().setConsent('overseas', false))
         setConsentOpen(true)
       } else if (isAxiosError(error) && error.code === 'ECONNABORTED') setToast(ORGANIZE_TIMEOUT)
       else setToast((code && ORGANIZE_ERROR[code]) || ORGANIZE_FAILED)

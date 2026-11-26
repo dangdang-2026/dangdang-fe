@@ -23,7 +23,7 @@ import Toast from '@/components/common/Toast'
 import ContactMemoSheet from '@/components/my/ContactMemoSheet'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
-import { saveChatConsents, useAiStore } from '@/stores/useAiStore'
+import { saveChatConsents, syncAiConsents, useAiStore } from '@/stores/useAiStore'
 import {
   loadOlderChatMessages,
   rateChatAnswer,
@@ -53,8 +53,11 @@ function ChatPage() {
 
   // 기록 보기 · 해외로 보내기 중 아직 안 물어본 게 있으면 동의부터
   const [consentSheet, setConsentSheet] = useState(consent === null || overseas === null)
-  // 동의를 기다리는 기록 질문
-  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null)
+  // 동의를 기다리는 질문과 막힌 이유(기록 보기 · 해외로 보내기)
+  const [pendingQuestion, setPendingQuestion] = useState<{
+    text: string
+    reason: 'records' | 'overseas'
+  } | null>(null)
   const [thinking, setThinking] = useState<string | null>(null)
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null)
   const [memoSheet, setMemoSheet] = useState(false)
@@ -108,8 +111,8 @@ function ChatPage() {
       .catch((error: unknown) => {
         const code = getErrorCode(error)
         if (code === 'AI_40301') {
-          // 다른 기기에서 껐을 수 있어 기기도 해외로 보내기 안 함으로
-          setConsent('overseas', false)
+          // 다른 기기에서 껐을 수 있어 서버 동의(날짜 포함)로 다시 맞춤
+          syncAiConsents().catch(() => setConsent('overseas', false))
           addMessage({
             id: newId(),
             from: 'bot',
@@ -179,14 +182,15 @@ function ChatPage() {
     setPendingQuestion(null)
   }, [])
 
-  // 기록 보기는 고른 대로, 해외로 보내기는 필수라 늘 동의. 기다리던 질문은 저장 뒤 다시 물음
+  // 기록 보기는 고른 대로, 해외로 보내기는 필수라 늘 동의
+  // 기다리던 질문은 막힌 이유가 풀렸을 때만 다시 물음. 기록 질문인데 기록 보기를 안 고르면 또 막혀 횟수만 씀
   const chooseConsent = (records: boolean) => {
-    const question = pendingQuestion
+    const pending = pendingQuestion
     setConsentSheet(false)
     setPendingQuestion(null)
     saveChatConsents({ records, overseas: true })
       .then(() => {
-        if (question) reply(question)
+        if (pending && (records || pending.reason === 'overseas')) reply(pending.text)
       })
       .catch(() => setToast({ message: '동의를 저장하지 못했어요. 잠시 후 다시 시도해 주세요' }))
   }
@@ -204,7 +208,7 @@ function ChatPage() {
           <ChatActionButton
             primary
             onClick={() => {
-              setPendingQuestion(message.question)
+              setPendingQuestion({ text: message.question, reason: 'records' })
               setConsentSheet(true)
             }}
           >
@@ -358,7 +362,7 @@ function ChatPage() {
             <ChatActionButton
               primary
               onClick={() => {
-                setPendingQuestion(message.question)
+                setPendingQuestion({ text: message.question, reason: message.reason })
                 setConsentSheet(true)
               }}
             >
@@ -408,7 +412,13 @@ function ChatPage() {
       </div>
       <ChatInput disabled={!!thinking} onSend={ask} />
 
-      {consentSheet && <ConsentSheet onSubmit={chooseConsent} onClose={closeConsent} />}
+      {consentSheet && (
+        <ConsentSheet
+          initialRecords={consent?.agreed ?? true}
+          onSubmit={chooseConsent}
+          onClose={closeConsent}
+        />
+      )}
       {editing && (
         <DraftEditSheet
           initialText={editing.text}

@@ -68,8 +68,9 @@ function RiskCard({ text, actions, dose, risk }: RiskCardProps) {
   const hospital = usePrimaryHospital()
 
   if (dose) {
-    // 병원 번호가 없으면 빈 전화 링크 대신 빼 둠
+    // 병원 번호가 없거나 앱이 모르는 전화 종류면 빈 전화 링크 대신 빼 둠
     const doseCalls = actions
+      .filter((action) => action === 'CALL_HOSPITAL' || action in CALLS)
       .map((action) => ({
         action,
         ...(action === 'CALL_HOSPITAL'
@@ -103,16 +104,27 @@ function RiskCard({ text, actions, dose, risk }: RiskCardProps) {
 
   const type: RiskType = risk?.type ?? (actions.includes('CALL_109') ? 'MIND' : 'URGENT')
   const legacy = LEGACY[type === 'MIND' ? 'MIND' : 'URGENT']
-  const title = risk?.title ?? legacy.title
+  // 예전 줄: 병원 번호가 없으면 병원 연락 대신 바로 연락하라고
+  const title =
+    risk?.title ?? (type === 'URGENT' && !hospital.phone ? '지금 바로 연락해 주세요' : legacy.title)
   const warning = risk?.warning ?? legacy.warning
-  // 서버가 준 순서대로. 병원 번호가 없으면 병원 버튼만 빼고, 급한 증상이면 분만실로
-  const calls = actions.flatMap((action, index): Call[] => {
-    if (action !== 'CALL_HOSPITAL')
-      return [{ action, ...CALLS[action], tone: toneOf(type, action, index) }]
-    if (!hospital.phone) return []
-    const label = `${hospital.name}${type === 'URGENT' ? ' 분만실' : ''}에 전화`
-    return [{ action, label, tel: hospital.phone, tone: toneOf(type, action, index) }]
-  })
+  // 서버가 준 순서대로. 예전 줄은 버튼 목록이 비어 있을 수 있어 예전처럼 정해진 버튼(119는 늘)
+  const order: ChatCallAction[] = risk
+    ? actions
+    : type === 'MIND'
+      ? ['CALL_109', 'CALL_1577_0199', 'CALL_119']
+      : ['CALL_HOSPITAL', 'CALL_119']
+  // 병원 번호가 없으면 병원 버튼, 앱이 모르는 전화 종류는 빼고 남은 순서로 색을 정함
+  const calls = order
+    .flatMap((action): Omit<Call, 'tone'>[] => {
+      if (action === 'CALL_HOSPITAL') {
+        if (!hospital.phone) return []
+        const label = `${hospital.name}${type === 'URGENT' ? ' 분만실' : ''}에 전화`
+        return [{ action, label, tel: hospital.phone }]
+      }
+      return action in CALLS ? [{ action, ...CALLS[action] }] : []
+    })
+    .map((call, index): Call => ({ ...call, tone: toneOf(type, call.action, index) }))
 
   return (
     <>

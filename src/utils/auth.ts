@@ -86,15 +86,22 @@ const HEALTH_STORES = [
   'dangdang-onboarding',
 ]
 export function restartAfterSensitiveWithdraw() {
-  HEALTH_STORES.forEach((key) => localStorage.removeItem(key))
-  window.location.replace(ROUTES.ONBOARDING_TERMS)
+  clearAndLeave(HEALTH_STORES, ROUTES.ONBOARDING_TERMS)
 }
 
-// 건강정보 동의가 없으면(철회 · 문서 버전 바뀜) 설정 진행을 비우고 가입 동의(A-01)부터. 이미 첫 진입 설정 중이면 그대로
+// 지우고 옮김. 떠나기 전 끝난 요청이 기기 저장을 다시 써도 페이지를 닫을 때 한 번 더 지움
+function clearAndLeave(keys: string[], to: string) {
+  const clear = () => keys.forEach((key) => localStorage.removeItem(key))
+  clear()
+  window.addEventListener('pagehide', clear)
+  window.location.replace(to)
+}
+
+// 건강정보 동의가 없으면(다른 기기에서 철회 · 문서 버전 바뀜) 서버가 지운 건강 기록 · 설정 진행을 비우고 가입 동의(A-01)부터
+// 이미 첫 진입 설정 중이면 그대로. 다시 동의하면 기록은 서버에서 전부 다시 받음
 export function restartForConsent() {
   if (window.location.pathname.startsWith(ROUTES.ONBOARDING)) return
-  localStorage.removeItem('dangdang-onboarding')
-  window.location.replace(ROUTES.ONBOARDING_TERMS)
+  clearAndLeave(HEALTH_STORES, ROUTES.ONBOARDING_TERMS)
 }
 
 // 카카오로 본인 확인한 탈퇴가 막혔을 때 데이터 화면 토스트. 서버 문구와 같게

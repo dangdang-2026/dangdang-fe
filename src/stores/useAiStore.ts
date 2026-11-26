@@ -46,9 +46,15 @@ export const useAiStore = create<AiState>()(
     {
       name: 'dangdang-ai',
       version: 1,
-      // v0은 해외로 보내기를 참 · 거짓으로만 둠. 날짜를 몰라 다음 서버 동의 받기 전까지 안 물어본 것으로
+      // v0은 해외로 보내기를 참 · 거짓으로만 둠. 동의였으면 기록 보기 날짜(없으면 지금)로 옮겨 다시 묻지 않게, 서버 동의를 받으면 맞춰짐
       migrate: (persisted) => {
-        const state = persisted as Partial<AiState> & { overseas?: unknown }
+        const state = persisted as Omit<Partial<AiState>, 'overseas'> & { overseas?: unknown }
+        if (state.overseas === true) {
+          return {
+            ...state,
+            overseas: { agreed: true, at: state.chat?.at ?? new Date().toISOString() },
+          }
+        }
         return { ...state, overseas: typeof state.overseas === 'object' ? state.overseas : null }
       },
     },
