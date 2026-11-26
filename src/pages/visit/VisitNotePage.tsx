@@ -115,9 +115,12 @@ function VisitNotePage() {
         onChange={(event) => setNote(event.target.value)}
       />
 
-      {/* 해외 전송 고지는 늘 보이게. 이름 빼기는 서버가 아직 안 해서 그 문장은 뺌 */}
+      {/* 해외 전송 고지는 늘 보이게. 이름 · 병원 이름 · 전화번호는 서버가 가리고 보냄 */}
       <div className="bg-grey-100 rounded-key text-grey-700 mt-5 mb-8 flex flex-col gap-2 p-4 text-sm leading-normal">
-        <p>메모 글이 AI 서버(해외)로 보내져 정리돼요.</p>
+        <p>
+          메모 글이 AI 서버(해외)로 보내져 정리돼요.
+          <br />내 이름·병원 이름은 빼고 보내요.
+        </p>
         <p>
           측정 시점·목표 수치·다음 진료일만 찾고
           <br />
@@ -150,7 +153,7 @@ function VisitNotePage() {
       {consentOpen && (
         <ConfirmDialog
           title="AI로 정리할까요?"
-          description="메모 글이 해외 AI 서비스를 거쳐요. 이름·연락처는 보내지 않고, 마이 › AI 설정에서 언제든 끌 수 있어요."
+          description="메모 글이 해외 AI 서비스를 거쳐요. 내 이름·병원 이름은 빼고 보내고, 마이 › AI 설정에서 언제든 끌 수 있어요."
           confirmLabel="켜고 정리하기"
           onConfirm={() => {
             setConsentOpen(false)
