@@ -1,5 +1,6 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
 import { useNotificationStore } from '@/stores/useNotificationStore'
+import { setDeviceUnsubscribe } from '@/utils/auth'
 
 // 서버(VAPID) 공개키. 없으면 푸시 구독 없이 앱이 열려 있을 때 알림만
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined
@@ -74,3 +75,6 @@ export async function unsubscribePush({ server = true }: { server?: boolean } = 
   const subscription = await registration?.pushManager.getSubscription()
   await subscription?.unsubscribe()
 }
+
+// 세션이 끝나거나 탈퇴할 때 쓸 기기 구독 끊기
+setDeviceUnsubscribe(() => unsubscribePush({ server: false }))

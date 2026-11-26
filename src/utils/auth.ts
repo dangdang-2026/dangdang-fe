@@ -66,19 +66,27 @@ export const KAKAO_LINK_TOAST: Record<KakaoLinkOutcome, string> = {
   failed: '카카오를 연결하지 못했어요. 잠시 후 다시 시도해 주세요',
 }
 
-// 탈퇴 뒤 기기 구독을 끊으며 기다리는 최대 시간
-const WITHDRAW_UNSUBSCRIBE_MS = 1500
+// 기기 푸시 구독을 끊는 일. 푸시 모듈이 등록함(axios → 여기 → 푸시 순환 import를 피해서)
+let unsubscribeDevice: (() => Promise<void>) | null = null
+export function setDeviceUnsubscribe(unsubscribe: () => Promise<void>) {
+  unsubscribeDevice = unsubscribe
+}
+
+// 기기 구독을 끊으며 기다리는 최대 시간
+const UNSUBSCRIBE_WAIT_MS = 1500
+
+// 세션이 끝났거나 탈퇴해 서버 구독 삭제는 못 할 때 기기 구독만 끊음. 오래 걸리면 기다리지 않음
+export function unsubscribeDeviceOnly() {
+  return Promise.race([
+    (unsubscribeDevice?.() ?? Promise.resolve()).catch(() => {}),
+    new Promise((resolve) => window.setTimeout(resolve, UNSUBSCRIBE_WAIT_MS)),
+  ])
+}
 
 // 탈퇴하면 기기 푸시 구독 · 카카오 토큰 · 기록을 다 지우고 처음 화면으로
 export async function restartAfterWithdraw() {
   clearPendingKakao()
-  // 계정이 지워져 서버 구독 삭제는 못 함. 순환 import라 동적으로, 오래 걸리면 기다리지 않음
-  await Promise.race([
-    import('@/api/push')
-      .then(({ unsubscribePush }) => unsubscribePush({ server: false }))
-      .catch(() => {}),
-    new Promise((resolve) => window.setTimeout(resolve, WITHDRAW_UNSUBSCRIBE_MS)),
-  ])
+  await unsubscribeDeviceOnly()
   Object.keys(localStorage)
     .filter((key) => key.startsWith('dangdang-'))
     .forEach((key) => localStorage.removeItem(key))

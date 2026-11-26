@@ -1,6 +1,6 @@
 import axios, { type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '@/stores/useAuthStore'
-import { leaveAfterLogout, restartForConsent } from '@/utils/auth'
+import { leaveAfterLogout, restartForConsent, unsubscribeDeviceOnly } from '@/utils/auth'
 import { clearPendingKakao } from '@/utils/kakaoPending'
 
 // 서버 공통 응답. 실패면 errorCode가 붙음
@@ -85,8 +85,6 @@ async function sessionStillAlive() {
   }
 }
 
-// 기기 푸시 구독을 끊으며 기다리는 최대 시간
-const UNSUBSCRIBE_WAIT_MS = 1500
 let signingOut = false
 
 // 세션이 끝나면 마이 로그아웃처럼 정리하고 시작 화면으로
@@ -95,13 +93,8 @@ async function signOutOnDevice() {
   signingOut = true
   useAuthStore.getState().logout()
   clearPendingKakao()
-  // 서버 구독 삭제는 쿠키가 끝나 못 함. 기기 구독만 끊으면 서버가 보낼 때 정리됨. 순환 import라 동적으로
-  await Promise.race([
-    import('@/api/push')
-      .then(({ unsubscribePush }) => unsubscribePush({ server: false }))
-      .catch(() => {}),
-    new Promise((resolve) => window.setTimeout(resolve, UNSUBSCRIBE_WAIT_MS)),
-  ])
+  // 서버 구독 삭제는 쿠키가 끝나 못 함. 기기 구독만 끊으면 서버가 보낼 때 정리됨
+  await unsubscribeDeviceOnly()
   // 이 계정 기록을 지우고 다른 탭에도 알림
   leaveAfterLogout()
 }
