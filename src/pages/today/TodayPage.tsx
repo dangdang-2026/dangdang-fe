@@ -32,6 +32,7 @@ import WaitingMeasureCard from '@/components/today/WaitingMeasureCard'
 import MealWriteFlow from '@/components/meal/MealWriteFlow'
 import PostpartumToday from '@/components/postpartum/PostpartumToday'
 import { GLUCOSE_LOW, JUST_SAVED_MS } from '@/constants/glucose'
+import { MEMO_SAVE_FAILED } from '@/constants/criteria'
 import { ROUTES } from '@/constants/routes'
 import { useFoods } from '@/hooks/useFoods'
 import { useNow } from '@/hooks/useNow'
@@ -42,6 +43,7 @@ import { useTodaySync } from '@/hooks/useTodaySync'
 import {
   saveHospitalized,
   savePaused,
+  saveContactMemo,
   undoDelivery,
   useProfileStore,
 } from '@/stores/useProfileStore'
@@ -182,7 +184,6 @@ function TodayPage() {
   const measurePaused = useProfileStore((state) => state.paused)
   const hospitalized = inHospital || measurePaused
   const deliveryDate = useProfileStore((state) => state.deliveryDate)
-  const updateProfile = useProfileStore((state) => state.updateProfile)
   const insulinMode = useProfileStore((state) => state.careMode === 'insulin')
   const contactMemo = useProfileStore((state) => state.contactMemo)
 
@@ -614,9 +615,10 @@ function TodayPage() {
         <ContactMemoSheet
           initialMemo={contactMemo}
           onSave={(memo) => {
-            updateProfile({ contactMemo: memo })
             setMemoSheet(false)
-            setToast('연락 기준 메모를 저장했어요')
+            saveContactMemo(memo)
+              .then(() => setToast('연락 기준 메모를 저장했어요'))
+              .catch(() => setToast(MEMO_SAVE_FAILED))
           }}
           onClose={() => setMemoSheet(false)}
         />

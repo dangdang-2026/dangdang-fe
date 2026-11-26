@@ -6,7 +6,7 @@ import { syncMyFoods } from '@/stores/useFoodStore'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { syncBlocks, syncCommunityProfile, syncRestriction } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
-import { syncGlucose } from '@/stores/useGlucoseStore'
+import { syncGlucose, useGlucoseStore } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncMealGuide } from '@/stores/useMealGuideStore'
 import { syncMealSettings } from '@/stores/useMealSettingsStore'
@@ -15,7 +15,7 @@ import { syncQuestions, syncVisitNote, syncVisits } from '@/stores/useVisitStore
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
-import { syncPostpartum, useProfileStore } from '@/stores/useProfileStore'
+import { syncCareProfile, syncPostpartum, useProfileStore } from '@/stores/useProfileStore'
 import { listenForConsentRestart, restartForConsent } from '@/utils/auth'
 
 // 앱을 열 때 한 번 서버 로그인 확인. 스플래시 동안 뒤에서 돌아 기다리지 않음
@@ -42,6 +42,8 @@ export function useSessionCheck() {
           hospitalized: me.pregnancyState === 'HOSPITALIZED',
           paused: me.pregnancyState === 'PAUSED',
         })
+        // 다른 기기에서 바꾼 진단일 · 관리 모드 · 연락 메모도. 기기 기록이 이 계정 것일 때만 먼저 적어 둔 값을 올림
+        syncCareProfile(me, useGlucoseStore.getState().syncedUserId === me.userId)
         // 이메일 채우기 전에 로그인한 카카오 계정도 열 때 채움
         login({ method, email: me.email })
         // 다른 계정이 남긴 못 보낸 리포트를 이 계정으로 보내지 않게 주인 확인

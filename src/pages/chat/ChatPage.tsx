@@ -21,6 +21,7 @@ import RiskCard from '@/components/chat/RiskCard'
 import ThinkingBubble from '@/components/chat/ThinkingBubble'
 import Toast from '@/components/common/Toast'
 import ContactMemoSheet from '@/components/my/ContactMemoSheet'
+import { MEMO_SAVE_FAILED } from '@/constants/criteria'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { saveChatConsents, syncAiConsents, useAiStore } from '@/stores/useAiStore'
@@ -30,7 +31,7 @@ import {
   syncChatMessages,
   useChatStore,
 } from '@/stores/useChatStore'
-import { useProfileStore } from '@/stores/useProfileStore'
+import { saveContactMemo, useProfileStore } from '@/stores/useProfileStore'
 import { saveQuestion } from '@/stores/useVisitStore'
 import type { ChatMessage } from '@/types/chat'
 import { DRAFT_INTRO, summarizeServerCard } from '@/utils/chat'
@@ -49,7 +50,6 @@ function ChatPage() {
   const removeMessage = useChatStore((state) => state.removeMessage)
   const criteria = useCriteria()
   const contactMemo = useProfileStore((state) => state.contactMemo)
-  const updateProfile = useProfileStore((state) => state.updateProfile)
 
   // 기록 보기 · 해외로 보내기 중 아직 안 물어본 게 있으면 동의부터
   const [consentSheet, setConsentSheet] = useState(consent === null || overseas === null)
@@ -433,9 +433,10 @@ function ChatPage() {
         <ContactMemoSheet
           initialMemo={contactMemo}
           onSave={(memo) => {
-            updateProfile({ contactMemo: memo })
             setMemoSheet(false)
-            setToast({ message: '연락 기준 메모를 저장했어요' })
+            saveContactMemo(memo)
+              .then(() => setToast({ message: '연락 기준 메모를 저장했어요' }))
+              .catch(() => setToast({ message: MEMO_SAVE_FAILED }))
           }}
           onClose={() => setMemoSheet(false)}
         />

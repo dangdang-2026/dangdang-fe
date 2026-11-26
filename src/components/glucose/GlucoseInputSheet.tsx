@@ -15,7 +15,7 @@ import { GLUCOSE_LOW, GLUCOSE_MAX_DIGITS, ON_TIME_MS } from '@/constants/glucose
 import { ROUTES } from '@/constants/routes'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { saveRecord } from '@/stores/useGlucoseStore'
-import { useProfileStore } from '@/stores/useProfileStore'
+import { saveContactMemo, useProfileStore } from '@/stores/useProfileStore'
 import type { MeasureSlotKey } from '@/types/criteria'
 import type { GlucoseRecord, MeasureTarget, MeterLimit } from '@/types/glucose'
 import { MEASURE_SLOT_LABEL, getCriteriaAt } from '@/utils/criteria'
@@ -107,7 +107,6 @@ function GlucoseInputSheet({
   const [contactOpen, setContactOpen] = useState<boolean | null>(null)
   const [memoSheet, setMemoSheet] = useState(false)
   const contactMemo = useProfileStore((state) => state.contactMemo)
-  const updateProfile = useProfileStore((state) => state.updateProfile)
   // 측정 시각에 적용되는 기준(지난 날 채우기면 그날 기준)
   const criteria = getCriteriaAt(
     useCriteriaStore((state) => state.versions),
@@ -367,7 +366,8 @@ function GlucoseInputSheet({
           <ContactMemoSheet
             initialMemo={contactMemo}
             onSave={(memo) => {
-              updateProfile({ contactMemo: memo })
+              // 못 저장하면 원래 메모로 돌아감
+              void saveContactMemo(memo).catch(() => {})
               setMemoSheet(false)
             }}
             onClose={() => setMemoSheet(false)}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { startKakaoLogin } from '@/api/auth'
+import { getErrorCode } from '@/api/axios'
 import { getMe, saveDueDate, updateName, type Me } from '@/api/me'
 import iconConnected from '@/assets/icons/my/check-connected.svg'
 import iconInfoSm from '@/assets/icons/info-sm.svg'
@@ -13,6 +14,7 @@ import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useAuthStore } from '@/stores/useAuthStore'
 import {
+  saveDiagnosisDate,
   saveHospitalized,
   savePaused,
   undoDelivery,
@@ -36,6 +38,13 @@ const DATE_SHEET: Record<
     description: '처음 진단받은 날을 골라 주세요.',
     pick: 'past',
   },
+}
+
+// 진단일 · 예정일 · 출산일 앞뒤가 안 맞을 때
+const DATE_ERROR: Record<string, string> = {
+  PREGNANCY_40003: '오늘 뒤 날짜는 고를 수 없어요',
+  PREGNANCY_40004: '진단일은 출산예정일보다 뒤일 수 없어요',
+  PREGNANCY_40005: '진단일은 출산일보다 뒤일 수 없어요',
 }
 
 // 예: 2027. 1. 17
@@ -113,20 +122,26 @@ function ProfilePage() {
     }
   }
 
-  // 출산예정일은 서버에도 저장. 진단일은 서버 API가 없어 기기에만
+  // 화면엔 바로 바꾸고 서버에 저장. 실패하면 되돌림
   const saveDate = async (field: DateField, date: Date) => {
     const key = toDateKey(date)
-    const previous = field === 'dueDate' ? dueDate : diagnosisDate
-    updateProfile({ [field]: key })
     setEditing(null)
-    if (field === 'dueDate') {
-      try {
-        await saveDueDate(key)
-      } catch {
-        updateProfile({ dueDate: previous })
-        setToast('출산예정일을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
-        return
+    try {
+      if (field === 'dueDate') {
+        updateProfile({ dueDate: key })
+        await saveDueDate(key).catch((error: unknown) => {
+          updateProfile({ dueDate })
+          throw error
+        })
+      } else {
+        await saveDiagnosisDate(key)
       }
+    } catch (error) {
+      setToast(
+        DATE_ERROR[getErrorCode(error) ?? ''] ??
+          `${DATE_SHEET[field].title}을 저장하지 못했어요. 잠시 후 다시 시도해 주세요`,
+      )
+      return
     }
     setToast(`${DATE_SHEET[field].title}을 저장했어요`)
   }

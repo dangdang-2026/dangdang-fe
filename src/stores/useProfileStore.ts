@@ -2,6 +2,13 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getErrorCode } from '@/api/axios'
 import {
+  toCareProfile,
+  updateCareMode,
+  updateContactMemo,
+  updateDiagnosisDate,
+  type Me,
+} from '@/api/me'
+import {
   createPostpartumTest,
   deletePostpartumTest,
   getPostpartumHome,
@@ -58,6 +65,8 @@ export type Profile = {
   // YYYY-MM-DD. 산후 검사일을 이날 다시 물어봄
   checkRemindAt: string | null
   postpartumChecks: PostpartumCheck[]
+  // 기기에 먼저 적어 둔 관리 정보를 서버로 한 번 올린 계정
+  careSyncedUserId: number | null
 }
 
 type ProfileState = Profile & {
@@ -78,11 +87,68 @@ export const useProfileStore = create<ProfileState>()(
       deliveryDate: null,
       checkRemindAt: null,
       postpartumChecks: [],
+      careSyncedUserId: null,
       updateProfile: (changes) => set(changes),
     }),
     { name: 'dangdang-profile' },
   ),
 )
+
+// /me의 관리 정보를 기기에 반영. 서버가 비어 있고 이 기기에 이 계정이 먼저 적어 둔 값이 있으면 처음 한 번만 서버로 올림
+export function syncCareProfile(me: Me, ownsLocal: boolean) {
+  if (!me.careMode) return
+  const local = useProfileStore.getState()
+  const next = toCareProfile({
+    diagnosisDate: me.diagnosisDate ?? null,
+    careMode: me.careMode,
+    contactMemo: me.contactMemo ?? null,
+    contactMemoUpdatedAt: me.contactMemoUpdatedAt ?? null,
+  })
+  const uploads: Promise<unknown>[] = []
+  if (ownsLocal && local.careSyncedUserId !== me.userId) {
+    if (!next.diagnosisDate && local.diagnosisDate) {
+      next.diagnosisDate = local.diagnosisDate
+      uploads.push(updateDiagnosisDate(local.diagnosisDate))
+    }
+    if (next.careMode === 'diet' && local.careMode !== 'diet') {
+      next.careMode = local.careMode
+      uploads.push(updateCareMode(local.careMode))
+    }
+    if (!next.contactMemo && local.contactMemo) {
+      next.contactMemo = local.contactMemo
+      uploads.push(updateContactMemo(local.contactMemo))
+    }
+  }
+  local.updateProfile({ ...next, careSyncedUserId: me.userId })
+  Promise.all(uploads).catch(() => {})
+}
+
+// 화면엔 바로 바꾸고 서버에 저장. 실패하면 되돌리고 에러를 넘김
+async function saveCareField<K extends 'diagnosisDate' | 'careMode' | 'contactMemo'>(
+  key: K,
+  value: Profile[K],
+  request: () => Promise<Pick<Profile, 'diagnosisDate' | 'careMode' | 'contactMemo'>>,
+) {
+  const { updateProfile } = useProfileStore.getState()
+  const previous = useProfileStore.getState()[key]
+  updateProfile({ [key]: value })
+  try {
+    const saved = await request()
+    updateProfile({ [key]: saved[key] })
+  } catch (error) {
+    if (useProfileStore.getState()[key] === value) updateProfile({ [key]: previous })
+    throw error
+  }
+}
+
+export const saveDiagnosisDate = (diagnosisDate: string) =>
+  saveCareField('diagnosisDate', diagnosisDate, () => updateDiagnosisDate(diagnosisDate))
+
+export const saveCareMode = (careMode: CareMode) =>
+  saveCareField('careMode', careMode, () => updateCareMode(careMode))
+
+export const saveContactMemo = (contactMemo: string) =>
+  saveCareField('contactMemo', contactMemo, () => updateContactMemo(contactMemo))
 
 // 서버에 입원 상태를 저장한 뒤 기기에 반영. 다시 켜기인데 서버가 이미 입원 중이 아니면(409) 그대로 끔
 export async function saveHospitalized(hospitalized: boolean) {
