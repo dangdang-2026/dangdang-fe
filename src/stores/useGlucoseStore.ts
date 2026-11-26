@@ -9,11 +9,19 @@ import {
   type InsulinInput,
 } from '@/api/insulin'
 import { applyMealItems, toMealContent } from '@/api/mealItems'
-import { createMeal, deleteMeal, getAllMeals, updateMealStart, type ServerMeal } from '@/api/meals'
+import {
+  createMeal,
+  deleteMeal,
+  getAllMeals,
+  restoreMeal as restoreMealApi,
+  updateMealStart,
+  type ServerMeal,
+} from '@/api/meals'
 import {
   createReading,
   deleteReading,
   getAllReadings,
+  restoreReading,
   updateReading,
   type ReadingChanges,
 } from '@/api/readings'
@@ -585,11 +593,49 @@ export async function editMealStart(id: string, startedAt: Date) {
 export async function removeMeal(id: string) {
   const meal = useGlucoseStore.getState().meals.find((item) => item.id === id)
   if (meal && !meal.pending) await deleteMeal(id)
+  if (meal) removedMeals.set(id, meal)
   useGlucoseStore.setState((state) => ({ meals: state.meals.filter((item) => item.id !== id) }))
+}
+
+// 지운 식사. 5분 안 되돌리면 기기에만 있던 음식 · 양 · 건너뜀을 다시 붙임
+const removedMeals = new Map<string, Meal>()
+
+// 지운 식사 되돌리기. 서버가 되살린 식사에 기기 정보를 합쳐 다시 넣음
+export async function restoreMeal(id: string) {
+  const server = await restoreMealApi(id)
+  const local = removedMeals.get(id)
+  removedMeals.delete(id)
+  if (!server) return
+  useGlucoseStore.setState((state) => ({
+    meals: [...state.meals.filter((item) => item.id !== id), mergeServerMeal(server, local)].sort(
+      (a, b) => toTime(a.startedAt) - toTime(b.startedAt),
+    ),
+  }))
 }
 
 // 서버에서 지운 뒤 기기에서도 뺌
 export async function removeRecord(id: string) {
   await deleteReading(id)
   useGlucoseStore.getState().deleteRecord(id)
+}
+
+// 지운 혈당 되돌리기. 서버 기록으로 다시 넣고 처음 값 · 끼니 연결은 지우기 전 기기 값 유지
+export async function restoreRecord(id: string) {
+  const saved = await restoreReading(id)
+  useGlucoseStore.setState((state) => {
+    const before = state.deletedRecords.find((record) => record.id === id)
+    const record = {
+      ...before,
+      ...saved,
+      mealId: saved.mealId ?? before?.mealId,
+      mealType: saved.mealType ?? before?.mealType,
+    }
+    delete (record as { deletedAt?: string }).deletedAt
+    return {
+      records: [...state.records.filter((item) => item.id !== id), record].sort(
+        (a, b) => toTime(a.measuredAt) - toTime(b.measuredAt),
+      ),
+      deletedRecords: state.deletedRecords.filter((item) => item.id !== id),
+    }
+  })
 }

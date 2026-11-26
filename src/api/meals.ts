@@ -115,3 +115,10 @@ export async function getAllMeals() {
   } while (cursor)
   return meals.reverse()
 }
+
+// 지운 식사 5분 안 되돌리기. 지난 시간이면 409 MEAL_40904. 서버가 식후 알림도 다시 검
+export async function restoreMeal(mealId: string) {
+  const { data } = await apiClient.post<BaseResponse<MealResponse>>(`/meals/${mealId}/restore`)
+  if (!data.data) throw new Error('식사 되돌리기 응답이 비어 있음')
+  return fromServerMeal(data.data)
+}

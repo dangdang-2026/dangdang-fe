@@ -305,3 +305,10 @@ export async function getReadingStats(slot: StatsSlot, range: DateRange) {
     firstRecordDate: parseDateKey(stats.firstRecordDate),
   }
 }
+
+// 지운 혈당 5분 안 되돌리기. 지난 시간이면 409 READING_40902, 붙은 식사가 지워졌으면 READING_40904
+export async function restoreReading(id: string) {
+  const { data } = await apiClient.post<BaseResponse<ReadingResponse>>(`/readings/${id}/restore`)
+  if (!data.data) throw new Error('혈당 되돌리기 응답이 비어 있음')
+  return toGlucoseRecord(data.data)
+}
