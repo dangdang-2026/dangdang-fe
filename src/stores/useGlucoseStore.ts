@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getErrorCode } from '@/api/axios'
+import { createInsulinLog, type InsulinInput } from '@/api/insulin'
 import { applyMealItems, toMealContent } from '@/api/mealItems'
 import { createMeal, deleteMeal, getAllMeals, updateMealStart, type ServerMeal } from '@/api/meals'
 import { createReading, deleteReading, getAllReadings, updateReading } from '@/api/readings'
@@ -14,8 +15,6 @@ import type {
   Portion,
 } from '@/types/glucose'
 import { useFoodStore } from '@/stores/useFoodStore'
-
-type InsulinInput = Pick<InsulinRecord, 'kind' | 'name' | 'units' | 'takenAt'>
 
 type GlucoseState = {
   meals: Meal[]
@@ -40,7 +39,6 @@ type GlucoseState = {
   // 지운 기록. 화면·리포트에선 빼고 기록용으로만 보관
   deletedRecords: (GlucoseRecord & { deletedAt: string })[]
   insulins: InsulinRecord[]
-  addInsulin: (input: InsulinInput) => void
   updateInsulin: (id: string, input: InsulinInput, now?: Date) => void
 }
 
@@ -125,8 +123,6 @@ export const useGlucoseStore = create<GlucoseState>()(
           }
         }),
       insulins: [],
-      addInsulin: (input) =>
-        set((state) => ({ insulins: [...state.insulins, { id: crypto.randomUUID(), ...input }] })),
       updateInsulin: (id, input, now = new Date()) =>
         set((state) => ({
           insulins: state.insulins.map((item) =>
@@ -289,11 +285,21 @@ export async function syncRecords() {
   })
 }
 
-// 기간 하나의 서버 기록. to는 포함 안 함
+// 서버에 인슐린을 저장한 뒤 기기에도 추가
+export async function saveInsulin(input: InsulinInput) {
+  const saved = await createInsulinLog(input)
+  useGlucoseStore.setState((state) => ({
+    insulins: [...state.insulins, saved].sort((a, b) => toTime(a.takenAt) - toTime(b.takenAt)),
+  }))
+  return saved
+}
+
+// 기간 하나의 서버 기록. to는 포함 안 함. 인슐린은 받아 온 화면만
 type ServerRangeData = {
   range: { from: Date; to: Date }
   meals: ServerMeal[]
   records: GlucoseRecord[]
+  insulins?: InsulinRecord[]
 }
 
 const toTime = (iso: string) => new Date(iso).getTime()
@@ -304,6 +310,7 @@ export async function syncServerRange<T extends ServerRangeData>(load: () => Pro
   const before = useGlucoseStore.getState()
   const knownMeals = new Set(before.meals.map((meal) => meal.id))
   const knownRecords = new Set(before.records.map((record) => record.id))
+  const knownInsulins = new Set(before.insulins.map((insulin) => insulin.id))
   const data = await load()
   const { from, to } = data.range
   const inRange = (iso: string) => {
@@ -353,7 +360,23 @@ export async function syncServerRange<T extends ServerRangeData>(load: () => Pro
       ...data.records.filter((record) => !localRecordIds.has(record.id)),
     ].sort((a, b) => toTime(a.measuredAt) - toTime(b.measuredAt))
 
-    return { meals, records }
+    if (!data.insulins) return { meals, records }
+    // 기기에만 있는 예전 기록 · 요청하는 사이 새로 적은 건 남기고, 서버에서 지운 것만 뺌
+    const serverInsulins = new Map(data.insulins.map((insulin) => [insulin.id, insulin]))
+    const keptInsulins = state.insulins.filter(
+      (insulin) =>
+        !insulin.server ||
+        !inRange(insulin.takenAt) ||
+        !knownInsulins.has(insulin.id) ||
+        serverInsulins.has(insulin.id),
+    )
+    const localInsulinIds = new Set(keptInsulins.map((insulin) => insulin.id))
+    const insulins = [
+      ...keptInsulins.map((insulin) => serverInsulins.get(insulin.id) ?? insulin),
+      ...data.insulins.filter((insulin) => !localInsulinIds.has(insulin.id)),
+    ].sort((a, b) => toTime(a.takenAt) - toTime(b.takenAt))
+
+    return { meals, records, insulins }
   })
   return data
 }

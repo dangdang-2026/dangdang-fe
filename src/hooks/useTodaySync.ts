@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { getToday } from '@/api/today'
 import { syncServerRange } from '@/stores/useGlucoseStore'
 
-// 오늘 화면에 들어올 때 오늘 혈당 · 식사를 서버와 맞춤. pushReady는 서버에 살아 있는 푸시 구독이 있는지
+// 오늘 화면에 들어올 때 오늘 혈당 · 식사 · 인슐린을 서버와 맞춤. pushReady는 서버에 살아 있는 푸시 구독이 있는지
 export function useTodaySync() {
   const [pushReady, setPushReady] = useState<boolean | null>(null)
 
