@@ -30,7 +30,8 @@ type InsulinSheetProps = {
   onClose: () => void
 }
 
-// 'HH:MM' 그 날 그 시각으로. 지금보다 뒤면 서버가 받지 않아 전날 그 시각으로
+// 'HH:MM' 기준 날짜 그 시각으로. 지금보다 뒤면 서버가 받지 않아 전날 그 시각으로
+// 기준 날짜는 시트를 연 날(고치기면 원래 날)로 고정. 한 번 전날로 넘어가도 다시 고르면 돌아옴
 function withTime(date: Date, time: string, now: Date) {
   const [hours, minutes] = time.split(':').map(Number)
   const next = new Date(date)
@@ -44,7 +45,8 @@ const pad = (value: number) => String(value).padStart(2, '0')
 // 숫자와 소수 한 자리만. 예: '6' · '6.5'
 function toUnitsText(value: string) {
   const [whole, ...rest] = value.replace(/[^\d.]/g, '').split('.')
-  const fixed = rest.length > 0 ? `${whole}.${rest.join('').slice(0, 1)}` : whole
+  // '.'부터 적으면 '0.'으로. 숫자 없는 '.'만 남지 않게
+  const fixed = rest.length > 0 ? `${whole || '0'}.${rest.join('').slice(0, 1)}` : whole
   return Number(fixed) > UNITS_MAX ? String(UNITS_MAX) : fixed
 }
 
@@ -52,14 +54,17 @@ function toUnitsText(value: string) {
 function InsulinSheet({ record, onSave, onDelete, onClose }: InsulinSheetProps) {
   const [timeSheet, setTimeSheet] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [takenAt, setTakenAt] = useState(record ? new Date(record.takenAt) : new Date())
+  const [baseDay] = useState(() => (record ? new Date(record.takenAt) : new Date()))
+  const [takenAt, setTakenAt] = useState(baseDay)
   const [kind, setKind] = useState<InsulinKindChoice>(
     record?.kind === 'bedtime' ? 'bedtime' : 'meal',
   )
   const [mealType, setMealType] = useState<MealType>(record?.mealType ?? guessMealType(takenAt))
+  // 끼니를 직접 골랐는지. 안 골랐으면 시각을 바꿀 때 끼니도 따라 짐작
+  const [mealPicked, setMealPicked] = useState(!!record?.mealType)
   const [unitsText, setUnitsText] = useState(record ? String(record.units) : '')
   const units = Number(unitsText)
-  const blank = unitsText === '' || units === 0
+  const blank = !(units > 0)
   const now = new Date()
 
   // 새로 적을 때만 같은 종류 · 끼니의 지난 기록을 받아 둠. 고른 칩이 바뀌면 다시
@@ -93,12 +98,14 @@ function InsulinSheet({ record, onSave, onDelete, onClose }: InsulinSheetProps) 
   const save = async () => {
     if (!canSave) return
     setSaving(true)
+    // 시트를 연 채로 있다가 저장해도 지금보다 뒤 시각은 보내지 않음(서버가 거절)
+    const current = new Date()
     try {
       await onSave({
         kind,
         mealType: kind === 'meal' ? mealType : undefined,
         units,
-        takenAt: takenAt.toISOString(),
+        takenAt: (takenAt > current ? current : takenAt).toISOString(),
       })
     } finally {
       setSaving(false)
@@ -162,7 +169,10 @@ function InsulinSheet({ record, onSave, onDelete, onClose }: InsulinSheetProps) 
         {kind === 'meal' && (
           <div className="flex flex-wrap gap-2">
             {(Object.keys(INSULIN_MEAL_LABEL) as MealType[]).map((key) =>
-              chip(mealType === key, INSULIN_MEAL_LABEL[key], () => setMealType(key)),
+              chip(mealType === key, INSULIN_MEAL_LABEL[key], () => {
+                setMealType(key)
+                setMealPicked(true)
+              }),
             )}
           </div>
         )}
@@ -227,7 +237,9 @@ function InsulinSheet({ record, onSave, onDelete, onClose }: InsulinSheetProps) 
           title="맞은 시각"
           value={`${pad(takenAt.getHours())}:${pad(takenAt.getMinutes())}`}
           onDone={(time) => {
-            setTakenAt(withTime(takenAt, time, new Date()))
+            const next = withTime(baseDay, time, new Date())
+            setTakenAt(next)
+            if (!mealPicked) setMealType(guessMealType(next))
             setTimeSheet(false)
           }}
           onClose={() => setTimeSheet(false)}

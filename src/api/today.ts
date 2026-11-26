@@ -19,7 +19,8 @@ type TodayResponse = {
   date: string
   meals: MealResponse[]
   readings: TodayReadingResponse[]
-  insulinLogs: InsulinLogResponse[]
+  // 없으면 인슐린은 맞추지 않음
+  insulinLogs?: InsulinLogResponse[]
   pushReady: boolean
 }
 
@@ -34,7 +35,7 @@ export async function getToday() {
     range: { from, to: addDays(from, 1) },
     meals: today.meals.flatMap((item) => fromServerMeal(item) ?? []),
     records: today.readings.map((item) => fromServerReading(item)),
-    insulins: today.insulinLogs.map(fromServerInsulin),
+    insulins: today.insulinLogs?.map(fromServerInsulin),
     pushReady: today.pushReady,
   }
 }

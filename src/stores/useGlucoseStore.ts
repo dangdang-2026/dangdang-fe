@@ -265,39 +265,78 @@ async function pushUnsentItems() {
   await Promise.all(unsent.map((meal) => pushMealItems(meal.id)))
 }
 
-// 서버 인슐린 전부로 바꿈. 서버 연동 전 기기에만 있던 기록은 남김
+// 받는 사이 지운 · 고친 인슐린. 늦게 온 응답이 되살리거나 고치기 전 값으로 덮지 않게
+const removedInsulinIds = new Set<string>()
+const insulinEditedAt = new Map<string, number>()
+
+// 서버 인슐린을 기기 목록에 합침. 예전 기록 · 요청 중 새로 적은 건 남기고, 요청 전에 있던 것 중 서버에 없는 것만 뺌
+function mergeInsulins(
+  local: InsulinRecord[],
+  server: InsulinRecord[],
+  inRange: (iso: string) => boolean,
+  known: Set<string>,
+  startedAt: number,
+) {
+  const fresh = server.filter((insulin) => !removedInsulinIds.has(insulin.id))
+  const serverById = new Map(fresh.map((insulin) => [insulin.id, insulin]))
+  const editedSince = (id: string) => (insulinEditedAt.get(id) ?? 0) >= startedAt
+  const kept = local.filter(
+    (insulin) =>
+      !insulin.server ||
+      !inRange(insulin.takenAt) ||
+      !known.has(insulin.id) ||
+      serverById.has(insulin.id) ||
+      editedSince(insulin.id),
+  )
+  const keptIds = new Set(kept.map((insulin) => insulin.id))
+  return [
+    ...kept.map((insulin) =>
+      editedSince(insulin.id) ? insulin : (serverById.get(insulin.id) ?? insulin),
+    ),
+    ...fresh.filter((insulin) => !keptIds.has(insulin.id)),
+  ].sort((a, b) => toTime(a.takenAt) - toTime(b.takenAt))
+}
+
+// 서버 인슐린 전부로 바꿈. 서버 연동 전 기기에만 있던 기록 · 요청 중 새로 적은 건 남김
 async function syncAllInsulins() {
+  const known = new Set(useGlucoseStore.getState().insulins.map((insulin) => insulin.id))
+  const startedAt = Date.now()
   const server = await getInsulinLogs(new Date(ALL_FROM_YEAR, 0, 1), new Date())
   useGlucoseStore.setState((state) => ({
-    insulins: [...state.insulins.filter((insulin) => !insulin.server), ...server].sort(
-      (a, b) => toTime(a.takenAt) - toTime(b.takenAt),
-    ),
+    insulins: mergeInsulins(state.insulins, server, () => true, known, startedAt),
   }))
 }
 
 // 서버가 받는 가장 이른 해(2000년)
 const ALL_FROM_YEAR = 2000
 // 앱 켤 때 받는 최근 기간. 서버 기간 조회 상한(31일)
-const RECENT_DAYS = 31
+export const RANGE_MAX_DAYS = 31
 
-// from~to(둘 다 포함) 혈당 · 식사 · 인슐린을 서버와 맞춤
+// from~to(둘 다 포함, 최대 31일) 혈당 · 식사 · 인슐린을 서버와 맞춤. 인슐린만 실패하면 혈당 · 식사만 맞춤
 export function syncRange(from: Date, to: Date) {
   return syncServerRange(async () => {
-    const [records, insulins] = await Promise.all([getRecords(from, to), getInsulinLogs(from, to)])
+    const [records, insulins] = await Promise.all([
+      getRecords(from, to),
+      getInsulinLogs(from, to).catch(() => undefined),
+    ])
     return { ...records, insulins }
   })
 }
 
 // 앱 켤 때 · 로그인 뒤. 이 기기에서 이 계정을 처음 받으면(계정이 바뀌어도) 전부, 그 뒤로는 최근 31일만
 export async function syncGlucose(userId: number) {
-  if (useGlucoseStore.getState().syncedUserId !== userId) {
-    await Promise.all([syncMeals(), syncRecords(), syncAllInsulins()])
+  const { syncedUserId } = useGlucoseStore.getState()
+  if (syncedUserId !== userId) {
+    // 다른 계정 인슐린은 예전 기록까지 바로 비움. 혈당 · 식사는 전부 받으며 바뀜
+    if (syncedUserId !== null) useGlucoseStore.setState({ insulins: [] })
+    // 인슐린은 실패해도 최근 31일 받기에서 다시 맞춤
+    await Promise.all([syncMeals(), syncRecords(), syncAllInsulins().catch(() => {})])
     useGlucoseStore.setState({ syncedUserId: userId })
     return
   }
   await sendPendingMeals()
   const today = startOfDay(new Date())
-  await syncRange(addDays(today, -(RECENT_DAYS - 1)), today)
+  await syncRange(addDays(today, -(RANGE_MAX_DAYS - 1)), today)
   await pushUnsentItems()
 }
 
@@ -356,6 +395,7 @@ const dropInsulin = (id: string) =>
 export async function editInsulin(id: string, input: InsulinInput) {
   try {
     const saved = await updateInsulinLog(id, input)
+    insulinEditedAt.set(id, Date.now())
     useGlucoseStore.setState((state) => ({
       insulins: state.insulins
         .map((insulin) => (insulin.id === id ? saved : insulin))
@@ -363,7 +403,10 @@ export async function editInsulin(id: string, input: InsulinInput) {
     }))
     return saved
   } catch (error) {
-    if (isInsulinGone(error)) dropInsulin(id)
+    if (isInsulinGone(error)) {
+      removedInsulinIds.add(id)
+      dropInsulin(id)
+    }
     throw error
   }
 }
@@ -375,6 +418,7 @@ export async function removeInsulin(id: string) {
   } catch (error) {
     if (!isInsulinGone(error)) throw error
   }
+  removedInsulinIds.add(id)
   dropInsulin(id)
 }
 
@@ -395,6 +439,7 @@ export async function syncServerRange<T extends ServerRangeData>(load: () => Pro
   const knownMeals = new Set(before.meals.map((meal) => meal.id))
   const knownRecords = new Set(before.records.map((record) => record.id))
   const knownInsulins = new Set(before.insulins.map((insulin) => insulin.id))
+  const startedAt = Date.now()
   const data = await load()
   const { from, to } = data.range
   const inRange = (iso: string) => {
@@ -445,21 +490,7 @@ export async function syncServerRange<T extends ServerRangeData>(load: () => Pro
     ].sort((a, b) => toTime(a.measuredAt) - toTime(b.measuredAt))
 
     if (!data.insulins) return { meals, records }
-    // 기기에만 있는 예전 기록 · 요청하는 사이 새로 적은 건 남기고, 서버에서 지운 것만 뺌
-    const serverInsulins = new Map(data.insulins.map((insulin) => [insulin.id, insulin]))
-    const keptInsulins = state.insulins.filter(
-      (insulin) =>
-        !insulin.server ||
-        !inRange(insulin.takenAt) ||
-        !knownInsulins.has(insulin.id) ||
-        serverInsulins.has(insulin.id),
-    )
-    const localInsulinIds = new Set(keptInsulins.map((insulin) => insulin.id))
-    const insulins = [
-      ...keptInsulins.map((insulin) => serverInsulins.get(insulin.id) ?? insulin),
-      ...data.insulins.filter((insulin) => !localInsulinIds.has(insulin.id)),
-    ].sort((a, b) => toTime(a.takenAt) - toTime(b.takenAt))
-
+    const insulins = mergeInsulins(state.insulins, data.insulins, inRange, knownInsulins, startedAt)
     return { meals, records, insulins }
   })
   return data

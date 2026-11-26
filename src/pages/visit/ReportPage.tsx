@@ -11,6 +11,7 @@ import { REPORT_DAYS } from '@/constants/report'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
+import { useRangeSync } from '@/hooks/useRangeSync'
 import { useReportContent } from '@/hooks/useReportContent'
 import { getErrorCode } from '@/api/axios'
 import { getVisitReportPeriod, type VisitReportSave } from '@/api/visitReports'
@@ -123,6 +124,8 @@ function ReportPage() {
         ? (hospitals[0]?.id ?? null)
         : (hospitals.find((item) => item.name === hospitalParam)?.id ?? null)))
   const profileName = useProfileStore((state) => state.name)
+  // 리포트 기간 기록을 서버와 맞춤. 앱 켤 때 받지 않는 31일보다 오래된 기록도 반영
+  useRangeSync(from, to)
   const { report, title, periodLabel, criteriaLines } = useReportContent({
     from,
     to,
