@@ -32,6 +32,8 @@ export type MealItemSummary = {
   nutrition: MealNutrition
   // 직접 적은 값만, 없으면 null
   nutritionOverride: MealNutrition | null
+  // 주식인지. 직접 적은 음식은 false, 배포 전 서버엔 없음
+  isStaple?: boolean
 }
 
 // 백엔드 MealItemResponse. mealUpdatedAt은 다음 영양값 입력의 expectedUpdatedAt
@@ -110,8 +112,12 @@ function toNutrition(values: Omit<NutritionEdit, 'grams' | 'editedAt'>): MealNut
 // 서버 인분 → 화면 양(반 · 1 · 1.5)
 const toPortion = (servings: number): Portion => toNearestPortion(servings)
 
-const isStaple = (name: string, known: Food[]) =>
-  findFood(name, known)?.staple ?? looksLikeStaple(name)
+// 기기가 아는 음식의 주식 여부. 모르는 음식(직접 적은 이름)은 서버처럼 주식 아님
+const isStaple = (name: string, known: Food[]) => findFood(name, known)?.staple ?? false
+
+// 서버 항목의 주식 여부. 칸이 없는 예전 서버만 기기 음식 · 이름으로 짐작
+const isStapleItem = (item: MealItemSummary, known: Food[]) =>
+  item.isStaple ?? findFood(item.name, known)?.staple ?? looksLikeStaple(item.name)
 
 // 서버 항목 → 화면 끼니 내용
 export function toMealContent(
@@ -119,7 +125,7 @@ export function toMealContent(
   known: Food[],
   editedAt: string,
 ): Pick<Meal, 'foods' | 'portion' | 'stapleGrams' | 'portions' | 'nutritionEdits'> {
-  const staple = items.find((item) => isStaple(item.name, known))
+  const staple = items.find((item) => isStapleItem(item, known))
   // 그램은 식사 시트가 양을 받는 주식(처음 나오는 주식) 하나에만
   const gramStaple = findStaple(
     items.map((item) => item.name),
@@ -127,7 +133,8 @@ export function toMealContent(
   )
   // 서버에 적은 무게 그대로. 이 기기가 모르는 음식이면 처음 나오는 주식 무게로
   const gramSource = items.find((item) => item.name === gramStaple?.name) ?? staple
-  const portions = items.filter((item) => item !== staple && toPortion(item.servings) !== 'one')
+  // 주식 양도 함께 둠. 이 기기가 모르는 주식이어도 다시 저장할 때 양이 1인분으로 바뀌지 않게
+  const portions = items.filter((item) => toPortion(item.servings) !== 'one')
   const edited = items.filter((item) => isEdited(item, known))
   return {
     foods: [...new Set(items.map((item) => item.name))],

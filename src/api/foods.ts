@@ -23,6 +23,8 @@ export type FoodResponse = {
   fatG: number | null
   sugarG: number | null
   sourceVersion: string
+  // 주식(밥 · 면 · 빵 끼니)인지. 배포 전 서버엔 없음
+  isStaple?: boolean
 }
 
 // 백엔드 FoodPageResponse
@@ -46,8 +48,8 @@ export function toFood(item: FoodResponse): Food {
     code: item.foodCode,
     name: item.displayName,
     unit: SERVER_FOOD_UNIT,
-    // 서버에 주식 구분이 없어 이름(밥·면 등)으로 판단
-    staple: looksLikeStaple(item.displayName),
+    // 서버 주식 구분. 칸이 없는 예전 서버만 이름(밥·면 등)으로 짐작
+    staple: item.isStaple ?? looksLikeStaple(item.displayName),
     nutrition:
       kcal === null || carbG === null
         ? undefined

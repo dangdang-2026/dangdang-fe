@@ -91,7 +91,7 @@ export function formatMealLabel(meal: Meal, foods: Food[]) {
   return content ? `${MEAL_LABEL[meal.type]} · ${content}` : `${MEAL_LABEL[meal.type]} 식사`
 }
 
-// 이름에 이 글자가 있으면 주식으로 봄(내 음식 추가용)
+// 이름에 이 글자가 있으면 주식으로 봄. 서버에 주식 칸(isStaple)이 없을 때만 씀
 const STAPLE_KEYWORDS = /밥|면|국수|빵|떡|죽/
 
 export function looksLikeStaple(name: string) {
