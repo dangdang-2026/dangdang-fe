@@ -3,6 +3,7 @@ import { useLocation } from 'react-router'
 import { useNavigate } from 'react-router'
 import { getErrorCode } from '@/api/axios'
 import { askChat } from '@/api/chat'
+import iconPhone from '@/assets/icons/chat/phone.svg'
 import iconRecords from '@/assets/icons/chat/records.svg'
 import iconRetry from '@/assets/icons/chat/retry.svg'
 import BotMessage, { BotBubble, UserBubble } from '@/components/chat/BotMessage'
@@ -190,6 +191,46 @@ function ChatPage() {
       .catch(() => setToast({ message: '동의를 저장하지 못했어요. 잠시 후 다시 시도해 주세요' }))
   }
 
+  // 답할 수 없는 이유(서버 reason)에 맞는 버튼. 잡담 · 무례 · 주제 밖 · 당당이 소개는 버튼 없이 답만
+  const renderUnknownAction = (message: Extract<ChatMessage, { kind: 'unknown' }>) => {
+    switch (message.reason) {
+      case 'CHITCHAT':
+      case 'RUDE':
+      case 'OFF_TOPIC':
+      case 'ABOUT':
+        return null
+      case 'NO_CONSENT':
+        return (
+          <ChatActionButton
+            primary
+            onClick={() => {
+              setPendingQuestion(message.question)
+              setConsentSheet(true)
+            }}
+          >
+            기록 보여 주기
+          </ChatActionButton>
+        )
+      case 'DISTRESS':
+        return (
+          <ChatActionButton icon={iconPhone} href="tel:15770199">
+            1577-0199 정신건강 상담에 전화
+          </ChatActionButton>
+        )
+      case 'APP_HELP':
+        return (
+          <ChatActionButton onClick={() => navigate(ROUTES.MY_CONTACT)}>문의하기</ChatActionButton>
+        )
+      // 판단 요청 · 근거 없음 · 예전 대화는 병원에 물어볼 말로
+      default:
+        return (
+          <ChatActionButton primary onClick={() => addDraftMessage(message.question)}>
+            물어볼 말로 정리하기
+          </ChatActionButton>
+        )
+    }
+  }
+
   const renderMessage = (message: ChatMessage) => {
     if (message.from === 'user') return <UserBubble key={message.id} text={message.text} />
 
@@ -259,7 +300,12 @@ function ChatPage() {
       case 'risk':
         return (
           <div key={message.id} className="flex flex-col gap-2.5">
-            <RiskCard text={message.text} actions={message.actions} dose={message.dose} />
+            <RiskCard
+              text={message.text}
+              actions={message.actions}
+              dose={message.dose}
+              risk={message.risk}
+            />
             {/* 약 용량은 진료 때 잊지 않게 물어볼 말로 */}
             {message.dose && (
               <ChatActionButton primary onClick={() => addDraftMessage(message.question)}>
@@ -272,9 +318,7 @@ function ChatPage() {
         return (
           <BotMessage key={message.id}>
             <BotBubble>{message.text}</BotBubble>
-            <ChatActionButton primary onClick={() => addDraftMessage(message.question)}>
-              물어볼 말로 정리하기
-            </ChatActionButton>
+            {renderUnknownAction(message)}
           </BotMessage>
         )
       case 'fail':

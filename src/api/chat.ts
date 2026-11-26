@@ -1,5 +1,12 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
-import type { ChatCallAction, ChatMessage, ChatSource, ServerRecordsCard } from '@/types/chat'
+import type {
+  ChatCallAction,
+  ChatMessage,
+  ChatRisk,
+  ChatSource,
+  ChatUnknownReason,
+  ServerRecordsCard,
+} from '@/types/chat'
 
 // 백엔드 ChatKind
 type ChatKind =
@@ -23,6 +30,9 @@ export type ChatMessageResponse = {
   questionDraft: string | null
   sources: ChatSource[] | null
   actions: ChatCallAction[] | null
+  // RISK일 때만 위급 안내 틀, UNKNOWN일 때만 이유. 예전 대화는 null
+  risk?: ChatRisk | null
+  reason?: ChatUnknownReason | null
   helpful: boolean | null
   createdAt: string
 }
@@ -72,13 +82,21 @@ export function toChatMessage(item: ChatMessageResponse, question: string): Chat
         actions: item.actions ?? [],
         dose: item.kind === 'DOSE',
         question,
+        risk: item.risk ?? null,
       }
     case 'CONSENT_NEEDED':
       return { id, from: 'bot', kind: 'need-consent', question, reason: 'records' }
     case 'FAILED':
       return { id, from: 'bot', kind: 'fail', question }
     default:
-      return { id, from: 'bot', kind: 'unknown', text: item.content, question }
+      return {
+        id,
+        from: 'bot',
+        kind: 'unknown',
+        text: item.content,
+        question,
+        reason: item.reason ?? null,
+      }
   }
 }
 

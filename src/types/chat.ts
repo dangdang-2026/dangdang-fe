@@ -31,7 +31,27 @@ export type ServerRecordsCard = {
 export type ChatSource = { title: string; url: string }
 
 // 위험 신호 · 약 용량 안내의 전화 버튼
-export type ChatCallAction = 'CALL_HOSPITAL' | 'CALL_119' | 'CALL_109' | 'CALL_1577_0199'
+export type ChatCallAction =
+  'CALL_HOSPITAL' | 'CALL_119' | 'CALL_109' | 'CALL_1577_0199' | 'CALL_112' | 'CALL_1366'
+
+// 백엔드 ChatPayload.Risk. 위급 안내 한 틀(급한 증상 · 저혈당 · 마음 · 폭력), warning은 빨간 「…바로 119」 줄
+export type ChatRisk = {
+  type: 'URGENT' | 'HYPO' | 'MIND' | 'SAFETY'
+  title: string
+  warning: string
+}
+
+// 백엔드 ChatUnknownReason. 답할 수 없는 이유로 버튼을 고름
+export type ChatUnknownReason =
+  | 'JUDGMENT'
+  | 'NO_SOURCE'
+  | 'CHITCHAT'
+  | 'RUDE'
+  | 'OFF_TOPIC'
+  | 'NO_CONSENT'
+  | 'DISTRESS'
+  | 'APP_HELP'
+  | 'ABOUT'
 
 // id는 서버 대화 번호(문자열). 서버에 안 남은 말(403 · 429 · 연결 실패)은 기기 임시 id
 export type ChatMessage =
@@ -64,8 +84,18 @@ export type ChatMessage =
       actions: ChatCallAction[]
       dose: boolean
       question: string
+      // 예전 대화 줄은 없음
+      risk?: ChatRisk | null
     }
-  | { id: string; from: 'bot'; kind: 'unknown'; text: string; question: string }
+  // reason은 예전 대화 줄이면 없음
+  | {
+      id: string
+      from: 'bot'
+      kind: 'unknown'
+      text: string
+      question: string
+      reason?: ChatUnknownReason | null
+    }
   | { id: string; from: 'bot'; kind: 'fail'; question: string }
   // records는 기록 사용 동의, overseas는 국외 이전 동의(403)가 없을 때
   | {
