@@ -7,6 +7,7 @@ const REASON_LABEL: Record<string, string> = {
   AD_SALES: '광고·판매·후원 요청',
   PRIVACY: '개인정보 노출',
   ABUSE: '비방·혐오·성적인 글',
+  MISINFO: '잘못된 건강 정보',
 }
 
 // 이용 제한. until이 null이면 운영자가 풀 때까지, appealed면 이 제한에 이의 신청을 이미 함

@@ -74,4 +74,5 @@ export type PostDraft = {
   poll: string[] | null
 }
 
-export type ReportReason = 'medical' | 'compare' | 'ad' | 'privacy' | 'abuse' | 'etc'
+export type ReportReason =
+  'medical' | 'compare' | 'ad' | 'privacy' | 'abuse' | 'crisis' | 'misinfo' | 'etc'

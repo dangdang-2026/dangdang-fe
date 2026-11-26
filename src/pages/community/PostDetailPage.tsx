@@ -23,6 +23,7 @@ import CommentItem from '@/components/community/CommentItem'
 import PollCard from '@/components/community/PollCard'
 import PostMoreSheet from '@/components/community/PostMoreSheet'
 import ReportSheet from '@/components/community/ReportSheet'
+import CrisisReportedSheet from '@/components/community/CrisisReportedSheet'
 import AppealSheet from '@/components/community/AppealSheet'
 import RestrictedSheet from '@/components/community/RestrictedSheet'
 import { BOARD_LABEL, MY_AUTHOR_ID } from '@/constants/community'
@@ -109,6 +110,8 @@ function PostDetailPage() {
   const removePost = useCommunityStore((state) => state.removePost)
   const [moreOpen, setMoreOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
+  // 걱정되는 글 신고 완료 시트
+  const [crisisReported, setCrisisReported] = useState(false)
   const [confirming, setConfirming] = useState<Confirming | null>(null)
   const [restrictedOpen, setRestrictedOpen] = useState(false)
   const [composing, setComposing] = useState<Composing | null>(null)
@@ -481,7 +484,11 @@ function PostDetailPage() {
           onSubmit={(reason) => {
             setReportOpen(false)
             report('POST', post.id, reason).then(
-              () => setToast('신고했어요. 운영정책에 따라 확인할게요.'),
+              // 걱정되는 글은 먼저 확인한다는 안내와 상담 전화를 시트로
+              () =>
+                reason === 'crisis'
+                  ? setCrisisReported(true)
+                  : setToast('신고했어요. 운영정책에 따라 확인할게요.'),
               (error) => {
                 const code = getErrorCode(error)
                 setToast(
@@ -497,6 +504,7 @@ function PostDetailPage() {
           onClose={closeReport}
         />
       )}
+      {crisisReported && <CrisisReportedSheet onClose={() => setCrisisReported(false)} />}
       {confirming === 'delete' && (
         <ConfirmDialog
           title="이 글을 지울까요?"
