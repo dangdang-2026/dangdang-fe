@@ -83,8 +83,13 @@ export function unsubscribeDeviceOnly() {
   ])
 }
 
+// 탈퇴 정리 중. 그사이 세션 끝남 처리가 먼저 페이지를 옮기지 않게
+let withdrawing = false
+export const isWithdrawing = () => withdrawing
+
 // 탈퇴하면 기기 푸시 구독 · 카카오 토큰 · 기록을 다 지우고 처음 화면으로
 export async function restartAfterWithdraw() {
+  withdrawing = true
   clearPendingKakao()
   await unsubscribeDeviceOnly()
   Object.keys(localStorage)
@@ -125,6 +130,12 @@ const ACCOUNT_STORES = [
 // 다른 탭에 알리는 키(값은 알린 시각)
 const CONSENT_RESTART_KEY = 'dangdang-consent-restart'
 const LOGOUT_KEY = 'dangdang-logout'
+const SESSION_END_KEY = 'dangdang-session-end'
+
+// 세션이 끝나면 지우는 저장소. 못 보낸 혈당 기록과 기기 주인은 남겨 같은 계정이 다시 들어오면 올림(다른 계정이면 로그인 때 비움)
+const SESSION_END_STORES = ACCOUNT_STORES.filter(
+  (key) => key !== 'dangdang-glucose' && key !== DEVICE_OWNER_KEY,
+)
 
 // 지우고 옮김. 떠나기 전 끝난 요청이 기기 저장을 다시 써도 페이지를 닫을 때 한 번 더 지움
 // broadcastKey가 있으면 열려 있는 다른 탭도 같은 일을 하게 알림(그 탭이 지운 기록을 다시 쓰지 않게)
@@ -157,6 +168,12 @@ export function leaveAfterLogout() {
   clearAndLeave(ACCOUNT_STORES, ROUTES.ONBOARDING, LOGOUT_KEY)
 }
 
+// 세션이 끝난 뒤 계정 기록을 지우고 처음 화면으로. 못 보낸 혈당 기록은 남김
+export function leaveAfterSessionEnd() {
+  keepDeviceNotificationOnly()
+  clearAndLeave(SESSION_END_STORES, ROUTES.ONBOARDING, SESSION_END_KEY)
+}
+
 // 다른 탭에서 철회 · 동의 없음 · 로그아웃으로 기록을 지우면 이 탭도 같이. 앱 전체에서 한 번 켬
 export function listenForConsentRestart() {
   const onStorage = (event: StorageEvent) => {
@@ -165,6 +182,10 @@ export function listenForConsentRestart() {
     if (event.key === LOGOUT_KEY) {
       keepDeviceNotificationOnly()
       clearAndLeave(ACCOUNT_STORES, ROUTES.ONBOARDING)
+    }
+    if (event.key === SESSION_END_KEY) {
+      keepDeviceNotificationOnly()
+      clearAndLeave(SESSION_END_STORES, ROUTES.ONBOARDING)
     }
   }
   window.addEventListener('storage', onStorage)
