@@ -13,13 +13,19 @@ import TargetField from '@/components/criteria/TargetField'
 import FoodChip from '@/components/meal/FoodChip'
 import ContactMemoSheet from '@/components/my/ContactMemoSheet'
 import { GLUCOSE_MAX, GLUCOSE_MIN } from '@/constants/glucose'
+import { MEMO_SAVE_FAILED } from '@/constants/criteria'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
 import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
 import { saveCriteria } from '@/stores/useCriteriaStore'
 import { useMealGuideStore } from '@/stores/useMealGuideStore'
-import { useProfileStore, type CareMode } from '@/stores/useProfileStore'
+import {
+  saveCareMode,
+  saveContactMemo,
+  useProfileStore,
+  type CareMode,
+} from '@/stores/useProfileStore'
 import type { MeasureSlotKey } from '@/types/criteria'
 import {
   MEASURE_SLOT_LABEL,
@@ -56,7 +62,7 @@ function MyCriteriaPage() {
   const mealGuide = useMealGuideStore((state) => state.guide)
   const goBack = useGoBack(ROUTES.MY)
   const criteria = useCriteria()
-  const { careMode, contactMemo, updateProfile } = useProfileStore()
+  const { careMode, contactMemo } = useProfileStore()
   const [saving, setSaving] = useState(false)
   const [confirming, setConfirming] = useState(false)
   // 저장 전까지 고친 값
@@ -154,7 +160,7 @@ function MyCriteriaPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-30">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-2 pb-30">
       <SubPageHeader title="병원 기준 · 관리 모드" onBack={goBack} />
 
       <div className="mt-3.5 flex flex-col gap-5.5">
@@ -227,8 +233,11 @@ function MyCriteriaPage() {
                 }`}
                 onClick={() => {
                   if (careMode === value) return
-                  updateProfile({ careMode: value })
-                  setToast(`관리 모드를 바꿨어요 · ${label}`)
+                  saveCareMode(value)
+                    .then(() => setToast(`관리 모드를 바꿨어요 · ${label}`))
+                    .catch(() =>
+                      setToast('관리 모드를 저장하지 못했어요. 잠시 후 다시 시도해 주세요'),
+                    )
                 }}
               >
                 {label}
@@ -310,9 +319,10 @@ function MyCriteriaPage() {
         <ContactMemoSheet
           initialMemo={contactMemo}
           onSave={(memo) => {
-            updateProfile({ contactMemo: memo })
             setEditingMemo(false)
-            setToast('연락 기준 메모를 저장했어요')
+            saveContactMemo(memo)
+              .then(() => setToast('연락 기준 메모를 저장했어요'))
+              .catch(() => setToast(MEMO_SAVE_FAILED))
           }}
           onClose={closeMemo}
         />

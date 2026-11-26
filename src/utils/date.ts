@@ -88,3 +88,9 @@ export function getMonthGrid(month: Date) {
   const blanks: null[] = Array.from({ length: first.getDay() }, () => null)
   return [...blanks, ...Array.from({ length: days }, (_, index) => addDays(first, index))]
 }
+
+// 예: 2026년 10월 14일
+export function formatKoreanDate(iso: string) {
+  const date = new Date(iso)
+  return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`
+}

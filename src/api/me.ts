@@ -1,5 +1,17 @@
 import { apiClient, getErrorCode, type BaseResponse } from '@/api/axios'
 import type { PregnancyState } from '@/api/pregnancy'
+import type { CareMode } from '@/stores/useProfileStore'
+
+// 백엔드 CareMode. 대문자만 받음
+type ServerCareMode = 'DIET' | 'INSULIN' | 'ORAL'
+
+// 백엔드 PregnancyCareProfileResponse. 임신 정보가 없으면 DIET · null
+type CareProfileResponse = {
+  diagnosisDate: string | null
+  careMode: ServerCareMode
+  contactMemo: string | null
+  contactMemoUpdatedAt: string | null
+}
 
 // 백엔드 MeResponse
 export type Me = {
@@ -16,7 +28,7 @@ export type Me = {
   pregnancyState: PregnancyState | null
   // 로그인 방식별 연결 여부. 운영 서버 배포 전엔 없을 수 있음
   loginMethods?: { email: boolean; kakao: boolean }
-}
+} & Partial<CareProfileResponse>
 
 // 백엔드 NameUpdateResponse
 type NameUpdateResponse = { name: string; version: string }
@@ -54,6 +66,34 @@ export async function updateName(name: string): Promise<NameUpdateResult> {
     return { status: 'conflict', name: me.displayName }
   }
 }
+
+// 진단일 · 관리 모드 · 연락 기준 메모
+export type CareProfile = { diagnosisDate: string | null; careMode: CareMode; contactMemo: string }
+
+export const toCareProfile = (data: CareProfileResponse): CareProfile => ({
+  diagnosisDate: data.diagnosisDate,
+  careMode: data.careMode.toLowerCase() as CareMode,
+  contactMemo: data.contactMemo ?? '',
+})
+
+async function patchCareProfile(path: string, body: object) {
+  const { data } = await apiClient.patch<BaseResponse<CareProfileResponse>>(path, body)
+  if (!data.data) throw new Error('관리 정보 응답이 비어 있음')
+  return toCareProfile(data.data)
+}
+
+// 진단일(YYYY-MM-DD). 오늘 뒤 PREGNANCY_40003, 예정일 뒤 40004, 출산일 뒤 40005
+export const updateDiagnosisDate = (diagnosisDate: string) =>
+  patchCareProfile('/me/diagnosis-date', { diagnosisDate })
+
+export const updateCareMode = (careMode: CareMode) =>
+  patchCareProfile('/me/care-mode', { careMode: careMode.toUpperCase() })
+
+// 한 줄 100자까지. 비우면 지움. 서버가 줄바꿈 · 탭을 거절해 띄어쓰기로(예전에 여러 줄로 적은 메모도)
+export const updateContactMemo = (contactMemo: string) =>
+  patchCareProfile('/me/contact-memo', {
+    contactMemo: contactMemo.replace(/[\p{Cc}\u2028\u2029]+/gu, ' '),
+  })
 
 // 백엔드 DueDateResponse
 type DueDateResponse = { dueDate: string }

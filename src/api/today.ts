@@ -1,9 +1,15 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
+import { fromServerInsulin, type InsulinLogResponse } from '@/api/insulin'
 import { fromServerMeal, type MealResponse } from '@/api/meals'
-import { fromServerReading, type ReadingType, type ServerSlot } from '@/api/readings'
+import {
+  fromServerReading,
+  type ReadingType,
+  type ServerJudgment,
+  type ServerSlot,
+} from '@/api/readings'
 import { addDays, parseDateKey } from '@/utils/date'
 
-// 백엔드 TodayReadingResponse. timing · aboveTarget은 화면이 직접 판단해서 안 씀
+// 백엔드 TodayReadingResponse. 목표 판정 · 재야 할 시각은 서버 값으로
 type TodayReadingResponse = {
   readingId: number
   value: number
@@ -11,13 +17,15 @@ type TodayReadingResponse = {
   slot: ServerSlot | null
   mealId: number | null
   measuredAt: string
-}
+} & Pick<ServerJudgment, 'targetValue' | 'aboveTarget' | 'expectedAt' | 'timing'>
 
 // 백엔드 TodayResponse. 기준 · 다음 알림은 다른 API로 받고 있어 안 씀
 type TodayResponse = {
   date: string
   meals: MealResponse[]
   readings: TodayReadingResponse[]
+  // 없으면 인슐린은 맞추지 않음
+  insulinLogs?: InsulinLogResponse[]
   pushReady: boolean
 }
 
@@ -32,6 +40,7 @@ export async function getToday() {
     range: { from, to: addDays(from, 1) },
     meals: today.meals.flatMap((item) => fromServerMeal(item) ?? []),
     records: today.readings.map((item) => fromServerReading(item)),
+    insulins: today.insulinLogs?.map(fromServerInsulin),
     pushReady: today.pushReady,
   }
 }

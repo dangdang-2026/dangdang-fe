@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import { getErrorCode } from '@/api/axios'
 import { canServerPush, subscribePush } from '@/api/push'
 import { openReminder, snoozeReminder } from '@/api/reminders'
 import EmergencyBlock from '@/components/common/EmergencyBlock'
@@ -31,6 +32,7 @@ import WaitingMeasureCard from '@/components/today/WaitingMeasureCard'
 import MealWriteFlow from '@/components/meal/MealWriteFlow'
 import PostpartumToday from '@/components/postpartum/PostpartumToday'
 import { GLUCOSE_LOW, JUST_SAVED_MS } from '@/constants/glucose'
+import { MEMO_SAVE_FAILED } from '@/constants/criteria'
 import { ROUTES } from '@/constants/routes'
 import { useFoods } from '@/hooks/useFoods'
 import { useNow } from '@/hooks/useNow'
@@ -38,37 +40,39 @@ import { useOnline } from '@/hooks/useOnline'
 import { useCriteria } from '@/hooks/useCriteria'
 import { snoozeOnDevice } from '@/hooks/useMeasureReminder'
 import { useTodaySync } from '@/hooks/useTodaySync'
-import { saveHospitalized, useProfileStore } from '@/stores/useProfileStore'
+import {
+  saveHospitalized,
+  savePaused,
+  saveContactMemo,
+  undoDelivery,
+  useProfileStore,
+} from '@/stores/useProfileStore'
 import {
   editMealStart,
   saveMealContent,
+  saveInsulin,
   saveMealStart,
+  saveSkipMeal,
   useGlucoseStore,
 } from '@/stores/useGlucoseStore'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { useInboxStore } from '@/stores/useInboxStore'
 import { saveNotificationSettings, useNotificationStore } from '@/stores/useNotificationStore'
 import { useVisitStore } from '@/stores/useVisitStore'
-import type {
-  GlucoseRecord,
-  InsulinKind,
-  Meal,
-  MeasureTarget,
-  NutritionEdits,
-  Portion,
-} from '@/types/glucose'
+import type { GlucoseRecord, Meal, MeasureTarget, NutritionEdits, Portion } from '@/types/glucose'
 import { getCriteriaAt } from '@/utils/criteria'
 import { formatTime, isSameDay, startOfDay } from '@/utils/date'
 import { formatPregnancyAge, getPregnancyAge } from '@/utils/pregnancy'
 import { formatVisitDay, getHomeVisitCard } from '@/utils/visit'
 import {
+  formatGlucose,
   getHeroState,
   getMeasureTarget,
   getMissedMeals,
   getNextMealType,
   getSlotLabel,
   getTarget,
-  compareToTarget,
+  isAboveTarget,
   isDayEnd,
   measuresAfter,
   type HeroState,
@@ -99,8 +103,6 @@ function TodayPage() {
   const meals = useGlucoseStore((state) => state.meals)
   const records = useGlucoseStore((state) => state.records)
   const insulins = useGlucoseStore((state) => state.insulins)
-  const skipMeal = useGlucoseStore((state) => state.skipMeal)
-  const addInsulin = useGlucoseStore((state) => state.addInsulin)
   const foods = useFoods()
   const criteria = useCriteria()
   const criteriaVersions = useCriteriaStore((state) => state.versions)
@@ -138,10 +140,29 @@ function TodayPage() {
   const [toast, setToast] = useState<string | null>(() =>
     kakaoLinkOutcome ? KAKAO_LINK_TOAST[kakaoLinkOutcome] : null,
   )
+  // 출산일을 적고 처음 온 홈이면 되돌리기 토스트
+  const deliveryChanged = !!(location.state as { deliveryChanged?: boolean } | null)
+    ?.deliveryChanged
+  const [undoOffer, setUndoOffer] = useState(deliveryChanged)
+  const closeUndoOffer = useCallback(() => setUndoOffer(false), [])
+  const undoAction = useMemo(
+    () => ({
+      label: '되돌리기',
+      onClick: () => {
+        setUndoOffer(false)
+        undoDelivery()
+          .then(() => setToast('출산 전으로 되돌렸어요'))
+          .catch(() => setToast('되돌리지 못했어요. 마이 › 내 정보에서 다시 해 주세요'))
+      },
+    }),
+    [],
+  )
   // 새로 고침 · 뒤로 가기로 토스트가 다시 뜨지 않게 주소의 state를 지움
   useEffect(() => {
-    if (kakaoLinkOutcome) navigate(location.pathname, { replace: true, state: null })
-  }, [kakaoLinkOutcome, navigate, location.pathname])
+    if (kakaoLinkOutcome || deliveryChanged) {
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [kakaoLinkOutcome, deliveryChanged, navigate, location.pathname])
   const kakaoLinkOffer = useAuthStore((state) => state.kakaoLinkOffer)
   const setKakaoLinkOffer = useAuthStore((state) => state.setKakaoLinkOffer)
   const [linking, setLinking] = useState(false)
@@ -158,9 +179,11 @@ function TodayPage() {
   const markPermissionAsked = useNotificationStore((state) => state.markPermissionAsked)
   const name = useProfileStore((state) => state.name)
   const dueDate = useProfileStore((state) => state.dueDate)
-  const hospitalized = useProfileStore((state) => state.hospitalized)
+  const inHospital = useProfileStore((state) => state.hospitalized)
+  // 다른 상황이에요로 알림만 멈춤. 입원과 같이 측정 카드 대신 알림 멈춤 카드
+  const measurePaused = useProfileStore((state) => state.paused)
+  const hospitalized = inHospital || measurePaused
   const deliveryDate = useProfileStore((state) => state.deliveryDate)
-  const updateProfile = useProfileStore((state) => state.updateProfile)
   const insulinMode = useProfileStore((state) => state.careMode === 'insulin')
   const contactMemo = useProfileStore((state) => state.contactMemo)
 
@@ -180,8 +203,9 @@ function TodayPage() {
       ? record
       : latest
   }, null)
+  // 입원 중일 때만 숨김. 알림만 멈춘 상태에서도 낮은 · 높은 값 안내는 그대로
   const justEntered =
-    !hospitalized &&
+    !inHospital &&
     !!lastEntered &&
     now.getTime() - new Date(lastEntered.enteredAt ?? lastEntered.measuredAt).getTime() <
       JUST_SAVED_MS
@@ -196,10 +220,7 @@ function TodayPage() {
       ? getTarget(lastEntered.slot, lastCriteria.targets, lastCriteria.postMealHours)
       : null
   const showHighCard =
-    justEntered &&
-    !!lastEntered &&
-    lastTarget !== null &&
-    compareToTarget(lastEntered.value, lastTarget) === 'high'
+    justEntered && !!lastEntered && lastTarget !== null && isAboveTarget(lastEntered, lastTarget)
   // 출산 예정일이 가까우면 입원·출산 입구. 입원 중이면 안 보임
   const nearDue = !hospitalized && (getPregnancyAge(dueDate, now)?.weeks ?? 0) >= BIRTH_ENTRY_WEEKS
   // 저녁 이후 놓친 식후 측정은 오늘 기록에 나중에 채우기 줄로
@@ -293,14 +314,6 @@ function TodayPage() {
     setPermissionSheet(true)
   }
 
-  // 같은 종류로 마지막에 적은 단위. 새로 적을 때 시작값
-  const lastUnits: Partial<Record<InsulinKind, number>> = {}
-  ;[...insulins]
-    .sort((a, b) => new Date(a.takenAt).getTime() - new Date(b.takenAt).getTime())
-    .forEach((insulin) => {
-      lastUnits[insulin.kind] = insulin.units
-    })
-
   // 식사 적기는 오늘 마지막 끼니. 아직 없으면 식사 시작부터
   const writeLatestMeal = () => {
     const latest = todayMeals.at(-1)
@@ -372,8 +385,13 @@ function TodayPage() {
     try {
       await editMealStart(meal.id, startedAt)
       setToast(`식사 시작을 ${time}로 고쳤어요`)
-    } catch {
-      setToast('시작 시각을 고치지 못했어요. 잠시 후 다시 시도해 주세요')
+    } catch (error) {
+      // 식후 혈당을 잰 시각보다 늦게 고치면 서버가 거절(MEAL_40008)
+      setToast(
+        getErrorCode(error) === 'MEAL_40008'
+          ? '식후 혈당을 잰 시각보다 늦게는 고칠 수 없어요'
+          : '시작 시각을 고치지 못했어요. 잠시 후 다시 시도해 주세요',
+      )
     }
   }
 
@@ -402,7 +420,7 @@ function TodayPage() {
   const handleSaved = (record: GlucoseRecord) => {
     closeGlucoseSheet()
     const label = getSlotLabel(record.slot, record.mealType, criteria.postMealHours)
-    setToast(`${label} ${record.value} 저장했어요`)
+    setToast(`${label} ${formatGlucose(record)} 저장했어요`)
   }
 
   const handleMealSaved = (
@@ -422,14 +440,19 @@ function TodayPage() {
   // 출산일을 적었으면 산후 홈
   if (deliveryDate) {
     return (
-      <main className="px-5 pt-15.5">
+      <main className="px-5 pt-4.5">
         <PostpartumToday name={name} deliveryDate={deliveryDate} now={now} />
+        {undoOffer ? (
+          <Toast message="산후 관리로 바꿨어요" action={undoAction} onClose={closeUndoOffer} />
+        ) : (
+          toast && <Toast message={toast} onClose={closeToast} />
+        )}
       </main>
     )
   }
 
   return (
-    <main className="px-5 pt-15.5">
+    <main className="px-5 pt-4.5">
       <WarmBackground />
       <TodayHeader
         name={name}
@@ -450,8 +473,9 @@ function TodayPage() {
       <div className={online ? 'mt-6' : 'mt-3.5'}>
         {hospitalized ? (
           <HospitalHero
+            variant={measurePaused && !inHospital ? 'paused' : 'hospital'}
             onResume={() => {
-              saveHospitalized(false)
+              ;(measurePaused && !inHospital ? savePaused(false) : saveHospitalized(false))
                 .then(() => setToast('측정 알림을 다시 켰어요'))
                 .catch(() => setToast('알림을 다시 켜지 못했어요. 잠시 후 다시 시도해 주세요'))
             }}
@@ -466,7 +490,12 @@ function TodayPage() {
             postMealHours={criteria.postMealHours}
             onStartMeal={() => void handleStartMeal()}
             onInputGlucose={openGlucoseSheet}
-            onSkipMeal={skipMeal}
+            onSkipMeal={(mealId) => {
+              // 다른 기기에서 이미 식후 혈당을 적었으면 건너뛰지 않고 알림
+              void saveSkipMeal(mealId).then((result) => {
+                if (result === 'measured') setToast('이 끼니 식후 혈당은 이미 적었어요')
+              })
+            }}
             onWriteMeal={setWritingMeal}
             onEditMealStart={setEditingStart}
             onFillMissed={fillMissed}
@@ -474,7 +503,7 @@ function TodayPage() {
           />
         )}
       </div>
-      {/* 낮은 값을 입력한 직후 30분은 위급 안내 그대로. 입원 중이면 숨김 */}
+      {/* 낮은 값을 입력한 직후 30분은 위급 안내 그대로. 입원 중이면 숨김(알림만 멈춘 상태는 보임) */}
       {showLowBlock && (
         <div className="mt-5">
           <EmergencyBlock onWriteMemo={() => setMemoSheet(true)} />
@@ -555,11 +584,14 @@ function TodayPage() {
       )}
       {insulinSheet && (
         <InsulinSheet
-          lastUnits={lastUnits}
-          onSave={(input) => {
-            addInsulin(input)
-            setInsulinSheet(false)
-            setToast(`인슐린 ${input.units}단위 기록했어요`)
+          onSave={async (input) => {
+            try {
+              await saveInsulin(input)
+              setInsulinSheet(false)
+              setToast(`인슐린 ${input.units}단위 기록했어요`)
+            } catch {
+              setToast('인슐린을 기록하지 못했어요. 잠시 후 다시 시도해 주세요')
+            }
           }}
           onClose={() => setInsulinSheet(false)}
         />
@@ -571,11 +603,11 @@ function TodayPage() {
               navigate(ROUTES.POSTPARTUM_DELIVERY)
               return
             }
-            // 입원은 서버가 알림만 멈추고 홈에서 바로 보여 줌. 두 번 보내지 않게 시트 먼저 닫음
+            // 입원 · 다른 상황은 서버가 알림만 멈추고 홈에서 바로 보여 줌. 두 번 보내지 않게 시트 먼저 닫음
             setBirthSheet(false)
-            saveHospitalized(true)
+            ;(choice === 'other' ? savePaused(true) : saveHospitalized(true))
               .then(() => setToast('측정 알림을 멈췄어요'))
-              .catch(() => setToast('입원 상태를 저장하지 못했어요. 잠시 후 다시 시도해 주세요'))
+              .catch(() => setToast('상황을 저장하지 못했어요. 잠시 후 다시 시도해 주세요'))
           }}
           onClose={() => setBirthSheet(false)}
         />
@@ -584,9 +616,10 @@ function TodayPage() {
         <ContactMemoSheet
           initialMemo={contactMemo}
           onSave={(memo) => {
-            updateProfile({ contactMemo: memo })
             setMemoSheet(false)
-            setToast('연락 기준 메모를 저장했어요')
+            saveContactMemo(memo)
+              .then(() => setToast('연락 기준 메모를 저장했어요'))
+              .catch(() => setToast(MEMO_SAVE_FAILED))
           }}
           onClose={() => setMemoSheet(false)}
         />

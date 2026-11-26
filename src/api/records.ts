@@ -1,7 +1,12 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
 import type { MealItemSummary } from '@/api/mealItems'
 import { fromServerMeal, type ServerMeal, type ServerMealSlot } from '@/api/meals'
-import { fromServerReading, type ReadingType, type ServerSlot } from '@/api/readings'
+import {
+  fromServerReading,
+  type ReadingType,
+  type ServerJudgment,
+  type ServerSlot,
+} from '@/api/readings'
 import type { GlucoseRecord } from '@/types/glucose'
 import { addDays, parseDateKey, toDateKey } from '@/utils/date'
 
@@ -10,16 +15,13 @@ type RecordEventResponse = {
   type: 'READING' | 'MEAL'
   id: number
   occurredAt: string
-  modified: boolean
   reading?: {
     value: number
     readingType: ReadingType
     slot: ServerSlot | null
     mealId: number | null
     criteriaVersionId: number
-    scheduledAt: string | null
-    enteredLate: boolean
-  }
+  } & ServerJudgment
   meal?: {
     mealSlot: ServerMealSlot
     startedOffline: boolean
@@ -93,4 +95,29 @@ export async function getRecordCalendar(month: Date) {
     hasPrevMonth: calendar.hasPrevMonth,
     hasNextMonth: calendar.hasNextMonth,
   }
+}
+
+// 백엔드 기간 지우기 응답
+type RecordsDeleteResponse = {
+  deletedReadings: number
+  deletedMeals: number
+  deletedInsulinLogs: number
+}
+
+// 서버가 한 번에 지우는 최대 기간(양 끝 포함 366일)
+const DELETE_MAX_DAYS = 366
+
+// from~to(둘 다 포함) 혈당 · 식사 · 인슐린을 같이 지움. 366일보다 길면 나눠서 보내고 개수를 더함
+export async function deleteRecordsRange(from: Date, to: Date) {
+  const total = { readings: 0, meals: 0, insulins: 0 }
+  for (let start = from; start <= to; start = addDays(start, DELETE_MAX_DAYS)) {
+    const end = addDays(start, DELETE_MAX_DAYS - 1)
+    const { data } = await apiClient.delete<BaseResponse<RecordsDeleteResponse>>('/records', {
+      params: { from: toDateKey(start), to: toDateKey(end < to ? end : to) },
+    })
+    total.readings += data.data?.deletedReadings ?? 0
+    total.meals += data.data?.deletedMeals ?? 0
+    total.insulins += data.data?.deletedInsulinLogs ?? 0
+  }
+  return total
 }

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import iconPhoneCall from '@/assets/icons/glucose/phone-call.svg'
 import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
 import { useProfileStore } from '@/stores/useProfileStore'
@@ -5,10 +6,12 @@ import { useProfileStore } from '@/stores/useProfileStore'
 type EmergencyBlockProps = {
   // 연락 기준 메모가 없을 때 「연락 기준 적어 두기」
   onWriteMemo: () => void
+  // 메모 · 기본 안내 대신 보여 줄 말. 예: 혈당계 HI · LO
+  message?: ReactNode
 }
 
 // Figma 당당/위급 안내. 낮은 값 등에서 늘 펼쳐 보이는 「지금 먼저 할 일」. 앱은 숫자를 정하지 않음
-function EmergencyBlock({ onWriteMemo }: EmergencyBlockProps) {
+function EmergencyBlock({ onWriteMemo, message }: EmergencyBlockProps) {
   const memo = useProfileStore((state) => state.contactMemo)
   const hospital = usePrimaryHospital()
 
@@ -18,7 +21,11 @@ function EmergencyBlock({ onWriteMemo }: EmergencyBlockProps) {
       className="bg-red-25 rounded-bubble flex flex-col border border-red-200 p-4.5"
     >
       <h3 className="text-base leading-none font-bold text-red-700">지금 먼저 할 일</h3>
-      {memo ? (
+      {message ? (
+        <p className="text-grey-900 mt-2.5 text-base leading-normal font-medium whitespace-pre-line">
+          {message}
+        </p>
+      ) : memo ? (
         <>
           <p className="text-subtitle-1 text-grey-900 mt-2.5 font-bold">“{memo}”</p>
           <p className="text-grey-600 mt-1.5 text-xs leading-normal font-semibold">

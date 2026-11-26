@@ -1,13 +1,15 @@
 import { apiClient } from '@/api/axios'
 import type { ReportReason } from '@/types/community'
 
-// 화면 신고 이유 → 서버 ReportReason(U-12 6개)
+// 화면 신고 이유 → 서버 ReportReason(U-12 8개). 걱정되는 글(CRISIS)은 운영자 처리함 맨 위로
 const REASON: Record<ReportReason, string> = {
   medical: 'MEDICAL_ADVICE',
   compare: 'NUMBER_COMPARE',
   ad: 'AD_SALES',
   privacy: 'PRIVACY',
   abuse: 'ABUSE',
+  crisis: 'CRISIS',
+  misinfo: 'MISINFO',
   etc: 'ETC',
 }
 

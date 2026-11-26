@@ -117,7 +117,7 @@ function HospitalsPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-30 break-keep">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-2 pb-30 break-keep">
       <SubPageHeader title="다니는 병원" onBack={goBack} />
 
       <div className="mt-3 flex flex-col gap-4">

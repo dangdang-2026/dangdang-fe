@@ -48,6 +48,7 @@ function CommentItem({ comment, now, best, liked, onLike, onReply, onDelete }: C
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <p className="text-t7 flex flex-wrap items-center gap-1.5 leading-snug">
           <span className="text-grey-800 font-medium">{comment.author.nickname}</span>
+          {comment.postAuthor && <AuthorBadge label="글쓴이" variant="author" />}
           {best && <AuthorBadge label="Best" variant="best" />}
           {week && <AuthorBadge label={week} />}
           <span className="text-grey-400">{formatRelativeTime(comment.createdAt, now)}</span>

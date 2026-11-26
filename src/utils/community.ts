@@ -15,9 +15,9 @@ export function formatRelativeTime(iso: string, now: Date) {
   return `${at.getMonth() + 1}/${at.getDate()}`
 }
 
-// 예: 임신 27주. 주수를 모르면 없음
+// 예: 임신 27주 · 산후 3개월. 서버 배지 글이 있으면 그대로, 없으면 주수로
 export const formatAuthorWeek = (author: Author) =>
-  author.pregnancyWeek ? `임신 ${author.pregnancyWeek}주` : null
+  author.badge ?? (author.pregnancyWeek ? `임신 ${author.pregnancyWeek}주` : null)
 
 export const formatCount = (count: number) => count.toLocaleString('ko-KR')
 
@@ -26,8 +26,11 @@ export const isPopular = (post: Post) => post.views >= POPULAR_VIEWS
 // 베스트 댓글로 칠 최소 공감 수
 const BEST_MIN_LIKES = 10
 
-// 공감이 가장 많은 원 댓글. 가려진 댓글·답글은 빼고, 없으면 null
+// 베스트 댓글. 서버가 고른 게 있으면 그것, 서버 값이 없으면 공감이 가장 많은 원 댓글(가린 댓글 · 답글 빼고)
 export function getBestComment(post: Post) {
+  if (post.comments.some((item) => item.best !== undefined)) {
+    return post.comments.find((item) => item.best && !item.hidden) ?? null
+  }
   const candidates = post.comments.filter((item) => !item.hidden && !item.parentId)
   if (candidates.length === 0) return null
   const best = candidates.reduce((top, item) => (item.likes > top.likes ? item : top))

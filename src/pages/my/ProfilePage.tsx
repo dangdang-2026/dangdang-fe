@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { startKakaoLogin } from '@/api/auth'
+import { getErrorCode } from '@/api/axios'
 import { getMe, saveDueDate, updateName, type Me } from '@/api/me'
 import iconConnected from '@/assets/icons/my/check-connected.svg'
 import iconInfoSm from '@/assets/icons/info-sm.svg'
+import ConfirmSheet from '@/components/common/ConfirmSheet'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import Toast from '@/components/common/Toast'
 import ProfileDateSheet from '@/components/my/ProfileDateSheet'
@@ -11,7 +13,13 @@ import BirthOrHospitalSheet from '@/components/postpartum/BirthOrHospitalSheet'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useAuthStore } from '@/stores/useAuthStore'
-import { saveHospitalized, useProfileStore } from '@/stores/useProfileStore'
+import {
+  saveDiagnosisDate,
+  saveHospitalized,
+  savePaused,
+  undoDelivery,
+  useProfileStore,
+} from '@/stores/useProfileStore'
 import { parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 
 type DateField = 'dueDate' | 'diagnosisDate'
@@ -30,6 +38,13 @@ const DATE_SHEET: Record<
     description: '처음 진단받은 날을 골라 주세요.',
     pick: 'past',
   },
+}
+
+// 진단일 · 예정일 · 출산일 앞뒤가 안 맞을 때
+const DATE_ERROR: Record<string, string> = {
+  PREGNANCY_40003: '오늘 뒤 날짜는 고를 수 없어요',
+  PREGNANCY_40004: '진단일은 출산예정일보다 뒤일 수 없어요',
+  PREGNANCY_40005: '진단일은 출산일보다 뒤일 수 없어요',
 }
 
 // 예: 2027. 1. 17
@@ -71,6 +86,8 @@ function ProfilePage() {
   const [nameDraft, setNameDraft] = useState(name)
   const [editing, setEditing] = useState<DateField | null>(null)
   const [birthSheet, setBirthSheet] = useState(false)
+  const [undoSheet, setUndoSheet] = useState(false)
+  const [undoing, setUndoing] = useState(false)
   // 비밀번호를 바꾸고 돌아오면 알림
   const [toast, setToast] = useState<string | null>(
     () => (location.state as { toast?: string } | null)?.toast ?? null,
@@ -105,22 +122,41 @@ function ProfilePage() {
     }
   }
 
-  // 출산예정일은 서버에도 저장. 진단일은 서버 API가 없어 기기에만
+  // 화면엔 바로 바꾸고 서버에 저장. 실패하면 되돌림
   const saveDate = async (field: DateField, date: Date) => {
     const key = toDateKey(date)
-    const previous = field === 'dueDate' ? dueDate : diagnosisDate
-    updateProfile({ [field]: key })
     setEditing(null)
-    if (field === 'dueDate') {
-      try {
-        await saveDueDate(key)
-      } catch {
-        updateProfile({ dueDate: previous })
-        setToast('출산예정일을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
-        return
+    try {
+      if (field === 'dueDate') {
+        updateProfile({ dueDate: key })
+        await saveDueDate(key).catch((error: unknown) => {
+          updateProfile({ dueDate })
+          throw error
+        })
+      } else {
+        await saveDiagnosisDate(key)
       }
+    } catch (error) {
+      setToast(
+        DATE_ERROR[getErrorCode(error) ?? ''] ??
+          `${DATE_SHEET[field].title}을 저장하지 못했어요. 잠시 후 다시 시도해 주세요`,
+      )
+      return
     }
     setToast(`${DATE_SHEET[field].title}을 저장했어요`)
+  }
+
+  // 잘못 눌러 산후 모드가 됐으면 임신 중으로 되돌림
+  const confirmUndo = () => {
+    if (undoing) return
+    setUndoing(true)
+    undoDelivery()
+      .then(() => setToast('출산 전으로 되돌렸어요'))
+      .catch(() => setToast('되돌리지 못했어요. 잠시 후 다시 시도해 주세요'))
+      .finally(() => {
+        setUndoing(false)
+        setUndoSheet(false)
+      })
   }
 
   const dates: Record<DateField, Date | null> = {
@@ -129,7 +165,7 @@ function ProfilePage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-30">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-2 pb-30">
       <SubPageHeader title="내 정보" onBack={goBack} />
 
       <div className="mt-3.5 flex flex-col gap-4">
@@ -170,8 +206,22 @@ function ProfilePage() {
         </p>
       </div>
 
-      {/* 산후 모드로 바뀐 뒤엔 숨김 */}
-      {!deliveryDate && (
+      {/* 산후 모드로 바뀐 뒤엔 되돌리기만 */}
+      {deliveryDate ? (
+        <section className="bg-grey-50 mt-6 flex flex-col gap-2.5 rounded-3xl p-4.5">
+          <h2 className="text-subtitle-1 text-grey-900">출산일을 잘못 적으셨나요?</h2>
+          <p className="text-grey-700 text-sm leading-normal">
+            출산 전으로 되돌리면 임신 중 홈과 측정 알림으로 돌아가요.
+          </p>
+          <button
+            type="button"
+            className="border-grey-200 text-grey-900 h-12 rounded-xl border bg-white text-base leading-none font-bold"
+            onClick={() => setUndoSheet(true)}
+          >
+            출산 전으로 되돌리기
+          </button>
+        </section>
+      ) : (
         <section className="mt-6 flex flex-col gap-2.5 rounded-3xl bg-yellow-50 p-4.5">
           <h2 className="text-subtitle-1 text-grey-900">출산·입원하셨나요?</h2>
           <p className="text-grey-700 text-sm leading-normal">
@@ -255,15 +305,25 @@ function ProfilePage() {
               navigate(ROUTES.POSTPARTUM_DELIVERY)
               return
             }
-            // 입원은 서버가 알림만 멈추고 홈에서 바로 보여 줌
-            saveHospitalized(true)
+            // 입원 · 다른 상황은 서버가 알림만 멈추고 홈에서 바로 보여 줌
+            ;(choice === 'other' ? savePaused(true) : saveHospitalized(true))
               .then(() => navigate(ROUTES.TODAY))
               .catch(() => {
                 setBirthSheet(false)
-                setToast('입원 상태를 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+                setToast('상황을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
               })
           }}
           onClose={() => setBirthSheet(false)}
+        />
+      )}
+      {undoSheet && (
+        <ConfirmSheet
+          title="출산 전으로 되돌릴까요?"
+          description="산후 홈 대신 임신 중 홈이 보여요. 적어 둔 산후 검사 일정은 다시 출산일을 적으면 돌아와요."
+          confirmLabel="되돌리기"
+          loading={undoing}
+          onConfirm={confirmUndo}
+          onClose={() => setUndoSheet(false)}
         />
       )}
       {toast && <Toast message={toast} onClose={closeToast} />}

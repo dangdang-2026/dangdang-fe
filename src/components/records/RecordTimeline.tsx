@@ -7,7 +7,13 @@ import type { Criteria } from '@/types/criteria'
 import type { GlucoseRecord, InsulinRecord, Meal } from '@/types/glucose'
 import { getCriteriaAt } from '@/utils/criteria'
 import { formatTime } from '@/utils/date'
-import { compareToTarget, getLateMinutes, getSlotLabel, getTarget } from '@/utils/glucose'
+import {
+  formatGlucose,
+  getLateMinutes,
+  getSlotLabel,
+  getTarget,
+  isAboveTarget,
+} from '@/utils/glucose'
 import { formatInsulinLabel } from '@/utils/insulin'
 import { formatMealLabel } from '@/utils/meal'
 
@@ -33,9 +39,9 @@ function getRecordNote(record: GlucoseRecord, allMeals: Meal[], criteria: Criter
   const notes: string[] = []
   if (record.editedAt) notes.push(`수정됨 · ${formatTime(new Date(record.editedAt))}에 고침`)
   const late = getLateMinutes(record, allMeals, hours)
-  if (late > 0) notes.push(`${late}분 늦게 잼`)
+  if (late > 0) notes.push(`${late}분 늦게 측정`)
   const goal = getTarget(record.slot, criteria.targets, hours)
-  const isHigh = compareToTarget(record.value, goal) === 'high'
+  const isHigh = isAboveTarget(record, goal)
   if (isHigh) notes.push('목표보다 높아요')
   return { note: notes.join(' · '), isHigh }
 }
@@ -140,7 +146,7 @@ function RecordTimeline({
               </span>
               <span className="flex items-end gap-1">
                 <span className={`text-title-3 ${isHigh ? 'text-red-500' : 'text-blue-500'}`}>
-                  {record.value}
+                  {formatGlucose(record)}
                 </span>
                 <span className="text-caption text-grey-400 leading-normal font-medium">mg/dL</span>
               </span>

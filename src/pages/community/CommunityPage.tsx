@@ -99,7 +99,7 @@ function CommunityPage() {
   ]
 
   return (
-    <main className="pt-12.5">
+    <main className="pt-1.5">
       <header className="flex items-center justify-between px-5 py-2">
         <h1 className="text-t3 text-grey-900">커뮤니티</h1>
         <div className="flex items-center gap-3">

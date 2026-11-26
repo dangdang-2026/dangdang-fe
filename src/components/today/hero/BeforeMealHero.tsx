@@ -5,7 +5,7 @@ import HeroShell from '@/components/today/hero/HeroShell'
 import { HeroButton, HeroChip, HillDangdang } from '@/components/today/hero/HeroParts'
 import { MEAL_LABEL } from '@/constants/glucose'
 import type { GlucoseRecord, MealType } from '@/types/glucose'
-import { getSlotLabel } from '@/utils/glucose'
+import { formatGlucose, getSlotLabel } from '@/utils/glucose'
 
 type BeforeMealHeroProps = {
   postMealHours: number | null
@@ -32,8 +32,8 @@ function BeforeMealHero({ postMealHours, nextMeal, lastRecord, onStartMeal }: Be
       {lastRecord && (
         <div className="mt-7.5">
           <HeroChip icon={iconCheck}>
-            {getSlotLabel(lastRecord.slot, lastRecord.mealType, postMealHours)} · {lastRecord.value}{' '}
-            기록함
+            {getSlotLabel(lastRecord.slot, lastRecord.mealType, postMealHours)} ·{' '}
+            {formatGlucose(lastRecord)} 기록함
           </HeroChip>
         </div>
       )}

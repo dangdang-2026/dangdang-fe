@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
 import iconEditGrey from '@/assets/icons/edit-grey.svg'
+import iconBellOff from '@/assets/icons/notification/bell-off.svg'
+import iconBellOn from '@/assets/icons/notification/bell-on.svg'
 import iconCalendarOff from '@/assets/icons/notification/calendar-off.svg'
 import iconCalendarOn from '@/assets/icons/notification/calendar-on.svg'
 import iconDropOff from '@/assets/icons/notification/drop-off.svg'
@@ -25,6 +27,7 @@ const ICON: Record<InboxType, { on: string; off: string }> = {
   visitToday: { on: iconStethOn, off: iconStethOff },
   visitNote: { on: iconEditOn, off: iconEditGrey },
   postpartum: { on: iconCalendarOn, off: iconCalendarOff },
+  marketing: { on: iconBellOn, off: iconBellOff },
 }
 
 const getGroupLabel = (daysAgo: number) =>
@@ -94,7 +97,7 @@ function InboxPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 px-5 pt-13 pb-10">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 px-5 pt-2 pb-10">
       <WarmBackground />
       <SubPageHeader title="알림" onBack={goBack} />
 

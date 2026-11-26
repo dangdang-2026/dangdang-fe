@@ -15,19 +15,30 @@ type CommentResponse = {
   isMine: boolean
   reactionCount: number
   reacted: boolean
+  // 글쓴이가 단 댓글 · 익명 번호(글 안에서 같은 사람은 같은 번호) · 베스트 댓글
+  isPostAuthor?: boolean
+  anonymousNo?: number | null
+  isBest?: boolean
 }
 
 // 서버 댓글 → 화면 댓글
 function toComment(item: CommentResponse): CommunityComment {
+  const author = toAuthor(item.author, `c${item.id}`)
   return {
     id: item.id,
-    author: toAuthor(item.author, `c${item.id}`),
+    // 익명 댓글은 「익명 1」처럼 번호로. 글쓴이 댓글은 「글쓴이」 라벨이라 이름 그대로
+    author:
+      item.anonymousNo && !item.isPostAuthor
+        ? { ...author, nickname: `익명 ${item.anonymousNo}` }
+        : author,
     body: item.content,
     createdAt: item.createdAt,
     likes: item.reactionCount,
     liked: item.reacted,
     parentId: item.parentId ?? undefined,
     hidden: item.visibility === 'HIDDEN',
+    postAuthor: item.isPostAuthor,
+    best: item.isBest,
   }
 }
 

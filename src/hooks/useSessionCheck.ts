@@ -6,7 +6,7 @@ import { syncMyFoods } from '@/stores/useFoodStore'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { syncBlocks, syncCommunityProfile, syncRestriction } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
-import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
+import { syncGlucose } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncMealGuide } from '@/stores/useMealGuideStore'
 import { syncMealSettings } from '@/stores/useMealSettingsStore'
@@ -15,7 +15,8 @@ import { syncQuestions, syncVisitNote, syncVisits } from '@/stores/useVisitStore
 import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
-import { syncPostpartum, useProfileStore } from '@/stores/useProfileStore'
+import { syncCareProfile, syncPostpartum, useProfileStore } from '@/stores/useProfileStore'
+import { listenForConsentRestart, restartForConsent } from '@/utils/auth'
 
 // 앱을 열 때 한 번 서버 로그인 확인. 스플래시 동안 뒤에서 돌아 기다리지 않음
 export function useSessionCheck() {
@@ -23,12 +24,26 @@ export function useSessionCheck() {
   const login = useAuthStore((state) => state.login)
   const updateProfile = useProfileStore((state) => state.updateProfile)
 
+  // 다른 탭에서 동의를 철회해 기록을 지우면 이 탭도 따라 지우고 가입 동의로
+  useEffect(() => listenForConsentRestart(), [])
+
   useEffect(() => {
     if (!method) return
     getMe()
       .then((me) => {
+        // 다른 기기에서 건강정보 동의를 철회했거나 문서가 바뀌었으면 가입 동의부터. 기록은 받지 않음
+        if (!me.consentCompleted) {
+          restartForConsent()
+          return
+        }
         // 다른 기기에서 바꾼 입원 상태도 서버 값으로
-        updateProfile({ name: me.displayName, hospitalized: me.pregnancyState === 'HOSPITALIZED' })
+        updateProfile({
+          name: me.displayName,
+          hospitalized: me.pregnancyState === 'HOSPITALIZED',
+          paused: me.pregnancyState === 'PAUSED',
+        })
+        // 다른 기기에서 바꾼 진단일 · 관리 모드 · 연락 메모도. 로그인이 이어진 기기라 먼저 적어 둔 값은 이 계정 것
+        void syncCareProfile(me, true)
         // 이메일 채우기 전에 로그인한 카카오 계정도 열 때 채움
         login({ method, email: me.email })
         // 다른 계정이 남긴 못 보낸 리포트를 이 계정으로 보내지 않게 주인 확인
@@ -47,9 +62,8 @@ export function useSessionCheck() {
               onboarding.complete(startedAt ?? undefined)
             }
           }),
-          syncMeals(),
+          syncGlucose(me.userId),
           syncMyFoods(),
-          syncRecords(),
           syncInbox(),
           // 식사 안내 받은 곳 · 진료 일정 병원 · 예전 리포트 병원 번호는 병원 목록이 있어야 해서 병원 다음에
           syncHospitals().finally(() =>

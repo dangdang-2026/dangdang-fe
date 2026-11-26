@@ -10,7 +10,7 @@ import { useGoBack } from '@/hooks/useGoBack'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { mergeServerMeal, useGlucoseStore } from '@/stores/useGlucoseStore'
 import type { GlucoseRecord, Meal } from '@/types/glucose'
-import { getLateMinutes } from '@/utils/glucose'
+import { formatGlucose, getLateMinutes } from '@/utils/glucose'
 import { formatDuration } from '@/utils/criteria'
 import {
   findFood,
@@ -37,7 +37,7 @@ function HistoryRow({ entry, portion, lateMinutes }: HistoryRowProps) {
   const details = [
     portion,
     postMealHours && `식후 ${formatDuration(postMealHours)}`,
-    lateMinutes > 0 && `${lateMinutes}분 늦게 잼`,
+    lateMinutes > 0 && `${lateMinutes}분 늦게 측정`,
   ].filter(Boolean)
 
   return (
@@ -52,7 +52,7 @@ function HistoryRow({ entry, portion, lateMinutes }: HistoryRowProps) {
       </span>
       {record ? (
         <span className="flex shrink-0 items-baseline gap-0.5">
-          <span className="text-t4 text-grey-900 leading-snug">{record.value}</span>
+          <span className="text-t4 text-grey-900 leading-snug">{formatGlucose(record)}</span>
           <span className="text-grey-600 text-xs leading-snug font-medium">mg/dL</span>
         </span>
       ) : (
@@ -121,7 +121,7 @@ function FoodHistoryPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-10">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-2 pb-10">
       <SubPageHeader title={`${name} 지난 기록`} onBack={goBack} />
 
       <h2 className="text-t3 text-grey-900 mt-3">

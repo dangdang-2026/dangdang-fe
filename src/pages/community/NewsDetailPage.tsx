@@ -70,7 +70,7 @@ function NewsDetailPage() {
   // 받는 중이거나 못 받았으면 안내만
   if (!card) {
     return (
-      <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-32">
+      <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-2 pb-32">
         <SubPageHeader title="당당 소식" onBack={goBack} />
         <p className="text-grey-500 py-16 text-center text-sm leading-normal">
           {card === undefined
@@ -84,7 +84,7 @@ function NewsDetailPage() {
   // 출처를 다시 확인하느라 내린 카드
   if (card.withdrawn) {
     return (
-      <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-13 pb-32">
+      <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-2 pb-32">
         <SubPageHeader title="당당 소식" onBack={goBack} />
         <div className="flex flex-col items-center gap-3 pt-35 text-center">
           <img src={iconWithdrawn} alt="" width={40} height={40} />
@@ -173,7 +173,7 @@ function NewsDetailPage() {
   ]
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-32">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-2 pb-32">
       <SubPageHeader title="당당 소식" onBack={goBack} />
 
       <article className="mt-3 flex flex-col gap-4">

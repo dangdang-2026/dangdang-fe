@@ -107,7 +107,7 @@ function CommunityActivityPage() {
   if (!isActivityType(type)) return <Navigate to={ROUTES.MY_COMMUNITY} replace />
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-10">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-2 pb-10">
       <SubPageHeader title={ACTIVITY_LABEL[type]} onBack={goBack} />
       {/* 종류가 바뀌면 처음부터 */}
       <ActivityList key={type} type={type} />

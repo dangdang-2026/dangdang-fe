@@ -3,7 +3,8 @@ import type { InboxItem, InboxType } from '@/types/notification'
 import { addDays } from '@/utils/date'
 
 // 백엔드 NotificationType
-type ServerType = 'MEASURE' | 'VISIT_BEFORE' | 'VISIT_TODAY' | 'VISIT_NOTE' | 'POSTPARTUM'
+type ServerType =
+  'MEASURE' | 'VISIT_BEFORE' | 'VISIT_TODAY' | 'VISIT_NOTE' | 'POSTPARTUM' | 'MARKETING'
 
 // 백엔드 NotificationResponse
 type NotificationResponse = {
@@ -30,6 +31,7 @@ const TYPE: Record<ServerType, InboxType> = {
   VISIT_TODAY: 'visitToday',
   VISIT_NOTE: 'visitNote',
   POSTPARTUM: 'postpartum',
+  MARKETING: 'marketing',
 }
 
 // 알림함은 최근 한 달만 보여 줌

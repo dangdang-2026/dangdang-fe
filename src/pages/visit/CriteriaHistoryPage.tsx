@@ -101,7 +101,7 @@ function CriteriaHistoryPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-30">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-2 pb-30">
       <SubPageHeader title="기준 변경 이력" onBack={goBack} />
 
       <ul className="mt-4 flex flex-col gap-3">

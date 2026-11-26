@@ -18,12 +18,18 @@ import { useNow } from '@/hooks/useNow'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useWeekRecordsSync } from '@/hooks/useWeekRecordsSync'
 import {
+  editInsulin,
+  removeInsulin,
   removeMeal,
   removeRecord,
+  restoreMeal,
+  restoreRecord,
   saveMealContent,
   useGlucoseStore,
 } from '@/stores/useGlucoseStore'
 import ConfirmSheet from '@/components/common/ConfirmSheet'
+import { getErrorCode } from '@/api/axios'
+import type { InsulinInput } from '@/api/insulin'
 import type {
   GlucoseRecord,
   InsulinRecord,
@@ -33,6 +39,7 @@ import type {
   Portion,
 } from '@/types/glucose'
 import {
+  formatMonthDay,
   formatMonthDayWeekday,
   formatTime,
   isSameDay,
@@ -40,7 +47,8 @@ import {
   startOfDay,
   toDateKey,
 } from '@/utils/date'
-import { getBackfillTarget, getMeasureTarget, getSlotLabel } from '@/utils/glucose'
+import { formatGlucose, getBackfillTarget, getMeasureTarget, getSlotLabel } from '@/utils/glucose'
+import { formatInsulinLabel } from '@/utils/insulin'
 
 type InputSheet = { target: MeasureTarget; backfillAt?: Date }
 
@@ -48,8 +56,8 @@ function RecordsPage() {
   const meals = useGlucoseStore((state) => state.meals)
   const records = useGlucoseStore((state) => state.records)
   const insulins = useGlucoseStore((state) => state.insulins)
-  const updateInsulin = useGlucoseStore((state) => state.updateInsulin)
   const [editingInsulin, setEditingInsulin] = useState<InsulinRecord | null>(null)
+  const [deletingInsulin, setDeletingInsulin] = useState<InsulinRecord | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [inputSheet, setInputSheet] = useState<InputSheet | null>(null)
   const [editing, setEditing] = useState<GlucoseRecord | null>(null)
@@ -58,7 +66,11 @@ function RecordsPage() {
   const [editingMeal, setEditingMeal] = useState<Meal | null>(null)
   // 식사 기록 고치기에서 지우기를 누른 끼니
   const [deletingMeal, setDeletingMeal] = useState<Meal | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
+  // 지운 뒤엔 5분 안 되돌리기 버튼을 같이
+  const [toast, setToast] = useState<{
+    message: string
+    action?: { label: string; onClick: () => void }
+  } | null>(null)
   const criteria = useCriteria()
   const navigate = useNavigate()
 
@@ -117,18 +129,41 @@ function RecordsPage() {
     if (!editingMeal) return
     void saveMealContent(editingMeal.id, foods, portion, nutritionEdits, stapleGrams)
     setEditingMeal(null)
-    setToast(`${MEAL_LABEL[editingMeal.type]} 기록을 고쳤어요`)
+    setToast({ message: `${MEAL_LABEL[editingMeal.type]} 기록을 고쳤어요` })
   }
   const closeToast = useCallback(() => setToast(null), [])
+
+  // 지운 기록 되돌리기. 5분 지남(READING_40902 · MEAL_40904) · 붙은 식사가 지워짐(READING_40904)은 안내
+  const undo = (restore: () => Promise<void>) =>
+    restore()
+      .then(() => setToast({ message: '되돌렸어요' }))
+      .catch((error: unknown) => {
+        const code = getErrorCode(error)
+        setToast({
+          message:
+            code === 'READING_40902' || code === 'MEAL_40904'
+              ? '되돌릴 수 있는 시간이 지났어요'
+              : code === 'READING_40904'
+                ? '이 혈당이 붙은 식사를 먼저 되돌려 주세요'
+                : '되돌리지 못했어요. 잠시 후 다시 시도해 주세요',
+        })
+      })
 
   const handleMealDeleted = async () => {
     if (!deletingMeal || removing) return
     setRemoving(true)
     try {
-      await removeMeal(deletingMeal.id)
-      setToast(`${MEAL_LABEL[deletingMeal.type]} 기록을 지웠어요`)
+      const meal = deletingMeal
+      await removeMeal(meal.id)
+      setToast({
+        message: `${MEAL_LABEL[meal.type]} 기록을 지웠어요`,
+        // 서버에 있던 식사만 5분 안 되돌리기
+        action: meal.pending
+          ? undefined
+          : { label: '되돌리기', onClick: () => undo(() => restoreMeal(meal.id)) },
+      })
     } catch {
-      setToast('기록을 지우지 못했어요. 잠시 후 다시 시도해 주세요')
+      setToast({ message: '기록을 지우지 못했어요. 잠시 후 다시 시도해 주세요' })
     } finally {
       setRemoving(false)
       setDeletingMeal(null)
@@ -138,12 +173,12 @@ function RecordsPage() {
   const handleSaved = (record: GlucoseRecord) => {
     setInputSheet(null)
     const label = getSlotLabel(record.slot, record.mealType, criteria.postMealHours)
-    setToast(`${label} ${record.value} 저장했어요`)
+    setToast({ message: `${label} ${formatGlucose(record)} 저장했어요` })
   }
 
   const handleEdited = () => {
     setEditing(null)
-    setToast('고쳤어요 · 리포트에 ‘수정됨’으로 표시돼요')
+    setToast({ message: '고쳤어요 · 리포트에 ‘수정됨’으로 표시돼요' })
   }
 
   // 수정 시트에서 삭제를 누르면 확인 시트로 전환
@@ -156,18 +191,63 @@ function RecordsPage() {
     if (!deleting || removing) return
     setRemoving(true)
     try {
-      await removeRecord(deleting.id)
-      setToast('기록을 지웠어요')
+      const id = deleting.id
+      await removeRecord(id)
+      setToast({
+        message: '기록을 지웠어요',
+        action: { label: '되돌리기', onClick: () => undo(() => restoreRecord(id)) },
+      })
     } catch {
-      setToast('기록을 지우지 못했어요. 잠시 후 다시 시도해 주세요')
+      setToast({ message: '기록을 지우지 못했어요. 잠시 후 다시 시도해 주세요' })
     } finally {
       setRemoving(false)
       setDeleting(null)
     }
   }
 
+  // 서버 연동 전 기기에만 남은 기록은 보기만
+  const selectInsulin = (insulin: InsulinRecord) => {
+    if (insulin.server) setEditingInsulin(insulin)
+    else setToast({ message: '예전에 기기에만 적은 기록이라 고칠 수 없어요' })
+  }
+
+  // 다른 기기에서 이미 지운 기록이면 따로 알림
+  const insulinFailToast = (error: unknown, action: string) =>
+    setToast({
+      message:
+        getErrorCode(error) === 'INSULIN_40401'
+          ? '이미 지운 기록이에요'
+          : `인슐린 기록을 ${action} 못했어요. 잠시 후 다시 시도해 주세요`,
+    })
+
+  const handleInsulinEdited = async (input: InsulinInput) => {
+    if (!editingInsulin) return
+    try {
+      await editInsulin(editingInsulin.id, input)
+      setEditingInsulin(null)
+      setToast({ message: '인슐린 기록을 고쳤어요' })
+    } catch (error) {
+      insulinFailToast(error, '고치지')
+      if (getErrorCode(error) === 'INSULIN_40401') setEditingInsulin(null)
+    }
+  }
+
+  const handleInsulinDeleted = async () => {
+    if (!deletingInsulin || removing) return
+    setRemoving(true)
+    try {
+      await removeInsulin(deletingInsulin.id)
+      setToast({ message: '인슐린 기록을 지웠어요' })
+    } catch (error) {
+      insulinFailToast(error, '지우지')
+    } finally {
+      setRemoving(false)
+      setDeletingInsulin(null)
+    }
+  }
+
   return (
-    <main className="px-5 pt-15.5">
+    <main className="px-5 pt-4.5">
       <WarmBackground />
       <header className="flex items-center justify-between">
         <h1 className="text-title-2 text-grey-900">기록</h1>
@@ -209,7 +289,7 @@ function RecordsPage() {
               allMeals={meals}
               onSelectRecord={setEditing}
               onSelectMeal={setEditingMeal}
-              onSelectInsulin={setEditingInsulin}
+              onSelectInsulin={selectInsulin}
             />
           ) : (
             <EmptyRecordCard
@@ -277,15 +357,37 @@ function RecordsPage() {
       {editingInsulin && (
         <InsulinSheet
           record={editingInsulin}
-          onSave={(input) => {
-            updateInsulin(editingInsulin.id, input)
+          onSave={handleInsulinEdited}
+          onDelete={() => {
+            setDeletingInsulin(editingInsulin)
             setEditingInsulin(null)
-            setToast('인슐린 기록을 고쳤어요')
           }}
           onClose={() => setEditingInsulin(null)}
         />
       )}
-      {toast && <Toast message={toast} onClose={closeToast} />}
+      {deletingInsulin && (
+        <ConfirmSheet
+          title="이 기록을 지울까요?"
+          detail={
+            <div className="flex flex-col gap-1">
+              <p className="text-grey-700 text-sm font-medium">
+                {formatMonthDay(new Date(deletingInsulin.takenAt))}{' '}
+                {formatTime(new Date(deletingInsulin.takenAt))} · 인슐린
+              </p>
+              <p className="text-grey-900 text-lg font-bold">
+                {formatInsulinLabel(deletingInsulin).replace('인슐린 · ', '')}
+              </p>
+            </div>
+          }
+          description="지운 기록은 진료 리포트에서도 빠져요."
+          confirmLabel="지우기"
+          danger
+          loading={removing}
+          onConfirm={() => void handleInsulinDeleted()}
+          onClose={() => setDeletingInsulin(null)}
+        />
+      )}
+      {toast && <Toast message={toast.message} action={toast.action} onClose={closeToast} />}
     </main>
   )
 }

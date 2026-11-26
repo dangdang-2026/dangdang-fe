@@ -21,7 +21,7 @@ function SlotsPage() {
     setSlots((prev) => (prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]))
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-13 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-2 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
       <OnboardingHeader step={1} onBack={goBack} />
 
       <div className="mt-4.5 flex flex-col gap-6">

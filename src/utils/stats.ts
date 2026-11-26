@@ -59,10 +59,15 @@ export type PeriodStats = {
   count: number
   // 목표가 있는 기록 중 목표 미만 비율(%) · 공복은 목표 미만인 날 수
   inRangeRate: number | null
+  // 공복: 목표를 한 번도 안 넘은 날 · 목표와 비교한 기록이 있는 날
   inRangeDays: number
   measuredDays: number
   missed: number
   overDays: number
+  // 그때 목표와 비교한 기록 수 · 그중 목표 안 · 70 미만 횟수
+  judged: number
+  inTarget: number
+  belowLow: number
   // 식후만: 끼니별 평균
   byMeal: Record<MealType, number | null>
 }

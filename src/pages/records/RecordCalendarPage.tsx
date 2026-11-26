@@ -8,6 +8,7 @@ import WarmBackground from '@/components/common/WarmBackground'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
+import { useRangeSync } from '@/hooks/useRangeSync'
 import { useRecordCalendar } from '@/hooks/useRecordCalendar'
 import { useRecordStart } from '@/hooks/useRecordStart'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
@@ -48,6 +49,8 @@ function RecordCalendarPage() {
   const [month, setMonth] = useState(() => startOfMonth(today))
   // 서버 달력을 받으면 서버 기준, 받기 전 · 실패면 기기 기록 기준
   const calendar = useRecordCalendar(month)
+  // 보는 달 기록을 서버와 맞춤. 앱 켤 때 받지 않는 31일보다 오래된 변경도 반영
+  useRangeSync(month, new Date(month.getFullYear(), month.getMonth() + 1, 0))
   const start = calendar?.firstRecordDate ?? localStart
   const isCurrentMonth = month >= startOfMonth(today)
   const prevDisabled = calendar ? !calendar.hasPrevMonth : month <= startOfMonth(localStart)
@@ -81,7 +84,7 @@ function RecordCalendarPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 px-5 pt-13 pb-10">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 px-5 pt-2 pb-10">
       <WarmBackground />
       <div className="relative">
         <SubPageHeader title="기록 달력" onBack={goBack} />

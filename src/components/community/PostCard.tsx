@@ -26,7 +26,8 @@ const chipClass =
 
 // Figma U-01 메인 글 카드: 칩 · 제목 · 본문 두 줄 · 베스트 댓글 · 주수·시간·조회·댓글
 function PostCard({ post, now, highlight = '', onClick }: PostCardProps) {
-  const best = getBestComment(post)
+  // 상세 댓글을 받았으면 그중 베스트, 아니면 목록이 준 한 줄
+  const best = post.comments.length > 0 ? getBestComment(post) : (post.bestComment ?? null)
   const meta = [formatAuthorWeek(post.author), formatRelativeTime(post.createdAt, now)]
     .filter(Boolean)
     .join(' · ')

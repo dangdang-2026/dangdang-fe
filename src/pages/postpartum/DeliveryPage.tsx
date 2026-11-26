@@ -18,8 +18,8 @@ const CHANGES = [
   '산후 혈당 검사일은 병원에서 들은 날짜로 직접 적어 주세요',
 ]
 
-// 미래 출산일(400) · 이미 졸업(409)은 서버 문구 그대로, 나머지는 다시 시도 안내
-const DELIVERY_ERRORS = ['PREGNANCY_40001', 'PREGNANCY_40902']
+// 미래 출산일(400) · 진단일보다 앞(400) · 이미 졸업(409)은 서버 문구 그대로, 나머지는 다시 시도 안내
+const DELIVERY_ERRORS = ['PREGNANCY_40001', 'PREGNANCY_40005', 'PREGNANCY_40902']
 function getDeliveryError(error: unknown) {
   const message = DELIVERY_ERRORS.includes(getErrorCode(error) ?? '')
     ? getErrorMessage(error)
@@ -62,7 +62,7 @@ function DeliveryPage() {
     setSaving(true)
     saveDeliveryDate(toDateKey(date))
       // 졸업은 산후를 마칠 때라 바로 산후 홈으로
-      .then(() => navigate(ROUTES.TODAY, { replace: true }))
+      .then(() => navigate(ROUTES.TODAY, { replace: true, state: { deliveryChanged: true } }))
       .catch((error: unknown) => {
         setToast(getDeliveryError(error))
         setSaving(false)
@@ -70,7 +70,7 @@ function DeliveryPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-13 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-2 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
       <SubPageHeader title="출산일 입력" onBack={goBack} />
 
       <div className="mt-2.5 flex items-center justify-between">

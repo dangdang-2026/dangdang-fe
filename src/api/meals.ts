@@ -14,6 +14,8 @@ export type MealResponse = {
   startedOffline: boolean
   note: string | null
   items: MealItemSummary[]
+  // 이번 끼니 식후 측정을 건너뛴 시각. 안 건너뛰었으면 null
+  measureSkippedAt?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -31,7 +33,11 @@ const MEAL_FROM_SLOT: Partial<Record<ServerMealSlot, MealType>> = {
 }
 
 // 서버 식사의 화면 칸 + 먹은 음식 항목(응답에 있을 때만)
-export type ServerMeal = Pick<Meal, 'id' | 'type' | 'startedAt'> & { items?: MealItemSummary[] }
+// skipped는 서버가 건너뛴 시각을 줬을 때만 true(기기에서 건너뛴 걸 지우지 않게)
+export type ServerMeal = Pick<Meal, 'id' | 'type' | 'startedAt'> & {
+  items?: MealItemSummary[]
+  skipped?: true
+}
 
 // 서버 식사 → 화면 식사의 서버 칸. 간식은 null
 export function fromServerMeal(item: {
@@ -39,11 +45,17 @@ export function fromServerMeal(item: {
   mealSlot: ServerMealSlot
   startedAt: string
   items?: MealItemSummary[]
+  measureSkippedAt?: string | null
 }): ServerMeal | null {
   const type = MEAL_FROM_SLOT[item.mealSlot]
-  return type
-    ? { id: String(item.mealId), type, startedAt: item.startedAt, items: item.items }
-    : null
+  if (!type) return null
+  return {
+    id: String(item.mealId),
+    type,
+    startedAt: item.startedAt,
+    items: item.items,
+    ...(item.measureSkippedAt ? { skipped: true as const } : {}),
+  }
 }
 
 // 식사 시작 등록. 서버가 병원 기준 시간 뒤 측정 알림을 예약함. 늦게 보내는 건 offline
@@ -114,4 +126,16 @@ export async function getAllMeals() {
         : null
   } while (cursor)
   return meals.reverse()
+}
+
+// 지운 식사 5분 안 되돌리기. 지난 시간이면 409 MEAL_40904. 서버가 식후 알림도 다시 검
+export async function restoreMeal(mealId: string) {
+  const { data } = await apiClient.post<BaseResponse<MealResponse>>(`/meals/${mealId}/restore`)
+  if (!data.data) throw new Error('식사 되돌리기 응답이 비어 있음')
+  return fromServerMeal(data.data)
+}
+
+// 이번 끼니 식후 측정 건너뛰기. 서버가 알림을 끝내고 놓친 측정으로 셈. 이미 식후 혈당을 쟀으면 409 MEAL_40905
+export async function skipMealMeasure(mealId: string) {
+  await apiClient.post(`/meals/${mealId}/measure-skip`)
 }

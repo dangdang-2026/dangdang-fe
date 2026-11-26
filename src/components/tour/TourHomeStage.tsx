@@ -31,7 +31,7 @@ function TourHomeStage({ eating }: TourHomeStageProps) {
   const { meals, records } = eating ? TOUR_EATING : TOUR_BEFORE_MEAL
 
   return (
-    <main className="px-5 pt-15.5">
+    <main className="px-5 pt-4.5">
       <WarmBackground />
       <TodayHeader
         name={name}

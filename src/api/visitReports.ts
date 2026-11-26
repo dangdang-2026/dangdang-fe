@@ -1,16 +1,46 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
+import type { MeasureSlotKey } from '@/types/criteria'
 import { parseDateKey } from '@/utils/date'
+import type { ReportMissed } from '@/utils/report'
 
 // 리포트 종류. 진료용은 진료 일정 기준, 기간 직접은 고른 기간
 type ReportKind = 'VISIT' | 'CUSTOM'
 
-// 백엔드 VisitReportResponse 중 기간 · 병원만. 내용은 기기 기록으로 그림
+// 백엔드 VisitReportResponse 중 기간 · 병원 · 빈칸. 내용은 기기 기록으로 그리고 빈칸(놓친 알림)만 서버 값
 type VisitReportPeriodResponse = {
   // yyyy-MM-dd, 둘 다 포함
   from: string
   to: string
   // 그 진료 일정의 병원. 없거나 지웠으면 null
   careSite: { careSiteId: number; name: string } | null
+  summary?: { missed: number }
+  slots?: { slot: string | null; missed: number }[]
+  missedCells?: { date: string; slot: string }[]
+}
+
+// 백엔드 MeasureSlot → 리포트 잴 때
+const SLOT_KEY: Record<string, MeasureSlotKey> = {
+  FASTING: 'fasting',
+  BREAKFAST_AFTER: 'breakfast',
+  LUNCH_AFTER: 'lunch',
+  DINNER_AFTER: 'dinner',
+  BEDTIME: 'bedtime',
+}
+
+// 서버 빈칸 → 리포트 빈칸. 서버가 빈칸 칸을 안 주는 응답이면 null(기기에서 계산)
+function toReportMissed(report: VisitReportPeriodResponse): ReportMissed | null {
+  if (!report.summary || !report.missedCells) return null
+  const bySlot: ReportMissed['bySlot'] = {}
+  for (const item of report.slots ?? []) {
+    const key = item.slot ? SLOT_KEY[item.slot] : undefined
+    if (key) bySlot[key] = item.missed
+  }
+  const cells = new Set(
+    report.missedCells.flatMap((cell) =>
+      SLOT_KEY[cell.slot] ? [cell.date + '|' + SLOT_KEY[cell.slot]] : [],
+    ),
+  )
+  return { total: report.summary.missed, bySlot, cells }
 }
 
 // 백엔드 VisitReportCreateRequest. 진료용은 visitId만, 기간 직접은 기간 · 병원
@@ -32,7 +62,16 @@ export async function getVisitReportPeriod(visitId: string) {
     to,
     careSiteName: careSite?.name ?? null,
     careSiteId: careSite ? String(careSite.careSiteId) : null,
+    missed: data.data ? toReportMissed(data.data) : null,
   }
+}
+
+// 저장한 리포트 한 장의 빈칸. 다시 열 때 서버가 지금 기록으로 다시 계산한 값
+export async function getSavedReportMissed(reportId: string) {
+  const { data } = await apiClient.get<BaseResponse<VisitReportPeriodResponse>>(
+    `/visit-reports/${reportId}`,
+  )
+  return data.data ? toReportMissed(data.data) : null
 }
 
 // 리포트 저장. 같은 리포트가 이미 있으면 서버가 새로 만들지 않고 그 id를 줌

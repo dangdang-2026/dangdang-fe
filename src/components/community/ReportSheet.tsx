@@ -8,6 +8,8 @@ const REASONS: { value: ReportReason; label: string }[] = [
   { value: 'ad', label: '광고·판매·후원 요청' },
   { value: 'privacy', label: '개인정보 노출' },
   { value: 'abuse', label: '비방·혐오·성적인 글' },
+  { value: 'crisis', label: '걱정되는 글(자해·위급)' },
+  { value: 'misinfo', label: '잘못된 건강 정보' },
   { value: 'etc', label: '기타' },
 ]
 

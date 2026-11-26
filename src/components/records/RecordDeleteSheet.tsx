@@ -1,6 +1,7 @@
 import ConfirmSheet from '@/components/common/ConfirmSheet'
 import type { GlucoseRecord } from '@/types/glucose'
 import { formatMonthDay, formatTime } from '@/utils/date'
+import { formatGlucose } from '@/utils/glucose'
 
 type RecordDeleteSheetProps = {
   record: GlucoseRecord
@@ -22,7 +23,7 @@ function RecordDeleteSheet({ record, label, onConfirm, onClose }: RecordDeleteSh
             {formatMonthDay(measuredAt)} {formatTime(measuredAt)} · {label}
           </p>
           <p className="flex items-baseline gap-0.5">
-            <span className="text-title-3 text-grey-900 font-bold">{record.value}</span>
+            <span className="text-title-3 text-grey-900 font-bold">{formatGlucose(record)}</span>
             <span className="text-t7 text-grey-600 font-medium">mg/dL</span>
           </p>
         </div>

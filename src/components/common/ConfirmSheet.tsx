@@ -14,6 +14,8 @@ type ConfirmSheetProps = {
   danger?: boolean
   loading?: boolean
   onConfirm: () => void
+  // 확인 아래 흰 버튼. 예: PDF 먼저 받기
+  secondary?: { label: string; onClick: () => void }
   onClose: () => void
 }
 
@@ -27,6 +29,7 @@ function ConfirmSheet({
   danger,
   loading,
   onConfirm,
+  secondary,
   onClose,
 }: ConfirmSheetProps) {
   return (
@@ -67,6 +70,16 @@ function ConfirmSheet({
             />
           )}
         </button>
+        {secondary && (
+          <button
+            type="button"
+            disabled={loading}
+            className="text-subtitle-1 border-grey-200 text-grey-900 mt-2 h-14 rounded-xl border bg-white leading-none font-bold"
+            onClick={secondary.onClick}
+          >
+            {secondary.label}
+          </button>
+        )}
         <button
           type="button"
           disabled={loading}
