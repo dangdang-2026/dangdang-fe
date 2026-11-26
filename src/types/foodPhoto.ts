@@ -1,3 +1,5 @@
+import type { Portion } from '@/types/glucose'
+
 // 사진 속 위치(사진 크기 대비 0~1). x·y는 왼쪽 위 모서리
 export type PhotoBox = { x: number; y: number; width: number; height: number }
 
@@ -16,3 +18,20 @@ export type DetectedFood = {
 
 // found: 음식 1개면 F-12, 여러 개면 F-13 · unclear: 사진 전체를 알아보기 어려움(F-15)
 export type FoodPhotoResult = { status: 'found'; foods: DetectedFood[] } | { status: 'unclear' }
+
+// 한상(F-13)에서 고르는 음식 한 줄
+export type TableItem = {
+  id: string
+  // 이름을 못 찾은 그릇은 빈 문자열(알 수 없는 음식)
+  name: string
+  // 그 그릇의 AI 후보(1등부터). 빠진 음식으로 더한 줄은 빈 배열
+  candidates: string[]
+  // 음식마다 고른 양. 반찬도 받음
+  portion: Portion
+  checked: boolean
+  needsCheck: boolean
+  // AI가 찾은 그릇인지(빠진 음식 추가는 아님)
+  fromAi: boolean
+  point?: { x: number; y: number }
+  box?: PhotoBox
+}
