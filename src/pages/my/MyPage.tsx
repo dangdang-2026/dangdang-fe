@@ -23,6 +23,7 @@ import MyMenuGroup from '@/components/my/MyMenuGroup'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useNow } from '@/hooks/useNow'
+import { useStatusBarColor } from '@/hooks/useStatusBarColor'
 import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
 import { useAiStore } from '@/stores/useAiStore'
 import { useHospitalStore } from '@/stores/useHospitalStore'
@@ -50,6 +51,8 @@ const formatVisitDay = (at: Date) =>
 
 // Figma M-01 마이 메인
 function MyPage() {
+  // 맨 위 노란 머리(yellow-300)와 상태 바를 이어 줌
+  useStatusBarColor('--color-yellow-300')
   const hospital = usePrimaryHospital()
   const hospitals = useHospitalStore((state) => state.hospitals)
   const aiPhoto = useAiStore((state) => !!state.photo?.agreed)
