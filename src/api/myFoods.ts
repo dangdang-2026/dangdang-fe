@@ -1,6 +1,6 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
 import type { Food, MyFood, Portion } from '@/types/glucose'
-import { findFood, looksLikeStaple } from '@/utils/meal'
+import { findFood } from '@/utils/meal'
 
 type UsualQuantity = 'HALF' | 'ONE' | 'ONE_HALF'
 
@@ -75,7 +75,8 @@ export function toMyFood(item: MyFoodResponse, known: Food[]): MyFood {
     serverId: item.id,
     name: item.name,
     unit: similar?.unit ?? MY_FOOD_UNIT,
-    staple: item.isStaple ?? (similar ? !!similar.staple : looksLikeStaple(item.name)),
+    // 칸이 없는 예전 서버는 내 음식 추가 화면처럼 비슷한 음식을 따름
+    staple: item.isStaple ?? !!similar?.staple,
     similarTo: similar?.name,
     portion: item.usualQuantity ? PORTION[item.usualQuantity] : undefined,
     nutrition: n

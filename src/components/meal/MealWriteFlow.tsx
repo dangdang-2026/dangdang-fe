@@ -89,6 +89,8 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
   const [myFoodName, setMyFoodName] = useState('')
   // 다시 찍거나 이름으로 넘어가면 늦게 온 결과는 버림
   const requestRef = useRef(0)
+  // 빠진 음식 줄 번호. 그릇을 빼도 겹치지 않게 늘기만 함
+  const addedRef = useRef(0)
 
   useEffect(() => {
     if (!photoUrl) return
@@ -140,7 +142,7 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
           // 한상은 그릇마다 1등만. 이름을 못 찾은 그릇은 빼고
           candidates:
             result.foods.length > 1
-              ? result.foods.flatMap((food) => food.candidates.slice(0, 1))
+              ? [...new Set(result.foods.flatMap((food) => food.candidates.slice(0, 1)))]
               : result.foods[0].candidates,
           preselect: result.foods
             .filter((food) => !food.needsCheck)
@@ -202,7 +204,7 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
       setItems((prev) => [
         ...prev,
         {
-          id: `added-${prev.length}`,
+          id: `added-${(addedRef.current += 1)}`,
           name,
           candidates: [],
           portion: 'one',
@@ -310,8 +312,8 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
           onSave={(savedPortion) => {
             const checked = items.filter((item) => item.checked)
             saveWithPhotoInfo([...new Set(checked.map((item) => item.name))], savedPortion, {
-              // 이름을 못 찾은 그릇은 후보에서 뺌
-              aiCandidates: items.flatMap((item) => (item.fromAi && item.name ? [item.name] : [])),
+              // AI가 준 1등 후보만. 직접 찾은 이름 · 빠진 음식은 빼고
+              aiCandidates: [...new Set(items.flatMap((item) => item.candidates.slice(0, 1)))],
               portions: Object.fromEntries(checked.map((item) => [item.name, item.portion])),
             })
           }}

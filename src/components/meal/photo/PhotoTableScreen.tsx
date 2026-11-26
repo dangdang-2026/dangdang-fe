@@ -52,7 +52,8 @@ function PhotoTableScreen({
   // 사진 위 번호와 목록 번호를 맞춤
   const numbered = items.map((item, index) => ({ ...item, number: index + 1 }))
   const openItem = numbered.find((item) => item.id === openId)
-  const aiCount = items.filter((item) => item.fromAi).length
+  // 이름까지 알아본 그릇만 셈
+  const aiCount = items.filter((item) => item.fromAi && item.candidates.length > 0).length
   const close = () => setOpenId(null)
 
   return (

@@ -133,7 +133,8 @@ export function toMealContent(
   )
   // 서버에 적은 무게 그대로. 이 기기가 모르는 음식이면 처음 나오는 주식 무게로
   const gramSource = items.find((item) => item.name === gramStaple?.name) ?? staple
-  const portions = items.filter((item) => item !== staple && toPortion(item.servings) !== 'one')
+  // 주식 양도 함께 둠. 이 기기가 모르는 주식이어도 다시 저장할 때 양이 1인분으로 바뀌지 않게
+  const portions = items.filter((item) => toPortion(item.servings) !== 'one')
   const edited = items.filter((item) => isEdited(item, known))
   return {
     foods: [...new Set(items.map((item) => item.name))],
