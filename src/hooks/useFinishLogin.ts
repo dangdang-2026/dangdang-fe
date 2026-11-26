@@ -23,7 +23,7 @@ import {
   syncPostpartum,
   useProfileStore,
 } from '@/stores/useProfileStore'
-import { claimDevice } from '@/utils/deviceOwner'
+import { claimDevice, DEMO_OWNER_ID } from '@/utils/deviceOwner'
 
 // 로그인·가입을 마치면 계정을 남기고, 서버 약관 동의 여부로 약관 화면 또는 홈으로
 export function useFinishLogin() {
@@ -40,6 +40,8 @@ export function useFinishLogin() {
     clearReports()
     // 데모 계정은 설정을 마친 상태로 계정 정보를 넣고 바로 홈으로
     if (profile) {
+      // 앞 계정 기록이 남지 않게
+      claimDevice(DEMO_OWNER_ID)
       updateProfile({
         ...profile,
         hospitalized: false,

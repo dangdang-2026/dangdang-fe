@@ -1,4 +1,6 @@
 import { ROUTES } from '@/constants/routes'
+import { useAuthStore } from '@/stores/useAuthStore'
+import { clearPendingKakao } from '@/utils/kakaoPending'
 
 // @ 없음, 도메인 없음, 한글·특수문자 포함은 형식 오류
 export const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
@@ -65,11 +67,57 @@ export const KAKAO_LINK_TOAST: Record<KakaoLinkOutcome, string> = {
   failed: '카카오를 연결하지 못했어요. 잠시 후 다시 시도해 주세요',
 }
 
-// 탈퇴 즉시 기기에 남은 기록도 모두 지우고 처음 화면으로 새로 열기
-export function restartAfterWithdraw() {
-  Object.keys(localStorage)
-    .filter((key) => key.startsWith('dangdang-'))
-    .forEach((key) => localStorage.removeItem(key))
+// 기기 구독 끊기. 순환 import라 푸시 모듈이 등록
+let unsubscribeDevice: (() => Promise<void>) | null = null
+export function setDeviceUnsubscribe(unsubscribe: () => Promise<void>) {
+  unsubscribeDevice = unsubscribe
+}
+
+// 기기 구독을 끊으며 기다리는 최대 시간
+const UNSUBSCRIBE_WAIT_MS = 1500
+
+// 서버 구독 삭제를 못 할 때 기기 구독만 끊음(최대 1.5초)
+export function unsubscribeDeviceOnly() {
+  return Promise.race([
+    (unsubscribeDevice?.() ?? Promise.resolve()).catch(() => {}),
+    new Promise((resolve) => window.setTimeout(resolve, UNSUBSCRIBE_WAIT_MS)),
+  ])
+}
+
+// 탈퇴 정리 중. 그사이 세션 끝남 처리가 먼저 페이지를 옮기지 않게
+let withdrawing = false
+export const isWithdrawing = () => withdrawing
+
+// 탈퇴하면 기록부터 지우고 다른 탭에 알린 뒤 기기 구독을 끊고 처음 화면으로. 정리 중 오류는 탈퇴 실패로 넘기지 않음
+export async function restartAfterWithdraw() {
+  withdrawing = true
+  try {
+    clearPendingKakao()
+    clearAllKeys()
+    window.addEventListener('pagehide', clearAllKeys)
+    localStorage.setItem(WITHDRAW_KEY, String(Date.now()))
+  } catch {
+    // 저장소를 못 쓰면 떠나기 전에 다시 지움
+  }
+  await unsubscribeDeviceOnly()
+  window.location.replace(ROUTES.ONBOARDING)
+}
+
+// 기기의 당당 기록을 모두 지움
+function clearAllKeys() {
+  try {
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith('dangdang-'))
+      .forEach((key) => localStorage.removeItem(key))
+  } catch {
+    // 저장소를 못 쓰는 환경
+  }
+}
+
+// 모두 지우고 처음 화면으로. 떠나기 전 끝난 동기화가 다시 써도 한 번 더 지움
+function clearAllAndLeave() {
+  clearAllKeys()
+  window.addEventListener('pagehide', clearAllKeys)
   window.location.replace(ROUTES.ONBOARDING)
 }
 
@@ -105,6 +153,8 @@ const ACCOUNT_STORES = [
 // 다른 탭에 알리는 키(값은 알린 시각)
 const CONSENT_RESTART_KEY = 'dangdang-consent-restart'
 const LOGOUT_KEY = 'dangdang-logout'
+const SESSION_END_KEY = 'dangdang-session-end'
+const WITHDRAW_KEY = 'dangdang-withdraw'
 
 // 지우고 옮김. 떠나기 전 끝난 요청이 기기 저장을 다시 써도 페이지를 닫을 때 한 번 더 지움
 // broadcastKey가 있으면 열려 있는 다른 탭도 같은 일을 하게 알림(그 탭이 지운 기록을 다시 쓰지 않게)
@@ -137,14 +187,31 @@ export function leaveAfterLogout() {
   clearAndLeave(ACCOUNT_STORES, ROUTES.ONBOARDING, LOGOUT_KEY)
 }
 
+// 세션이 끝나면 기록은 두고 처음 화면으로(다른 계정이면 로그인 때 비움)
+export function leaveAfterSessionEnd() {
+  clearAndLeave([], ROUTES.ONBOARDING, SESSION_END_KEY)
+}
+
 // 다른 탭에서 철회 · 동의 없음 · 로그아웃으로 기록을 지우면 이 탭도 같이. 앱 전체에서 한 번 켬
 export function listenForConsentRestart() {
   const onStorage = (event: StorageEvent) => {
-    if (!event.newValue) return
+    // 이 탭이 탈퇴 정리 중이면 그쪽이 마무리
+    if (!event.newValue || isWithdrawing()) return
     if (event.key === CONSENT_RESTART_KEY) clearAndLeave(HEALTH_STORES, ROUTES.ONBOARDING_TERMS)
+    // 카카오 대기 토큰은 탭마다 따로라 이 탭 것도 지움
     if (event.key === LOGOUT_KEY) {
+      clearPendingKakao()
       keepDeviceNotificationOnly()
       clearAndLeave(ACCOUNT_STORES, ROUTES.ONBOARDING)
+    }
+    // 로그인한 탭만. 카카오 가입 중인 로그아웃 탭은 그대로
+    if (event.key === SESSION_END_KEY && useAuthStore.getState().account) {
+      clearPendingKakao()
+      clearAndLeave([], ROUTES.ONBOARDING)
+    }
+    if (event.key === WITHDRAW_KEY) {
+      clearPendingKakao()
+      clearAllAndLeave()
     }
   }
   window.addEventListener('storage', onStorage)
