@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react'
+import { useCallback, useState, type KeyboardEvent } from 'react'
 import { getErrorCode } from '@/api/axios'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
@@ -6,11 +6,13 @@ import iconClock from '@/assets/icons/clock-sm.svg'
 import iconInfo from '@/assets/icons/info.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import EmergencyBlock from '@/components/common/EmergencyBlock'
+import Toast from '@/components/common/Toast'
 import ContactCriteriaCard from '@/components/glucose/ContactCriteriaCard'
 import GlucoseKeypad from '@/components/glucose/GlucoseKeypad'
 import MeasuredTimePicker from '@/components/glucose/MeasuredTimePicker'
 import TargetChip from '@/components/glucose/TargetChip'
 import ContactMemoSheet from '@/components/my/ContactMemoSheet'
+import { MEMO_SAVE_FAILED } from '@/constants/criteria'
 import { GLUCOSE_LOW, GLUCOSE_MAX_DIGITS, ON_TIME_MS } from '@/constants/glucose'
 import { ROUTES } from '@/constants/routes'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
@@ -106,6 +108,9 @@ function GlucoseInputSheet({
   // 연락 기준 펼침. 직접 누르기 전엔 높음 · 낮음일 때 저절로 펼침
   const [contactOpen, setContactOpen] = useState<boolean | null>(null)
   const [memoSheet, setMemoSheet] = useState(false)
+  // 메모를 서버에 못 저장하면 원래 메모로 돌아가고 알림
+  const [memoFailed, setMemoFailed] = useState(false)
+  const closeMemoFailed = useCallback(() => setMemoFailed(false), [])
   const contactMemo = useProfileStore((state) => state.contactMemo)
   // 측정 시각에 적용되는 기준(지난 날 채우기면 그날 기준)
   const criteria = getCriteriaAt(
@@ -366,12 +371,19 @@ function GlucoseInputSheet({
           <ContactMemoSheet
             initialMemo={contactMemo}
             onSave={(memo) => {
-              // 못 저장하면 원래 메모로 돌아감
-              void saveContactMemo(memo).catch(() => {})
+              saveContactMemo(memo).catch(() => setMemoFailed(true))
               setMemoSheet(false)
             }}
             onClose={() => setMemoSheet(false)}
           />,
+          document.body,
+        )}
+      {/* 혈당 시트(z-60) 위에 보이게 */}
+      {memoFailed &&
+        createPortal(
+          <div className="relative z-70">
+            <Toast message={MEMO_SAVE_FAILED} onClose={closeMemoFailed} />
+          </div>,
           document.body,
         )}
     </BottomSheet>

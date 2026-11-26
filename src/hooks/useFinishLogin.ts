@@ -8,7 +8,7 @@ import { syncMyFoods } from '@/stores/useFoodStore'
 import { useAuthStore, type LoginMethod } from '@/stores/useAuthStore'
 import { syncBlocks, syncCommunityProfile, syncRestriction } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
-import { syncGlucose, useGlucoseStore } from '@/stores/useGlucoseStore'
+import { ownsDeviceRecords, syncGlucose } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncMealGuide } from '@/stores/useMealGuideStore'
 import { syncMealSettings } from '@/stores/useMealSettingsStore'
@@ -60,8 +60,8 @@ export function useFinishLogin() {
         hospitalized: me.pregnancyState === 'HOSPITALIZED',
         paused: me.pregnancyState === 'PAUSED',
       })
-      // 진단일 · 관리 모드 · 연락 메모도 서버 값으로. 기기 기록이 이 계정 것일 때만 먼저 적어 둔 값을 올림
-      syncCareProfile(me, useGlucoseStore.getState().syncedUserId === me.userId)
+      // 진단일 · 관리 모드 · 연락 메모도 서버 값으로. 기기 기록 주인이 없거나 이 계정일 때만 먼저 적어 둔 값을 올림
+      syncCareProfile(me, ownsDeviceRecords(me.userId))
       // 카카오는 로그인 응답에 이메일이 없어 /me 값으로 채움
       if (!email && me.email) login({ method, email: me.email })
       // 이메일 로그인인데 카카오가 안 연결돼 있으면 오늘 화면에서 연결 권함. 방금 가입한 계정(약관 전)은 빼고
