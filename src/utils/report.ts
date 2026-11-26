@@ -4,7 +4,7 @@ import type { GlucoseRecord, Meal, MeasureSlot, MealType } from '@/types/glucose
 import { formatDuration, getCriteriaAt } from '@/utils/criteria'
 import { addDays, isSameDay, startOfDay } from '@/utils/date'
 import {
-  compareToTarget,
+  isAboveTarget,
   getLateMinutes,
   getSlotLabel,
   getTarget,
@@ -97,7 +97,7 @@ export function buildReport({ records, meals, from, to, versions }: BuildReportP
     if (getLateMinutes(record, meals, criteria.postMealHours) > 0) marks.push('늦게 잼')
     if (isLateEntry(record)) marks.push('나중 입력')
     if (record.editedAt) marks.push('수정됨')
-    return { record, isOutOfTarget: compareToTarget(record.value, goal) === 'high', marks }
+    return { record, isOutOfTarget: isAboveTarget(record, goal), marks }
   }
 
   const days: Report['days'] = []

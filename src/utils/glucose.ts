@@ -160,7 +160,14 @@ export function getBackfillTarget(records: GlucoseRecord[], at: Date): MeasureTa
 }
 
 // 식후 측정 예정 시각보다 늦게 잰 분. 제시간이면 0
+// 서버가 재야 할 시각을 판정했으면(timing) 그 값으로, 못 받은 기록만 기기 기준으로 계산
 export function getLateMinutes(record: GlucoseRecord, meals: Meal[], hours: number | null) {
+  if (record.timing !== undefined) {
+    if (record.timing !== 'LATE' || !record.expectedAt) return 0
+    return Math.round(
+      (new Date(record.measuredAt).getTime() - new Date(record.expectedAt).getTime()) / 60000,
+    )
+  }
   const meal = meals.find((item) => item.id === record.mealId)
   if (!meal || !hours) return 0
   const diff = new Date(record.measuredAt).getTime() - getDueAt(meal, hours).getTime()
@@ -176,6 +183,12 @@ export function getTarget(slot: MeasureSlot, targets: Targets, hours: number | n
   // 식후 측정 시점을 모르면 목표 비교 끔(R1)
   if (slot === 'post-meal' && hours) return targets.postMeal
   return null
+}
+
+// 목표보다 높은지. 서버 판정(aboveTarget)이 있으면 그 값, 서버가 목표 없음(null)이면 false, 못 받았으면 기준으로 계산
+export function isAboveTarget(record: GlucoseRecord, goal: number | null) {
+  if (record.aboveTarget !== undefined) return record.aboveTarget === true
+  return compareToTarget(record.value, goal) === 'high'
 }
 
 export function compareToTarget(value: number, target: number | null): TargetComparison {

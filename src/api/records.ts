@@ -1,7 +1,12 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
 import type { MealItemSummary } from '@/api/mealItems'
 import { fromServerMeal, type ServerMeal, type ServerMealSlot } from '@/api/meals'
-import { fromServerReading, type ReadingType, type ServerSlot } from '@/api/readings'
+import {
+  fromServerReading,
+  type ReadingType,
+  type ServerJudgment,
+  type ServerSlot,
+} from '@/api/readings'
 import type { GlucoseRecord } from '@/types/glucose'
 import { addDays, parseDateKey, toDateKey } from '@/utils/date'
 
@@ -10,16 +15,13 @@ type RecordEventResponse = {
   type: 'READING' | 'MEAL'
   id: number
   occurredAt: string
-  modified: boolean
   reading?: {
     value: number
     readingType: ReadingType
     slot: ServerSlot | null
     mealId: number | null
     criteriaVersionId: number
-    scheduledAt: string | null
-    enteredLate: boolean
-  }
+  } & ServerJudgment
   meal?: {
     mealSlot: ServerMealSlot
     startedOffline: boolean

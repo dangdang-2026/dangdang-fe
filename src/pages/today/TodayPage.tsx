@@ -62,7 +62,7 @@ import {
   getNextMealType,
   getSlotLabel,
   getTarget,
-  compareToTarget,
+  isAboveTarget,
   isDayEnd,
   measuresAfter,
   type HeroState,
@@ -189,10 +189,7 @@ function TodayPage() {
       ? getTarget(lastEntered.slot, lastCriteria.targets, lastCriteria.postMealHours)
       : null
   const showHighCard =
-    justEntered &&
-    !!lastEntered &&
-    lastTarget !== null &&
-    compareToTarget(lastEntered.value, lastTarget) === 'high'
+    justEntered && !!lastEntered && lastTarget !== null && isAboveTarget(lastEntered, lastTarget)
   // 출산 예정일이 가까우면 입원·출산 입구. 입원 중이면 안 보임
   const nearDue = !hospitalized && (getPregnancyAge(dueDate, now)?.weeks ?? 0) >= BIRTH_ENTRY_WEEKS
   // 저녁 이후 놓친 식후 측정은 오늘 기록에 나중에 채우기 줄로

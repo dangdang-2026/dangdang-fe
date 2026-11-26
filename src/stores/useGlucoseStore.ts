@@ -512,10 +512,31 @@ export async function syncServerRange<T extends ServerRangeData>(load: () => Pro
   return data
 }
 
-// 서버에서 고친 뒤 기기에 반영. 처음 값(original)은 기기에서 남김
+// 서버에서 고친 뒤 서버가 다시 판정한 값으로 바꿈. 처음 값(original) · 서버에 없는 끼니 연결은 기기 값 유지
+// 다른 기기에서 먼저 고쳤으면(409) 그날 기록을 다시 받고 에러를 그대로 던짐
 export async function editRecord(id: string, changes: { value: number; measuredAt: string }) {
-  await updateReading(id, changes)
-  useGlucoseStore.getState().updateRecord(id, changes)
+  try {
+    const saved = await updateReading(id, changes)
+    useGlucoseStore.getState().updateRecord(id, changes)
+    useGlucoseStore.setState((state) => ({
+      records: state.records.map((record) =>
+        record.id === id
+          ? {
+              ...record,
+              ...saved,
+              mealId: saved.mealId ?? record.mealId,
+              mealType: saved.mealType ?? record.mealType,
+            }
+          : record,
+      ),
+    }))
+  } catch (error) {
+    if (getErrorCode(error) === 'READING_40903') {
+      const day = startOfDay(new Date(changes.measuredAt))
+      await syncRange(day, day).catch(() => {})
+    }
+    throw error
+  }
 }
 
 // 같은 끼니의 시작 시각 고치기는 차례로. 늦게 끝난 앞 요청이 마지막에 고른 시각을 덮지 않게

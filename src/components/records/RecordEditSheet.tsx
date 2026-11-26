@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { getErrorCode } from '@/api/axios'
 import iconInfo from '@/assets/icons/info-md.svg'
 import iconTrash from '@/assets/icons/trash.svg'
 import BottomSheet from '@/components/common/BottomSheet'
@@ -26,7 +27,8 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
   const measuredAt = new Date(record.measuredAt)
   const now = useNow()
   const [saving, setSaving] = useState(false)
-  const [saveFailed, setSaveFailed] = useState(false)
+  // conflict: 다른 곳에서 먼저 고쳐 기록을 다시 불러옴
+  const [saveFailed, setSaveFailed] = useState<false | 'failed' | 'conflict'>(false)
   const [digits, setDigits] = useState(String(record.value))
   const [time, setTime] = useState(formatTime(measuredAt))
   const criteria = getCriteriaAt(
@@ -56,8 +58,8 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
     try {
       await editRecord(record.id, { value, measuredAt: nextMeasuredAt.toISOString() })
       onSaved()
-    } catch {
-      setSaveFailed(true)
+    } catch (error) {
+      setSaveFailed(getErrorCode(error) === 'READING_40903' ? 'conflict' : 'failed')
     } finally {
       setSaving(false)
     }
@@ -94,6 +96,13 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
           />
           <span className="text-grey-500 text-sm leading-normal font-medium">mg/dL</span>
         </span>
+        {/* 서버가 남긴 처음 값. 처음 값으로 되돌렸거나 안 고쳤으면 없음 */}
+        {record.originalValue != null && record.editedAt && (
+          <span className="text-caption text-grey-600 leading-normal">
+            처음 {record.originalValue} · {formatMonthDay(new Date(record.editedAt))}{' '}
+            {formatTime(new Date(record.editedAt))}에 고침
+          </span>
+        )}
       </label>
 
       <div className="flex flex-col gap-2">
@@ -119,9 +128,11 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
             ? `${GLUCOSE_MIN}~${GLUCOSE_MAX} 사이 숫자인지 확인해 주세요`
             : isFuture
               ? '잰 시각은 지금보다 뒤일 수 없어요'
-              : saveFailed
-                ? '고치지 못했어요. 잠시 후 다시 시도해 주세요'
-                : '고치면 진료 리포트에 ‘수정됨’으로 표시돼요'}
+              : saveFailed === 'conflict'
+                ? '다른 곳에서 먼저 고쳤어요. 새로 불러온 기록을 확인해 주세요'
+                : saveFailed
+                  ? '고치지 못했어요. 잠시 후 다시 시도해 주세요'
+                  : '고치면 진료 리포트에 ‘수정됨’으로 표시돼요'}
         </span>
       </p>
 

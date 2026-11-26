@@ -1,5 +1,5 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
-import type { GlucoseRecord, MealType, MeasureTarget } from '@/types/glucose'
+import type { GlucoseRecord, MealType, MeasureTarget, ReadingTiming } from '@/types/glucose'
 import { parseDateKey, toDateKey } from '@/utils/date'
 import type { DateRange, PeriodStats, StatsSlot } from '@/utils/stats'
 
@@ -16,9 +16,18 @@ export type ReadingResponse = {
   slot: ServerSlot | null
   criteriaVersionId: number
   mealId: number | null
-  enteredLate: boolean
   createdAt: string
   updatedAt: string
+} & ServerJudgment
+
+// 백엔드 혈당 판정 칸(#136). 목록 · 오늘 · 같은 메뉴 · 저장 응답이 같은 규칙
+export type ServerJudgment = {
+  targetValue?: number | null
+  aboveTarget?: boolean | null
+  expectedAt?: string | null
+  timing?: ReadingTiming | null
+  originalValue?: number | null
+  editedAt?: string | null
 }
 
 const MEAL_SLOT: Record<MealType, ServerSlot> = {
@@ -47,14 +56,16 @@ function toServerType(target: Pick<MeasureTarget, 'slot' | 'mealType'>) {
 const EDITED_GAP_MS = 1000
 
 // 서버 혈당 공통 칸 → 화면 기록. 오늘 · 기록 통합 조회도 같이 씀
-export function fromServerReading(item: {
-  readingId: number
-  value: number
-  measuredAt: string
-  readingType: ReadingType
-  slot: ServerSlot | null
-  mealId: number | null
-}): GlucoseRecord {
+export function fromServerReading(
+  item: {
+    readingId: number
+    value: number
+    measuredAt: string
+    readingType: ReadingType
+    slot: ServerSlot | null
+    mealId: number | null
+  } & ServerJudgment,
+): GlucoseRecord {
   return {
     id: String(item.readingId),
     slot:
@@ -67,18 +78,30 @@ export function fromServerReading(item: {
     measuredAt: item.measuredAt,
     mealType: item.slot ? MEAL_FROM_SLOT[item.slot] : undefined,
     mealId: item.mealId !== null ? String(item.mealId) : undefined,
+    // 서버가 판정 칸을 보냈을 때만. 안 보낸 응답이면 화면이 기준으로 계산
+    ...(item.aboveTarget !== undefined && {
+      targetValue: item.targetValue ?? null,
+      aboveTarget: item.aboveTarget,
+    }),
+    ...(item.timing !== undefined && {
+      expectedAt: item.expectedAt ?? null,
+      timing: item.timing,
+    }),
+    ...(item.originalValue !== undefined && { originalValue: item.originalValue }),
+    ...(item.editedAt !== undefined && { editedAt: item.editedAt ?? undefined }),
   }
 }
 
 // 서버 기록 → 화면 기록. 끼니 연결(mealId)은 서버 식사 id
 export function toGlucoseRecord(item: ReadingResponse): GlucoseRecord {
+  // 서버가 고친 시각(editedAt)을 주면 그걸로, 안 주는 응답이면 저장 · 수정 시각 차이로
   const edited =
     new Date(item.updatedAt).getTime() - new Date(item.createdAt).getTime() > EDITED_GAP_MS
   return {
+    ...(item.editedAt === undefined && { editedAt: edited ? item.updatedAt : undefined }),
     ...fromServerReading(item),
     // 리포트 '나중 입력'은 기존처럼 측정·입력 시각 차이로 판단
     enteredAt: item.createdAt,
-    editedAt: edited ? item.updatedAt : undefined,
     criteriaId: item.criteriaVersionId,
   }
 }
@@ -140,8 +163,11 @@ export async function getAllReadings() {
 }
 
 // 수치·잰 시각 수정. 잰 시각을 바꾸면 서버가 그 날짜 기준을 다시 붙임
+// 서버가 새 값으로 다시 판정한 기록을 돌려줌. 같은 기록을 동시에 고치면 409 READING_40903
 export async function updateReading(id: string, changes: { value: number; measuredAt: string }) {
-  await apiClient.patch(`/readings/${id}`, changes)
+  const { data } = await apiClient.patch<BaseResponse<ReadingResponse>>(`/readings/${id}`, changes)
+  if (!data.data) throw new Error('혈당 수정 응답이 비어 있음')
+  return toGlucoseRecord(data.data)
 }
 
 // 삭제. 서버는 soft delete라 이후 목록에서 빠짐

@@ -37,7 +37,7 @@ function HistoryRow({ entry, portion, lateMinutes }: HistoryRowProps) {
   const details = [
     portion,
     postMealHours && `식후 ${formatDuration(postMealHours)}`,
-    lateMinutes > 0 && `${lateMinutes}분 늦게 잼`,
+    lateMinutes > 0 && `${lateMinutes}분 늦게 측정`,
   ].filter(Boolean)
 
   return (
