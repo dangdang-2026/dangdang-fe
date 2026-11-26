@@ -1,9 +1,15 @@
+// 사진 속 위치(사진 크기 대비 0~1). x·y는 왼쪽 위 모서리
+export type PhotoBox = { x: number; y: number; width: number; height: number }
+
 // 사진에서 찾은 음식 하나. 후보는 1등부터, 확률(%)은 받지 않음
 export type DetectedFood = {
   id: string
+  // AI가 알아보지 못한 그릇이면 빈 배열(이름으로 찾기)
   candidates: string[]
-  // 사진 속 위치(사진 크기 대비 0~1). 한상일 때 번호 표시
+  // 사진 속 가운데 점(0~1). 한상일 때 번호 표시
   point?: { x: number; y: number }
+  // 그릇 영역. 확인 시트에 그 부분만 잘라 보여 줌
+  box?: PhotoBox
   // 1등 확률이 기준보다 낮음. 체크 안 한 채로 시작
   needsCheck: boolean
 }

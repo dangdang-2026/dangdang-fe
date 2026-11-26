@@ -134,9 +134,10 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
         }
         setAnalysis({
           status: 'found',
+          // 한상은 그릇마다 1등만. 이름을 못 찾은 그릇은 빼고
           candidates:
             result.foods.length > 1
-              ? result.foods.map((food) => food.candidates[0])
+              ? result.foods.flatMap((food) => food.candidates.slice(0, 1))
               : result.foods[0].candidates,
           preselect: result.foods
             .filter((food) => !food.needsCheck)
