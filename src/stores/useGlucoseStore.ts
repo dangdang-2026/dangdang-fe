@@ -4,12 +4,14 @@ import { getErrorCode } from '@/api/axios'
 import {
   createInsulinLog,
   deleteInsulinLog,
+  getInsulinLogs,
   updateInsulinLog,
   type InsulinInput,
 } from '@/api/insulin'
 import { applyMealItems, toMealContent } from '@/api/mealItems'
 import { createMeal, deleteMeal, getAllMeals, updateMealStart, type ServerMeal } from '@/api/meals'
 import { createReading, deleteReading, getAllReadings, updateReading } from '@/api/readings'
+import { getRecords } from '@/api/records'
 import type {
   GlucoseRecord,
   InsulinRecord,
@@ -20,6 +22,7 @@ import type {
   Portion,
 } from '@/types/glucose'
 import { useFoodStore } from '@/stores/useFoodStore'
+import { addDays, startOfDay } from '@/utils/date'
 
 type GlucoseState = {
   meals: Meal[]
@@ -44,6 +47,8 @@ type GlucoseState = {
   // 지운 기록. 화면·리포트에선 빼고 기록용으로만 보관
   deletedRecords: (GlucoseRecord & { deletedAt: string })[]
   insulins: InsulinRecord[]
+  // 이 기기에서 기록을 전부 받아 둔 계정. 같은 계정이면 앱 켤 때 최근 기간만 받음
+  syncedUserId: number | null
 }
 
 // 뺀 음식의 고친 값은 버림. 남는 게 없으면 없음
@@ -127,6 +132,7 @@ export const useGlucoseStore = create<GlucoseState>()(
           }
         }),
       insulins: [],
+      syncedUserId: null,
     }),
     { name: 'dangdang-glucose' },
   ),
@@ -231,8 +237,7 @@ export async function saveMealStart(type: MealType, now = new Date()) {
 
 // 못 보낸 식사를 먼저 보내고 서버 식사로 바꿈. 음식·양·건너뜀처럼 기기에만 있는 정보는 같은 식사에 다시 붙임
 export async function syncMeals() {
-  const pending = useGlucoseStore.getState().meals.filter((meal) => meal.pending)
-  for (const meal of pending) await sendPendingMeal(meal, true)
+  await sendPendingMeals()
   const server = await getAllMeals()
   useGlucoseStore.setState((state) => {
     const local = new Map(state.meals.map((meal) => [meal.id, meal]))
@@ -245,8 +250,55 @@ export async function syncMeals() {
       ),
     }
   })
+  await pushUnsentItems()
+}
+
+// 못 보낸 식사를 서버로. 실패한 식사는 pending 그대로
+async function sendPendingMeals() {
+  const pending = useGlucoseStore.getState().meals.filter((meal) => meal.pending)
+  for (const meal of pending) await sendPendingMeal(meal, true)
+}
+
+// 못 보낸 음식 · 양을 서버 식사에 다시 붙임
+async function pushUnsentItems() {
   const unsent = useGlucoseStore.getState().meals.filter((meal) => meal.itemsPending)
   await Promise.all(unsent.map((meal) => pushMealItems(meal.id)))
+}
+
+// 서버 인슐린 전부로 바꿈. 서버 연동 전 기기에만 있던 기록은 남김
+async function syncAllInsulins() {
+  const server = await getInsulinLogs(new Date(ALL_FROM_YEAR, 0, 1), new Date())
+  useGlucoseStore.setState((state) => ({
+    insulins: [...state.insulins.filter((insulin) => !insulin.server), ...server].sort(
+      (a, b) => toTime(a.takenAt) - toTime(b.takenAt),
+    ),
+  }))
+}
+
+// 서버가 받는 가장 이른 해(2000년)
+const ALL_FROM_YEAR = 2000
+// 앱 켤 때 받는 최근 기간. 서버 기간 조회 상한(31일)
+const RECENT_DAYS = 31
+
+// from~to(둘 다 포함) 혈당 · 식사 · 인슐린을 서버와 맞춤
+export function syncRange(from: Date, to: Date) {
+  return syncServerRange(async () => {
+    const [records, insulins] = await Promise.all([getRecords(from, to), getInsulinLogs(from, to)])
+    return { ...records, insulins }
+  })
+}
+
+// 앱 켤 때 · 로그인 뒤. 이 기기에서 이 계정을 처음 받으면(계정이 바뀌어도) 전부, 그 뒤로는 최근 31일만
+export async function syncGlucose(userId: number) {
+  if (useGlucoseStore.getState().syncedUserId !== userId) {
+    await Promise.all([syncMeals(), syncRecords(), syncAllInsulins()])
+    useGlucoseStore.setState({ syncedUserId: userId })
+    return
+  }
+  await sendPendingMeals()
+  const today = startOfDay(new Date())
+  await syncRange(addDays(today, -(RECENT_DAYS - 1)), today)
+  await pushUnsentItems()
 }
 
 // 서버에 등록한 뒤 기기에 반영. 서버에 있는 식사면 끼니도 서버에 연결, 못 보낸 식사면 기기에서만

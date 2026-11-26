@@ -8,7 +8,7 @@ import { syncMyFoods } from '@/stores/useFoodStore'
 import { useAuthStore, type LoginMethod } from '@/stores/useAuthStore'
 import { syncBlocks, syncCommunityProfile, syncRestriction } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
-import { syncMeals, syncRecords } from '@/stores/useGlucoseStore'
+import { syncGlucose } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncMealGuide } from '@/stores/useMealGuideStore'
 import { syncMealSettings } from '@/stores/useMealSettingsStore'
@@ -62,9 +62,8 @@ export function useFinishLogin() {
       setKakaoLinkOffer(
         method === 'email' && me.consentCompleted && me.loginMethods?.kakao === false,
       )
-      // 식사·혈당 기록은 서버 값으로. 새 계정이면 기기에 남은 다른 계정 기록도 비워짐
-      syncMeals().catch(() => {})
-      syncRecords().catch(() => {})
+      // 식사 · 혈당 · 인슐린은 서버 값으로. 이 기기에서 처음 받는 계정이면 전부 받아 다른 계정 기록도 비워짐
+      syncGlucose(me.userId).catch(() => {})
       // 내 음식도 이 계정 것으로. 기기에 남은 다른 계정 음식은 보내지 않음
       syncMyFoods(false).catch(() => {})
       // 알림함도 이 계정 알림으로. 다른 계정 알림이 남지 않게
