@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
-import iconInfo from '@/assets/icons/info-grey.svg'
 import iconCamera from '@/assets/icons/my/ai-camera.svg'
+import iconOverseas from '@/assets/icons/my/ai-overseas.svg'
 import iconSparkle from '@/assets/icons/my/ai-sparkle.svg'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import ConfirmSheet from '@/components/common/ConfirmSheet'
@@ -11,7 +11,7 @@ import { ROUTES } from '@/constants/routes'
 import { useNavigate } from 'react-router'
 import { useGoBack } from '@/hooks/useGoBack'
 import {
-  saveChatConsent,
+  saveChatConsents,
   savePhotoConsent,
   useAiStore,
   withdrawAiConsents,
@@ -19,10 +19,19 @@ import {
   type AiFeature,
 } from '@/stores/useAiStore'
 import { clearChatMessages } from '@/stores/useChatStore'
+import { formatKoreanDate } from '@/utils/date'
 
 const FEATURES: { key: AiFeature; icon: string; title: string }[] = [
   { key: 'photo', icon: iconCamera, title: '사진으로 음식 후보 찾기' },
   { key: 'chat', icon: iconSparkle, title: '당당이에게 내 기록 보여 주기' },
+  { key: 'overseas', icon: iconOverseas, title: '해외로 보내기 (미국 OpenAI)' },
+]
+
+// 어디서 처리하나요 표
+const PROCESSING = [
+  { label: '사진', value: '당당 서버에서만 처리해요' },
+  { label: '질문·메모', value: '미국 OpenAI를 거쳐요' },
+  { label: '커뮤니티 글', value: '올릴 때 위험 내용 확인 · 미국 OpenAI' },
 ]
 
 // 끌 때 확인 시트. 당당이 기록 보기는 Figma에 없어 사진과 같은 틀로
@@ -37,12 +46,11 @@ const TURN_OFF: Record<AiFeature, { title: string; description: string }> = {
     description:
       '끄면 이 기능의 동의도 함께 철회돼요. 당당이는 내 기록 없이 일반 질문에만 답하고, 이미 보낸 내용은 남기지 않아요.',
   },
-}
-
-// 예: 2026년 10월 14일
-const formatKoreanDate = (iso: string) => {
-  const date = new Date(iso)
-  return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`
+  overseas: {
+    title: '해외로 보내기를 끌까요?',
+    description:
+      '끄면 이 기능의 동의도 함께 철회돼요. 당당이 질문과 진료 메모 정리를 쓸 수 없고, 이미 보낸 내용은 남기지 않아요.',
+  },
 }
 
 // 예: 2026.10.14
@@ -62,21 +70,38 @@ function AiSettingsPage() {
   const goBack = useGoBack(ROUTES.MY)
   const photo = useAiStore((state) => state.photo)
   const chat = useAiStore((state) => state.chat)
+  const overseas = useAiStore((state) => state.overseas)
   const [confirm, setConfirm] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
   const closeConfirm = useCallback(() => setConfirm(false), [])
   const [clearing, setClearing] = useState(false)
   const closeClearing = useCallback(() => setClearing(false), [])
-  const consents = { photo, chat }
+  const consents = { photo, chat, overseas }
   // 끄기 전에 확인받는 기능
   const [turningOff, setTurningOff] = useState<AiFeature | null>(null)
+  // 해외로 보내기가 꺼진 채 기록 보기를 켤 때, 같이 켤지 먼저 물어봄
+  const [askOverseas, setAskOverseas] = useState(false)
 
-  const saveFeature = (key: AiFeature, checked: boolean) => {
+  // withOverseas: 기록 보기를 켜며 해외로 보내기도 같이(물어보고 동의했을 때만)
+  const saveFeature = (key: AiFeature, checked: boolean, withOverseas = false) => {
     const title = FEATURES.find((feature) => feature.key === key)?.title ?? ''
-    const save = key === 'photo' ? savePhotoConsent : saveChatConsent
-    save(checked)
-      .then(() => setToast(`${title}를 ${checked ? '켰어요' : '껐어요'}`))
+    const save =
+      key === 'photo'
+        ? savePhotoConsent(checked)
+        : saveChatConsents(
+            key === 'chat'
+              ? { records: checked, ...(withOverseas ? { overseas: true } : {}) }
+              : { overseas: checked },
+          )
+    save
+      .then(() =>
+        setToast(
+          withOverseas
+            ? '당당이 기록 보기와 해외로 보내기를 켰어요'
+            : `${title}를 ${checked ? '켰어요' : '껐어요'}`,
+        ),
+      )
       .catch(() => setToast('설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요'))
   }
 
@@ -102,30 +127,37 @@ function AiSettingsPage() {
               label={title}
               onChange={(checked) => {
                 // 끄면 동의 철회라 한 번 더 확인
-                if (checked) saveFeature(key, true)
-                else setTurningOff(key)
+                if (!checked) setTurningOff(key)
+                // 기록 보기만으론 당당이가 답할 수 없어 해외로 보내기도 켤지 물어봄
+                else if (key === 'chat' && !overseas?.agreed) setAskOverseas(true)
+                else saveFeature(key, true)
               }}
             />
           </div>
         ))}
       </div>
 
-      <p className="text-t7 text-grey-600 mt-4 flex items-start gap-2 px-1">
-        <img src={iconInfo} alt="" width={16} height={16} className="mt-0.5 shrink-0" />
-        AI는 음식 이름 후보와 내 기록을 찾아 보여 줄 뿐, 혈당이나 식단을 판단하지 않아요.
+      <p className="text-grey-600 mt-4 px-1 text-xs leading-normal">
+        기능마다 따로 켜고 끌 수 있어요.
+        <br />
+        끄면 그 기능의 동의도 함께 철회돼요.
+        <br />
+        해외로 보내기를 끄면 당당이 질문과 진료 메모 정리를 쓸 수 없어요.
       </p>
 
       <section className="border-grey-200 rounded-banner mt-5 flex flex-col gap-2.5 border p-4.5">
         <h2 className="text-t6 text-grey-900 font-bold">어디서 처리하나요</h2>
-        <p className="text-body-3 flex gap-3">
-          <span className="text-grey-600">사진</span>
-          <span className="text-grey-800">당당 서버에서만 처리해요</span>
+        {PROCESSING.map(({ label, value }) => (
+          <p key={label} className="text-body-3 flex gap-3">
+            <span className="text-grey-600 w-17 shrink-0">{label}</span>
+            <span className="text-grey-800">{value}</span>
+          </p>
+        ))}
+        <p className="text-t7 text-grey-600">
+          이름·연락처는 보내지 않아요.
+          <br />
+          커뮤니티 글 확인은 이 설정과 따로 이뤄져요.
         </p>
-        <p className="text-body-3 flex gap-3">
-          <span className="text-grey-600">당당이 질문</span>
-          <span className="text-grey-800">해외 AI 서비스를 거쳐요</span>
-        </p>
-        <p className="text-t7 text-grey-600">이름·연락처는 보내지 않아요.</p>
         <button
           type="button"
           className="text-body-3 text-grey-700 self-start underline"
@@ -145,7 +177,7 @@ function AiSettingsPage() {
 
       <button
         type="button"
-        disabled={!photo?.agreed && !chat?.agreed}
+        disabled={!photo?.agreed && !chat?.agreed && !overseas?.agreed}
         className="text-subtitle-1 border-grey-200 text-grey-900 disabled:text-grey-400 mt-auto h-14 rounded-xl border leading-none"
         onClick={() => setConfirm(true)}
       >
@@ -202,6 +234,34 @@ function AiSettingsPage() {
             setTurningOff(null)
           }}
           onClose={() => setTurningOff(null)}
+        />
+      )}
+      {askOverseas && (
+        <ConfirmSheet
+          title="해외로 보내기도 켤까요?"
+          summary={[
+            { label: '받는 곳', value: '미국 OpenAI' },
+            { label: '보내는 것', value: '질문 글 · 바로 앞 대화' },
+            { label: '보관', value: '30일 보관 후 삭제' },
+          ]}
+          description={
+            <p className="text-t7">
+              당당이는 해외로 보내기가 켜져 있어야 답할 수 있어요. 기록 숫자는 해외로 보내지 않아요.
+            </p>
+          }
+          confirmLabel="둘 다 켜기"
+          onConfirm={() => {
+            setAskOverseas(false)
+            saveFeature('chat', true, true)
+          }}
+          secondary={{
+            label: '기록 보기만 켜기',
+            onClick: () => {
+              setAskOverseas(false)
+              saveFeature('chat', true)
+            },
+          }}
+          onClose={() => setAskOverseas(false)}
         />
       )}
       {toast && <Toast message={toast} onClose={closeToast} />}

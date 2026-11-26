@@ -9,7 +9,7 @@ import Toast from '@/components/common/Toast'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
-import { saveChatConsent, useAiStore } from '@/stores/useAiStore'
+import { saveChatConsents, syncAiConsents, useAiStore } from '@/stores/useAiStore'
 import { saveVisitNote, useVisitStore } from '@/stores/useVisitStore'
 
 const NOTE_MAX = 500
@@ -33,7 +33,8 @@ function VisitNotePage() {
   const note = useVisitStore((state) => state.note)
   const setNote = useVisitStore((state) => state.setNote)
   // 메모 글이 해외 AI를 거쳐서 당당이 기록 보기 동의를 같이 씀
-  const aiAgreed = useAiStore((state) => !!state.chat?.agreed)
+  // 메모 정리는 해외로 보내기 동의만 있으면 됨(기록 보기는 안 씀)
+  const aiAgreed = useAiStore((state) => !!state.overseas?.agreed)
   const [consentOpen, setConsentOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
@@ -67,8 +68,11 @@ function VisitNotePage() {
       if (mounted.current) navigate(ROUTES.VISIT_NOTE_RESULT, { state: { result } })
     } catch (error) {
       const code = getErrorCode(error)
-      if (code === 'AI_40301') setConsentOpen(true)
-      else if (isAxiosError(error) && error.code === 'ECONNABORTED') setToast(ORGANIZE_TIMEOUT)
+      if (code === 'AI_40301') {
+        // 다른 기기에서 껐을 수 있어 서버 동의(날짜 포함)로 다시 맞춤
+        syncAiConsents().catch(() => useAiStore.getState().setConsent('overseas', false))
+        setConsentOpen(true)
+      } else if (isAxiosError(error) && error.code === 'ECONNABORTED') setToast(ORGANIZE_TIMEOUT)
       else setToast((code && ORGANIZE_ERROR[code]) || ORGANIZE_FAILED)
     } finally {
       setLoading(false)
@@ -111,9 +115,12 @@ function VisitNotePage() {
         onChange={(event) => setNote(event.target.value)}
       />
 
-      {/* 해외 전송 고지는 늘 보이게. 이름 빼기는 서버가 아직 안 해서 그 문장은 뺌 */}
+      {/* 해외 전송 고지는 늘 보이게. 이름 · 병원 이름 · 전화번호는 서버가 가리고 보냄 */}
       <div className="bg-grey-100 rounded-key text-grey-700 mt-5 mb-8 flex flex-col gap-2 p-4 text-sm leading-normal">
-        <p>메모 글이 AI 서버(해외)로 보내져 정리돼요.</p>
+        <p>
+          메모 글이 AI 서버(해외)로 보내져 정리돼요.
+          <br />내 이름·병원 이름은 빼고 보내요.
+        </p>
         <p>
           측정 시점·목표 수치·다음 진료일만 찾고
           <br />
@@ -146,12 +153,12 @@ function VisitNotePage() {
       {consentOpen && (
         <ConfirmDialog
           title="AI로 정리할까요?"
-          description="메모 글이 해외 AI 서비스를 거쳐요. 이름·연락처는 보내지 않고, 마이 › AI 설정에서 언제든 끌 수 있어요."
+          description="메모 글이 해외 AI 서비스를 거쳐요. 내 이름·병원 이름은 빼고 보내고, 마이 › AI 설정에서 언제든 끌 수 있어요."
           confirmLabel="켜고 정리하기"
           onConfirm={() => {
             setConsentOpen(false)
             // 동의 저장 실패만 안내. 정리 실패는 기존처럼 정리 쪽에서 처리
-            saveChatConsent(true).then(
+            saveChatConsents({ overseas: true }).then(
               () => void organize(),
               () => setToast('동의를 저장하지 못했어요. 잠시 후 다시 시도해 주세요'),
             )

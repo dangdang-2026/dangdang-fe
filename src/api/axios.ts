@@ -1,5 +1,6 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '@/stores/useAuthStore'
+import { restartForConsent } from '@/utils/auth'
 
 // 서버 공통 응답. 실패면 errorCode가 붙음
 export type BaseResponse<T> = {
@@ -59,6 +60,11 @@ apiClient.interceptors.response.use(
   async (error) => {
     const config = (axios.isAxiosError(error) ? error.config : undefined) as
       (InternalAxiosRequestConfig & { retried?: boolean }) | undefined
+    // 건강정보 동의가 없어 저장 · 당당이가 막히면(USER_40302) 가입 동의 화면으로
+    if (getErrorCode(error) === 'USER_40302') {
+      restartForConsent()
+      throw error
+    }
     if (!config || config.retried || !REFRESH_CODES.includes(getErrorCode(error) ?? '')) {
       throw error
     }

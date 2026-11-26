@@ -73,6 +73,53 @@ export function restartAfterWithdraw() {
   window.location.replace(ROUTES.ONBOARDING)
 }
 
+// 건강정보 동의를 철회하면 서버가 지운 건강 기록을 기기에서도 지우고 가입 동의(A-01)부터. 계정 · 내 음식 · 커뮤니티 · 알림 설정은 남김
+const HEALTH_STORES = [
+  'dangdang-glucose',
+  'dangdang-criteria',
+  'dangdang-visit',
+  'dangdang-reports',
+  'dangdang-hospital',
+  'dangdang-meal-guide',
+  'dangdang-inbox',
+  'dangdang-profile',
+  'dangdang-onboarding',
+]
+export function restartAfterSensitiveWithdraw() {
+  clearAndLeave(HEALTH_STORES, ROUTES.ONBOARDING_TERMS)
+}
+
+// 다른 탭에 「건강 기록 지우고 가입 동의로」를 알리는 키. 값은 알린 시각
+const CONSENT_RESTART_KEY = 'dangdang-consent-restart'
+
+// 지우고 옮김. 떠나기 전 끝난 요청이 기기 저장을 다시 써도 페이지를 닫을 때 한 번 더 지움
+// broadcast면 열려 있는 다른 탭도 같은 일을 하게 알림(그 탭이 지운 기록을 다시 쓰지 않게)
+function clearAndLeave(keys: string[], to: string, broadcast = true) {
+  const clear = () => keys.forEach((key) => localStorage.removeItem(key))
+  clear()
+  if (broadcast) localStorage.setItem(CONSENT_RESTART_KEY, String(Date.now()))
+  window.addEventListener('pagehide', clear)
+  window.location.replace(to)
+}
+
+// 다른 탭에서 철회 · 동의 없음으로 기록을 지우면 이 탭도 지우고 가입 동의로. 앱 전체에서 한 번 켬
+export function listenForConsentRestart() {
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === CONSENT_RESTART_KEY && event.newValue) {
+      clearAndLeave(HEALTH_STORES, ROUTES.ONBOARDING_TERMS, false)
+    }
+  }
+  window.addEventListener('storage', onStorage)
+  return () => window.removeEventListener('storage', onStorage)
+}
+
+// 건강정보 동의가 없으면(다른 기기에서 철회 · 문서 버전 바뀜) 서버가 지운 건강 기록 · 설정 진행을 비우고 가입 동의(A-01)부터
+// 이미 첫 진입 설정 중이면 그대로. 다시 동의하면 기록은 서버에서 전부 다시 받음
+export function restartForConsent() {
+  if (window.location.pathname.startsWith(ROUTES.ONBOARDING)) return
+  clearAndLeave(HEALTH_STORES, ROUTES.ONBOARDING_TERMS)
+}
+
 // 카카오로 본인 확인한 탈퇴가 막혔을 때 데이터 화면 토스트. 서버 문구와 같게
 export const KAKAO_WITHDRAW_TOAST: Record<string, string> = {
   USER_40301: '지금 로그인한 카카오 계정과 달라요. 이 계정의 카카오로 확인해 주세요',

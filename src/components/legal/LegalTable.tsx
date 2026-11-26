@@ -8,13 +8,18 @@ export type LegalRow = {
 type LegalTableProps = {
   // 있으면 회색 머리 줄. 예: 구분 · 항목
   head?: [string, string]
+  // 있으면 표 위 제목 · 한 줄 설명. 예: 국외 이전 받는 곳
+  title?: string
+  caption?: string
   rows: LegalRow[]
 }
 
 // Figma N-02·N-04·N-05 두 칸 표
-function LegalTable({ head, rows }: LegalTableProps) {
-  return (
-    <dl className="border-grey-200 divide-grey-100 w-full divide-y overflow-hidden rounded-xl border">
+function LegalTable({ head, title, caption, rows }: LegalTableProps) {
+  const table = (
+    <dl
+      className={`divide-grey-100 w-full divide-y ${title ? '' : 'border-grey-200 overflow-hidden rounded-xl border'}`}
+    >
       {head && (
         <div className="bg-grey-50 text-grey-700 flex gap-3 px-3.5 py-2.5 text-xs leading-snug font-bold">
           <dt className="w-22 shrink-0">{head[0]}</dt>
@@ -31,6 +36,17 @@ function LegalTable({ head, rows }: LegalTableProps) {
         </div>
       ))}
     </dl>
+  )
+  if (!title) return table
+  // 제목이 있으면 제목과 표를 한 테두리 안에
+  return (
+    <section className="border-grey-200 divide-grey-100 w-full divide-y overflow-hidden rounded-xl border">
+      <div className="flex flex-col gap-0.5 px-3.5 py-3">
+        <h3 className="text-body-2 text-grey-900 font-bold">{title}</h3>
+        {caption && <p className="text-grey-600 text-xs leading-normal">{caption}</p>}
+      </div>
+      {table}
+    </section>
   )
 }
 

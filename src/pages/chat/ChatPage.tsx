@@ -3,6 +3,7 @@ import { useLocation } from 'react-router'
 import { useNavigate } from 'react-router'
 import { getErrorCode } from '@/api/axios'
 import { askChat } from '@/api/chat'
+import iconPhone from '@/assets/icons/chat/phone.svg'
 import iconRecords from '@/assets/icons/chat/records.svg'
 import iconRetry from '@/assets/icons/chat/retry.svg'
 import BotMessage, { BotBubble, UserBubble } from '@/components/chat/BotMessage'
@@ -22,7 +23,7 @@ import Toast from '@/components/common/Toast'
 import ContactMemoSheet from '@/components/my/ContactMemoSheet'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
-import { saveChatConsent, useAiStore } from '@/stores/useAiStore'
+import { saveChatConsents, syncAiConsents, useAiStore } from '@/stores/useAiStore'
 import {
   loadOlderChatMessages,
   rateChatAnswer,
@@ -50,10 +51,13 @@ function ChatPage() {
   const contactMemo = useProfileStore((state) => state.contactMemo)
   const updateProfile = useProfileStore((state) => state.updateProfile)
 
-  // 처음 들어오면 동의부터 물어봄
-  const [consentSheet, setConsentSheet] = useState(consent === null)
-  // 동의를 기다리는 기록 질문
-  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null)
+  // 기록 보기 · 해외로 보내기 중 아직 안 물어본 게 있으면 동의부터
+  const [consentSheet, setConsentSheet] = useState(consent === null || overseas === null)
+  // 동의를 기다리는 질문과 막힌 이유(기록 보기 · 해외로 보내기)
+  const [pendingQuestion, setPendingQuestion] = useState<{
+    text: string
+    reason: 'records' | 'overseas'
+  } | null>(null)
   const [thinking, setThinking] = useState<string | null>(null)
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null)
   const [memoSheet, setMemoSheet] = useState(false)
@@ -107,6 +111,8 @@ function ChatPage() {
       .catch((error: unknown) => {
         const code = getErrorCode(error)
         if (code === 'AI_40301') {
+          // 다른 기기에서 껐을 수 있어 서버 동의(날짜 포함)로 다시 맞춤
+          syncAiConsents().catch(() => setConsent('overseas', false))
           addMessage({
             id: newId(),
             from: 'bot',
@@ -176,21 +182,57 @@ function ChatPage() {
     setPendingQuestion(null)
   }, [])
 
-  const chooseConsent = (agreed: boolean) => {
-    const question = pendingQuestion
+  // 기록 보기는 고른 대로, 해외로 보내기는 필수라 늘 동의
+  // 기다리던 질문은 막힌 이유가 풀렸을 때만 다시 물음. 기록 질문인데 기록 보기를 안 고르면 또 막혀 횟수만 씀
+  const chooseConsent = (records: boolean) => {
+    const pending = pendingQuestion
     setConsentSheet(false)
     setPendingQuestion(null)
-    // 거절은 서버에 못 남겨도 기기에선 거절로
-    if (!agreed) {
-      setConsent('chat', false)
-      saveChatConsent(false).catch(() => {})
-      return
-    }
-    saveChatConsent(true)
+    saveChatConsents({ records, overseas: true })
       .then(() => {
-        if (question) reply(question)
+        if (pending && (records || pending.reason === 'overseas')) reply(pending.text)
       })
       .catch(() => setToast({ message: '동의를 저장하지 못했어요. 잠시 후 다시 시도해 주세요' }))
+  }
+
+  // 답할 수 없는 이유(서버 reason)에 맞는 버튼. 잡담 · 무례 · 주제 밖 · 당당이 소개는 버튼 없이 답만
+  const renderUnknownAction = (message: Extract<ChatMessage, { kind: 'unknown' }>) => {
+    switch (message.reason) {
+      case 'CHITCHAT':
+      case 'RUDE':
+      case 'OFF_TOPIC':
+      case 'ABOUT':
+        return null
+      case 'NO_CONSENT':
+        return (
+          <ChatActionButton
+            primary
+            onClick={() => {
+              setPendingQuestion({ text: message.question, reason: 'records' })
+              setConsentSheet(true)
+            }}
+          >
+            기록 보여 주기
+          </ChatActionButton>
+        )
+      case 'DISTRESS':
+        return (
+          <ChatActionButton icon={iconPhone} href="tel:15770199">
+            1577-0199 정신건강 상담에 전화
+          </ChatActionButton>
+        )
+      case 'APP_HELP':
+        return (
+          <ChatActionButton onClick={() => navigate(ROUTES.MY_CONTACT)}>문의하기</ChatActionButton>
+        )
+      // 판단 요청 · 근거 없음 · 예전 대화는 병원에 물어볼 말로
+      default:
+        return (
+          <ChatActionButton primary onClick={() => addDraftMessage(message.question)}>
+            물어볼 말로 정리하기
+          </ChatActionButton>
+        )
+    }
   }
 
   const renderMessage = (message: ChatMessage) => {
@@ -262,7 +304,12 @@ function ChatPage() {
       case 'risk':
         return (
           <div key={message.id} className="flex flex-col gap-2.5">
-            <RiskCard text={message.text} actions={message.actions} dose={message.dose} />
+            <RiskCard
+              text={message.text}
+              actions={message.actions}
+              dose={message.dose}
+              risk={message.risk}
+            />
             {/* 약 용량은 진료 때 잊지 않게 물어볼 말로 */}
             {message.dose && (
               <ChatActionButton primary onClick={() => addDraftMessage(message.question)}>
@@ -275,9 +322,7 @@ function ChatPage() {
         return (
           <BotMessage key={message.id}>
             <BotBubble>{message.text}</BotBubble>
-            <ChatActionButton primary onClick={() => addDraftMessage(message.question)}>
-              물어볼 말로 정리하기
-            </ChatActionButton>
+            {renderUnknownAction(message)}
           </BotMessage>
         )
       case 'fail':
@@ -317,7 +362,7 @@ function ChatPage() {
             <ChatActionButton
               primary
               onClick={() => {
-                setPendingQuestion(message.question)
+                setPendingQuestion({ text: message.question, reason: message.reason })
                 setConsentSheet(true)
               }}
             >
@@ -358,7 +403,7 @@ function ChatPage() {
           <ChatIntro
             onAsk={ask}
             recordsDeclined={consent !== null && !consent.agreed}
-            hideSuggestions={consent !== null && !consent.agreed && !overseas}
+            hideSuggestions={overseas !== null && !overseas.agreed}
             onOpenSettings={() => navigate(ROUTES.MY_AI)}
           />
         )}
@@ -369,8 +414,8 @@ function ChatPage() {
 
       {consentSheet && (
         <ConsentSheet
-          onAgree={() => chooseConsent(true)}
-          onDecline={() => chooseConsent(false)}
+          initialRecords={consent?.agreed ?? true}
+          onSubmit={chooseConsent}
           onClose={closeConsent}
         />
       )}
