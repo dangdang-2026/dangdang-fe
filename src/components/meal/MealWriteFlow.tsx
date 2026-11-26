@@ -309,14 +309,13 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
           }
           onSearch={(id) => openSearch({ mode: 'table', id })}
           onRemove={(id) => setItems((prev) => prev.filter((item) => item.id !== id))}
-          onSave={(savedPortion) => {
-            const checked = items.filter((item) => item.checked)
-            saveWithPhotoInfo([...new Set(checked.map((item) => item.name))], savedPortion, {
+          onSave={(portions, staplePortion) =>
+            saveWithPhotoInfo(Object.keys(portions), staplePortion, {
               // AI가 준 1등 후보만. 직접 찾은 이름 · 빠진 음식은 빼고
               aiCandidates: [...new Set(items.flatMap((item) => item.candidates.slice(0, 1)))],
-              portions: Object.fromEntries(checked.map((item) => [item.name, item.portion])),
+              portions,
             })
-          }}
+          }
           onClose={onClose}
         />
       )

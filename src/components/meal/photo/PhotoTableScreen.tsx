@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import iconCheck from '@/assets/icons/check-dark.svg'
 import iconChevron from '@/assets/icons/legal/version-chev.svg'
 import iconPlus from '@/assets/icons/meal/plus.svg'
@@ -8,7 +8,13 @@ import PhotoUnknownBowlSheet from '@/components/meal/photo/PhotoUnknownBowlSheet
 import { useFoods } from '@/hooks/useFoods'
 import type { TableItem } from '@/types/foodPhoto'
 import type { Portion } from '@/types/glucose'
-import { findFood, findStaple, formatPortion } from '@/utils/meal'
+import {
+  findFood,
+  findStaple,
+  formatPortion,
+  getPortionFactor,
+  toNearestPortion,
+} from '@/utils/meal'
 
 // 이름을 못 찾은 그릇
 const UNKNOWN_NAME = '알 수 없는 음식'
@@ -22,8 +28,8 @@ type PhotoTableScreenProps = {
   // 직접 검색으로 고치기. null이면 빠진 음식 추가
   onSearch: (id: string | null) => void
   onRemove: (id: string) => void
-  // 주식의 양. 주식을 고르지 않으면 없음
-  onSave: (portion?: Portion) => void
+  // 음식별 양(같은 이름 그릇은 합침) · 주식의 양. 주식을 고르지 않으면 없음
+  onSave: (portions: Record<string, Portion>, staplePortion?: Portion) => void
   onClose: () => void
 }
 
@@ -47,7 +53,45 @@ function PhotoTableScreen({
     checked.map((item) => item.name),
     foods,
   )
-  const stapleItem = checked.find((item) => item.name === staple?.name)
+  // 같은 음식이 여러 그릇이면 양을 더함. 양 칸이 1.5인분까지라 넘으면 1.5인분
+  const amounts = new Map<string, number>()
+  checked.forEach((item) =>
+    amounts.set(item.name, (amounts.get(item.name) ?? 0) + getPortionFactor(item.portion)),
+  )
+  const portions = Object.fromEntries(
+    [...amounts].map(([name, total]) => [name, toNearestPortion(total)]),
+  )
+  // 서버 좌표는 보낸 사진 전체 기준(0~1). 꽉 차게 잘라 보여 주니 같은 배율 · 위치로 번호를 놓음
+  const frameRef = useRef<HTMLDivElement>(null)
+  const [frame, setFrame] = useState<{ width: number; height: number } | null>(null)
+  const [natural, setNatural] = useState<{ width: number; height: number } | null>(null)
+  useEffect(() => {
+    const element = frameRef.current
+    if (!element) return
+    const observer = new ResizeObserver(([entry]) =>
+      setFrame({ width: entry.contentRect.width, height: entry.contentRect.height }),
+    )
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+  const cover =
+    frame && natural
+      ? (() => {
+          const scale = Math.max(frame.width / natural.width, frame.height / natural.height)
+          const width = natural.width * scale
+          const height = natural.height * scale
+          return {
+            width,
+            height,
+            left: (frame.width - width) / 2,
+            top: (frame.height - height) / 2,
+          }
+        })()
+      : null
+  const markerStyle = (point: { x: number; y: number }) =>
+    cover
+      ? { left: cover.left + point.x * cover.width, top: cover.top + point.y * cover.height }
+      : { left: `${point.x * 100}%`, top: `${point.y * 100}%` }
   const unitOf = (name: string) => findFood(name, foods)?.unit ?? '인분'
   // 사진 위 번호와 목록 번호를 맞춤
   const numbered = items.map((item, index) => ({ ...item, number: index + 1 }))
@@ -66,14 +110,27 @@ function PhotoTableScreen({
             type="button"
             disabled={checked.length === 0}
             className="bg-primary disabled:bg-grey-100 disabled:text-grey-400 rounded-key w-full py-4 text-base leading-snug font-bold text-white"
-            onClick={() => onSave(stapleItem?.portion)}
+            onClick={() => onSave(portions, staple ? portions[staple.name] : undefined)}
           >
             {checked.length > 0 ? `고른 ${checked.length}가지 저장` : '음식을 골라 주세요'}
           </button>
         }
       >
-        <div className="rounded-banner relative h-60 w-full shrink-0 overflow-hidden">
-          <img src={photoUrl} alt="찍은 식사 사진" className="size-full object-cover" />
+        <div
+          ref={frameRef}
+          className="rounded-banner relative h-60 w-full shrink-0 overflow-hidden"
+        >
+          <img
+            src={photoUrl}
+            alt="찍은 식사 사진"
+            className="size-full object-cover"
+            onLoad={(event) =>
+              setNatural({
+                width: event.currentTarget.naturalWidth,
+                height: event.currentTarget.naturalHeight,
+              })
+            }
+          />
           {numbered
             .filter((item) => item.point)
             .map((item) => (
@@ -82,7 +139,7 @@ function PhotoTableScreen({
                 type="button"
                 aria-label={`${item.number}번 그릇 확인`}
                 className="bg-primary text-body-3 text-grey-900 absolute flex size-6.5 -translate-1/2 items-center justify-center rounded-full border-2 border-white leading-none font-bold"
-                style={{ left: `${item.point!.x * 100}%`, top: `${item.point!.y * 100}%` }}
+                style={markerStyle(item.point!)}
                 onClick={() => setOpenId(item.id)}
               >
                 {item.number}
