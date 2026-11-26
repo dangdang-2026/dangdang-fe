@@ -25,7 +25,7 @@ import {
   updateReading,
   type ReadingChanges,
 } from '@/api/readings'
-import { getRecords } from '@/api/records'
+import { deleteRecordsRange, getRecords } from '@/api/records'
 import type {
   GlucoseRecord,
   InsulinRecord,
@@ -638,4 +638,21 @@ export async function restoreRecord(id: string) {
       deletedRecords: state.deletedRecords.filter((item) => item.id !== id),
     }
   })
+}
+
+// 기간 골라 지우기. 서버에서 지운 뒤 기기의 그 기간 혈당 · 식사 · 인슐린도 뺌(못 보낸 식사 포함)
+export async function removeRecordsRange(from: Date, to: Date) {
+  const result = await deleteRecordsRange(from, to)
+  const start = startOfDay(from).getTime()
+  const end = addDays(startOfDay(to), 1).getTime()
+  const inRange = (iso: string) => {
+    const time = toTime(iso)
+    return time >= start && time < end
+  }
+  useGlucoseStore.setState((state) => ({
+    meals: state.meals.filter((meal) => !inRange(meal.startedAt)),
+    records: state.records.filter((record) => !inRange(record.measuredAt)),
+    insulins: state.insulins.filter((insulin) => !inRange(insulin.takenAt)),
+  }))
+  return result
 }
