@@ -8,7 +8,6 @@ import splashPose2 from '@/assets/images/onboarding/splash-pose-2.svg'
 import splashPose3 from '@/assets/images/onboarding/splash-pose-3.svg'
 import splashPose4 from '@/assets/images/onboarding/splash-pose-4.svg'
 import wordmark from '@/assets/images/onboarding/wordmark.svg'
-import { useStatusBarColor } from '@/hooks/useStatusBarColor'
 import {
   characterKeyframes,
   HILL_RISE_DELAY_MS,
@@ -39,8 +38,6 @@ type SplashScreenProps = {
 
 // Figma S-01 스플래시(v3 언덕을 통통 넘어오는 당당) · S-01b 재실행 스플래시(당당 소식 카드). 아무 데나 누르면 넘어감
 function SplashScreen({ revisit, news, onSkip }: SplashScreenProps) {
-  // 흰 스플래시가 덮는 동안 상태 바도 흰색
-  useStatusBarColor('--color-background', true)
   const screenRef = useRef<HTMLDivElement>(null)
   const hillCoverRef = useRef<HTMLImageElement>(null)
   const characterRef = useRef<HTMLDivElement>(null)

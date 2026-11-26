@@ -120,7 +120,7 @@ function CameraScreen({ mealLabel, onCapture, onWriteName, onClose }: CameraScre
         aria-label={title}
         className="fixed inset-0 z-60 bg-white"
       >
-        <div className="mx-auto flex h-full w-full max-w-107.5 flex-col pt-1.5">
+        <div className="mx-auto flex h-full w-full max-w-107.5 flex-col pt-[calc(--spacing(1.5)+env(safe-area-inset-top))]">
           <header className="relative flex h-14 shrink-0 items-center px-4">
             <button type="button" aria-label="닫기" onClick={onClose}>
               <img src={iconClose} alt="" width={24} height={24} />
@@ -182,7 +182,7 @@ function CameraScreen({ mealLabel, onCapture, onWriteName, onClose }: CameraScre
       aria-label={title}
       className="bg-camera fixed inset-0 z-60"
     >
-      <div className="mx-auto flex h-full w-full max-w-107.5 flex-col pt-3">
+      <div className="mx-auto flex h-full w-full max-w-107.5 flex-col pt-[calc(--spacing(3)+env(safe-area-inset-top))]">
         <header className="flex h-11 shrink-0 items-center justify-between px-4">
           <button type="button" aria-label="닫기" onClick={onClose}>
             <img src={iconCloseWhite} alt="" width={26} height={26} />

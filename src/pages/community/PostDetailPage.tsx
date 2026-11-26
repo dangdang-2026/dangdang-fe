@@ -223,7 +223,7 @@ function PostDetailPage() {
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white pt-1.5 pb-24">
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between bg-white px-4">
+      <header className="status-bar-bleed sticky top-0 z-30 flex h-14 items-center justify-between bg-white px-4">
         <button type="button" aria-label="뒤로" onClick={goBack}>
           <img src={iconBack} alt="" width={24} height={24} />
         </button>

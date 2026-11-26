@@ -301,8 +301,25 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  /* iOS 홈 화면 앱은 상태 바 뒤까지 그려서(black-translucent) 콘텐츠를 상단 Safe Area만큼 내림 */
+  padding-top: env(safe-area-inset-top);
   background-color: var(--color-background);
   color: var(--color-text-primary);
+}
+
+/* 내린 만큼 화면 높이에서 뺌. 짧은 화면이 상태 바 높이만큼 스크롤되지 않게 */
+.min-h-dvh {
+  min-height: calc(100dvh - env(safe-area-inset-top));
+}
+.h-dvh {
+  height: calc(100dvh - env(safe-area-inset-top));
+}
+
+/* 맨 위에 붙은 배경 · 헤더를 상태 바 뒤까지 늘림. 투명 테두리로 늘려서 그 요소 배경이 그대로 이어지고 안쪽 내용은 그대로 */
+@utility status-bar-bleed {
+  box-sizing: content-box;
+  margin-top: calc(env(safe-area-inset-top) * -1);
+  border-top: env(safe-area-inset-top) solid transparent;
 }
 
 button {

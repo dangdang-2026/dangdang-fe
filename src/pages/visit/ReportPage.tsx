@@ -316,7 +316,7 @@ function ReportPage() {
         {/* 위쪽 노란 띠 */}
         <div
           aria-hidden
-          className="absolute inset-x-0 top-0 h-62.5 bg-linear-to-b from-yellow-400 to-yellow-500"
+          className="status-bar-bleed absolute inset-x-0 top-0 h-62.5 bg-linear-to-b from-yellow-400 to-yellow-500"
         />
 
         <header className="relative flex h-14 items-center justify-between">
