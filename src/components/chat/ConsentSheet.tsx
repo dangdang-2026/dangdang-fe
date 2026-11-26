@@ -4,7 +4,7 @@ import iconClose from '@/assets/icons/close.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 
 type ConsentSheetProps = {
-  // 지금 기록 보기 동의. 다시 열어도 고른 적 없는 값으로 바뀌지 않게
+  // 지금 기록 보기 동의. 서버 동의를 늦게 받아 바뀌면 직접 고르기 전까진 따라감
   initialRecords: boolean
   // records: 기록 보고 답하기(선택). 해외로 보내기는 필수라 고르면 늘 같이 동의
   onSubmit: (records: boolean) => void
@@ -24,7 +24,9 @@ const ITEMS = {
 
 // Figma Q-01 당당이 동의. 일반 질문만 골라도 해외로 보내기는 동의로 저장
 function ConsentSheet({ initialRecords, onSubmit, onClose }: ConsentSheetProps) {
-  const [records, setRecords] = useState(initialRecords)
+  // 직접 누르기 전엔 지금 동의를 그대로 보여 줌
+  const [picked, setPicked] = useState<boolean | null>(null)
+  const records = picked ?? initialRecords
   const [overseas, setOverseas] = useState(true)
 
   const row = (key: keyof typeof ITEMS, checked: boolean, toggle: () => void) => (
@@ -59,7 +61,7 @@ function ConsentSheet({ initialRecords, onSubmit, onClose }: ConsentSheetProps) 
       </div>
 
       <div className="flex flex-col gap-4">
-        {row('records', records, () => setRecords((value) => !value))}
+        {row('records', records, () => setPicked(!records))}
         {row('overseas', overseas, () => setOverseas((value) => !value))}
       </div>
       <p className="text-t7 text-grey-600">

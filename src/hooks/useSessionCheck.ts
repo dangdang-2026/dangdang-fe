@@ -16,13 +16,16 @@ import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
 import { syncPostpartum, useProfileStore } from '@/stores/useProfileStore'
-import { restartForConsent } from '@/utils/auth'
+import { listenForConsentRestart, restartForConsent } from '@/utils/auth'
 
 // 앱을 열 때 한 번 서버 로그인 확인. 스플래시 동안 뒤에서 돌아 기다리지 않음
 export function useSessionCheck() {
   const method = useAuthStore((state) => state.account?.method)
   const login = useAuthStore((state) => state.login)
   const updateProfile = useProfileStore((state) => state.updateProfile)
+
+  // 다른 탭에서 동의를 철회해 기록을 지우면 이 탭도 따라 지우고 가입 동의로
+  useEffect(() => listenForConsentRestart(), [])
 
   useEffect(() => {
     if (!method) return

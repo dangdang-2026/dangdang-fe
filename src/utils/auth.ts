@@ -89,12 +89,28 @@ export function restartAfterSensitiveWithdraw() {
   clearAndLeave(HEALTH_STORES, ROUTES.ONBOARDING_TERMS)
 }
 
+// 다른 탭에 「건강 기록 지우고 가입 동의로」를 알리는 키. 값은 알린 시각
+const CONSENT_RESTART_KEY = 'dangdang-consent-restart'
+
 // 지우고 옮김. 떠나기 전 끝난 요청이 기기 저장을 다시 써도 페이지를 닫을 때 한 번 더 지움
-function clearAndLeave(keys: string[], to: string) {
+// broadcast면 열려 있는 다른 탭도 같은 일을 하게 알림(그 탭이 지운 기록을 다시 쓰지 않게)
+function clearAndLeave(keys: string[], to: string, broadcast = true) {
   const clear = () => keys.forEach((key) => localStorage.removeItem(key))
   clear()
+  if (broadcast) localStorage.setItem(CONSENT_RESTART_KEY, String(Date.now()))
   window.addEventListener('pagehide', clear)
   window.location.replace(to)
+}
+
+// 다른 탭에서 철회 · 동의 없음으로 기록을 지우면 이 탭도 지우고 가입 동의로. 앱 전체에서 한 번 켬
+export function listenForConsentRestart() {
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === CONSENT_RESTART_KEY && event.newValue) {
+      clearAndLeave(HEALTH_STORES, ROUTES.ONBOARDING_TERMS, false)
+    }
+  }
+  window.addEventListener('storage', onStorage)
+  return () => window.removeEventListener('storage', onStorage)
 }
 
 // 건강정보 동의가 없으면(다른 기기에서 철회 · 문서 버전 바뀜) 서버가 지운 건강 기록 · 설정 진행을 비우고 가입 동의(A-01)부터

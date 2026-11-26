@@ -80,11 +80,12 @@ function AiSettingsPage() {
   const consents = { photo, chat, overseas }
   // 끄기 전에 확인받는 기능
   const [turningOff, setTurningOff] = useState<AiFeature | null>(null)
+  // 해외로 보내기가 꺼진 채 기록 보기를 켤 때, 같이 켤지 먼저 물어봄
+  const [askOverseas, setAskOverseas] = useState(false)
 
-  const saveFeature = (key: AiFeature, checked: boolean) => {
+  // withOverseas: 기록 보기를 켜며 해외로 보내기도 같이(물어보고 동의했을 때만)
+  const saveFeature = (key: AiFeature, checked: boolean, withOverseas = false) => {
     const title = FEATURES.find((feature) => feature.key === key)?.title ?? ''
-    // 기록 보기만 켜면 당당이가 답할 수 없어, 해외로 보내기가 꺼져 있으면 같이 켬
-    const withOverseas = key === 'chat' && checked && !overseas?.agreed
     const save =
       key === 'photo'
         ? savePhotoConsent(checked)
@@ -126,8 +127,10 @@ function AiSettingsPage() {
               label={title}
               onChange={(checked) => {
                 // 끄면 동의 철회라 한 번 더 확인
-                if (checked) saveFeature(key, true)
-                else setTurningOff(key)
+                if (!checked) setTurningOff(key)
+                // 기록 보기만으론 당당이가 답할 수 없어 해외로 보내기도 켤지 물어봄
+                else if (key === 'chat' && !overseas?.agreed) setAskOverseas(true)
+                else saveFeature(key, true)
               }}
             />
           </div>
@@ -231,6 +234,34 @@ function AiSettingsPage() {
             setTurningOff(null)
           }}
           onClose={() => setTurningOff(null)}
+        />
+      )}
+      {askOverseas && (
+        <ConfirmSheet
+          title="해외로 보내기도 켤까요?"
+          summary={[
+            { label: '받는 곳', value: '미국 OpenAI' },
+            { label: '보내는 것', value: '질문 글 · 바로 앞 대화' },
+            { label: '보관', value: '30일 보관 후 삭제' },
+          ]}
+          description={
+            <p className="text-t7">
+              당당이는 해외로 보내기가 켜져 있어야 답할 수 있어요. 기록 숫자는 해외로 보내지 않아요.
+            </p>
+          }
+          confirmLabel="둘 다 켜기"
+          onConfirm={() => {
+            setAskOverseas(false)
+            saveFeature('chat', true, true)
+          }}
+          secondary={{
+            label: '기록 보기만 켜기',
+            onClick: () => {
+              setAskOverseas(false)
+              saveFeature('chat', true)
+            },
+          }}
+          onClose={() => setAskOverseas(false)}
         />
       )}
       {toast && <Toast message={toast} onClose={closeToast} />}

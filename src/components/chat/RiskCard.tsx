@@ -28,6 +28,10 @@ const CALLS: Record<Exclude<ChatCallAction, 'CALL_HOSPITAL'>, { label: string; t
   CALL_1366: { label: '1366 여성긴급전화에 전화', tel: '1366' },
 }
 
+// CALLS에 직접 있는 전화 종류만. toString 같은 물려받은 속성은 빼고
+const isKnownCall = (action: string): action is keyof typeof CALLS =>
+  Object.prototype.hasOwnProperty.call(CALLS, action)
+
 const CALL_BUTTON =
   'text-t6 flex h-12 items-center justify-center rounded-xl px-4 text-center font-bold'
 const BUTTON_TONE = {
@@ -70,7 +74,7 @@ function RiskCard({ text, actions, dose, risk }: RiskCardProps) {
   if (dose) {
     // 병원 번호가 없거나 앱이 모르는 전화 종류면 빈 전화 링크 대신 빼 둠
     const doseCalls = actions
-      .filter((action) => action === 'CALL_HOSPITAL' || action in CALLS)
+      .filter((action) => action === 'CALL_HOSPITAL' || isKnownCall(action))
       .map((action) => ({
         action,
         ...(action === 'CALL_HOSPITAL'
@@ -122,7 +126,7 @@ function RiskCard({ text, actions, dose, risk }: RiskCardProps) {
         const label = `${hospital.name}${type === 'URGENT' ? ' 분만실' : ''}에 전화`
         return [{ action, label, tel: hospital.phone }]
       }
-      return action in CALLS ? [{ action, ...CALLS[action] }] : []
+      return isKnownCall(action) ? [{ action, ...CALLS[action] }] : []
     })
     .map((call, index): Call => ({ ...call, tone: toneOf(type, call.action, index) }))
 

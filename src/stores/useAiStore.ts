@@ -61,8 +61,12 @@ export const useAiStore = create<AiState>()(
   ),
 )
 
+// 동의를 저장할 때마다 올림. 저장보다 먼저 시작한 서버 동의 받기가 늦게 와도 새 값을 덮지 않게
+let consentVersion = 0
+
 // 서버에 당당이 동의(기록 보기 · 해외로 보내기)를 저장한 뒤 기기에 반영. 넘긴 것만
 export async function saveChatConsents(consents: { records?: boolean; overseas?: boolean }) {
+  consentVersion += 1
   await postChatConsents(consents)
   const { setConsent } = useAiStore.getState()
   if (consents.records !== undefined) setConsent('chat', consents.records)
@@ -71,19 +75,24 @@ export async function saveChatConsents(consents: { records?: boolean; overseas?:
 
 // 서버에 사진 AI 분석 동의를 저장한 뒤 기기에 반영
 export async function savePhotoConsent(agreed: boolean) {
+  consentVersion += 1
   await postPhotoConsent(agreed)
   useAiStore.getState().setConsent('photo', agreed)
 }
 
 // 서버에서 AI 동의를 모두 철회한 뒤 기기도 끔
 export async function withdrawAiConsents() {
+  consentVersion += 1
   await postWithdrawAiConsents()
   useAiStore.getState().withdrawAll()
 }
 
 // 서버 동의로 맞춤. 한 번도 안 골랐으면 다시 물어봄
 export async function syncAiConsents() {
+  const version = consentVersion
   const items = await getConsents()
+  // 받는 사이 저장한 동의가 있으면 그 값이 최신이라 버림
+  if (version !== consentVersion) return
   const toConsent = (type: string): AiConsent => {
     const item = items.find((consent) => consent.type === type)
     return item?.occurredAt ? { agreed: item.granted, at: item.occurredAt } : null
