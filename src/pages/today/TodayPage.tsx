@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import { getErrorCode } from '@/api/axios'
 import { canServerPush, subscribePush } from '@/api/push'
 import { openReminder, snoozeReminder } from '@/api/reminders'
 import EmergencyBlock from '@/components/common/EmergencyBlock'
@@ -355,8 +356,13 @@ function TodayPage() {
     try {
       await editMealStart(meal.id, startedAt)
       setToast(`식사 시작을 ${time}로 고쳤어요`)
-    } catch {
-      setToast('시작 시각을 고치지 못했어요. 잠시 후 다시 시도해 주세요')
+    } catch (error) {
+      // 식후 혈당을 잰 시각보다 늦게 고치면 서버가 거절(MEAL_40008)
+      setToast(
+        getErrorCode(error) === 'MEAL_40008'
+          ? '식후 혈당을 잰 시각보다 늦게는 고칠 수 없어요'
+          : '시작 시각을 고치지 못했어요. 잠시 후 다시 시도해 주세요',
+      )
     }
   }
 

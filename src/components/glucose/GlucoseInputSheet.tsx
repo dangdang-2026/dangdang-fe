@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent } from 'react'
+import { getErrorCode } from '@/api/axios'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
 import iconClock from '@/assets/icons/clock-sm.svg'
@@ -48,6 +49,12 @@ function getMealStart(dueAt: string | undefined, hours: number | null) {
   return new Date(due.getTime() - (hours ?? 0) * 60 * 60 * 1000)
 }
 
+// 저장 실패 안내. 식후 혈당이 식사 시작보다 앞이면(READING_40005) 그 이유로
+const toSaveError = (error: unknown) =>
+  getErrorCode(error) === 'READING_40005'
+    ? '식사를 시작한 뒤 시각으로 골라 주세요'
+    : '저장하지 못했어요. 잠시 후 다시 시도해 주세요'
+
 // Figma G-11 혈당계 글자 칩
 const METER_LABEL: Record<MeterLimit, string> = { HI: 'HI · 600보다 높음', LO: 'LO · 20보다 낮음' }
 
@@ -94,7 +101,8 @@ function GlucoseInputSheet({
   const [meterLimit, setMeterLimit] = useState<MeterLimit | null>(null)
   const [triedSave, setTriedSave] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [saveFailed, setSaveFailed] = useState(false)
+  // 저장 실패 안내. 서버 거절 이유가 있으면 그 말로
+  const [saveFailed, setSaveFailed] = useState<string | null>(null)
   // 연락 기준 펼침. 직접 누르기 전엔 높음 · 낮음일 때 저절로 펼침
   const [contactOpen, setContactOpen] = useState<boolean | null>(null)
   const [memoSheet, setMemoSheet] = useState(false)
@@ -148,11 +156,11 @@ function GlucoseInputSheet({
     if (meterMode) {
       if (!meterLimit) return
       setSaving(true)
-      setSaveFailed(false)
+      setSaveFailed(null)
       try {
         onSaved(await saveRecord(target, meterLimit, measuredAt))
-      } catch {
-        setSaveFailed(true)
+      } catch (error) {
+        setSaveFailed(toSaveError(error))
       } finally {
         setSaving(false)
       }
@@ -164,11 +172,11 @@ function GlucoseInputSheet({
       return
     }
     setSaving(true)
-    setSaveFailed(false)
+    setSaveFailed(null)
     try {
       onSaved(await saveRecord(target, value, measuredAt))
-    } catch {
-      setSaveFailed(true)
+    } catch (error) {
+      setSaveFailed(toSaveError(error))
     } finally {
       setSaving(false)
     }
@@ -339,7 +347,7 @@ function GlucoseInputSheet({
 
       {saveFailed && (
         <p className="text-t7 text-center text-red-500" role="alert">
-          저장하지 못했어요. 잠시 후 다시 시도해 주세요
+          {saveFailed}
         </p>
       )}
 

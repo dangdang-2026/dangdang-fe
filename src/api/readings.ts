@@ -174,10 +174,26 @@ export async function getAllReadings() {
 }
 
 // 수치·잰 시각 수정. 잰 시각을 바꾸면 서버가 그 날짜 기준을 다시 붙임
+// 혈당 고치기에서 바꿀 칸. 안 보낸 칸은 서버가 그대로 둠
+export type ReadingChanges = {
+  // 빼면 값은 그대로(HI · LO 기록은 글자 그대로)
+  value?: number
+  measuredAt: string
+  // 시점을 바꿀 때. 공복 · 자기 전으로 바꾸면 서버가 식사 연결을 끊음
+  target?: Pick<MeasureTarget, 'slot' | 'mealType'>
+  // 식후로 바꾸며 그날 그 끼니 식사에 붙일 때
+  mealId?: string
+}
+
 // 서버가 새 값으로 다시 판정한 기록을 돌려줌. 같은 기록을 동시에 고치면 409 READING_40903
-// value를 빼면 시각만 바꿈(HI · LO 기록은 글자 그대로)
-export async function updateReading(id: string, changes: { value?: number; measuredAt: string }) {
-  const { data } = await apiClient.patch<BaseResponse<ReadingResponse>>(`/readings/${id}`, changes)
+// 식후 혈당이 식사 시작보다 앞이면 400 READING_40005
+export async function updateReading(id: string, changes: ReadingChanges) {
+  const { target, mealId, ...rest } = changes
+  const { data } = await apiClient.patch<BaseResponse<ReadingResponse>>(`/readings/${id}`, {
+    ...rest,
+    ...(target && toServerType(target)),
+    ...(mealId && { mealId: Number(mealId) }),
+  })
   if (!data.data) throw new Error('혈당 수정 응답이 비어 있음')
   return toGlucoseRecord(data.data)
 }

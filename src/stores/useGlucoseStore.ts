@@ -10,7 +10,13 @@ import {
 } from '@/api/insulin'
 import { applyMealItems, toMealContent } from '@/api/mealItems'
 import { createMeal, deleteMeal, getAllMeals, updateMealStart, type ServerMeal } from '@/api/meals'
-import { createReading, deleteReading, getAllReadings, updateReading } from '@/api/readings'
+import {
+  createReading,
+  deleteReading,
+  getAllReadings,
+  updateReading,
+  type ReadingChanges,
+} from '@/api/readings'
 import { getRecords } from '@/api/records'
 import type {
   GlucoseRecord,
@@ -522,7 +528,8 @@ export async function syncServerRange<T extends ServerRangeData>(load: () => Pro
 
 // 서버에서 고친 뒤 서버가 다시 판정한 값으로 바꿈. 처음 값(original) · 서버에 없는 끼니 연결은 기기 값 유지
 // 다른 기기에서 먼저 고쳤으면(409) 그날 기록을 다시 받고 에러를 그대로 던짐
-export async function editRecord(id: string, changes: { value?: number; measuredAt: string }) {
+// 시점을 바꾸면 끼니 연결도 서버 값 그대로(공복 · 자기 전이면 끊김)
+export async function editRecord(id: string, changes: ReadingChanges) {
   try {
     const saved = await updateReading(id, changes)
     useGlucoseStore.getState().updateRecord(id, changes)
@@ -532,8 +539,10 @@ export async function editRecord(id: string, changes: { value?: number; measured
           ? {
               ...record,
               ...saved,
-              mealId: saved.mealId ?? record.mealId,
-              mealType: saved.mealType ?? record.mealType,
+              mealId: changes.target ? saved.mealId : (saved.mealId ?? record.mealId),
+              mealType: changes.target
+                ? (changes.target.mealType ?? saved.mealType)
+                : (saved.mealType ?? record.mealType),
             }
           : record,
       ),
