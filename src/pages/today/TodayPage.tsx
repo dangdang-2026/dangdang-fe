@@ -56,6 +56,7 @@ import { formatTime, isSameDay, startOfDay } from '@/utils/date'
 import { formatPregnancyAge, getPregnancyAge } from '@/utils/pregnancy'
 import { formatVisitDay, getHomeVisitCard } from '@/utils/visit'
 import {
+  formatGlucose,
   getHeroState,
   getMeasureTarget,
   getMissedMeals,
@@ -384,7 +385,7 @@ function TodayPage() {
   const handleSaved = (record: GlucoseRecord) => {
     closeGlucoseSheet()
     const label = getSlotLabel(record.slot, record.mealType, criteria.postMealHours)
-    setToast(`${label} ${record.value} 저장했어요`)
+    setToast(`${label} ${formatGlucose(record)} 저장했어요`)
   }
 
   const handleMealSaved = (

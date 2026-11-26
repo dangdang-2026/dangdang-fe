@@ -6,7 +6,7 @@ import { HeroButton, HeroChip, HillDangdang } from '@/components/today/hero/Hero
 import { MEAL_LABEL } from '@/constants/glucose'
 import type { GlucoseRecord, MealType } from '@/types/glucose'
 import { formatTime } from '@/utils/date'
-import { getSlotLabel } from '@/utils/glucose'
+import { formatGlucose, getSlotLabel } from '@/utils/glucose'
 
 type SavedHeroProps = {
   postMealHours: number | null
@@ -27,7 +27,7 @@ function SavedHero({ postMealHours, record, nextMeal, onStartMeal }: SavedHeroPr
       decoration={<HillDangdang face={faceHappy} />}
     >
       <p className="flex items-baseline gap-1.5">
-        <span className="text-number text-grey-900">{record.value}</span>
+        <span className="text-number text-grey-900">{formatGlucose(record)}</span>
         <span className="text-body-2 text-grey-700 leading-none font-semibold">mg/dL</span>
       </p>
       <div className="mt-2">

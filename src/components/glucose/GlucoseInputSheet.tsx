@@ -16,7 +16,7 @@ import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { saveRecord } from '@/stores/useGlucoseStore'
 import { useProfileStore } from '@/stores/useProfileStore'
 import type { MeasureSlotKey } from '@/types/criteria'
-import type { GlucoseRecord, MeasureTarget } from '@/types/glucose'
+import type { GlucoseRecord, MeasureTarget, MeterLimit } from '@/types/glucose'
 import { MEASURE_SLOT_LABEL, getCriteriaAt } from '@/utils/criteria'
 import { formatMonthDay, formatTime } from '@/utils/date'
 import { compareToTarget, getSlotLabel, getTarget, isValidGlucose } from '@/utils/glucose'
@@ -46,6 +46,15 @@ function getMeasuredLabel(measuredAt: Date, dueAt?: string) {
 function getMealStart(dueAt: string | undefined, hours: number | null) {
   const due = dueAt ? new Date(dueAt) : new Date()
   return new Date(due.getTime() - (hours ?? 0) * 60 * 60 * 1000)
+}
+
+// Figma G-11 혈당계 글자 칩
+const METER_LABEL: Record<MeterLimit, string> = { HI: 'HI · 600보다 높음', LO: 'LO · 20보다 낮음' }
+
+// 고른 글자의 「지금 먼저 할 일」. HI는 피그마 그대로, LO는 피그마에 없어 저혈당 안내와 같은 말로
+const METER_MESSAGE: Record<MeterLimit, string> = {
+  HI: 'HI는 혈당계로 잴 수 없을 만큼\n높다는 뜻이에요.\n지금 병원에 전화해 주세요.',
+  LO: 'LO는 혈당계로 잴 수 없을 만큼\n낮다는 뜻이에요.\n병원에서 들은 저혈당 대처를 먼저 하고\n병원에 전화해 주세요.',
 }
 
 // Figma G-01~G-08 혈당 입력 바텀시트
@@ -80,6 +89,9 @@ function GlucoseInputSheet({
     !!target.dueAt &&
     openedAt.getTime() - new Date(target.dueAt).getTime() > ON_TIME_MS
   const [digits, setDigits] = useState('')
+  // 혈당계에 HI · LO가 떠서 숫자 대신 글자로 적는 중. 고른 글자
+  const [meterMode, setMeterMode] = useState(false)
+  const [meterLimit, setMeterLimit] = useState<MeterLimit | null>(null)
   const [triedSave, setTriedSave] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveFailed, setSaveFailed] = useState(false)
@@ -133,6 +145,19 @@ function GlucoseInputSheet({
 
   const handleSave = async () => {
     if (saving) return
+    if (meterMode) {
+      if (!meterLimit) return
+      setSaving(true)
+      setSaveFailed(false)
+      try {
+        onSaved(await saveRecord(target, meterLimit, measuredAt))
+      } catch {
+        setSaveFailed(true)
+      } finally {
+        setSaving(false)
+      }
+      return
+    }
     // 두 자리 낮은 값은 안내를 아직 못 봤으니 먼저 보여 주고 한 번 더 누르면 저장
     if (!isValidGlucose(value) || (value < GLUCOSE_LOW && !showResult)) {
       setTriedSave(true)
@@ -206,40 +231,95 @@ function GlucoseInputSheet({
         </div>
       )}
 
-      <div className="flex flex-col items-center gap-1.5 py-3.5">
-        <p className="flex items-baseline gap-1.5" aria-live="polite">
-          <span className={`text-display ${numberColor}`}>{digits || '0'}</span>
-          <span className="text-grey-400 text-base leading-normal font-medium">mg/dL</span>
-        </p>
-        {showResult && (
-          <TargetChip
-            comparison={comparison}
-            target={goal}
-            low={isLow}
-            hasMemo={!!contactMemo}
-            onSetTarget={() => {
-              onClose()
-              navigate(ROUTES.MY_CRITERIA)
+      {meterMode ? (
+        <>
+          <h3 className="text-grey-700 -mb-1 text-sm leading-normal font-bold">
+            혈당계 화면에 뜬 글자를 골라 주세요
+          </h3>
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="혈당계 글자">
+            {(['HI', 'LO'] as const).map((limit) => (
+              <button
+                key={limit}
+                type="button"
+                role="radio"
+                aria-checked={meterLimit === limit}
+                className={`h-13 rounded-xl border text-sm font-bold ${
+                  meterLimit === limit
+                    ? 'border-primary text-grey-900 bg-yellow-50'
+                    : 'bg-grey-100 text-grey-700 border-transparent'
+                }`}
+                onClick={() => setMeterLimit(limit)}
+              >
+                {METER_LABEL[limit]}
+              </button>
+            ))}
+          </div>
+          {/* 고르면 바로 접지 않는 위급 안내 */}
+          {meterLimit && (
+            <EmergencyBlock
+              message={METER_MESSAGE[meterLimit]}
+              onWriteMemo={() => setMemoSheet(true)}
+            />
+          )}
+          <button
+            type="button"
+            className="text-grey-600 self-center text-sm leading-normal underline"
+            onClick={() => {
+              setMeterMode(false)
+              setMeterLimit(null)
+            }}
+          >
+            숫자로 적을게요
+          </button>
+          {meterLimit && (
+            <p className="text-grey-500 text-center text-xs leading-normal">
+              기록에는 숫자 대신 ‘{meterLimit}’로 남아요.
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="flex flex-col items-center gap-1.5 py-3.5">
+            <p className="flex items-baseline gap-1.5" aria-live="polite">
+              <span className={`text-display ${numberColor}`}>{digits || '0'}</span>
+              <span className="text-grey-400 text-base leading-normal font-medium">mg/dL</span>
+            </p>
+            {showResult && (
+              <TargetChip
+                comparison={comparison}
+                target={goal}
+                low={isLow}
+                hasMemo={!!contactMemo}
+                onSetTarget={() => {
+                  onClose()
+                  navigate(ROUTES.MY_CRITERIA)
+                }}
+              />
+            )}
+          </div>
+
+          {/* 70 미만이면 접지 않는 위급 안내로 */}
+          {isLow ? (
+            <EmergencyBlock onWriteMemo={() => setMemoSheet(true)} />
+          ) : (
+            <ContactCriteriaCard
+              expanded={contactExpanded}
+              onToggle={() => setContactOpen(!contactExpanded)}
+              onWriteMemo={() => setMemoSheet(true)}
+            />
+          )}
+
+          <GlucoseKeypad
+            onDigit={handleDigit}
+            onDelete={() => setDigits((prev) => prev.slice(0, -1))}
+            onMeterLimit={() => {
+              setMeterMode(true)
+              setDigits('')
+              setTriedSave(false)
             }}
           />
-        )}
-      </div>
-
-      {/* 70 미만이면 접지 않는 위급 안내로 */}
-      {isLow ? (
-        <EmergencyBlock onWriteMemo={() => setMemoSheet(true)} />
-      ) : (
-        <ContactCriteriaCard
-          expanded={contactExpanded}
-          onToggle={() => setContactOpen(!contactExpanded)}
-          onWriteMemo={() => setMemoSheet(true)}
-        />
+        </>
       )}
-
-      <GlucoseKeypad
-        onDigit={handleDigit}
-        onDelete={() => setDigits((prev) => prev.slice(0, -1))}
-      />
 
       {late && (
         <MeasuredTimePicker
@@ -265,12 +345,12 @@ function GlucoseInputSheet({
 
       <button
         type="button"
-        disabled={digits === ''}
+        disabled={meterMode ? !meterLimit : digits === ''}
         aria-busy={saving}
         className="text-subtitle-1 disabled:bg-grey-100 disabled:text-grey-400 bg-primary h-14 rounded-xl leading-none text-white"
         onClick={() => void handleSave()}
       >
-        저장
+        {meterMode && meterLimit ? `${meterLimit}로 저장` : '저장'}
       </button>
 
       {/* 혈당 시트 안에서 열어도 화면 기준으로 뜨게 body로 */}

@@ -1,5 +1,11 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
-import type { GlucoseRecord, MealType, MeasureTarget, ReadingTiming } from '@/types/glucose'
+import type {
+  GlucoseRecord,
+  MealType,
+  MeasureTarget,
+  MeterLimit,
+  ReadingTiming,
+} from '@/types/glucose'
 import { parseDateKey, toDateKey } from '@/utils/date'
 import type { DateRange, PeriodStats, StatsSlot } from '@/utils/stats'
 
@@ -27,7 +33,9 @@ export type ServerJudgment = {
   expectedAt?: string | null
   timing?: ReadingTiming | null
   originalValue?: number | null
+  originalMeterLimit?: MeterLimit | null
   editedAt?: string | null
+  meterLimit?: MeterLimit | null
 }
 
 const MEAL_SLOT: Record<MealType, ServerSlot> = {
@@ -88,6 +96,8 @@ export function fromServerReading(
       timing: item.timing,
     }),
     ...(item.originalValue !== undefined && { originalValue: item.originalValue }),
+    ...(item.originalMeterLimit !== undefined && { originalMeterLimit: item.originalMeterLimit }),
+    ...(item.meterLimit !== undefined && { meterLimit: item.meterLimit }),
     ...(item.editedAt !== undefined && { editedAt: item.editedAt ?? undefined }),
   }
 }
@@ -107,14 +117,15 @@ export function toGlucoseRecord(item: ReadingResponse): GlucoseRecord {
 }
 
 // 혈당 등록. 잰 날짜의 병원 기준은 서버가 붙임. 식사를 붙이면 서버가 그 식사 측정 알림을 끝냄
+// value가 HI · LO면 숫자 대신 meterLimit으로(둘 다 보내면 서버가 400)
 export async function createReading(
   target: MeasureTarget,
-  value: number,
+  value: number | MeterLimit,
   measuredAt: Date,
   mealId?: string,
 ) {
   const { data } = await apiClient.post<BaseResponse<ReadingResponse>>('/readings', {
-    value,
+    ...(typeof value === 'number' ? { value } : { meterLimit: value }),
     measuredAt: measuredAt.toISOString(),
     ...toServerType(target),
     mealId: mealId ? Number(mealId) : undefined,
@@ -164,7 +175,8 @@ export async function getAllReadings() {
 
 // 수치·잰 시각 수정. 잰 시각을 바꾸면 서버가 그 날짜 기준을 다시 붙임
 // 서버가 새 값으로 다시 판정한 기록을 돌려줌. 같은 기록을 동시에 고치면 409 READING_40903
-export async function updateReading(id: string, changes: { value: number; measuredAt: string }) {
+// value를 빼면 시각만 바꿈(HI · LO 기록은 글자 그대로)
+export async function updateReading(id: string, changes: { value?: number; measuredAt: string }) {
   const { data } = await apiClient.patch<BaseResponse<ReadingResponse>>(`/readings/${id}`, changes)
   if (!data.data) throw new Error('혈당 수정 응답이 비어 있음')
   return toGlucoseRecord(data.data)

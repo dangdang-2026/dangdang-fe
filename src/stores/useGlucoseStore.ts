@@ -18,6 +18,7 @@ import type {
   Meal,
   MealType,
   MeasureTarget,
+  MeterLimit,
   NutritionEdits,
   Portion,
 } from '@/types/glucose'
@@ -42,7 +43,7 @@ type GlucoseState = {
   setMealPhotoInfo: (mealId: string, info: Pick<Meal, 'aiCandidates' | 'portions'>) => void
   // 서버에 저장된 기록을 기기에 추가
   addRecord: (record: GlucoseRecord) => void
-  updateRecord: (id: string, changes: { value: number; measuredAt: string }, now?: Date) => void
+  updateRecord: (id: string, changes: { value?: number; measuredAt: string }, now?: Date) => void
   deleteRecord: (id: string, now?: Date) => void
   // 지운 기록. 화면·리포트에선 빼고 기록용으로만 보관
   deletedRecords: (GlucoseRecord & { deletedAt: string })[]
@@ -113,7 +114,9 @@ export const useGlucoseStore = create<GlucoseState>()(
             record.id === id
               ? {
                   ...record,
-                  ...changes,
+                  // 값을 안 보냈으면(HI · LO 그대로 시각만) 값은 그대로
+                  ...(changes.value !== undefined && { value: changes.value }),
+                  measuredAt: changes.measuredAt,
                   editedAt: now.toISOString(),
                   original: record.original ?? {
                     value: record.value,
@@ -357,7 +360,12 @@ async function syncInsulinsOnce(userId: number) {
 }
 
 // 서버에 등록한 뒤 기기에 반영. 서버에 있는 식사면 끼니도 서버에 연결, 못 보낸 식사면 기기에서만
-export async function saveRecord(target: MeasureTarget, value: number, measuredAt: Date) {
+// value가 HI · LO면 혈당계 글자로 저장
+export async function saveRecord(
+  target: MeasureTarget,
+  value: number | MeterLimit,
+  measuredAt: Date,
+) {
   const meal = useGlucoseStore.getState().meals.find((item) => item.id === target.mealId)
   const serverMealId = meal && !meal.pending ? meal.id : undefined
   const saved = await createReading(target, value, measuredAt, serverMealId)
@@ -514,7 +522,7 @@ export async function syncServerRange<T extends ServerRangeData>(load: () => Pro
 
 // 서버에서 고친 뒤 서버가 다시 판정한 값으로 바꿈. 처음 값(original) · 서버에 없는 끼니 연결은 기기 값 유지
 // 다른 기기에서 먼저 고쳤으면(409) 그날 기록을 다시 받고 에러를 그대로 던짐
-export async function editRecord(id: string, changes: { value: number; measuredAt: string }) {
+export async function editRecord(id: string, changes: { value?: number; measuredAt: string }) {
   try {
     const saved = await updateReading(id, changes)
     useGlucoseStore.getState().updateRecord(id, changes)

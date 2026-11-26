@@ -45,7 +45,7 @@ import {
   startOfDay,
   toDateKey,
 } from '@/utils/date'
-import { getBackfillTarget, getMeasureTarget, getSlotLabel } from '@/utils/glucose'
+import { formatGlucose, getBackfillTarget, getMeasureTarget, getSlotLabel } from '@/utils/glucose'
 import { formatInsulinLabel } from '@/utils/insulin'
 
 type InputSheet = { target: MeasureTarget; backfillAt?: Date }
@@ -144,7 +144,7 @@ function RecordsPage() {
   const handleSaved = (record: GlucoseRecord) => {
     setInputSheet(null)
     const label = getSlotLabel(record.slot, record.mealType, criteria.postMealHours)
-    setToast(`${label} ${record.value} 저장했어요`)
+    setToast(`${label} ${formatGlucose(record)} 저장했어요`)
   }
 
   const handleEdited = () => {

@@ -1,6 +1,7 @@
 import { formatMonthDay, formatTime, toDateKey } from '@/utils/date'
 import { REPORT_SLOT_KEYS, type Report } from '@/utils/report'
 import type { Question } from '@/types/visit'
+import { formatGlucose } from '@/utils/glucose'
 
 type ReportDocumentProps = {
   report: Report
@@ -94,7 +95,7 @@ function ReportDocument({
                       {cell ? (
                         <>
                           <span className={cell.isOutOfTarget ? 'font-bold underline' : ''}>
-                            {cell.record.value}
+                            {formatGlucose(cell.record)}
                           </span>
                           {cell.marks.length > 0 && (
                             <span className="text-grey-600 text-caption block font-medium">
@@ -125,7 +126,7 @@ function ReportDocument({
             {report.lows
               .map((record) => {
                 const at = new Date(record.measuredAt)
-                return `${formatMonthDay(at)} ${formatTime(at)} ${record.value}`
+                return `${formatMonthDay(at)} ${formatTime(at)} ${formatGlucose(record)}`
               })
               .join(' · ')}
           </p>

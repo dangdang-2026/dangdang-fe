@@ -7,7 +7,13 @@ import type { Criteria } from '@/types/criteria'
 import type { GlucoseRecord, InsulinRecord, Meal } from '@/types/glucose'
 import { getCriteriaAt } from '@/utils/criteria'
 import { formatTime } from '@/utils/date'
-import { getLateMinutes, getSlotLabel, getTarget, isAboveTarget } from '@/utils/glucose'
+import {
+  formatGlucose,
+  getLateMinutes,
+  getSlotLabel,
+  getTarget,
+  isAboveTarget,
+} from '@/utils/glucose'
 import { formatInsulinLabel } from '@/utils/insulin'
 import { formatMealLabel } from '@/utils/meal'
 
@@ -140,7 +146,7 @@ function RecordTimeline({
               </span>
               <span className="flex items-end gap-1">
                 <span className={`text-title-3 ${isHigh ? 'text-red-500' : 'text-blue-500'}`}>
-                  {record.value}
+                  {formatGlucose(record)}
                 </span>
                 <span className="text-caption text-grey-400 leading-normal font-medium">mg/dL</span>
               </span>

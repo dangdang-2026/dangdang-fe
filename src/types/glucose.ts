@@ -95,10 +95,16 @@ export type GlucoseRecord = {
   timing?: ReadingTiming | null
   // 서버가 남긴 처음 값. 값을 안 고쳤거나 처음 값으로 되돌렸으면 null
   originalValue?: number | null
+  originalMeterLimit?: MeterLimit | null
+  // 혈당계에 HI · LO가 떠서 그 글자로 적음. value에는 혈당계 끝값(HI 600 · LO 20)
+  meterLimit?: MeterLimit | null
 }
 
 // 백엔드 ReadingTiming. 재야 할 시각과 비교(±15분)
 export type ReadingTiming = 'EARLY' | 'ON_TIME' | 'LATE'
+
+// 백엔드 MeterLimit. 혈당계가 잴 수 없을 만큼 높음 · 낮음
+export type MeterLimit = 'HI' | 'LO'
 
 // 입력 시트에 넘기는 측정 시점 정보
 export type MeasureTarget = {

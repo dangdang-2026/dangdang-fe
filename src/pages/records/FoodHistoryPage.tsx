@@ -10,7 +10,7 @@ import { useGoBack } from '@/hooks/useGoBack'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
 import { mergeServerMeal, useGlucoseStore } from '@/stores/useGlucoseStore'
 import type { GlucoseRecord, Meal } from '@/types/glucose'
-import { getLateMinutes } from '@/utils/glucose'
+import { formatGlucose, getLateMinutes } from '@/utils/glucose'
 import { formatDuration } from '@/utils/criteria'
 import {
   findFood,
@@ -52,7 +52,7 @@ function HistoryRow({ entry, portion, lateMinutes }: HistoryRowProps) {
       </span>
       {record ? (
         <span className="flex shrink-0 items-baseline gap-0.5">
-          <span className="text-t4 text-grey-900 leading-snug">{record.value}</span>
+          <span className="text-t4 text-grey-900 leading-snug">{formatGlucose(record)}</span>
           <span className="text-grey-600 text-xs leading-snug font-medium">mg/dL</span>
         </span>
       ) : (

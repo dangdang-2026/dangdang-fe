@@ -29,7 +29,8 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
   const [saving, setSaving] = useState(false)
   // conflict: 다른 곳에서 먼저 고쳐 기록을 다시 불러옴
   const [saveFailed, setSaveFailed] = useState<false | 'failed' | 'conflict'>(false)
-  const [digits, setDigits] = useState(String(record.value))
+  // HI · LO 기록은 600 · 20 대신 빈칸에 그 글자를 흐리게. 숫자를 적으면 숫자 기록으로
+  const [digits, setDigits] = useState(record.meterLimit ? '' : String(record.value))
   const [time, setTime] = useState(formatTime(measuredAt))
   const criteria = getCriteriaAt(
     useCriteriaStore((state) => state.versions),
@@ -38,7 +39,9 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
   const [timeSheet, setTimeSheet] = useState(false)
 
   const value = Number(digits)
-  const isInvalid = !isValidGlucose(value)
+  // HI · LO 기록을 빈칸 그대로 두면 글자를 지킴
+  const keepMeterLimit = !!record.meterLimit && digits === ''
+  const isInvalid = !keepMeterLimit && !isValidGlucose(value)
 
   const [hours, minutes] = time.split(':').map(Number)
   const nextMeasuredAt = new Date(measuredAt)
@@ -49,14 +52,18 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
   const handleSave = async () => {
     if (isInvalid || isFuture || saving) return
     // 바뀐 게 없으면 서버가 거절해서 그냥 닫음
-    if (value === record.value && nextMeasuredAt.getTime() === measuredAt.getTime()) {
+    const sameValue = keepMeterLimit || value === record.value
+    if (sameValue && nextMeasuredAt.getTime() === measuredAt.getTime()) {
       onClose()
       return
     }
     setSaving(true)
     setSaveFailed(false)
     try {
-      await editRecord(record.id, { value, measuredAt: nextMeasuredAt.toISOString() })
+      await editRecord(record.id, {
+        ...(!keepMeterLimit && { value }),
+        measuredAt: nextMeasuredAt.toISOString(),
+      })
       onSaved()
     } catch (error) {
       setSaveFailed(getErrorCode(error) === 'READING_40903' ? 'conflict' : 'failed')
@@ -86,6 +93,7 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
             inputMode="numeric"
             aria-label="혈당"
             value={digits}
+            placeholder={record.meterLimit ?? undefined}
             className={`min-w-0 flex-1 bg-transparent text-base leading-normal font-medium outline-none ${
               isInvalid ? 'text-red-500' : 'text-grey-900'
             }`}
@@ -97,10 +105,11 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
           <span className="text-grey-500 text-sm leading-normal font-medium">mg/dL</span>
         </span>
         {/* 서버가 남긴 처음 값. 처음 값으로 되돌렸거나 안 고쳤으면 없음 */}
-        {record.originalValue != null && record.editedAt && (
+        {(record.originalValue != null || record.originalMeterLimit) && record.editedAt && (
           <span className="text-caption text-grey-600 leading-normal">
-            처음 {record.originalValue} · {formatMonthDay(new Date(record.editedAt))}{' '}
-            {formatTime(new Date(record.editedAt))}에 고침
+            처음 {record.originalMeterLimit ?? record.originalValue} ·{' '}
+            {formatMonthDay(new Date(record.editedAt))} {formatTime(new Date(record.editedAt))}에
+            고침
           </span>
         )}
       </label>

@@ -174,6 +174,11 @@ export function getLateMinutes(record: GlucoseRecord, meals: Meal[], hours: numb
   return diff > ON_TIME_MS ? Math.round(diff / 60000) : 0
 }
 
+// 화면에 보일 혈당. 혈당계 HI · LO면 숫자 대신 그 글자
+export function formatGlucose(record: Pick<GlucoseRecord, 'value' | 'meterLimit'>) {
+  return record.meterLimit ?? String(record.value)
+}
+
 export function isValidGlucose(value: number) {
   return value >= GLUCOSE_MIN && value <= GLUCOSE_MAX
 }
