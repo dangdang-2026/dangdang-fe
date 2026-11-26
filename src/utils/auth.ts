@@ -1,4 +1,5 @@
 import { ROUTES } from '@/constants/routes'
+import { useAuthStore } from '@/stores/useAuthStore'
 import { clearPendingKakao } from '@/utils/kakaoPending'
 
 // @ 없음, 도메인 없음, 한글·특수문자 포함은 형식 오류
@@ -87,20 +88,36 @@ export function unsubscribeDeviceOnly() {
 let withdrawing = false
 export const isWithdrawing = () => withdrawing
 
-// 탈퇴하면 기기 구독 · 카카오 토큰 · 기록을 다 지우고 처음 화면으로
+// 탈퇴하면 기록부터 지우고 다른 탭에 알린 뒤 기기 구독을 끊고 처음 화면으로. 정리 중 오류는 탈퇴 실패로 넘기지 않음
 export async function restartAfterWithdraw() {
   withdrawing = true
-  clearPendingKakao()
+  try {
+    clearPendingKakao()
+    clearAllKeys()
+    window.addEventListener('pagehide', clearAllKeys)
+    localStorage.setItem(WITHDRAW_KEY, String(Date.now()))
+  } catch {
+    // 저장소를 못 쓰면 떠나기 전에 다시 지움
+  }
   await unsubscribeDeviceOnly()
-  clearAllAndLeave()
-  localStorage.setItem(WITHDRAW_KEY, String(Date.now()))
+  window.location.replace(ROUTES.ONBOARDING)
 }
 
-// 기기의 당당 기록을 모두 지우고 처음 화면으로
+// 기기의 당당 기록을 모두 지움
+function clearAllKeys() {
+  try {
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith('dangdang-'))
+      .forEach((key) => localStorage.removeItem(key))
+  } catch {
+    // 저장소를 못 쓰는 환경
+  }
+}
+
+// 모두 지우고 처음 화면으로. 떠나기 전 끝난 동기화가 다시 써도 한 번 더 지움
 function clearAllAndLeave() {
-  Object.keys(localStorage)
-    .filter((key) => key.startsWith('dangdang-'))
-    .forEach((key) => localStorage.removeItem(key))
+  clearAllKeys()
+  window.addEventListener('pagehide', clearAllKeys)
   window.location.replace(ROUTES.ONBOARDING)
 }
 
@@ -178,7 +195,8 @@ export function leaveAfterSessionEnd() {
 // 다른 탭에서 철회 · 동의 없음 · 로그아웃으로 기록을 지우면 이 탭도 같이. 앱 전체에서 한 번 켬
 export function listenForConsentRestart() {
   const onStorage = (event: StorageEvent) => {
-    if (!event.newValue) return
+    // 이 탭이 탈퇴 정리 중이면 그쪽이 마무리
+    if (!event.newValue || isWithdrawing()) return
     if (event.key === CONSENT_RESTART_KEY) clearAndLeave(HEALTH_STORES, ROUTES.ONBOARDING_TERMS)
     // 카카오 대기 토큰은 탭마다 따로라 이 탭 것도 지움
     if (event.key === LOGOUT_KEY) {
@@ -186,7 +204,8 @@ export function listenForConsentRestart() {
       keepDeviceNotificationOnly()
       clearAndLeave(ACCOUNT_STORES, ROUTES.ONBOARDING)
     }
-    if (event.key === SESSION_END_KEY) {
+    // 로그인한 탭만. 카카오 가입 중인 로그아웃 탭은 그대로
+    if (event.key === SESSION_END_KEY && useAuthStore.getState().account) {
       clearPendingKakao()
       clearAndLeave([], ROUTES.ONBOARDING)
     }

@@ -163,6 +163,8 @@ apiClient.interceptors.response.use(
       throw error
     }
 
+    // 로그인을 푸는 중이면 재발급 · 확인을 또 하지 않음
+    if (signingOut) throw error
     // 다시 보낸 요청이 또 401이면 반복하지 않음
     config.retried = true
     try {

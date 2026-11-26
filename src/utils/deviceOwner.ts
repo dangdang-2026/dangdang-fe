@@ -11,20 +11,18 @@ import { useMealGuideStore } from '@/stores/useMealGuideStore'
 import { useMealSettingsStore } from '@/stores/useMealSettingsStore'
 import { useNotificationStore } from '@/stores/useNotificationStore'
 import { useProfileStore } from '@/stores/useProfileStore'
-import { useReportStore } from '@/stores/useReportStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import { DEVICE_OWNER_KEY } from '@/utils/auth'
 
 // 서버 번호가 없는 데모 계정의 주인 번호
 export const DEMO_OWNER_ID = -1
 
-// 다른 계정이 들어오면 비우는 저장소(첫 설정 진행은 로그인 흐름이 정함)
+// 다른 계정이 들어오면 비우는 저장소(첫 설정은 로그인 흐름, 리포트는 자체 주인 확인)
 const ACCOUNT_STORES: UseBoundStore<StoreApi<object>>[] = [
   useGlucoseStore,
   useProfileStore,
   useCriteriaStore,
   useVisitStore,
-  useReportStore,
   useHospitalStore,
   useMealGuideStore,
   useInboxStore,
