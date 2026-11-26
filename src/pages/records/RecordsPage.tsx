@@ -133,8 +133,7 @@ function RecordsPage() {
   }
   const closeToast = useCallback(() => setToast(null), [])
 
-  // 지운 기록 되돌리기. 5분이 지났으면 서버가 409(READING_40902 · MEAL_40904)
-  // 혈당이 붙은 식사가 아직 지워져 있으면 READING_40904(식사를 먼저 되돌림)
+  // 지운 기록 되돌리기. 5분 지남(READING_40902 · MEAL_40904) · 붙은 식사가 지워짐(READING_40904)은 안내
   const undo = (restore: () => Promise<void>) =>
     restore()
       .then(() => setToast({ message: '되돌렸어요' }))

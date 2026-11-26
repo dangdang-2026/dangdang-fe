@@ -185,8 +185,7 @@ export type ReadingChanges = {
   mealId?: string
 }
 
-// 서버가 새 값으로 다시 판정한 기록을 돌려줌. 같은 기록을 동시에 고치면 409 READING_40903
-// 식후 혈당이 식사 시작보다 앞이면 400 READING_40005
+// 서버가 다시 판정한 기록을 돌려줌. 동시에 고치면 409 READING_40903, 식사 시작보다 앞이면 400 READING_40005
 export async function updateReading(id: string, changes: ReadingChanges) {
   const { target, mealId, ...rest } = changes
   const { data } = await apiClient.patch<BaseResponse<ReadingResponse>>(`/readings/${id}`, {

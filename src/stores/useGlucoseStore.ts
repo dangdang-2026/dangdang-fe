@@ -179,7 +179,7 @@ async function sendPendingMeal(meal: Meal, offline: boolean) {
     void pushMealItems(saved.id)
     // 못 보낸 사이 건너뛴 끼니면 서버에도 건너뜀으로(놓친 측정 · 알림 정리)
     const current = useGlucoseStore.getState().meals.find((item) => item.id === saved.id)
-    if (current?.skipped) void skipMealMeasure(saved.id).catch(() => {})
+    if (current?.skipped) void sendSkip(saved.id)
     return true
   } catch {
     return false
@@ -285,8 +285,12 @@ async function sendPendingMeals() {
 
 // 못 보낸 음식 · 양을 서버 식사에 다시 붙임
 async function pushUnsentItems() {
-  const unsent = useGlucoseStore.getState().meals.filter((meal) => meal.itemsPending)
-  await Promise.all(unsent.map((meal) => pushMealItems(meal.id)))
+  const { meals } = useGlucoseStore.getState()
+  await Promise.all([
+    ...meals.filter((meal) => meal.itemsPending).map((meal) => pushMealItems(meal.id)),
+    // 못 보낸 건너뛰기도 다시(서버가 식후 알림을 계속 보내지 않게)
+    ...meals.filter((meal) => meal.skipPending && !meal.pending).map((meal) => sendSkip(meal.id)),
+  ])
 }
 
 // 받는 사이 지운 · 고친 인슐린. 늦게 온 응답이 되살리거나 고치기 전 값으로 덮지 않게
@@ -538,10 +542,9 @@ export async function syncServerRange<T extends ServerRangeData>(load: () => Pro
   return data
 }
 
-// 서버에서 고친 뒤 서버가 다시 판정한 값으로 바꿈. 처음 값(original) · 서버에 없는 끼니 연결은 기기 값 유지
-// 다른 기기에서 먼저 고쳤으면(409) 그날 기록을 다시 받고 에러를 그대로 던짐
-// 시점을 바꾸면 끼니 연결도 서버 값 그대로(공복 · 자기 전이면 끊김)
+// 서버가 다시 판정한 값으로 바꿈. 시점을 안 바꾸면 끼니 연결 · 처음 값은 기기 값 유지, 충돌(409)이면 다시 받고 던짐
 export async function editRecord(id: string, changes: ReadingChanges) {
+  const before = useGlucoseStore.getState().records.find((record) => record.id === id)
   try {
     const saved = await updateReading(id, changes)
     useGlucoseStore.getState().updateRecord(id, changes)
@@ -561,8 +564,14 @@ export async function editRecord(id: string, changes: ReadingChanges) {
     }))
   } catch (error) {
     if (getErrorCode(error) === 'READING_40903') {
-      const day = startOfDay(new Date(changes.measuredAt))
-      await syncRange(day, day).catch(() => {})
+      // 옮기려던 날과 원래 날을 둘 다 다시 받음(옛 값이 원래 날에 남지 않게)
+      const days = [changes.measuredAt, before?.measuredAt].flatMap((iso) =>
+        iso ? [startOfDay(new Date(iso))] : [],
+      )
+      const unique = days.filter(
+        (day, index) => days.findIndex((other) => other.getTime() === day.getTime()) === index,
+      )
+      await Promise.all(unique.map((day) => syncRange(day, day).catch(() => {})))
     }
     throw error
   }
@@ -597,12 +606,18 @@ export async function editMealStart(id: string, startedAt: Date) {
 export async function removeMeal(id: string) {
   const meal = useGlucoseStore.getState().meals.find((item) => item.id === id)
   if (meal && !meal.pending) await deleteMeal(id)
-  if (meal) removedMeals.set(id, meal)
+  if (meal) {
+    removedMeals.set(id, meal)
+    // 되돌릴 수 있는 5분이 지나면 잊음
+    window.setTimeout(() => removedMeals.delete(id), UNDO_MS)
+  }
   useGlucoseStore.setState((state) => ({ meals: state.meals.filter((item) => item.id !== id) }))
 }
 
 // 지운 식사. 5분 안 되돌리면 기기에만 있던 음식 · 양 · 건너뜀을 다시 붙임
 const removedMeals = new Map<string, Meal>()
+// 서버가 지운 기록을 되돌려 주는 시간(5분)
+const UNDO_MS = 5 * 60 * 1000
 
 // 지운 식사 되돌리기. 서버가 되살린 식사에 기기 정보를 합쳐 다시 넣음
 export async function restoreMeal(id: string) {
@@ -661,18 +676,31 @@ export async function removeRecordsRange(from: Date, to: Date) {
   return result
 }
 
-// 이번 끼니는 건너뛸게요. 기기에 먼저 남기고 서버에 저장. 이미 식후 혈당을 쟀다고(409) 하면 되돌림
-export async function saveSkipMeal(mealId: string) {
+// 이번 끼니는 건너뛸게요. 기기에 먼저 남기고 서버에 저장(measured: 이미 잼 · later: 다음 동기화 때)
+export async function saveSkipMeal(mealId: string): Promise<'saved' | 'measured' | 'later'> {
   useGlucoseStore.getState().skipMeal(mealId)
   const meal = useGlucoseStore.getState().meals.find((item) => item.id === mealId)
-  if (!meal || meal.pending) return
+  if (!meal || meal.pending) return 'later'
+  return sendSkip(mealId)
+}
+
+// 건너뛰기 보내기. 실패하면 skipPending으로 두고, 이미 쟀다고(409) 하면 건너뜀을 되돌림
+async function sendSkip(mealId: string): Promise<'saved' | 'measured' | 'later'> {
+  const patch = (changes: Partial<Meal>) =>
+    useGlucoseStore.setState((state) => ({
+      meals: state.meals.map((item) => (item.id === mealId ? { ...item, ...changes } : item)),
+    }))
   try {
     await skipMealMeasure(mealId)
+    patch({ skipPending: undefined })
+    return 'saved'
   } catch (error) {
-    if (getErrorCode(error) !== 'MEAL_40905') return
-    useGlucoseStore.setState((state) => ({
-      meals: state.meals.map((item) => (item.id === mealId ? { ...item, skipped: false } : item)),
-    }))
+    if (getErrorCode(error) === 'MEAL_40905') {
+      patch({ skipped: false, skipPending: undefined })
+      return 'measured'
+    }
+    patch({ skipPending: true })
+    return 'later'
   }
 }
 

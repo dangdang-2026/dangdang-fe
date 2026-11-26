@@ -85,11 +85,15 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
   // 식후 혈당은 식사 시작보다 앞일 수 없음(서버도 READING_40005로 막음)
   const beforeMeal = !!meal && nextMeasuredAt < new Date(meal.startedAt)
   const dayChanged = !isSameDay(day, measuredAt)
+  // 식사에 붙은 식후 혈당을 그 끼니 식사가 없는 날 · 끼니로 옮기면 서버가 예전 식사 연결을 그대로 둬서 막음
+  const noMeal =
+    target.slot === 'post-meal' && (slotChanged || dayChanged) && !meal && !!record.mealId
 
   const handleSave = async () => {
-    if (isInvalid || isFuture || beforeMeal || saving) return
+    if (isInvalid || isFuture || beforeMeal || noMeal || saving) return
     // 바뀐 게 없으면 서버가 거절해서 그냥 닫음
-    const sameValue = keepMeterLimit || value === record.value
+    // HI · LO 기록(값 600 · 20)에 숫자를 적었으면 같은 숫자라도 바뀐 것
+    const sameValue = keepMeterLimit || (!record.meterLimit && value === record.value)
     if (sameValue && !slotChanged && nextMeasuredAt.getTime() === measuredAt.getTime()) {
       onClose()
       return
@@ -119,7 +123,9 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
       ? '잰 시각은 지금보다 뒤일 수 없어요'
       : beforeMeal
         ? `식사를 ${formatTime(new Date(meal.startedAt))}에 시작했어요. 그 뒤 시각으로 골라 주세요`
-        : saveError
+        : noMeal
+          ? `그날 ${MEASURE_SLOT_LABEL[slotKey].replace(' 식후', '')} 식사 기록이 없어요. 식사를 먼저 적어 주세요`
+          : saveError
   const row = (label: string, value: string, onClick: () => void) => (
     <button type="button" className="flex h-13 items-center gap-2 px-4 text-left" onClick={onClick}>
       <span className="text-grey-700 flex-1 text-sm leading-normal">{label}</span>

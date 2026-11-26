@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router'
 import { deleteAccount, startKakaoWithdraw, type CommunityPostsOnLeave } from '@/api/auth'
 import { getErrorCode } from '@/api/axios'
 import { getSensitiveConsentAt, withdrawSensitiveConsent } from '@/api/consent'
+import { getRecordCalendar } from '@/api/records'
 import { getMe } from '@/api/me'
 import iconDownload from '@/assets/icons/download.svg'
 import iconFileGrey from '@/assets/icons/file-grey.svg'
@@ -119,6 +120,17 @@ function DataPage() {
 
   // 기간 골라 지우기. 지운 뒤 개수를 알림
   const [deleteRange, setDeleteRange] = useState(false)
+  // 서버가 아는 첫 기록일. 기기엔 최근 31일만 받아 둬서 전체 기간은 이 날부터 지움
+  const [serverFirst, setServerFirst] = useState<Date | null>(null)
+  const openDeleteRange = () => {
+    setDeleteRange(true)
+    getRecordCalendar(startOfDay(now))
+      .then((calendar) => setServerFirst(calendar.firstRecordDate))
+      .catch(() => {})
+  }
+  const deleteStart = startOfDay(
+    new Date(Math.min(firstAt, serverFirst ? serverFirst.getTime() : firstAt)),
+  )
   const [deletingRange, setDeletingRange] = useState(false)
   const confirmDeleteRange = async (range: DateRange) => {
     if (deletingRange) return
@@ -152,7 +164,7 @@ function DataPage() {
       tone: 'yellow',
       title: '기록 지우기',
       description: '기간을 골라 지워요',
-      onClick: () => setDeleteRange(true),
+      onClick: openDeleteRange,
     },
     {
       icon: iconShield,
@@ -274,7 +286,7 @@ function DataPage() {
         {deleteRange && (
           <RecordDeleteRangeSheet
             today={startOfDay(now)}
-            start={startOfDay(new Date(firstAt))}
+            start={deleteStart}
             loading={deletingRange}
             onDelete={(range) => void confirmDeleteRange(range)}
             onClose={() => setDeleteRange(false)}

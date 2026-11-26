@@ -455,7 +455,12 @@ function TodayPage() {
             postMealHours={criteria.postMealHours}
             onStartMeal={() => void handleStartMeal()}
             onInputGlucose={openGlucoseSheet}
-            onSkipMeal={(mealId) => void saveSkipMeal(mealId)}
+            onSkipMeal={(mealId) => {
+              // 다른 기기에서 이미 식후 혈당을 적었으면 건너뛰지 않고 알림
+              void saveSkipMeal(mealId).then((result) => {
+                if (result === 'measured') setToast('이 끼니 식후 혈당은 이미 적었어요')
+              })
+            }}
             onWriteMeal={setWritingMeal}
             onEditMealStart={setEditingStart}
             onFillMissed={fillMissed}

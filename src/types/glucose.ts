@@ -25,6 +25,8 @@ export type Meal = {
   portions?: Record<string, Portion>
   // 고친 음식을 서버 항목에 아직 못 맞춤. 동기화 때 다시 보냄
   itemsPending?: boolean
+  // 건너뛰기를 서버에 아직 못 보냄. 동기화 때 다시 보냄
+  skipPending?: boolean
 }
 
 // 양: 반 · 1 · 1.5
