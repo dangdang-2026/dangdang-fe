@@ -66,7 +66,7 @@ function BoardPage() {
   ]
 
   return (
-    <main className="pt-12.5">
+    <main className="pt-1.5">
       <header className="flex h-14 items-center justify-between px-4">
         <button type="button" aria-label="뒤로" onClick={goBack}>
           <img src={iconBack} alt="" width={24} height={24} />

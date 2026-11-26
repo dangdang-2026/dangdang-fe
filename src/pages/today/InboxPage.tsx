@@ -97,7 +97,7 @@ function InboxPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 px-5 pt-13 pb-10">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 px-5 pt-2 pb-10">
       <WarmBackground />
       <SubPageHeader title="알림" onBack={goBack} />
 

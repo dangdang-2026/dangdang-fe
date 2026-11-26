@@ -84,7 +84,7 @@ function RecordCalendarPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 px-5 pt-13 pb-10">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 px-5 pt-2 pb-10">
       <WarmBackground />
       <div className="relative">
         <SubPageHeader title="기록 달력" onBack={goBack} />

@@ -26,7 +26,7 @@ function GraduationPage() {
   ]
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col items-center bg-white px-5 pt-45 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col items-center bg-white px-5 pt-34 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
       <div className="animate-pop-in motion-reduce:animate-none">
         <DangdangAvatar variant="done" />
       </div>

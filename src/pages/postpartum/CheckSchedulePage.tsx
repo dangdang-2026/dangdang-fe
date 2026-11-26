@@ -132,7 +132,7 @@ function CheckSchedulePage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-13 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-2 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
       <SubPageHeader title="산후 검사 일정" onBack={goBack} />
 
       <div className="mt-3 flex flex-col gap-1.5">

@@ -440,7 +440,7 @@ function TodayPage() {
   // 출산일을 적었으면 산후 홈
   if (deliveryDate) {
     return (
-      <main className="px-5 pt-15.5">
+      <main className="px-5 pt-4.5">
         <PostpartumToday name={name} deliveryDate={deliveryDate} now={now} />
         {undoOffer ? (
           <Toast message="산후 관리로 바꿨어요" action={undoAction} onClose={closeUndoOffer} />
@@ -452,7 +452,7 @@ function TodayPage() {
   }
 
   return (
-    <main className="px-5 pt-15.5">
+    <main className="px-5 pt-4.5">
       <WarmBackground />
       <TodayHeader
         name={name}

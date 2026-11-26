@@ -69,7 +69,7 @@ function MealGuidePage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-13 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-2 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
       <SubPageHeader title="내 식사 안내" onBack={goBack} />
 
       <div className="mt-3.5 flex flex-col gap-5.5">

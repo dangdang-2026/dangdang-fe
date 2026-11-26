@@ -193,7 +193,7 @@ function StatsPage() {
   const criteriaChanged = countCriteriaChanges(versions, previousRange.from, range.to) > 0
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-6 break-keep">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-2 pb-6 break-keep">
       <SubPageHeader title="혈당 통계" onBack={goBack} />
 
       <div role="tablist" className="bg-grey-100 mt-2 flex rounded-xl p-1">

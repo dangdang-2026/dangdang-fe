@@ -162,7 +162,7 @@ function PasswordFindPage() {
         : null
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-14.5 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-3.5 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
       <AuthHeader onBack={goBack}>
         <p className="text-subtitle-1 text-grey-900">비밀번호 찾기</p>
       </AuthHeader>

@@ -137,7 +137,7 @@ function VisitPage() {
   const visitLabel = status.kind === 'unknown' ? undefined : `${formatMonthDay(status.at)} 진료`
 
   return (
-    <main className="px-5 pt-15.5">
+    <main className="px-5 pt-4.5">
       <WarmBackground />
       <header className="flex items-center justify-between">
         <h1 className="text-title-2 text-grey-900">진료</h1>

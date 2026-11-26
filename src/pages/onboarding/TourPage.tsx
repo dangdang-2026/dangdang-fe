@@ -23,7 +23,7 @@ function TourPage() {
 
   if (phase === 'welcome') {
     return (
-      <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-16 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
+      <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-5 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
         <button
           type="button"
           className="text-grey-700 self-end text-sm leading-snug font-medium"

@@ -219,7 +219,7 @@ function SignupPage() {
   const emailInvalid = ['empty', 'format', 'taken', 'kakao'].includes(emailStatus?.kind ?? '')
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-14.5 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-3.5 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
       <AuthHeader onBack={goBack}>
         <p aria-label={`${STEP_COUNT}단계 중 1단계`} className="flex gap-1.5">
           {Array.from({ length: STEP_COUNT }, (_, index) => (

@@ -70,7 +70,7 @@ function DeliveryPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-13 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-2 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
       <SubPageHeader title="출산일 입력" onBack={goBack} />
 
       <div className="mt-2.5 flex items-center justify-between">

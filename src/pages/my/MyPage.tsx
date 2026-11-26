@@ -89,7 +89,7 @@ function MyPage() {
       {/* 위쪽 노란 판 */}
       <div aria-hidden className="rounded-br-profile absolute inset-x-0 top-0 h-79 bg-yellow-300" />
 
-      <header className="relative flex items-center justify-between px-5 pt-16.5">
+      <header className="relative flex items-center justify-between px-5 pt-5.5">
         <h1 className="text-title-2 text-grey-900">마이</h1>
         <button
           type="button"

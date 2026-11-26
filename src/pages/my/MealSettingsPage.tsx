@@ -30,7 +30,7 @@ function MealSettingsPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-13 pb-[max(--spacing(12.5),env(safe-area-inset-bottom))] break-keep">
+    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-2 pb-[max(--spacing(12.5),env(safe-area-inset-bottom))] break-keep">
       <SubPageHeader title="식사 기록 설정" onBack={goBack} />
 
       <div className="mt-3 flex flex-col gap-4">

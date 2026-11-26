@@ -55,7 +55,7 @@ function BlockedPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-30">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-2 pb-30">
       <SubPageHeader title="안 보는 사람" onBack={goBack} />
 
       {blockedAuthors.length === 0 ? (

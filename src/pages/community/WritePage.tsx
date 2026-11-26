@@ -205,7 +205,7 @@ function WritePage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white pt-12.5 pb-18">
+    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white pt-1.5 pb-18">
       <header className="border-grey-100 flex h-14 items-center justify-between border-b pr-4 pl-5">
         <button type="button" className="text-body-2 text-grey-600" onClick={cancel}>
           취소

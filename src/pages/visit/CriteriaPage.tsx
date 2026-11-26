@@ -107,7 +107,7 @@ function CriteriaPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-30">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-2 pb-30">
       <SubPageHeader title="기준 바꾸기" onBack={goBack} />
 
       <div className="mt-3 flex flex-col gap-1.5">

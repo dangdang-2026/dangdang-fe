@@ -14,7 +14,7 @@ const noop = () => {}
 // A-05g 투어 뒤에 깔리는 진료 탭. 실제 카드에 예시 진료일·질문만 넣음
 function TourVisitStage() {
   return (
-    <main className="px-5 pt-15.5">
+    <main className="px-5 pt-4.5">
       <WarmBackground />
       <header className="flex items-center justify-between">
         <h1 className="text-title-2 text-grey-900">진료</h1>

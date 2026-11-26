@@ -43,7 +43,7 @@ function PolicyPage() {
   const goBack = useGoBack(ROUTES.COMMUNITY)
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-13 pb-10">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white px-5 pt-2 pb-10">
       <SubPageHeader title="커뮤니티 운영정책" onBack={goBack} />
 
       <div className="mt-5 flex flex-col gap-4.5">

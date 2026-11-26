@@ -60,7 +60,7 @@ function HomeScreenPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-13 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
+    <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white px-5 pt-2 pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
       {/* 진행 점은 3칸이라 마지막 칸으로 */}
       <OnboardingHeader step={2} onBack={goBack} />
 

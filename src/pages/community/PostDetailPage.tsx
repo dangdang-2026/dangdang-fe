@@ -145,7 +145,7 @@ function PostDetailPage() {
           ? '글을 불러오지 못했어요. 잠시 후 다시 시도해 주세요'
           : '글을 불러오는 중이에요'
     return (
-      <main className="pt-12.5">
+      <main className="pt-1.5">
         <header className="flex h-14 items-center px-4">
           <button type="button" aria-label="뒤로" onClick={goBack}>
             <img src={iconBack} alt="" width={24} height={24} />
@@ -222,7 +222,7 @@ function PostDetailPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white pt-12.5 pb-24">
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 bg-white pt-1.5 pb-24">
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between bg-white px-4">
         <button type="button" aria-label="뒤로" onClick={goBack}>
           <img src={iconBack} alt="" width={24} height={24} />
