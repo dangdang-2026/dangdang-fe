@@ -90,6 +90,13 @@ export function restartAfterSensitiveWithdraw() {
   window.location.replace(ROUTES.ONBOARDING_TERMS)
 }
 
+// 건강정보 동의가 없으면(철회 · 문서 버전 바뀜) 설정 진행을 비우고 가입 동의(A-01)부터. 이미 첫 진입 설정 중이면 그대로
+export function restartForConsent() {
+  if (window.location.pathname.startsWith(ROUTES.ONBOARDING)) return
+  localStorage.removeItem('dangdang-onboarding')
+  window.location.replace(ROUTES.ONBOARDING_TERMS)
+}
+
 // 카카오로 본인 확인한 탈퇴가 막혔을 때 데이터 화면 토스트. 서버 문구와 같게
 export const KAKAO_WITHDRAW_TOAST: Record<string, string> = {
   USER_40301: '지금 로그인한 카카오 계정과 달라요. 이 계정의 카카오로 확인해 주세요',

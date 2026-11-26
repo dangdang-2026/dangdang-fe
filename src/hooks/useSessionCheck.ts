@@ -16,6 +16,7 @@ import { syncInbox } from '@/stores/useInboxStore'
 import { syncNotificationSettings } from '@/stores/useNotificationStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
 import { syncPostpartum, useProfileStore } from '@/stores/useProfileStore'
+import { restartForConsent } from '@/utils/auth'
 
 // 앱을 열 때 한 번 서버 로그인 확인. 스플래시 동안 뒤에서 돌아 기다리지 않음
 export function useSessionCheck() {
@@ -27,6 +28,11 @@ export function useSessionCheck() {
     if (!method) return
     getMe()
       .then((me) => {
+        // 다른 기기에서 건강정보 동의를 철회했거나 문서가 바뀌었으면 가입 동의부터. 기록은 받지 않음
+        if (!me.consentCompleted) {
+          restartForConsent()
+          return
+        }
         // 다른 기기에서 바꾼 입원 상태도 서버 값으로
         updateProfile({ name: me.displayName, hospitalized: me.pregnancyState === 'HOSPITALIZED' })
         // 이메일 채우기 전에 로그인한 카카오 계정도 열 때 채움
