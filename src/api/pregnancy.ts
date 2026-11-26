@@ -40,6 +40,13 @@ export async function updateDeliveryDate(deliveryDate: string) {
   return data.data
 }
 
+// 출산 되돌리기 → 임신 중. 출산일 · 다시 물어볼 날을 비움. 산후가 아니면 409 PREGNANCY_40901
+export async function undoDeliveryDate() {
+  const { data } = await apiClient.delete<BaseResponse<PregnancyStateResponse>>('/me/delivery-date')
+  if (!data.data) throw new Error('출산 되돌리기 응답이 비어 있음')
+  return data.data
+}
+
 // 백엔드 GraduationResponse. 저장한 혈당 수 · 가입한 날부터 함께한 주
 export type GraduationStats = { keptMeasurements: number; weeksTogether: number }
 

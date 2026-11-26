@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { getErrorCode } from '@/api/axios'
 import { canServerPush, subscribePush } from '@/api/push'
@@ -39,7 +39,12 @@ import { useOnline } from '@/hooks/useOnline'
 import { useCriteria } from '@/hooks/useCriteria'
 import { snoozeOnDevice } from '@/hooks/useMeasureReminder'
 import { useTodaySync } from '@/hooks/useTodaySync'
-import { saveHospitalized, savePaused, useProfileStore } from '@/stores/useProfileStore'
+import {
+  saveHospitalized,
+  savePaused,
+  undoDelivery,
+  useProfileStore,
+} from '@/stores/useProfileStore'
 import {
   editMealStart,
   saveMealContent,
@@ -133,10 +138,29 @@ function TodayPage() {
   const [toast, setToast] = useState<string | null>(() =>
     kakaoLinkOutcome ? KAKAO_LINK_TOAST[kakaoLinkOutcome] : null,
   )
+  // 출산일을 적고 처음 온 홈이면 되돌리기 토스트
+  const deliveryChanged = !!(location.state as { deliveryChanged?: boolean } | null)
+    ?.deliveryChanged
+  const [undoOffer, setUndoOffer] = useState(deliveryChanged)
+  const closeUndoOffer = useCallback(() => setUndoOffer(false), [])
+  const undoAction = useMemo(
+    () => ({
+      label: '되돌리기',
+      onClick: () => {
+        setUndoOffer(false)
+        undoDelivery()
+          .then(() => setToast('출산 전으로 되돌렸어요'))
+          .catch(() => setToast('되돌리지 못했어요. 마이 › 내 정보에서 다시 해 주세요'))
+      },
+    }),
+    [],
+  )
   // 새로 고침 · 뒤로 가기로 토스트가 다시 뜨지 않게 주소의 state를 지움
   useEffect(() => {
-    if (kakaoLinkOutcome) navigate(location.pathname, { replace: true, state: null })
-  }, [kakaoLinkOutcome, navigate, location.pathname])
+    if (kakaoLinkOutcome || deliveryChanged) {
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [kakaoLinkOutcome, deliveryChanged, navigate, location.pathname])
   const kakaoLinkOffer = useAuthStore((state) => state.kakaoLinkOffer)
   const setKakaoLinkOffer = useAuthStore((state) => state.setKakaoLinkOffer)
   const [linking, setLinking] = useState(false)
@@ -416,6 +440,11 @@ function TodayPage() {
     return (
       <main className="px-5 pt-15.5">
         <PostpartumToday name={name} deliveryDate={deliveryDate} now={now} />
+        {undoOffer ? (
+          <Toast message="산후 관리로 바꿨어요" action={undoAction} onClose={closeUndoOffer} />
+        ) : (
+          toast && <Toast message={toast} onClose={closeToast} />
+        )}
       </main>
     )
   }

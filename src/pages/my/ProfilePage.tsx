@@ -4,6 +4,7 @@ import { startKakaoLogin } from '@/api/auth'
 import { getMe, saveDueDate, updateName, type Me } from '@/api/me'
 import iconConnected from '@/assets/icons/my/check-connected.svg'
 import iconInfoSm from '@/assets/icons/info-sm.svg'
+import ConfirmSheet from '@/components/common/ConfirmSheet'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import Toast from '@/components/common/Toast'
 import ProfileDateSheet from '@/components/my/ProfileDateSheet'
@@ -11,7 +12,12 @@ import BirthOrHospitalSheet from '@/components/postpartum/BirthOrHospitalSheet'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useAuthStore } from '@/stores/useAuthStore'
-import { saveHospitalized, savePaused, useProfileStore } from '@/stores/useProfileStore'
+import {
+  saveHospitalized,
+  savePaused,
+  undoDelivery,
+  useProfileStore,
+} from '@/stores/useProfileStore'
 import { parseDateKey, startOfDay, toDateKey } from '@/utils/date'
 
 type DateField = 'dueDate' | 'diagnosisDate'
@@ -71,6 +77,8 @@ function ProfilePage() {
   const [nameDraft, setNameDraft] = useState(name)
   const [editing, setEditing] = useState<DateField | null>(null)
   const [birthSheet, setBirthSheet] = useState(false)
+  const [undoSheet, setUndoSheet] = useState(false)
+  const [undoing, setUndoing] = useState(false)
   // 비밀번호를 바꾸고 돌아오면 알림
   const [toast, setToast] = useState<string | null>(
     () => (location.state as { toast?: string } | null)?.toast ?? null,
@@ -123,6 +131,19 @@ function ProfilePage() {
     setToast(`${DATE_SHEET[field].title}을 저장했어요`)
   }
 
+  // 잘못 눌러 산후 모드가 됐으면 임신 중으로 되돌림
+  const confirmUndo = () => {
+    if (undoing) return
+    setUndoing(true)
+    undoDelivery()
+      .then(() => setToast('출산 전으로 되돌렸어요'))
+      .catch(() => setToast('되돌리지 못했어요. 잠시 후 다시 시도해 주세요'))
+      .finally(() => {
+        setUndoing(false)
+        setUndoSheet(false)
+      })
+  }
+
   const dates: Record<DateField, Date | null> = {
     dueDate: parseDateKey(dueDate),
     diagnosisDate: parseDateKey(diagnosisDate),
@@ -170,8 +191,22 @@ function ProfilePage() {
         </p>
       </div>
 
-      {/* 산후 모드로 바뀐 뒤엔 숨김 */}
-      {!deliveryDate && (
+      {/* 산후 모드로 바뀐 뒤엔 되돌리기만 */}
+      {deliveryDate ? (
+        <section className="bg-grey-50 mt-6 flex flex-col gap-2.5 rounded-3xl p-4.5">
+          <h2 className="text-subtitle-1 text-grey-900">출산일을 잘못 적으셨나요?</h2>
+          <p className="text-grey-700 text-sm leading-normal">
+            출산 전으로 되돌리면 임신 중 홈과 측정 알림으로 돌아가요.
+          </p>
+          <button
+            type="button"
+            className="border-grey-200 text-grey-900 h-12 rounded-xl border bg-white text-base leading-none font-bold"
+            onClick={() => setUndoSheet(true)}
+          >
+            출산 전으로 되돌리기
+          </button>
+        </section>
+      ) : (
         <section className="mt-6 flex flex-col gap-2.5 rounded-3xl bg-yellow-50 p-4.5">
           <h2 className="text-subtitle-1 text-grey-900">출산·입원하셨나요?</h2>
           <p className="text-grey-700 text-sm leading-normal">
@@ -264,6 +299,16 @@ function ProfilePage() {
               })
           }}
           onClose={() => setBirthSheet(false)}
+        />
+      )}
+      {undoSheet && (
+        <ConfirmSheet
+          title="출산 전으로 되돌릴까요?"
+          description="산후 홈 대신 임신 중 홈이 보여요. 적어 둔 산후 검사 일정은 다시 출산일을 적으면 돌아와요."
+          confirmLabel="되돌리기"
+          loading={undoing}
+          onConfirm={confirmUndo}
+          onClose={() => setUndoSheet(false)}
         />
       )}
       {toast && <Toast message={toast} onClose={closeToast} />}

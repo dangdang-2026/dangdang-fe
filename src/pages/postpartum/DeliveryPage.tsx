@@ -62,7 +62,7 @@ function DeliveryPage() {
     setSaving(true)
     saveDeliveryDate(toDateKey(date))
       // 졸업은 산후를 마칠 때라 바로 산후 홈으로
-      .then(() => navigate(ROUTES.TODAY, { replace: true }))
+      .then(() => navigate(ROUTES.TODAY, { replace: true, state: { deliveryChanged: true } }))
       .catch((error: unknown) => {
         setToast(getDeliveryError(error))
         setSaving(false)

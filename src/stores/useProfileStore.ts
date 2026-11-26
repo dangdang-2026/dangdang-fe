@@ -15,6 +15,7 @@ import {
   updateDeliveryDate,
   updateHospitalization,
   updateMeasurementPause,
+  undoDeliveryDate,
   type PregnancyState,
 } from '@/api/pregnancy'
 import { MOCK_USER } from '@/mocks/user'
@@ -157,6 +158,18 @@ export async function saveDeliveryDate(deliveryDate: string) {
     paused: false,
     checkRemindAt: null,
   })
+}
+
+// 서버에서 출산을 되돌린 뒤 임신 중 홈으로. 이미 산후가 아니면(409) 그대로 비움
+export async function undoDelivery() {
+  try {
+    await undoDeliveryDate()
+  } catch (error) {
+    if (getErrorCode(error) !== 'PREGNANCY_40901') throw error
+  }
+  useProfileStore
+    .getState()
+    .updateProfile({ deliveryDate: null, checkRemindAt: null, postpartumChecks: [] })
 }
 
 // 서버에서 졸업한 뒤 기기의 산후 모드를 비움. 졸업 화면 숫자를 돌려줌
