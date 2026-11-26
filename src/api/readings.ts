@@ -211,6 +211,11 @@ type StatsSummary = {
   count: number
   missed: number
   overDays: number
+  judged: number
+  inTarget: number
+  judgedDays: number
+  inTargetDays: number
+  belowLow: number
 }
 
 type StatsPoint = { date: string; average: number | null; count: number }
@@ -231,6 +236,8 @@ type ReadingStatsResponse = {
     average: number | null
     previousAverage: number | null
   }[]
+  // 처음 잰 날(공복 · 식후 · 기타 전부). 기록이 없으면 null
+  firstRecordDate: string | null
 }
 
 const STATS_MEAL: Record<string, MealType | undefined> = {
@@ -249,17 +256,19 @@ function toPeriodStats(
     value: point.average,
     count: point.count,
   }))
-  const measuredDays = days.filter((day) => day.count > 0).length
   return {
     days,
     average: summary.average,
     count: summary.count,
     inRangeRate: summary.inTargetRate === null ? null : Math.round(summary.inTargetRate * 100),
-    // 서버는 넘은 날만 줘서 잰 날에서 뺌
-    inRangeDays: measuredDays - summary.overDays,
-    measuredDays,
+    // 서버가 목표와 비교한 날만 셈(목표가 없던 날은 빼고)
+    inRangeDays: summary.inTargetDays,
+    measuredDays: summary.judgedDays,
     missed: summary.missed,
     overDays: summary.overDays,
+    judged: summary.judged,
+    inTarget: summary.inTarget,
+    belowLow: summary.belowLow,
     byMeal: { breakfast: null, lunch: null, dinner: null, ...byMeal },
   }
 }
@@ -293,5 +302,6 @@ export async function getReadingStats(slot: StatsSlot, range: DateRange) {
           Object.fromEntries(meals.map((item) => [item.type, item.previousAverage])),
         )
       : null,
+    firstRecordDate: parseDateKey(stats.firstRecordDate),
   }
 }

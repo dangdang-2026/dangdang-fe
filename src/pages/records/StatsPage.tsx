@@ -39,6 +39,9 @@ const EMPTY_STATS: PeriodStats = {
   measuredDays: 0,
   missed: 0,
   overDays: 0,
+  judged: 0,
+  inTarget: 0,
+  belowLow: 0,
   byMeal: { breakfast: null, lunch: null, dinner: null },
 }
 
@@ -129,6 +132,9 @@ function StatsPage() {
   const stats = data?.current ?? EMPTY_STATS
   const previous = data?.previous ?? EMPTY_STATS
   const hasPrevious = !clipped && !!data?.previous
+  // 「…부터 쌓인 기록」은 서버 첫 기록일(다른 기기 기록 포함)이 보는 기간 안이면 그날부터
+  const firstDay =
+    data?.firstRecordDate && data.firstRecordDate > range.from ? data.firstRecordDate : range.from
   const loadMessage =
     status === 'loading'
       ? '통계를 불러오고 있어요'
@@ -296,21 +302,25 @@ function StatsPage() {
             description={
               hasPrevious
                 ? `${withAnd(formatShortRange(previousRange))} ${period === '1w' ? '' : '같은 길이로 '}비교했어요`
-                : `${monthDay(range.from)}부터 쌓인 기록이에요`
+                : `${monthDay(firstDay)}부터 쌓인 기록이에요`
             }
           >
             {target !== null &&
               (slot === 'post-meal' ? (
                 <StatRow
-                  title="내 기준 안"
+                  title="병원 기준 안"
                   description={`${target} 미만으로 잰 비율`}
-                  value={stats.inRangeRate === null ? '—' : `${stats.inRangeRate}%`}
+                  value={
+                    stats.inRangeRate === null
+                      ? '—'
+                      : `${stats.inRangeRate}% (${stats.judged}번 중 ${stats.inTarget}번)`
+                  }
                   note={compareNote(stats.inRangeRate, previous.inRangeRate, '%p', '%')}
                   highlight
                 />
               ) : (
                 <StatRow
-                  title="내 기준 안"
+                  title="병원 기준 안"
                   description={`${target} 미만으로 잰 날`}
                   value={`${stats.inRangeDays}일 / ${stats.measuredDays}일`}
                   note={compareNote(stats.inRangeDays, previous.inRangeDays, '일')}
@@ -323,8 +333,8 @@ function StatsPage() {
               note={compareNote(stats.count, previous.count, '번')}
             />
             <StatRow
-              title="놓친 측정"
-              description="알림 뒤 기록 없음"
+              title="알림 뒤 기록 안 됨"
+              description="알림을 받고 기록하지 않은 때"
               value={`${stats.missed}번`}
               note={compareNote(stats.missed, previous.missed, '번')}
             />
@@ -336,6 +346,12 @@ function StatsPage() {
                 note={compareNote(stats.overDays, previous.overDays, '일')}
               />
             )}
+            <StatRow
+              title="70 미만"
+              description="낮게 잰 횟수"
+              value={stats.belowLow === 0 ? '없어요' : `${stats.belowLow}번`}
+              note={compareNote(stats.belowLow, previous.belowLow, '번')}
+            />
           </Section>
 
           {slot === 'post-meal' && highestMeal && (
