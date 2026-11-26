@@ -4,6 +4,7 @@ import iconCheck from '@/assets/icons/insulin/check.svg'
 import iconClock from '@/assets/icons/insulin/clock.svg'
 import iconMinus from '@/assets/icons/insulin/minus.svg'
 import iconPlus from '@/assets/icons/insulin/plus.svg'
+import iconTrash from '@/assets/icons/trash.svg'
 import BottomSheet from '@/components/common/BottomSheet'
 import TimeWheelSheet from '@/components/common/TimeWheelSheet'
 import type { InsulinRecord, MealType } from '@/types/glucose'
@@ -24,6 +25,8 @@ type InsulinSheetProps = {
   record?: InsulinRecord
   // 저장이 끝날 때까지 기다림. 실패하면 시트가 그대로 남음
   onSave: (input: InsulinInput) => Promise<void> | void
+  // 고치기에서 지우기 확인으로 넘김
+  onDelete?: () => void
   onClose: () => void
 }
 
@@ -46,7 +49,7 @@ function toUnitsText(value: string) {
 }
 
 // Figma E-02 인슐린 기록. 단위는 빈칸에서 시작해 처방받은 대로 직접 적음, 권하지 않음
-function InsulinSheet({ record, onSave, onClose }: InsulinSheetProps) {
+function InsulinSheet({ record, onSave, onDelete, onClose }: InsulinSheetProps) {
   const [timeSheet, setTimeSheet] = useState(false)
   const [saving, setSaving] = useState(false)
   const [takenAt, setTakenAt] = useState(record ? new Date(record.takenAt) : new Date())
@@ -212,6 +215,16 @@ function InsulinSheet({ record, onSave, onClose }: InsulinSheetProps) {
         >
           {record ? '수정 저장' : '저장'}
         </button>
+        {record && onDelete && (
+          <button
+            type="button"
+            disabled={saving}
+            className="text-t6 flex items-center justify-center gap-1.5 font-bold text-red-500"
+            onClick={onDelete}
+          >
+            <img src={iconTrash} alt="" width={16} height={16} />이 기록 삭제
+          </button>
+        )}
       </div>
     </BottomSheet>
   )

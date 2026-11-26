@@ -1,7 +1,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getErrorCode } from '@/api/axios'
-import { createInsulinLog, type InsulinInput } from '@/api/insulin'
+import {
+  createInsulinLog,
+  deleteInsulinLog,
+  updateInsulinLog,
+  type InsulinInput,
+} from '@/api/insulin'
 import { applyMealItems, toMealContent } from '@/api/mealItems'
 import { createMeal, deleteMeal, getAllMeals, updateMealStart, type ServerMeal } from '@/api/meals'
 import { createReading, deleteReading, getAllReadings, updateReading } from '@/api/readings'
@@ -39,7 +44,6 @@ type GlucoseState = {
   // 지운 기록. 화면·리포트에선 빼고 기록용으로만 보관
   deletedRecords: (GlucoseRecord & { deletedAt: string })[]
   insulins: InsulinRecord[]
-  updateInsulin: (id: string, input: InsulinInput, now?: Date) => void
 }
 
 // 뺀 음식의 고친 값은 버림. 남는 게 없으면 없음
@@ -123,12 +127,6 @@ export const useGlucoseStore = create<GlucoseState>()(
           }
         }),
       insulins: [],
-      updateInsulin: (id, input, now = new Date()) =>
-        set((state) => ({
-          insulins: state.insulins.map((item) =>
-            item.id === id ? { ...item, ...input, editedAt: now.toISOString() } : item,
-          ),
-        })),
     }),
     { name: 'dangdang-glucose' },
   ),
@@ -292,6 +290,40 @@ export async function saveInsulin(input: InsulinInput) {
     insulins: [...state.insulins, saved].sort((a, b) => toTime(a.takenAt) - toTime(b.takenAt)),
   }))
   return saved
+}
+
+// 서버에서 이미 지운 인슐린(다른 기기 등). 기기에서도 뺌
+const isInsulinGone = (error: unknown) => getErrorCode(error) === 'INSULIN_40401'
+
+const dropInsulin = (id: string) =>
+  useGlucoseStore.setState((state) => ({
+    insulins: state.insulins.filter((insulin) => insulin.id !== id),
+  }))
+
+// 서버 인슐린을 고친 뒤 기기에도 반영. 서버에 없으면 기기에서 빼고 에러를 그대로 던짐
+export async function editInsulin(id: string, input: InsulinInput) {
+  try {
+    const saved = await updateInsulinLog(id, input)
+    useGlucoseStore.setState((state) => ({
+      insulins: state.insulins
+        .map((insulin) => (insulin.id === id ? saved : insulin))
+        .sort((a, b) => toTime(a.takenAt) - toTime(b.takenAt)),
+    }))
+    return saved
+  } catch (error) {
+    if (isInsulinGone(error)) dropInsulin(id)
+    throw error
+  }
+}
+
+// 서버 인슐린을 지운 뒤 기기에서도 뺌. 이미 지운 기록이면 지운 것으로 봄
+export async function removeInsulin(id: string) {
+  try {
+    await deleteInsulinLog(id)
+  } catch (error) {
+    if (!isInsulinGone(error)) throw error
+  }
+  dropInsulin(id)
 }
 
 // 기간 하나의 서버 기록. to는 포함 안 함. 인슐린은 받아 온 화면만

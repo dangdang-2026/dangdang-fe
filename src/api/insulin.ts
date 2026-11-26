@@ -80,3 +80,20 @@ export async function getInsulinLogs(from: Date, to: Date) {
     if (!data.data.hasNext) return logs
   }
 }
+
+// 인슐린 고치기. 칸을 다 보내고 바뀐 칸만 서버가 editedAt을 찍음. 자기 전으로 바꾸면 끼니는 서버가 지움
+export async function updateInsulinLog(id: string, input: InsulinInput) {
+  const { data } = await apiClient.patch<BaseResponse<InsulinLogResponse>>(`/insulin-logs/${id}`, {
+    insulinType: input.kind === 'meal' ? 'MEAL' : 'BEDTIME',
+    mealSlot: input.kind === 'meal' && input.mealType ? MEAL_SLOT[input.mealType] : undefined,
+    units: input.units,
+    takenAt: input.takenAt,
+  })
+  if (!data.data) throw new Error('인슐린 수정 응답이 비어 있음')
+  return fromServerInsulin(data.data)
+}
+
+// 인슐린 지우기. 서버는 지운 시각만 남기고 목록 · 오늘 화면에서 뺌
+export async function deleteInsulinLog(id: string) {
+  await apiClient.delete(`/insulin-logs/${id}`)
+}
