@@ -53,17 +53,20 @@ let refreshing: Promise<void> | null = null
 
 const REFRESH_URL = '/auth/refresh'
 
-// 다른 탭과도 차례로 재발급. 같은 refresh 쿠키로 동시에 보내 한쪽이 401을 받지 않게
+// 다른 탭과 차례로 재발급(같은 쿠키로 동시에 보내면 한쪽이 401)
 const postRefresh = () =>
   navigator.locks
     ? navigator.locks.request('dangdang-refresh', () => apiClient.post(REFRESH_URL))
     : apiClient.post(REFRESH_URL)
 
-// 재발급 서버 오류(5xx)가 이만큼 · 이 시간 넘게 이어지면 복구할 길이 없어 로그인을 풂. 배포처럼 잠깐 멈춘 건 넘김
+// 재발급 서버 오류(5xx)가 3번 · 3분 넘게 끊김 없이 이어지면 로그인을 풂
 const MAX_REFRESH_SERVER_FAILURES = 3
 const REFRESH_OUTAGE_MS = 3 * 60 * 1000
+// 실패 사이가 이만큼 벌어지면 새로 셈(이어진 장애로 안 봄)
+const OUTAGE_GAP_MS = 60 * 1000
 let refreshServerFailures = 0
 let firstServerFailureAt = 0
+let lastServerFailureAt = 0
 
 const refreshOutageTooLong = () =>
   refreshServerFailures >= MAX_REFRESH_SERVER_FAILURES &&
@@ -77,9 +80,17 @@ function refreshToken() {
     })
     .catch((error: unknown) => {
       const status = axios.isAxiosError(error) ? error.response?.status : undefined
-      if (status !== undefined && status >= 500) {
-        if (refreshServerFailures === 0) firstServerFailureAt = Date.now()
+      const now = Date.now()
+      if (status === undefined || status < 500) {
+        // 서버 오류가 아니면 이어진 장애가 아님
+        refreshServerFailures = 0
+      } else {
+        if (refreshServerFailures === 0 || now - lastServerFailureAt > OUTAGE_GAP_MS) {
+          refreshServerFailures = 0
+          firstServerFailureAt = now
+        }
         refreshServerFailures += 1
+        lastServerFailureAt = now
       }
       throw error
     })
@@ -89,17 +100,29 @@ function refreshToken() {
   return refreshing
 }
 
-// 세션이 끝났는지 한 번 더 확인. 다른 탭이 먼저 재발급했으면 통과. 401일 때만 끝난 걸로 봄(끊김 · 서버 오류는 모름)
-let checkingSession: Promise<'alive' | 'ended' | 'unknown'> | null = null
-function checkSession() {
-  checkingSession ??= apiClient
+type SessionState = 'alive' | 'ended' | 'unknown'
+
+// 다른 탭 재발급 쿠키가 들어올 틈. 이만큼 기다렸다 한 번 더 봄
+const SESSION_RECHECK_MS = 1000
+
+// 내 정보로 세션 확인. 401만 끝남, 끊김 · 서버 오류는 모름
+const probeSession = (): Promise<SessionState> =>
+  apiClient
     .get('/me', { retried: true } as AxiosRequestConfig)
     .then(() => 'alive' as const)
     .catch((error: unknown) =>
-      axios.isAxiosError(error) && error.response?.status === 401
-        ? ('ended' as const)
-        : ('unknown' as const),
+      axios.isAxiosError(error) && error.response?.status === 401 ? 'ended' : 'unknown',
     )
+
+// 세션이 정말 끝났는지 두 번 확인. 기다리는 요청이 여럿이어도 한 번만
+let checkingSession: Promise<SessionState> | null = null
+function checkSession() {
+  checkingSession ??= probeSession()
+    .then(async (first) => {
+      if (first !== 'ended') return first
+      await new Promise((resolve) => window.setTimeout(resolve, SESSION_RECHECK_MS))
+      return probeSession()
+    })
     .finally(() => {
       checkingSession = null
     })
@@ -108,14 +131,14 @@ function checkSession() {
 
 let signingOut = false
 
-// 세션이 끝나면 마이 로그아웃처럼 정리하고 시작 화면으로. 탈퇴 정리 중이면 그쪽에 맡김
+// 세션이 끝나면 로그인 풀고 시작 화면으로(탈퇴 중엔 그쪽에 맡김)
 async function signOutOnDevice() {
   if (signingOut || isWithdrawing() || !useAuthStore.getState().account) return
   signingOut = true
   clearPendingKakao()
-  // 서버 구독 삭제는 쿠키가 끝나 못 함. 기기 구독만 끊으면 서버가 보낼 때 정리됨
+  // 쿠키가 끝나 기기 구독만 끊음
   await unsubscribeDeviceOnly()
-  // 새로 열기 직전에 로그인을 풂(시작 화면에서 로그인을 누르다 끊기지 않게)
+  // 새로 열기 직전에 풂
   useAuthStore.getState().logout()
   leaveAfterSessionEnd()
 }
@@ -130,7 +153,7 @@ apiClient.interceptors.response.use(
       restartForConsent()
       throw error
     }
-    // 재발급 요청 자체는 다시 재발급하지 않음(자기 자신을 기다려 멈추지 않게)
+    // 재발급 요청은 다시 재발급 안 함(자기 자신을 기다려 멈춤)
     if (
       !config ||
       config.retried ||
@@ -152,7 +175,7 @@ apiClient.interceptors.response.use(
         if (session === 'alive') return apiClient(config)
         if (session === 'ended') void signOutOnDevice()
       } else if (refreshOutageTooLong()) {
-        // 서버 오류가 오래 이어지면 다시 로그인하게. 끊김(응답 없음)이면 로그인 유지
+        // 서버 오류가 오래 이어지면 다시 로그인하게
         void signOutOnDevice()
       }
       throw error

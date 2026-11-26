@@ -66,7 +66,7 @@ export const KAKAO_LINK_TOAST: Record<KakaoLinkOutcome, string> = {
   failed: '카카오를 연결하지 못했어요. 잠시 후 다시 시도해 주세요',
 }
 
-// 기기 푸시 구독을 끊는 일. 푸시 모듈이 등록함(axios → 여기 → 푸시 순환 import를 피해서)
+// 기기 구독 끊기. 순환 import라 푸시 모듈이 등록
 let unsubscribeDevice: (() => Promise<void>) | null = null
 export function setDeviceUnsubscribe(unsubscribe: () => Promise<void>) {
   unsubscribeDevice = unsubscribe
@@ -75,7 +75,7 @@ export function setDeviceUnsubscribe(unsubscribe: () => Promise<void>) {
 // 기기 구독을 끊으며 기다리는 최대 시간
 const UNSUBSCRIBE_WAIT_MS = 1500
 
-// 세션이 끝났거나 탈퇴해 서버 구독 삭제는 못 할 때 기기 구독만 끊음. 오래 걸리면 기다리지 않음
+// 서버 구독 삭제를 못 할 때 기기 구독만 끊음(최대 1.5초)
 export function unsubscribeDeviceOnly() {
   return Promise.race([
     (unsubscribeDevice?.() ?? Promise.resolve()).catch(() => {}),
@@ -87,11 +87,17 @@ export function unsubscribeDeviceOnly() {
 let withdrawing = false
 export const isWithdrawing = () => withdrawing
 
-// 탈퇴하면 기기 푸시 구독 · 카카오 토큰 · 기록을 다 지우고 처음 화면으로
+// 탈퇴하면 기기 구독 · 카카오 토큰 · 기록을 다 지우고 처음 화면으로
 export async function restartAfterWithdraw() {
   withdrawing = true
   clearPendingKakao()
   await unsubscribeDeviceOnly()
+  clearAllAndLeave()
+  localStorage.setItem(WITHDRAW_KEY, String(Date.now()))
+}
+
+// 기기의 당당 기록을 모두 지우고 처음 화면으로
+function clearAllAndLeave() {
   Object.keys(localStorage)
     .filter((key) => key.startsWith('dangdang-'))
     .forEach((key) => localStorage.removeItem(key))
@@ -131,11 +137,7 @@ const ACCOUNT_STORES = [
 const CONSENT_RESTART_KEY = 'dangdang-consent-restart'
 const LOGOUT_KEY = 'dangdang-logout'
 const SESSION_END_KEY = 'dangdang-session-end'
-
-// 세션이 끝나면 지우는 저장소. 못 보낸 혈당 기록과 기기 주인은 남겨 같은 계정이 다시 들어오면 올림(다른 계정이면 로그인 때 비움)
-const SESSION_END_STORES = ACCOUNT_STORES.filter(
-  (key) => key !== 'dangdang-glucose' && key !== DEVICE_OWNER_KEY,
-)
+const WITHDRAW_KEY = 'dangdang-withdraw'
 
 // 지우고 옮김. 떠나기 전 끝난 요청이 기기 저장을 다시 써도 페이지를 닫을 때 한 번 더 지움
 // broadcastKey가 있으면 열려 있는 다른 탭도 같은 일을 하게 알림(그 탭이 지운 기록을 다시 쓰지 않게)
@@ -168,10 +170,9 @@ export function leaveAfterLogout() {
   clearAndLeave(ACCOUNT_STORES, ROUTES.ONBOARDING, LOGOUT_KEY)
 }
 
-// 세션이 끝난 뒤 계정 기록을 지우고 처음 화면으로. 못 보낸 혈당 기록은 남김
+// 세션이 끝나면 기록은 두고 처음 화면으로(다른 계정이면 로그인 때 비움)
 export function leaveAfterSessionEnd() {
-  keepDeviceNotificationOnly()
-  clearAndLeave(SESSION_END_STORES, ROUTES.ONBOARDING, SESSION_END_KEY)
+  clearAndLeave([], ROUTES.ONBOARDING, SESSION_END_KEY)
 }
 
 // 다른 탭에서 철회 · 동의 없음 · 로그아웃으로 기록을 지우면 이 탭도 같이. 앱 전체에서 한 번 켬
@@ -179,13 +180,19 @@ export function listenForConsentRestart() {
   const onStorage = (event: StorageEvent) => {
     if (!event.newValue) return
     if (event.key === CONSENT_RESTART_KEY) clearAndLeave(HEALTH_STORES, ROUTES.ONBOARDING_TERMS)
+    // 카카오 대기 토큰은 탭마다 따로라 이 탭 것도 지움
     if (event.key === LOGOUT_KEY) {
+      clearPendingKakao()
       keepDeviceNotificationOnly()
       clearAndLeave(ACCOUNT_STORES, ROUTES.ONBOARDING)
     }
     if (event.key === SESSION_END_KEY) {
-      keepDeviceNotificationOnly()
-      clearAndLeave(SESSION_END_STORES, ROUTES.ONBOARDING)
+      clearPendingKakao()
+      clearAndLeave([], ROUTES.ONBOARDING)
+    }
+    if (event.key === WITHDRAW_KEY) {
+      clearPendingKakao()
+      clearAllAndLeave()
     }
   }
   window.addEventListener('storage', onStorage)
