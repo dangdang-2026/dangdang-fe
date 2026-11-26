@@ -9,13 +9,13 @@ import PhotoConsentSheet from '@/components/meal/photo/PhotoConsentSheet'
 import PhotoFindingScreen from '@/components/meal/photo/PhotoFindingScreen'
 import PhotoResultScreen from '@/components/meal/photo/PhotoResultScreen'
 import PhotoSearchScreen from '@/components/meal/photo/PhotoSearchScreen'
-import PhotoTableScreen, { type TableItem } from '@/components/meal/photo/PhotoTableScreen'
+import PhotoTableScreen from '@/components/meal/photo/PhotoTableScreen'
 import PhotoUnclearScreen from '@/components/meal/photo/PhotoUnclearScreen'
 import { MEAL_LABEL } from '@/constants/glucose'
 import { savePhotoConsent, useAiStore } from '@/stores/useAiStore'
 import { useFoodStore } from '@/stores/useFoodStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
-import type { DetectedFood } from '@/types/foodPhoto'
+import type { DetectedFood, TableItem } from '@/types/foodPhoto'
 import type { Meal, MyFood, NutritionEdits, Portion } from '@/types/glucose'
 
 type Step =
@@ -51,14 +51,17 @@ function getFirstStep(meal: Meal, agreed: boolean | undefined): Step {
   return agreed ? 'camera' : 'name'
 }
 
-// 한상 음식마다 1등 후보로. 확인 필요는 체크 안 한 채로 시작
+// 한상 음식마다 1등 후보로. 이름을 못 찾았거나 확인 필요는 체크 안 한 채로 시작
 const toTableItem = (food: DetectedFood): TableItem => ({
   id: food.id,
-  name: food.candidates[0],
+  name: food.candidates[0] ?? '',
+  candidates: food.candidates,
   portion: 'one',
-  checked: !food.needsCheck,
+  checked: !food.needsCheck && food.candidates.length > 0,
   needsCheck: food.needsCheck,
+  fromAi: true,
   point: food.point,
+  box: food.box,
 })
 
 // 식사 내용 적기 흐름(MEAL-02~04). 사진 → AI 후보 → 고른 것만 저장, 언제든 이름으로 적기
@@ -198,7 +201,15 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
     } else {
       setItems((prev) => [
         ...prev,
-        { id: `added-${prev.length}`, name, portion: 'one', checked: true, needsCheck: false },
+        {
+          id: `added-${prev.length}`,
+          name,
+          candidates: [],
+          portion: 'one',
+          checked: true,
+          needsCheck: false,
+          fromAi: false,
+        },
       ])
     }
     setStep(searchTarget.mode)
@@ -279,17 +290,28 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
           photoUrl={photoUrl!}
           items={items}
           onToggle={toggleItem}
-          onItemPortionChange={(id, itemPortion) =>
+          onChange={(id, name, itemPortion) =>
             setItems((prev) =>
-              prev.map((item) => (item.id === id ? { ...item, portion: itemPortion } : item)),
+              prev.map((item) =>
+                item.id === id
+                  ? {
+                      ...item,
+                      name,
+                      portion: itemPortion ?? item.portion,
+                      checked: true,
+                      needsCheck: false,
+                    }
+                  : item,
+              ),
             )
           }
-          onFix={(id) => openSearch({ mode: 'table', id })}
-          onAddMissing={() => openSearch({ mode: 'table', id: null })}
+          onSearch={(id) => openSearch({ mode: 'table', id })}
+          onRemove={(id) => setItems((prev) => prev.filter((item) => item.id !== id))}
           onSave={(savedPortion) => {
             const checked = items.filter((item) => item.checked)
             saveWithPhotoInfo([...new Set(checked.map((item) => item.name))], savedPortion, {
-              aiCandidates: items.map((item) => item.name),
+              // 이름을 못 찾은 그릇은 후보에서 뺌
+              aiCandidates: items.flatMap((item) => (item.fromAi && item.name ? [item.name] : [])),
               portions: Object.fromEntries(checked.map((item) => [item.name, item.portion])),
             })
           }}
@@ -300,7 +322,9 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
       return (
         <PhotoSearchScreen
           photoUrl={photoUrl!}
-          topCandidate={searchTarget.mode === 'single' ? candidates[0] : searchingItem?.name}
+          topCandidate={
+            searchTarget.mode === 'single' ? candidates[0] : searchingItem?.name || undefined
+          }
           onPick={pickSearched}
           onAddMyFood={(name) => {
             setMyFoodName(name)
