@@ -25,7 +25,6 @@ import {
   undoDeliveryDate,
   type PregnancyState,
 } from '@/api/pregnancy'
-import { MOCK_USER } from '@/mocks/user'
 
 // 관리 모드: 식사·운동 / 인슐린 함께 / 먹는 약 함께
 export type CareMode = 'diet' | 'insulin' | 'oral'
@@ -77,7 +76,8 @@ type ProfileState = Profile & {
 export const useProfileStore = create<ProfileState>()(
   persist(
     (set) => ({
-      name: MOCK_USER.name,
+      // 로그인하면 /me 이름으로 채움
+      name: '',
       dueDate: null,
       diagnosisDate: null,
       careMode: 'diet',

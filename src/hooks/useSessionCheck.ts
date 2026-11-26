@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { getMe } from '@/api/me'
+import { getMe, getMeDueDate } from '@/api/me'
 import { syncPushSubscription } from '@/api/push'
 import { syncAiConsents } from '@/stores/useAiStore'
 import { syncMyFoods } from '@/stores/useFoodStore'
@@ -39,6 +39,8 @@ export function useSessionCheck() {
         // 다른 기기에서 바꾼 입원 상태도 서버 값으로
         updateProfile({
           name: me.displayName,
+          // 출산예정일도 서버 값으로. 새 기기에서 다시 적지 않게
+          ...(getMeDueDate(me) !== undefined && { dueDate: getMeDueDate(me) }),
           hospitalized: me.pregnancyState === 'HOSPITALIZED',
           paused: me.pregnancyState === 'PAUSED',
         })

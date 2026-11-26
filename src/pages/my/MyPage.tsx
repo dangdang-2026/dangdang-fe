@@ -118,7 +118,7 @@ function MyPage() {
             {CARE_MODE_LABEL[careMode]}
           </span>
           <span className="flex items-center gap-1">
-            <span className="text-t3 text-grey-900">{name}님</span>
+            <span className="text-t3 text-grey-900">{name ? `${name}님` : '내 정보'}</span>
             <img src={iconChevronDark} alt="" width={16} height={16} />
           </span>
           <span className="text-grey-800 text-sm leading-snug font-medium">

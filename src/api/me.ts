@@ -28,6 +28,8 @@ export type Me = {
   pregnancyState: PregnancyState | null
   // 로그인 방식별 연결 여부. 운영 서버 배포 전엔 없을 수 있음
   loginMethods?: { email: boolean; kakao: boolean }
+  // 출산예정일(YYYY-MM-DD). 안 적었거나 다른 상황(PAUSED)이면 null
+  dueDate?: string | null
 } & Partial<CareProfileResponse>
 
 // 백엔드 NameUpdateResponse
@@ -94,6 +96,10 @@ export const updateContactMemo = (contactMemo: string) =>
   patchCareProfile('/me/contact-memo', {
     contactMemo: contactMemo.replace(/[\p{Cc}\u2028\u2029]+/gu, ' '),
   })
+
+// /me의 출산예정일을 기기에 둘 값. 다른 상황(PAUSED)이면 서버가 가려서 null이라 기기 값 그대로(undefined)
+export const getMeDueDate = (me: Me) =>
+  me.pregnancyState === 'PAUSED' || me.dueDate === undefined ? undefined : me.dueDate
 
 // 백엔드 DueDateResponse
 type DueDateResponse = { dueDate: string }
