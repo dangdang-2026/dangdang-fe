@@ -14,7 +14,12 @@ import AppealSheet from '@/components/community/AppealSheet'
 import PollEditor from '@/components/community/PollEditor'
 import PostWarningSheet from '@/components/community/PostWarningSheet'
 import RestrictedSheet from '@/components/community/RestrictedSheet'
-import { BOARD_LABEL, BOARD_ORDER, POLL_MIN_OPTIONS } from '@/constants/community'
+import {
+  ANONYMOUS_NICKNAME,
+  BOARD_LABEL,
+  BOARD_ORDER,
+  POLL_MIN_OPTIONS,
+} from '@/constants/community'
 import { ROUTES, communityPostPath } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useMyAuthor } from '@/hooks/useMyAuthor'
@@ -29,7 +34,6 @@ import type { BoardKey, PostDraft } from '@/types/community'
 import { checkPost, type PostWarning } from '@/utils/postCheck'
 
 const COMING_SOON = '다음 업데이트에서 열려요'
-const ANONYMOUS_NICKNAME = '익명 산모'
 const TITLE_MAX_LENGTH = 40
 const BODY_MAX_LENGTH = 2000
 

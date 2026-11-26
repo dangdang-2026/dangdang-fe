@@ -33,6 +33,7 @@ import { useNow } from '@/hooks/useNow'
 import {
   blockOnServer,
   canBlock,
+  isAnonymousAuthor,
   eraseComment,
   isRestricted,
   loadComments,
@@ -466,9 +467,10 @@ function PostDetailPage() {
           onDelete={fromMore(() => setConfirming('delete'))}
           onReport={fromMore(() => setReportOpen(true))}
           onBlock={fromMore(() =>
-            canBlock(post.author)
+            // 익명 글도 그 글로 안 볼 수 있음. 탈퇴한 회원은 서버가 막음
+            canBlock(post.author) || isAnonymousAuthor(post.author)
               ? setConfirming('block')
-              : setToast('익명이나 탈퇴한 회원의 글은 안 보기로 할 수 없어요'),
+              : setToast('탈퇴한 회원의 글은 안 보기로 할 수 없어요'),
           )}
           onCopyLink={fromMore(copyLink)}
           onClose={closeMore}
@@ -521,13 +523,21 @@ function PostDetailPage() {
       )}
       {confirming === 'block' && (
         <ConfirmDialog
-          title={`${post.author.nickname}님 글을 안 볼까요?`}
-          description="이 사람의 글과 댓글이 보이지 않아요. 마이 › 커뮤니티 설정에서 다시 볼 수 있어요."
+          title={
+            isAnonymousAuthor(post.author)
+              ? '이 익명 글쓴이의 글을 안 볼까요?'
+              : `${post.author.nickname}님 글을 안 볼까요?`
+          }
+          description={
+            isAnonymousAuthor(post.author)
+              ? '이 사람의 익명 글과 댓글이 보이지 않아요. 마이 › 커뮤니티 설정에서 다시 볼 수 있어요.'
+              : '이 사람의 글과 댓글이 보이지 않아요. 마이 › 커뮤니티 설정에서 다시 볼 수 있어요.'
+          }
           confirmLabel="안 보기"
           onConfirm={() => {
             setConfirming(null)
             // 서버에 차단한 뒤 나감. 못 하면 글에 남아 안내
-            blockOnServer(post.author).then(goBack, () =>
+            blockOnServer(post.author, post.id).then(goBack, () =>
               setToast('안 보기로 하지 못했어요. 잠시 후 다시 시도해 주세요'),
             )
           }}
