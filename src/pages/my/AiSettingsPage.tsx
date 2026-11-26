@@ -19,6 +19,7 @@ import {
   type AiFeature,
 } from '@/stores/useAiStore'
 import { clearChatMessages } from '@/stores/useChatStore'
+import { formatKoreanDate } from '@/utils/date'
 
 const FEATURES: { key: AiFeature; icon: string; title: string }[] = [
   { key: 'photo', icon: iconCamera, title: '사진으로 음식 후보 찾기' },
@@ -50,12 +51,6 @@ const TURN_OFF: Record<AiFeature, { title: string; description: string }> = {
     description:
       '끄면 이 기능의 동의도 함께 철회돼요. 당당이 질문과 진료 메모 정리를 쓸 수 없고, 이미 보낸 내용은 남기지 않아요.',
   },
-}
-
-// 예: 2026년 10월 14일
-const formatKoreanDate = (iso: string) => {
-  const date = new Date(iso)
-  return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`
 }
 
 // 예: 2026.10.14

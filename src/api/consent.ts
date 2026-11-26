@@ -65,6 +65,17 @@ export async function saveMarketingConsent(agreed: boolean) {
   await apiClient.post('/me/consents', { items: [{ type: 'MARKETING', granted: agreed }] })
 }
 
+// 건강정보 동의 철회(M-07b). 서버가 혈당 · 식사 · 진료 등 건강 기록을 바로 지우고 consentCompleted=false
+export async function withdrawSensitiveConsent() {
+  await apiClient.post('/me/consents/sensitive/withdraw')
+}
+
+// 건강정보 동의한 날. 안 골랐거나 철회했으면 null
+export async function getSensitiveConsentAt() {
+  const item = (await getConsents()).find((consent) => consent.type === 'SENSITIVE')
+  return item?.granted ? item.occurredAt : null
+}
+
 // M-12 AI 사용 동의 모두 철회
 export async function withdrawAiConsents() {
   const types: ConsentType[] = ['AI_PHOTO', 'AI_CHAT_RECORDS', 'OVERSEAS_TRANSFER']

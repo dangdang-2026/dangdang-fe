@@ -73,6 +73,23 @@ export function restartAfterWithdraw() {
   window.location.replace(ROUTES.ONBOARDING)
 }
 
+// 건강정보 동의를 철회하면 서버가 지운 건강 기록을 기기에서도 지우고 가입 동의(A-01)부터. 계정 · 내 음식 · 커뮤니티 · 알림 설정은 남김
+const HEALTH_STORES = [
+  'dangdang-glucose',
+  'dangdang-criteria',
+  'dangdang-visit',
+  'dangdang-reports',
+  'dangdang-hospital',
+  'dangdang-meal-guide',
+  'dangdang-inbox',
+  'dangdang-profile',
+  'dangdang-onboarding',
+]
+export function restartAfterSensitiveWithdraw() {
+  HEALTH_STORES.forEach((key) => localStorage.removeItem(key))
+  window.location.replace(ROUTES.ONBOARDING_TERMS)
+}
+
 // 카카오로 본인 확인한 탈퇴가 막혔을 때 데이터 화면 토스트. 서버 문구와 같게
 export const KAKAO_WITHDRAW_TOAST: Record<string, string> = {
   USER_40301: '지금 로그인한 카카오 계정과 달라요. 이 계정의 카카오로 확인해 주세요',

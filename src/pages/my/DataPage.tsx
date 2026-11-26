@@ -2,12 +2,15 @@ import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { deleteAccount, startKakaoWithdraw, type CommunityPostsOnLeave } from '@/api/auth'
 import { getErrorCode } from '@/api/axios'
+import { getSensitiveConsentAt, withdrawSensitiveConsent } from '@/api/consent'
 import { getMe } from '@/api/me'
 import iconDownload from '@/assets/icons/download.svg'
 import iconFileGrey from '@/assets/icons/file-grey.svg'
 import iconCamera from '@/assets/icons/my/data-camera.svg'
 import iconInfo from '@/assets/icons/my/data-info.svg'
+import iconShield from '@/assets/icons/my/data-shield.svg'
 import iconChevron from '@/assets/icons/nav-next.svg'
+import ConfirmSheet from '@/components/common/ConfirmSheet'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import Toast from '@/components/common/Toast'
 import ReportDocument from '@/components/report/ReportDocument'
@@ -19,8 +22,8 @@ import { useReportContent } from '@/hooks/useReportContent'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
-import { restartAfterWithdraw } from '@/utils/auth'
-import { startOfDay } from '@/utils/date'
+import { restartAfterSensitiveWithdraw, restartAfterWithdraw } from '@/utils/auth'
+import { formatKoreanDate, startOfDay } from '@/utils/date'
 
 type DataRow = {
   icon: string
@@ -54,6 +57,30 @@ function DataPage() {
     () => (location.state as { toast?: string } | null)?.toast ?? null,
   )
   const closeToast = useCallback(() => setToast(null), [])
+  // 건강정보 동의 철회 확인. at은 동의한 날(못 받으면 null)
+  const [withdrawConsent, setWithdrawConsent] = useState<{ at: string | null } | null>(null)
+  const [withdrawingConsent, setWithdrawingConsent] = useState(false)
+  const openWithdrawConsent = () => {
+    setWithdrawConsent({ at: null })
+    getSensitiveConsentAt()
+      .then((at) => setWithdrawConsent((current) => (current ? { at } : current)))
+      .catch(() => {})
+  }
+  const confirmWithdrawConsent = async () => {
+    if (!navigator.onLine) {
+      setToast('인터넷 연결을 확인하고 다시 시도해 주세요')
+      return
+    }
+    setWithdrawingConsent(true)
+    try {
+      await withdrawSensitiveConsent()
+    } catch {
+      setWithdrawingConsent(false)
+      setToast('동의를 철회하지 못했어요. 잠시 후 다시 시도해 주세요')
+      return
+    }
+    restartAfterSensitiveWithdraw()
+  }
 
   // 내 기록 PDF: 첫 기록(또는 설정을 마친 날)부터 오늘까지 전체 기간
   const now = useNow()
@@ -95,6 +122,13 @@ function DataPage() {
       title: '내 기록 PDF 받기',
       description: '전체 기간 · 이 기기에서 만들어요',
       onClick: printRecords,
+    },
+    {
+      icon: iconShield,
+      tone: 'yellow',
+      title: '건강정보 동의 철회',
+      description: '철회하면 기록·알림이 멈춰요',
+      onClick: openWithdrawConsent,
     },
     {
       icon: iconFileGrey,
@@ -204,6 +238,27 @@ function DataPage() {
               setWithdrawSheet(false)
               setWrongPassword(false)
             }}
+          />
+        )}
+        {withdrawConsent && (
+          <ConfirmSheet
+            title="건강정보 동의를 철회할까요?"
+            summary={[
+              { label: '멈추는 기능', value: '기록 · 측정 알림 · 리포트' },
+              ...(withdrawConsent.at
+                ? [{ label: '동의한 날', value: formatKoreanDate(withdrawConsent.at) }]
+                : []),
+            ]}
+            // 피그마는 「새로 남길 수 없어요」지만 서버가 기록을 바로 지워서 그대로 알림
+            description={
+              '철회하면 지금까지의 혈당·식사·진료 기록이 바로 지워지고 되돌릴 수 없어요.\n지금까지의 기록은 PDF로 먼저 받아 두세요.'
+            }
+            confirmLabel="동의 철회하기"
+            danger
+            loading={withdrawingConsent}
+            onConfirm={() => void confirmWithdrawConsent()}
+            secondary={{ label: 'PDF 먼저 받기', onClick: printRecords }}
+            onClose={() => setWithdrawConsent(null)}
           />
         )}
         {toast && <Toast message={toast} onClose={closeToast} />}
