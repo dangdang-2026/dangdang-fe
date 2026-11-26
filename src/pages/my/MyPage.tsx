@@ -30,13 +30,17 @@ import { useAuthStore } from '@/stores/useAuthStore'
 import { useFoodStore } from '@/stores/useFoodStore'
 import { useMealSettingsStore } from '@/stores/useMealSettingsStore'
 import { useNotificationStore } from '@/stores/useNotificationStore'
-import { CARE_MODE_LABEL, clearCareProfile, useProfileStore } from '@/stores/useProfileStore'
+import { sendUnsentGlucose } from '@/stores/useGlucoseStore'
+import { CARE_MODE_LABEL, useProfileStore } from '@/stores/useProfileStore'
 import { useVisitStore } from '@/stores/useVisitStore'
+import { leaveAfterLogout } from '@/utils/auth'
 import { getPregnancyAge } from '@/utils/pregnancy'
 import { getVisitStatus } from '@/utils/visit'
 import { formatDuration } from '@/utils/criteria'
 
 const APP_VERSION = '1.0.0'
+// 로그아웃 전 못 보낸 식사를 보내며 기다리는 최대 시간
+const SEND_UNSENT_MS = 3000
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -87,7 +91,10 @@ function MyPage() {
         className="bg-grey-100 fixed inset-y-0 left-1/2 -z-10 w-full max-w-107.5 -translate-x-1/2"
       />
       {/* 위쪽 노란 판 */}
-      <div aria-hidden className="rounded-br-profile absolute inset-x-0 top-0 h-79 bg-yellow-300" />
+      <div
+        aria-hidden
+        className="rounded-br-profile status-bar-bleed absolute inset-x-0 top-0 h-79 bg-yellow-300"
+      />
 
       <header className="relative flex items-center justify-between px-5 pt-5.5">
         <h1 className="text-title-2 text-grey-900">마이</h1>
@@ -114,7 +121,7 @@ function MyPage() {
             {CARE_MODE_LABEL[careMode]}
           </span>
           <span className="flex items-center gap-1">
-            <span className="text-t3 text-grey-900">{name}님</span>
+            <span className="text-t3 text-grey-900">{name ? `${name}님` : '내 정보'}</span>
             <img src={iconChevronDark} alt="" width={16} height={16} />
           </span>
           <span className="text-grey-800 text-sm leading-snug font-medium">
@@ -235,17 +242,21 @@ function MyPage() {
             setLoggingOut(true)
             // 로그아웃한 계정 알림이 이 기기로 안 오게. 쿠키가 있을 때 먼저 끊음
             await unsubscribePush().catch(() => {})
+            // 못 보낸 식사는 기기 기록을 지우기 전에 한 번 보냄. 오래 걸리면 기다리지 않음
+            await Promise.race([
+              sendUnsentGlucose().catch(() => {}),
+              new Promise((resolve) => window.setTimeout(resolve, SEND_UNSENT_MS)),
+            ])
             try {
               await logoutFromServer()
             } catch {
               // 서버 로그아웃이 실패해도 기기에선 로그인 풂
             }
-            // 기록은 기기에 남기고 로그인만 풂. 받아 둔 카카오 토큰은 다음 사람 계정에 연결되지 않게 지움
+            // 받아 둔 카카오 토큰은 다음 사람 계정에 연결되지 않게 지움
             clearPendingKakao()
-            // 연락 메모 같은 관리 정보는 다음 계정에 남기지 않음(서버에 있어 다시 로그인하면 받음)
-            clearCareProfile()
             logout()
-            navigate(ROUTES.ONBOARDING, { replace: true })
+            // 이 계정 기록은 기기에서 지우고 처음 화면으로 새로 열기(다시 로그인하면 서버에서 받음)
+            leaveAfterLogout()
           }}
           onClose={() => setLogoutSheet(false)}
         />

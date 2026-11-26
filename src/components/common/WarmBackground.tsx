@@ -1,4 +1,4 @@
-// 탭 화면 전체 배경. 탭 바 뒤까지 채우도록 고정
+// 탭 화면 전체 배경. 탭 바 · 상태 바 뒤까지 채우도록 고정
 function WarmBackground() {
   return (
     <div

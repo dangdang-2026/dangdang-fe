@@ -24,7 +24,8 @@ function IntroPage() {
   const [signing, setSigning] = useState(false)
   const [signupError, setSignupError] = useState<KakaoSignupError | null>(null)
 
-  if (loggedIn && completed) return <Navigate to={ROUTES.TODAY} replace />
+  // 가입 · 로그인 중엔 내 정보를 받기 전이라 넘기지 않음(앞 계정 기록 노출 방지)
+  if (loggedIn && completed && !signing) return <Navigate to={ROUTES.TODAY} replace />
 
   const closeSignupSheet = () => {
     setSignupSheet(false)
@@ -50,7 +51,7 @@ function IntroPage() {
 
   return (
     <main className="relative mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
-      <div className="from-intro-from to-intro-to rounded-b-intro relative h-111 shrink-0 overflow-hidden bg-linear-196 from-10%">
+      <div className="from-intro-from to-intro-to rounded-b-intro status-bar-bleed relative h-111 shrink-0 overflow-hidden bg-linear-196 from-10%">
         <span className="text-grey-900 rounded-banner text-t7 absolute top-52 left-31 flex rotate-8 flex-col items-center bg-yellow-500 px-4 py-3 font-bold">
           병원 기준대로
           <br />

@@ -17,7 +17,7 @@ type PhotoScreenProps = {
 function PhotoScreen({ title, back, onBack, action, footer, children }: PhotoScreenProps) {
   return (
     <div role="dialog" aria-modal="true" aria-label={title} className="fixed inset-0 z-60 bg-white">
-      <div className="mx-auto flex h-full w-full max-w-107.5 flex-col pt-1.5">
+      <div className="mx-auto flex h-full w-full max-w-107.5 flex-col pt-[calc(--spacing(1.5)+env(safe-area-inset-top))]">
         <header className="relative flex h-14 shrink-0 items-center px-4">
           <button type="button" aria-label={back ? '뒤로' : '닫기'} onClick={onBack}>
             <img src={back ? iconBack : iconClose} alt="" width={24} height={24} />

@@ -10,7 +10,7 @@ type ChatHeaderProps = {
 // Figma Q-02 머리: 뒤로 · 당당이 · 도움말
 function ChatHeader({ onBack, onHelp }: ChatHeaderProps) {
   return (
-    <header className="sticky top-0 z-10 bg-white pt-1.5">
+    <header className="status-bar-bleed sticky top-0 z-10 bg-white pt-1.5">
       <div className="border-grey-100 flex h-14 items-center justify-between border-b px-4">
         <button type="button" aria-label="뒤로" onClick={onBack}>
           <img src={iconBack} alt="" width={24} height={24} />

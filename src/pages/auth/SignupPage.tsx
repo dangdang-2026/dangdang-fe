@@ -174,7 +174,10 @@ function SignupPage() {
             return
           }
           updateProfile({ name })
-          await finish('email', email)
+          // 계정은 생겼으니 마무리를 못 하면 다시 가입하지 않게 로그인 화면으로
+          await finish('email', email).catch(() =>
+            navigate(ROUTES.LOGIN, { replace: true, state: { signedUp: true, email } }),
+          )
         }}
       />
     )

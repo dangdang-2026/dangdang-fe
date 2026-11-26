@@ -22,7 +22,7 @@ function LegalLayout({ title, onBack, footer, secondary, notice, children }: Leg
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white break-keep">
-      <header className="sticky top-0 z-10 bg-white pt-1.5">
+      <header className="status-bar-bleed sticky top-0 z-10 bg-white pt-1.5">
         <div className="border-grey-100 relative flex h-14 items-center border-b px-4">
           <button type="button" aria-label="뒤로" onClick={onBack}>
             <img src={iconBack} alt="" width={24} height={24} />
