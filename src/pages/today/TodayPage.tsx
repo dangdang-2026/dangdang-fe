@@ -203,8 +203,9 @@ function TodayPage() {
       ? record
       : latest
   }, null)
+  // 입원 중일 때만 숨김. 알림만 멈춘 상태에서도 낮은 · 높은 값 안내는 그대로
   const justEntered =
-    !hospitalized &&
+    !inHospital &&
     !!lastEntered &&
     now.getTime() - new Date(lastEntered.enteredAt ?? lastEntered.measuredAt).getTime() <
       JUST_SAVED_MS
@@ -502,7 +503,7 @@ function TodayPage() {
           />
         )}
       </div>
-      {/* 낮은 값을 입력한 직후 30분은 위급 안내 그대로. 입원 중이면 숨김 */}
+      {/* 낮은 값을 입력한 직후 30분은 위급 안내 그대로. 입원 중이면 숨김(알림만 멈춘 상태는 보임) */}
       {showLowBlock && (
         <div className="mt-5">
           <EmergencyBlock onWriteMemo={() => setMemoSheet(true)} />

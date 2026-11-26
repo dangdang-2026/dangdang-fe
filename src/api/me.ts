@@ -89,9 +89,11 @@ export const updateDiagnosisDate = (diagnosisDate: string) =>
 export const updateCareMode = (careMode: CareMode) =>
   patchCareProfile('/me/care-mode', { careMode: careMode.toUpperCase() })
 
-// 한 줄 100자까지. 비우면 지움
+// 한 줄 100자까지. 비우면 지움. 서버가 줄바꿈 · 탭을 거절해 띄어쓰기로(예전에 여러 줄로 적은 메모도)
 export const updateContactMemo = (contactMemo: string) =>
-  patchCareProfile('/me/contact-memo', { contactMemo })
+  patchCareProfile('/me/contact-memo', {
+    contactMemo: contactMemo.replace(/[\p{Cc}\u2028\u2029]+/gu, ' '),
+  })
 
 // 백엔드 DueDateResponse
 type DueDateResponse = { dueDate: string }

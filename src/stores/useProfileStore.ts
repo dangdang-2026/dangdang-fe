@@ -143,22 +143,43 @@ export function clearCareProfile() {
   })
 }
 
-// 화면엔 바로 바꾸고 서버에 저장. 실패하면 되돌리고 에러를 넘김
-async function saveCareField<K extends 'diagnosisDate' | 'careMode' | 'contactMemo'>(
+type CareKey = 'diagnosisDate' | 'careMode' | 'contactMemo'
+
+// 칸마다 저장 순서 · 서버가 마지막으로 받아 준 값. 겹친 저장이 실패해도 확정 안 된 값으로 되돌리지 않게
+const careSaves: Record<
+  CareKey,
+  { seq: number; pending: number; confirmed: unknown; latestFailed: boolean }
+> = {
+  diagnosisDate: { seq: 0, pending: 0, confirmed: null, latestFailed: false },
+  careMode: { seq: 0, pending: 0, confirmed: null, latestFailed: false },
+  contactMemo: { seq: 0, pending: 0, confirmed: null, latestFailed: false },
+}
+
+// 화면엔 바로 바꾸고 서버에 저장. 가장 마지막 요청 응답만 반영, 마지막이 실패하면 다 끝난 뒤 확정값으로 되돌림
+async function saveCareField<K extends CareKey>(
   key: K,
   value: Profile[K],
-  request: () => Promise<Pick<Profile, 'diagnosisDate' | 'careMode' | 'contactMemo'>>,
+  request: () => Promise<Pick<Profile, CareKey>>,
 ) {
   const { updateProfile } = useProfileStore.getState()
-  const previous = useProfileStore.getState()[key]
+  const save = careSaves[key]
+  if (save.pending === 0) save.confirmed = useProfileStore.getState()[key]
+  const seq = ++save.seq
+  save.pending += 1
   updateProfile({ [key]: value })
   try {
     const saved = await request()
-    // 그사이 다시 바꿨으면 늦게 온 앞 응답으로 덮지 않음
-    if (useProfileStore.getState()[key] === value) updateProfile({ [key]: saved[key] })
+    save.confirmed = saved[key]
+    if (seq === save.seq) updateProfile({ [key]: saved[key] })
   } catch (error) {
-    if (useProfileStore.getState()[key] === value) updateProfile({ [key]: previous })
+    if (seq === save.seq) save.latestFailed = true
     throw error
+  } finally {
+    save.pending -= 1
+    if (save.pending === 0) {
+      if (save.latestFailed) updateProfile({ [key]: save.confirmed as Profile[K] })
+      save.latestFailed = false
+    }
   }
 }
 
