@@ -95,7 +95,13 @@ export const useProfileStore = create<ProfileState>()(
 )
 
 // /me의 관리 정보를 기기에 반영. 서버가 비어 있고 이 기기에 이 계정이 먼저 적어 둔 값이 있으면 처음 한 번만 서버로 올림
-export function syncCareProfile(me: Me, ownsLocal: boolean) {
+// 끊김 · 서버 오류(5xx)면 다음에 다시 올림. 서버가 거절(4xx)하면 그 뒤로는 서버 값을 따름
+const shouldRetry = (error: unknown) => {
+  const code = getErrorCode(error)
+  return !code || /_5[0-9]{4}$/.test(code)
+}
+
+export async function syncCareProfile(me: Me, ownsLegacy: boolean) {
   if (!me.careMode) return
   const local = useProfileStore.getState()
   const next = toCareProfile({
@@ -105,7 +111,8 @@ export function syncCareProfile(me: Me, ownsLocal: boolean) {
     contactMemoUpdatedAt: me.contactMemoUpdatedAt ?? null,
   })
   const uploads: Promise<unknown>[] = []
-  if (ownsLocal && local.careSyncedUserId !== me.userId) {
+  // 서버 연동 전 기기에 적어 둔 값(올린 계정 없음)이 이 계정 것일 때만
+  if (ownsLegacy && local.careSyncedUserId === null) {
     if (!next.diagnosisDate && local.diagnosisDate) {
       next.diagnosisDate = local.diagnosisDate
       uploads.push(updateDiagnosisDate(local.diagnosisDate))
@@ -119,8 +126,21 @@ export function syncCareProfile(me: Me, ownsLocal: boolean) {
       uploads.push(updateContactMemo(local.contactMemo))
     }
   }
-  local.updateProfile({ ...next, careSyncedUserId: me.userId })
-  Promise.all(uploads).catch(() => {})
+  local.updateProfile(next)
+  // 다 올린 뒤에만 올린 계정을 적음. 못 올리면 기기 값을 두고 다음에 다시
+  const results = await Promise.allSettled(uploads)
+  if (results.some((result) => result.status === 'rejected' && shouldRetry(result.reason))) return
+  useProfileStore.getState().updateProfile({ careSyncedUserId: me.userId })
+}
+
+// 로그아웃하면 관리 정보를 비움. 다음에 로그인한 계정으로 올라가지 않게
+export function clearCareProfile() {
+  useProfileStore.getState().updateProfile({
+    diagnosisDate: null,
+    careMode: 'diet',
+    contactMemo: '',
+    careSyncedUserId: null,
+  })
 }
 
 // 화면엔 바로 바꾸고 서버에 저장. 실패하면 되돌리고 에러를 넘김
@@ -134,7 +154,8 @@ async function saveCareField<K extends 'diagnosisDate' | 'careMode' | 'contactMe
   updateProfile({ [key]: value })
   try {
     const saved = await request()
-    updateProfile({ [key]: saved[key] })
+    // 그사이 다시 바꿨으면 늦게 온 앞 응답으로 덮지 않음
+    if (useProfileStore.getState()[key] === value) updateProfile({ [key]: saved[key] })
   } catch (error) {
     if (useProfileStore.getState()[key] === value) updateProfile({ [key]: previous })
     throw error
@@ -157,7 +178,8 @@ export async function saveHospitalized(hospitalized: boolean) {
   } catch (error) {
     if (hospitalized || getErrorCode(error) !== 'PREGNANCY_40901') throw error
   }
-  useProfileStore.getState().updateProfile({ hospitalized })
+  // 서버에선 한 상태라 입원하면 다른 상황은 끝남
+  useProfileStore.getState().updateProfile({ hospitalized, ...(hospitalized && { paused: false }) })
 }
 
 // 다른 상황이에요 · 다시 켜기를 서버에 저장한 뒤 기기에 반영. 다시 켜기인데 서버가 멈춘 상태가 아니면(409) 그대로 끔
@@ -167,7 +189,8 @@ export async function savePaused(paused: boolean) {
   } catch (error) {
     if (paused || getErrorCode(error) !== 'PREGNANCY_40901') throw error
   }
-  useProfileStore.getState().updateProfile({ paused })
+  // 서버에선 한 상태라 멈추면 입원은 끝남
+  useProfileStore.getState().updateProfile({ paused, ...(paused && { hospitalized: false }) })
 }
 
 // 산후 홈(출산일 · 다시 물어볼 날)과 검사 목록(지난 검사 포함)을 기기에 반영. 산후가 아니면 409

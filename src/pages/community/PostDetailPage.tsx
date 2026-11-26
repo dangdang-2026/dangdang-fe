@@ -45,7 +45,7 @@ import {
   voteOnPost,
   writeComment,
 } from '@/stores/useCommunityStore'
-import type { CommunityComment } from '@/types/community'
+import type { CommunityComment, Post } from '@/types/community'
 import {
   formatAuthorWeek,
   formatCount,
@@ -104,7 +104,10 @@ function PostDetailPage() {
   const goBack = useGoBack(ROUTES.COMMUNITY)
   const now = useNow()
   const me = useMyAuthor()
-  const post = useCommunityStore((state) => state.posts.find((item) => item.id === id))
+  const livePost = useCommunityStore((state) => state.posts.find((item) => item.id === id))
+  // 익명 글을 안 보기로 해 목록에서 빠져도 나가는 동안은 그 글을 그대로 보여 줌
+  const [leavingPost, setLeavingPost] = useState<Post | null>(null)
+  const post = livePost ?? leavingPost ?? undefined
   const restriction = useCommunityStore((state) => state.restriction)
   const blockedAuthors = useCommunityStore((state) => state.blockedAuthors)
   const removePost = useCommunityStore((state) => state.removePost)
@@ -544,10 +547,12 @@ function PostDetailPage() {
           confirmLabel="안 보기"
           onConfirm={() => {
             setConfirming(null)
+            setLeavingPost(post)
             // 서버에 차단한 뒤 나감. 못 하면 글에 남아 안내
-            blockOnServer(post.author, post.id).then(goBack, () =>
-              setToast('안 보기로 하지 못했어요. 잠시 후 다시 시도해 주세요'),
-            )
+            blockOnServer(post.author, post.id).then(goBack, () => {
+              setLeavingPost(null)
+              setToast('안 보기로 하지 못했어요. 잠시 후 다시 시도해 주세요')
+            })
           }}
           onClose={closeConfirming}
         />

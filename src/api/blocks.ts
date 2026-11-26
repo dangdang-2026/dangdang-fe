@@ -13,7 +13,7 @@ type BlockListResponse = {
   hasNext: boolean
 }
 
-// 차단 목록 한 줄. id는 프로필 번호, 익명 줄은 프로필을 몰라 'anon-줄번호'
+// 차단 목록 한 줄. id는 프로필 번호, 익명 줄은 프로필을 몰라 'block-줄번호'(익명 글쓴이 'anon-글번호'와 안 겹치게)
 export type BlockedEntry = {
   blockId: string
   id: string
@@ -37,7 +37,7 @@ export async function getBlockedProfiles() {
     items.push(
       ...data.data.items.map((item) => ({
         blockId: String(item.blockId),
-        id: item.profileId !== null ? String(item.profileId) : `anon-${item.blockId}`,
+        id: item.profileId !== null ? String(item.profileId) : `block-${item.blockId}`,
         nickname: item.nickname,
         anonymous: item.anonymous,
         blockedAt: item.blockedAt,

@@ -351,12 +351,6 @@ export function syncRange(from: Date, to: Date) {
   })
 }
 
-// 기기 기록이 이 계정 것인지. 주인을 적기 전 버전에서 남은 기록(null)도 로그아웃 때 지워지니 이 계정 것으로 봄
-export function ownsDeviceRecords(userId: number) {
-  const { syncedUserId } = useGlucoseStore.getState()
-  return syncedUserId === null || syncedUserId === userId
-}
-
 // 앱 켤 때 · 로그인 뒤. 이 기기에서 이 계정을 처음 받으면(계정이 바뀌어도) 전부, 그 뒤로는 최근 31일만
 export async function syncGlucose(userId: number) {
   const { syncedUserId, insulinSyncedUserId } = useGlucoseStore.getState()

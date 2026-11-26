@@ -26,8 +26,14 @@ const canNotify = () => 'Notification' in window && Notification.permission === 
 
 // 앱 안 10분 뒤 다시. 서버에 못 맡기면 이 기기에서 다시 알림. 알림을 못 띄우면 false
 export function snoozeOnDevice(mealId: string) {
-  const { hospitalized, deliveryDate } = useProfileStore.getState()
-  if (!canNotify() || !useNotificationStore.getState().measure || hospitalized || deliveryDate) {
+  const { hospitalized, paused, deliveryDate } = useProfileStore.getState()
+  if (
+    !canNotify() ||
+    !useNotificationStore.getState().measure ||
+    hospitalized ||
+    paused ||
+    deliveryDate
+  ) {
     return false
   }
   snoozed = { mealId, at: Date.now() + REMIND_AFTER_MS }

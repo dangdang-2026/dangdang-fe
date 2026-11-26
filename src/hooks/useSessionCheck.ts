@@ -6,7 +6,7 @@ import { syncMyFoods } from '@/stores/useFoodStore'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { syncBlocks, syncCommunityProfile, syncRestriction } from '@/stores/useCommunityStore'
 import { syncCriteria } from '@/stores/useCriteriaStore'
-import { ownsDeviceRecords, syncGlucose } from '@/stores/useGlucoseStore'
+import { syncGlucose } from '@/stores/useGlucoseStore'
 import { syncHospitals } from '@/stores/useHospitalStore'
 import { syncMealGuide } from '@/stores/useMealGuideStore'
 import { syncMealSettings } from '@/stores/useMealSettingsStore'
@@ -42,8 +42,8 @@ export function useSessionCheck() {
           hospitalized: me.pregnancyState === 'HOSPITALIZED',
           paused: me.pregnancyState === 'PAUSED',
         })
-        // 다른 기기에서 바꾼 진단일 · 관리 모드 · 연락 메모도. 기기 기록 주인이 없거나 이 계정일 때만 먼저 적어 둔 값을 올림
-        syncCareProfile(me, ownsDeviceRecords(me.userId))
+        // 다른 기기에서 바꾼 진단일 · 관리 모드 · 연락 메모도. 로그인이 이어진 기기라 먼저 적어 둔 값은 이 계정 것
+        void syncCareProfile(me, true)
         // 이메일 채우기 전에 로그인한 카카오 계정도 열 때 채움
         login({ method, email: me.email })
         // 다른 계정이 남긴 못 보낸 리포트를 이 계정으로 보내지 않게 주인 확인

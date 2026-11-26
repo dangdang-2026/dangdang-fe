@@ -114,11 +114,7 @@ const mergePosts = (posts: Post[], incoming: Post[], full: boolean) => {
         full || [...next.body].length < EXCERPT_LENGTH || next.body.length >= post.body.length
           ? next.body
           : post.body,
-      // 목록은 베스트 댓글 한 줄만 와서 상세에서 받은 댓글이 있으면 남김
-      comments:
-        next.comments.length > 0 && (full || post.comments.length === 0)
-          ? next.comments
-          : post.comments,
+      comments: next.comments.length > 0 ? next.comments : post.comments,
       poll: next.poll?.length ? next.poll : (post.poll ?? next.poll),
     }
   })
@@ -337,7 +333,8 @@ export async function blockOnServer(author: BlockedAuthor, postId?: string) {
   if (!postId) throw new Error('차단할 글이 없음')
   await blockPostAuthor(postId)
   useCommunityStore.getState().removePost(postId)
-  await syncBlocks().catch(() => {})
+  // 목록은 기다리지 않고 다시 받음
+  syncBlocks().catch(() => {})
 }
 
 // 서버에서 풀고 기기에서도 다시 보이게. 「익명 사용자」 줄은 그 줄 번호로만 풂

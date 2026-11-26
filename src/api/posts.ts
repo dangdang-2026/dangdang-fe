@@ -96,19 +96,18 @@ export function toPost(item: PostSummaryResponse): Post | null {
     likes: item.reactionCount,
     liked: item.reacted,
     commentCount: item.commentCount,
-    // 목록엔 댓글이 없어서 인기 카드의 베스트 댓글만 한 줄로
-    comments: item.bestComment
-      ? [
-          {
-            id: item.bestComment.id,
-            author: toAuthor(item.bestComment.author, `c${item.bestComment.id}`),
-            body: item.bestComment.excerpt,
-            createdAt: item.createdAt,
-            likes: item.bestComment.reactionCount,
-            best: true,
-          },
-        ]
-      : [],
+    // 목록엔 댓글이 없어서 인기 카드의 베스트 댓글만 한 줄로. 상세 댓글과 섞지 않음
+    comments: [],
+    bestComment: item.bestComment
+      ? {
+          id: item.bestComment.id,
+          author: toAuthor(item.bestComment.author, `c${item.bestComment.id}`),
+          body: item.bestComment.excerpt,
+          createdAt: item.createdAt,
+          likes: item.bestComment.reactionCount,
+          best: true,
+        }
+      : null,
     poll: item.hasPoll ? [] : undefined,
   }
 }

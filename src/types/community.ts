@@ -52,6 +52,8 @@ export type Post = {
   // 서버 댓글 수. 목록에선 댓글 없이 수만 옴
   commentCount: number
   comments: CommunityComment[]
+  // 목록이 준 베스트 댓글 한 줄(인기 카드용). 상세 댓글과 따로 둠, 없으면 null
+  bestComment?: CommunityComment | null
   // 운영정책으로 가려진 글
   hidden?: boolean
   // 가린 이유. 서버가 정한 문구

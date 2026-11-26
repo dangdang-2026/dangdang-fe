@@ -30,7 +30,7 @@ import { useAuthStore } from '@/stores/useAuthStore'
 import { useFoodStore } from '@/stores/useFoodStore'
 import { useMealSettingsStore } from '@/stores/useMealSettingsStore'
 import { useNotificationStore } from '@/stores/useNotificationStore'
-import { CARE_MODE_LABEL, useProfileStore } from '@/stores/useProfileStore'
+import { CARE_MODE_LABEL, clearCareProfile, useProfileStore } from '@/stores/useProfileStore'
 import { useVisitStore } from '@/stores/useVisitStore'
 import { getPregnancyAge } from '@/utils/pregnancy'
 import { getVisitStatus } from '@/utils/visit'
@@ -242,6 +242,8 @@ function MyPage() {
             }
             // 기록은 기기에 남기고 로그인만 풂. 받아 둔 카카오 토큰은 다음 사람 계정에 연결되지 않게 지움
             clearPendingKakao()
+            // 연락 메모 같은 관리 정보는 다음 계정에 남기지 않음(서버에 있어 다시 로그인하면 받음)
+            clearCareProfile()
             logout()
             navigate(ROUTES.ONBOARDING, { replace: true })
           }}
