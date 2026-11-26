@@ -30,21 +30,25 @@ type InsulinSheetProps = {
   onClose: () => void
 }
 
-// 'HH:MM' 기준 날짜 그 시각으로. 지금보다 뒤면 서버가 받지 않아 전날 그 시각으로
-// 기준 날짜는 시트를 연 날(고치기면 원래 날)로 고정. 한 번 전날로 넘어가도 다시 고르면 돌아옴
-function withTime(date: Date, time: string, now: Date) {
+// 기준 날짜의 'HH:MM'. 지금보다 뒤면 새로 적기는 전날로, 고치기는 null(날짜를 말없이 옮기지 않게)
+function withTime(date: Date, time: string, now: Date, rollBack: boolean) {
   const [hours, minutes] = time.split(':').map(Number)
   const next = new Date(date)
   next.setHours(hours, minutes, 0, 0)
-  if (next > now) next.setDate(next.getDate() - 1)
+  if (next <= now) return next
+  if (!rollBack) return null
+  next.setDate(next.getDate() - 1)
   return next
 }
 
 const pad = (value: number) => String(value).padStart(2, '0')
 
-// 숫자와 소수 한 자리만. 예: '6' · '6.5'
+// 숫자와 소수 한 자리만. 예: '6' · '6.5'. 쉼표 소수점 키보드의 ','도 소수점으로(6,5가 65가 되지 않게)
 function toUnitsText(value: string) {
-  const [whole, ...rest] = value.replace(/[^\d.]/g, '').split('.')
+  const [whole, ...rest] = value
+    .replace(/,/g, '.')
+    .replace(/[^\d.]/g, '')
+    .split('.')
   // '.'부터 적으면 '0.'으로. 숫자 없는 '.'만 남지 않게
   const fixed = rest.length > 0 ? `${whole || '0'}.${rest.join('').slice(0, 1)}` : whole
   return Number(fixed) > UNITS_MAX ? String(UNITS_MAX) : fixed
@@ -63,6 +67,8 @@ function InsulinSheet({ record, onSave, onDelete, onClose }: InsulinSheetProps) 
   // 끼니를 직접 골랐는지. 안 골랐으면 시각을 바꿀 때 끼니도 따라 짐작
   const [mealPicked, setMealPicked] = useState(!!record?.mealType)
   const [unitsText, setUnitsText] = useState(record ? String(record.units) : '')
+  // 고칠 때 지금보다 뒤 시각을 골랐는지
+  const [futureTime, setFutureTime] = useState(false)
   const units = Number(unitsText)
   const blank = !(units > 0)
   const now = new Date()
@@ -237,13 +243,21 @@ function InsulinSheet({ record, onSave, onDelete, onClose }: InsulinSheetProps) 
           title="맞은 시각"
           value={`${pad(takenAt.getHours())}:${pad(takenAt.getMinutes())}`}
           onDone={(time) => {
-            const next = withTime(baseDay, time, new Date())
-            setTakenAt(next)
-            if (!mealPicked) setMealType(guessMealType(next))
+            const next = withTime(baseDay, time, new Date(), !record)
+            setFutureTime(!next)
+            if (next) {
+              setTakenAt(next)
+              if (!mealPicked) setMealType(guessMealType(next))
+            }
             setTimeSheet(false)
           }}
           onClose={() => setTimeSheet(false)}
         />
+      )}
+      {futureTime && (
+        <p className="-mt-2 text-sm leading-normal text-red-700">
+          지금보다 뒤 시각은 고를 수 없어요
+        </p>
       )}
 
       <div className="flex flex-col gap-3">

@@ -49,6 +49,8 @@ type GlucoseState = {
   insulins: InsulinRecord[]
   // 이 기기에서 기록을 전부 받아 둔 계정. 같은 계정이면 앱 켤 때 최근 기간만 받음
   syncedUserId: number | null
+  // 인슐린을 전부 받아 둔 계정. 혈당 · 식사와 따로, 실패하면 다음에 다시 전부
+  insulinSyncedUserId: number | null
 }
 
 // 뺀 음식의 고친 값은 버림. 남는 게 없으면 없음
@@ -133,6 +135,7 @@ export const useGlucoseStore = create<GlucoseState>()(
         }),
       insulins: [],
       syncedUserId: null,
+      insulinSyncedUserId: null,
     }),
     { name: 'dangdang-glucose' },
   ),
@@ -325,19 +328,32 @@ export function syncRange(from: Date, to: Date) {
 
 // 앱 켤 때 · 로그인 뒤. 이 기기에서 이 계정을 처음 받으면(계정이 바뀌어도) 전부, 그 뒤로는 최근 31일만
 export async function syncGlucose(userId: number) {
-  const { syncedUserId } = useGlucoseStore.getState()
+  const { syncedUserId, insulinSyncedUserId } = useGlucoseStore.getState()
   if (syncedUserId !== userId) {
     // 다른 계정 인슐린은 예전 기록까지 바로 비움. 혈당 · 식사는 전부 받으며 바뀜
-    if (syncedUserId !== null) useGlucoseStore.setState({ insulins: [] })
-    // 인슐린은 실패해도 최근 31일 받기에서 다시 맞춤
-    await Promise.all([syncMeals(), syncRecords(), syncAllInsulins().catch(() => {})])
+    if (syncedUserId !== null) useGlucoseStore.setState({ insulins: [], insulinSyncedUserId: null })
+    // 인슐린이 실패해도 혈당 · 식사는 받아 둔 것으로
+    await Promise.all([syncMeals(), syncRecords(), syncInsulinsOnce(userId)])
     useGlucoseStore.setState({ syncedUserId: userId })
     return
   }
+  // 인슐린을 아직 전부 못 받았으면 다시 시도
+  const insulinJob = insulinSyncedUserId === userId ? undefined : syncInsulinsOnce(userId)
   await sendPendingMeals()
   const today = startOfDay(new Date())
   await syncRange(addDays(today, -(RANGE_MAX_DAYS - 1)), today)
   await pushUnsentItems()
+  await insulinJob
+}
+
+// 인슐린 전부 받기. 성공했을 때만 받아 둔 계정으로 기록
+async function syncInsulinsOnce(userId: number) {
+  try {
+    await syncAllInsulins()
+    useGlucoseStore.setState({ insulinSyncedUserId: userId })
+  } catch {
+    // 다음에 앱 켤 때 다시 전부 받음
+  }
 }
 
 // 서버에 등록한 뒤 기기에 반영. 서버에 있는 식사면 끼니도 서버에 연결, 못 보낸 식사면 기기에서만
