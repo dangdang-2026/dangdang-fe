@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import iconCheck from '@/assets/icons/check-dark.svg'
 import iconChevron from '@/assets/icons/legal/version-chev.svg'
+import iconRemove from '@/assets/icons/remove.svg'
 import iconPlus from '@/assets/icons/meal/plus.svg'
+import BottomSheet from '@/components/common/BottomSheet'
 import PhotoBowlSheet, { AiMark } from '@/components/meal/photo/PhotoBowlSheet'
 import PhotoScreen from '@/components/meal/photo/PhotoScreen'
 import PhotoUnknownBowlSheet from '@/components/meal/photo/PhotoUnknownBowlSheet'
@@ -18,6 +20,19 @@ import {
 
 // 이름을 못 찾은 그릇
 const UNKNOWN_NAME = '알 수 없는 음식'
+
+const PORTIONS: Portion[] = ['half', 'one', 'one-half']
+
+// 고르기 체크 상자
+function CheckBox({ checked }: { checked: boolean }) {
+  return checked ? (
+    <span className="bg-primary flex size-5.5 items-center justify-center rounded-md">
+      <img src={iconCheck} alt="" width={14} height={14} />
+    </span>
+  ) : (
+    <span className="border-grey-300 block size-5.5 rounded-md border-2" />
+  )
+}
 
 type PhotoTableScreenProps = {
   photoUrl: string
@@ -93,9 +108,13 @@ function PhotoTableScreen({
       ? { left: cover.left + point.x * cover.width, top: cover.top + point.y * cover.height }
       : { left: `${point.x * 100}%`, top: `${point.y * 100}%` }
   const unitOf = (name: string) => findFood(name, foods)?.unit ?? '인분'
-  // 사진 위 번호와 목록 번호를 맞춤
-  const numbered = items.map((item, index) => ({ ...item, number: index + 1 }))
+  // 사진 위 번호와 목록 번호를 맞춤. 직접 추가한 음식은 번호 없이 따로
+  const numbered = items
+    .filter((item) => item.fromAi)
+    .map((item, index) => ({ ...item, number: index + 1 }))
+  const added = items.filter((item) => !item.fromAi)
   const openItem = numbered.find((item) => item.id === openId)
+  const openAdded = added.find((item) => item.id === openId)
   // 이름까지 알아본 그릇만 셈
   const aiCount = items.filter((item) => item.fromAi && item.candidates.length > 0).length
   const close = () => setOpenId(null)
@@ -156,7 +175,8 @@ function PhotoTableScreen({
           )}
         </div>
 
-        <ul className="border-grey-200 rounded-key overflow-hidden border">
+        {/* 목록이 길어도 줄어들지 않고 화면이 스크롤되게 */}
+        <ul className="border-grey-200 rounded-key shrink-0 overflow-hidden border">
           {numbered.map((item) => {
             const unknown = !item.name
             const label = unknown ? UNKNOWN_NAME : item.name
@@ -173,13 +193,7 @@ function PhotoTableScreen({
                   // 이름을 모르면 고르기 전에 무슨 음식인지부터
                   onClick={() => (unknown ? setOpenId(item.id) : onToggle(item.id))}
                 >
-                  {item.checked ? (
-                    <span className="bg-primary flex size-5.5 items-center justify-center rounded-md">
-                      <img src={iconCheck} alt="" width={14} height={14} />
-                    </span>
-                  ) : (
-                    <span className="border-grey-300 block size-5.5 rounded-md border-2" />
-                  )}
+                  <CheckBox checked={item.checked} />
                 </button>
                 <span className="bg-grey-100 text-grey-700 flex size-5 shrink-0 items-center justify-center rounded-full text-xs leading-none font-bold">
                   {item.number}
@@ -213,9 +227,56 @@ function PhotoTableScreen({
           })}
         </ul>
 
+        {/* 빠진 음식 추가로 고른 음식. AI 표시 · 사진 번호 없이, 없으면 숨김 */}
+        {added.length > 0 && (
+          <section className="flex shrink-0 flex-col gap-2">
+            <h3 className="text-grey-700 text-sm leading-normal font-bold">직접 추가한 음식</h3>
+            <ul className="border-grey-200 rounded-key overflow-hidden border">
+              {added.map((item) => (
+                <li
+                  key={item.id}
+                  className="border-grey-100 flex items-center gap-2.5 border-t px-3.5 py-3 first:border-t-0"
+                >
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={item.checked}
+                    aria-label={`${item.name} 고르기`}
+                    onClick={() => onToggle(item.id)}
+                  >
+                    <CheckBox checked={item.checked} />
+                  </button>
+                  <span className="text-t6 text-grey-900 min-w-0 flex-1 truncate leading-snug font-medium">
+                    {item.name}
+                  </span>
+                  {item.checked && (
+                    <button
+                      type="button"
+                      aria-label={`${item.name} 양 바꾸기`}
+                      className="bg-grey-50 text-body-3 text-grey-700 flex shrink-0 items-center gap-0.5 rounded-full py-1 pr-2 pl-2.5 leading-snug"
+                      onClick={() => setOpenId(item.id)}
+                    >
+                      {formatPortion(item.portion, unitOf(item.name))}
+                      <img src={iconChevron} alt="" width={12} height={12} />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    aria-label={`${item.name} 빼기`}
+                    className="flex size-6 shrink-0 items-center justify-center"
+                    onClick={() => onRemove(item.id)}
+                  >
+                    <img src={iconRemove} alt="" width={16} height={16} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <button
           type="button"
-          className="text-grey-600 flex items-center gap-1.5 self-start text-sm leading-snug font-medium"
+          className="text-grey-600 flex shrink-0 items-center gap-1.5 self-start text-sm leading-snug font-medium"
           onClick={() => onSearch(null)}
         >
           <img src={iconPlus} alt="" width={18} height={18} />
@@ -223,6 +284,34 @@ function PhotoTableScreen({
         </button>
       </PhotoScreen>
 
+      {openAdded && (
+        <BottomSheet label={`${openAdded.name} 양`} onClose={close}>
+          <h2 className="text-t4 text-grey-900">{openAdded.name} 양</h2>
+          <div className="flex gap-2">
+            {PORTIONS.map((option) => {
+              const selected = option === openAdded.portion
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={selected}
+                  className={`text-t6 rounded-key flex-1 border-2 py-3 font-bold ${
+                    selected
+                      ? 'border-primary text-grey-900 bg-yellow-50'
+                      : 'border-grey-200 text-grey-600 bg-white'
+                  }`}
+                  onClick={() => {
+                    onChange(openAdded.id, openAdded.name, option)
+                    close()
+                  }}
+                >
+                  {formatPortion(option, unitOf(openAdded.name))}
+                </button>
+              )
+            })}
+          </div>
+        </BottomSheet>
+      )}
       {openItem &&
         (openItem.name ? (
           <PhotoBowlSheet

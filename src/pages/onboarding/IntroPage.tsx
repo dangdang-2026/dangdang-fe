@@ -7,14 +7,11 @@ import introCharacter from '@/assets/images/onboarding/intro-character.svg'
 import KakaoSignupSheet, { type KakaoSignupError } from '@/components/auth/KakaoSignupSheet'
 import { ROUTES } from '@/constants/routes'
 import { useFinishLogin } from '@/hooks/useFinishLogin'
-import { useStatusBarColor } from '@/hooks/useStatusBarColor'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { useOnboardingStore } from '@/stores/useOnboardingStore'
 
 // Figma S-02 서비스 소개. 로그인·설정을 다 마쳤으면 바로 홈으로
 function IntroPage() {
-  // 맨 위 노란 그라데이션 시작색과 상태 바를 이어 줌
-  useStatusBarColor('--color-intro-from')
   const navigate = useNavigate()
   const loggedIn = useAuthStore((state) => state.account !== null)
   const completed = useOnboardingStore((state) => state.completed)
@@ -54,7 +51,7 @@ function IntroPage() {
 
   return (
     <main className="relative mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white pb-[max(--spacing(9),env(safe-area-inset-bottom))]">
-      <div className="from-intro-from to-intro-to rounded-b-intro relative h-111 shrink-0 overflow-hidden bg-linear-196 from-10%">
+      <div className="from-intro-from to-intro-to rounded-b-intro status-bar-bleed relative h-111 shrink-0 overflow-hidden bg-linear-196 from-10%">
         <span className="text-grey-900 rounded-banner text-t7 absolute top-52 left-31 flex rotate-8 flex-col items-center bg-yellow-500 px-4 py-3 font-bold">
           병원 기준대로
           <br />

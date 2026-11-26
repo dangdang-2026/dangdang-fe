@@ -23,7 +23,6 @@ import MyMenuGroup from '@/components/my/MyMenuGroup'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useNow } from '@/hooks/useNow'
-import { useStatusBarColor } from '@/hooks/useStatusBarColor'
 import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
 import { useAiStore } from '@/stores/useAiStore'
 import { useHospitalStore } from '@/stores/useHospitalStore'
@@ -51,8 +50,6 @@ const formatVisitDay = (at: Date) =>
 
 // Figma M-01 마이 메인
 function MyPage() {
-  // 맨 위 노란 머리(yellow-300)와 상태 바를 이어 줌
-  useStatusBarColor('--color-yellow-300')
   const hospital = usePrimaryHospital()
   const hospitals = useHospitalStore((state) => state.hospitals)
   const aiPhoto = useAiStore((state) => !!state.photo?.agreed)
@@ -94,7 +91,10 @@ function MyPage() {
         className="bg-grey-100 fixed inset-y-0 left-1/2 -z-10 w-full max-w-107.5 -translate-x-1/2"
       />
       {/* 위쪽 노란 판 */}
-      <div aria-hidden className="rounded-br-profile absolute inset-x-0 top-0 h-79 bg-yellow-300" />
+      <div
+        aria-hidden
+        className="rounded-br-profile status-bar-bleed absolute inset-x-0 top-0 h-79 bg-yellow-300"
+      />
 
       <header className="relative flex items-center justify-between px-5 pt-5.5">
         <h1 className="text-title-2 text-grey-900">마이</h1>
