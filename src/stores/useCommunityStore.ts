@@ -114,7 +114,11 @@ const mergePosts = (posts: Post[], incoming: Post[], full: boolean) => {
         full || [...next.body].length < EXCERPT_LENGTH || next.body.length >= post.body.length
           ? next.body
           : post.body,
-      comments: next.comments.length > 0 ? next.comments : post.comments,
+      // 목록은 베스트 댓글 한 줄만 와서 상세에서 받은 댓글이 있으면 남김
+      comments:
+        next.comments.length > 0 && (full || post.comments.length === 0)
+          ? next.comments
+          : post.comments,
       poll: next.poll?.length ? next.poll : (post.poll ?? next.poll),
     }
   })

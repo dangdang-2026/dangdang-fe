@@ -9,6 +9,8 @@ export type Author = {
   nickname: string
   // 모르면 null
   pregnancyWeek: number | null
+  // 서버 주수 배지 글(임신 N주 · 산후 N개월 · 산후 1개월 미만). 없으면 pregnancyWeek로
+  badge?: string | null
 }
 
 export type CommunityComment = {
@@ -23,6 +25,10 @@ export type CommunityComment = {
   parentId?: string
   // 운영정책으로 가려진 댓글
   hidden?: boolean
+  // 글쓴이가 단 댓글(「글쓴이」 라벨)
+  postAuthor?: boolean
+  // 서버가 고른 베스트 댓글. 서버 값이 없으면 공감 수로 고름
+  best?: boolean
 }
 
 export type PollOption = {
