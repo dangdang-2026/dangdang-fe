@@ -45,6 +45,7 @@ import {
   saveMealContent,
   saveInsulin,
   saveMealStart,
+  saveSkipMeal,
   useGlucoseStore,
 } from '@/stores/useGlucoseStore'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
@@ -95,7 +96,6 @@ function TodayPage() {
   const meals = useGlucoseStore((state) => state.meals)
   const records = useGlucoseStore((state) => state.records)
   const insulins = useGlucoseStore((state) => state.insulins)
-  const skipMeal = useGlucoseStore((state) => state.skipMeal)
   const foods = useFoods()
   const criteria = useCriteria()
   const criteriaVersions = useCriteriaStore((state) => state.versions)
@@ -455,7 +455,7 @@ function TodayPage() {
             postMealHours={criteria.postMealHours}
             onStartMeal={() => void handleStartMeal()}
             onInputGlucose={openGlucoseSheet}
-            onSkipMeal={skipMeal}
+            onSkipMeal={(mealId) => void saveSkipMeal(mealId)}
             onWriteMeal={setWritingMeal}
             onEditMealStart={setEditingStart}
             onFillMissed={fillMissed}

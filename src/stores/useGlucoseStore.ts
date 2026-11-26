@@ -14,6 +14,7 @@ import {
   deleteMeal,
   getAllMeals,
   restoreMeal as restoreMealApi,
+  skipMealMeasure,
   updateMealStart,
   type ServerMeal,
 } from '@/api/meals'
@@ -176,6 +177,9 @@ async function sendPendingMeal(meal: Meal, offline: boolean) {
     }))
     // 못 보낸 사이 적은 음식도 이어서 보냄
     void pushMealItems(saved.id)
+    // 못 보낸 사이 건너뛴 끼니면 서버에도 건너뜀으로(놓친 측정 · 알림 정리)
+    const current = useGlucoseStore.getState().meals.find((item) => item.id === saved.id)
+    if (current?.skipped) void skipMealMeasure(saved.id).catch(() => {})
     return true
   } catch {
     return false
@@ -191,7 +195,7 @@ const getKnownFoods = () => {
 // 서버 식사를 기기 식사에 합침. 기기에서 고치고 못 보낸 음식은 기기 값, 아니면 서버 항목
 export function mergeServerMeal(server: ServerMeal, local?: Meal): Meal {
   const { items, ...base } = server
-  const meal: Meal = local ? { ...local, ...base } : { ...base, skipped: false }
+  const meal: Meal = local ? { ...local, ...base } : { skipped: false, ...base }
   if (!items || meal.itemsPending) return meal
   // 항목 API 전에 기기에만 적은 음식은 서버로 옮김
   if (items.length === 0) return meal.foods?.length ? { ...meal, itemsPending: true } : meal
@@ -655,4 +659,19 @@ export async function removeRecordsRange(from: Date, to: Date) {
     insulins: state.insulins.filter((insulin) => !inRange(insulin.takenAt)),
   }))
   return result
+}
+
+// 이번 끼니는 건너뛸게요. 기기에 먼저 남기고 서버에 저장. 이미 식후 혈당을 쟀다고(409) 하면 되돌림
+export async function saveSkipMeal(mealId: string) {
+  useGlucoseStore.getState().skipMeal(mealId)
+  const meal = useGlucoseStore.getState().meals.find((item) => item.id === mealId)
+  if (!meal || meal.pending) return
+  try {
+    await skipMealMeasure(mealId)
+  } catch (error) {
+    if (getErrorCode(error) !== 'MEAL_40905') return
+    useGlucoseStore.setState((state) => ({
+      meals: state.meals.map((item) => (item.id === mealId ? { ...item, skipped: false } : item)),
+    }))
+  }
 }
