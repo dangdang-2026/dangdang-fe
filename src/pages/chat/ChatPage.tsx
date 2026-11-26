@@ -22,7 +22,7 @@ import Toast from '@/components/common/Toast'
 import ContactMemoSheet from '@/components/my/ContactMemoSheet'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
-import { saveChatConsent, useAiStore } from '@/stores/useAiStore'
+import { saveChatConsents, useAiStore } from '@/stores/useAiStore'
 import {
   loadOlderChatMessages,
   rateChatAnswer,
@@ -50,8 +50,8 @@ function ChatPage() {
   const contactMemo = useProfileStore((state) => state.contactMemo)
   const updateProfile = useProfileStore((state) => state.updateProfile)
 
-  // 처음 들어오면 동의부터 물어봄
-  const [consentSheet, setConsentSheet] = useState(consent === null)
+  // 기록 보기 · 해외로 보내기 중 아직 안 물어본 게 있으면 동의부터
+  const [consentSheet, setConsentSheet] = useState(consent === null || overseas === null)
   // 동의를 기다리는 기록 질문
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null)
   const [thinking, setThinking] = useState<string | null>(null)
@@ -107,6 +107,8 @@ function ChatPage() {
       .catch((error: unknown) => {
         const code = getErrorCode(error)
         if (code === 'AI_40301') {
+          // 다른 기기에서 껐을 수 있어 기기도 해외로 보내기 안 함으로
+          setConsent('overseas', false)
           addMessage({
             id: newId(),
             from: 'bot',
@@ -176,17 +178,12 @@ function ChatPage() {
     setPendingQuestion(null)
   }, [])
 
-  const chooseConsent = (agreed: boolean) => {
+  // 기록 보기는 고른 대로, 해외로 보내기는 필수라 늘 동의. 기다리던 질문은 저장 뒤 다시 물음
+  const chooseConsent = (records: boolean) => {
     const question = pendingQuestion
     setConsentSheet(false)
     setPendingQuestion(null)
-    // 거절은 서버에 못 남겨도 기기에선 거절로
-    if (!agreed) {
-      setConsent('chat', false)
-      saveChatConsent(false).catch(() => {})
-      return
-    }
-    saveChatConsent(true)
+    saveChatConsents({ records, overseas: true })
       .then(() => {
         if (question) reply(question)
       })
@@ -358,7 +355,7 @@ function ChatPage() {
           <ChatIntro
             onAsk={ask}
             recordsDeclined={consent !== null && !consent.agreed}
-            hideSuggestions={consent !== null && !consent.agreed && !overseas}
+            hideSuggestions={overseas !== null && !overseas.agreed}
             onOpenSettings={() => navigate(ROUTES.MY_AI)}
           />
         )}
@@ -367,13 +364,7 @@ function ChatPage() {
       </div>
       <ChatInput disabled={!!thinking} onSend={ask} />
 
-      {consentSheet && (
-        <ConsentSheet
-          onAgree={() => chooseConsent(true)}
-          onDecline={() => chooseConsent(false)}
-          onClose={closeConsent}
-        />
-      )}
+      {consentSheet && <ConsentSheet onSubmit={chooseConsent} onClose={closeConsent} />}
       {editing && (
         <DraftEditSheet
           initialText={editing.text}

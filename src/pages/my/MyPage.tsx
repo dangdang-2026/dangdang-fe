@@ -49,7 +49,8 @@ function MyPage() {
   const hospital = usePrimaryHospital()
   const hospitals = useHospitalStore((state) => state.hospitals)
   const aiPhoto = useAiStore((state) => !!state.photo?.agreed)
-  const aiChat = useAiStore((state) => !!state.chat?.agreed)
+  // 당당이는 해외로 보내기만 있으면 일반 질문을 쓸 수 있어 켜짐으로
+  const aiChat = useAiStore((state) => !!state.overseas?.agreed)
   const navigate = useNavigate()
   const now = useNow()
   const { name, dueDate, careMode } = useProfileStore()

@@ -9,7 +9,7 @@ import Toast from '@/components/common/Toast'
 import { ROUTES } from '@/constants/routes'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useGoBack } from '@/hooks/useGoBack'
-import { saveChatConsent, useAiStore } from '@/stores/useAiStore'
+import { saveChatConsents, useAiStore } from '@/stores/useAiStore'
 import { saveVisitNote, useVisitStore } from '@/stores/useVisitStore'
 
 const NOTE_MAX = 500
@@ -33,7 +33,8 @@ function VisitNotePage() {
   const note = useVisitStore((state) => state.note)
   const setNote = useVisitStore((state) => state.setNote)
   // 메모 글이 해외 AI를 거쳐서 당당이 기록 보기 동의를 같이 씀
-  const aiAgreed = useAiStore((state) => !!state.chat?.agreed)
+  // 메모 정리는 해외로 보내기 동의만 있으면 됨(기록 보기는 안 씀)
+  const aiAgreed = useAiStore((state) => !!state.overseas?.agreed)
   const [consentOpen, setConsentOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const closeToast = useCallback(() => setToast(null), [])
@@ -67,8 +68,11 @@ function VisitNotePage() {
       if (mounted.current) navigate(ROUTES.VISIT_NOTE_RESULT, { state: { result } })
     } catch (error) {
       const code = getErrorCode(error)
-      if (code === 'AI_40301') setConsentOpen(true)
-      else if (isAxiosError(error) && error.code === 'ECONNABORTED') setToast(ORGANIZE_TIMEOUT)
+      if (code === 'AI_40301') {
+        // 다른 기기에서 껐을 수 있어 기기도 해외로 보내기 안 함으로
+        useAiStore.getState().setConsent('overseas', false)
+        setConsentOpen(true)
+      } else if (isAxiosError(error) && error.code === 'ECONNABORTED') setToast(ORGANIZE_TIMEOUT)
       else setToast((code && ORGANIZE_ERROR[code]) || ORGANIZE_FAILED)
     } finally {
       setLoading(false)
@@ -151,7 +155,7 @@ function VisitNotePage() {
           onConfirm={() => {
             setConsentOpen(false)
             // 동의 저장 실패만 안내. 정리 실패는 기존처럼 정리 쪽에서 처리
-            saveChatConsent(true).then(
+            saveChatConsents({ overseas: true }).then(
               () => void organize(),
               () => setToast('동의를 저장하지 못했어요. 잠시 후 다시 시도해 주세요'),
             )

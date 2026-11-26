@@ -42,11 +42,15 @@ export async function getConsents() {
   return data.data.items
 }
 
-// 당당이 기록 보기 동의. 켜면 해외 AI를 거쳐서 국외 이전도 같이, 끌 땐 일반 질문에도 쓰는 국외 이전은 그대로
-export async function saveChatConsent(agreed: boolean) {
+// 당당이 동의. 기록 보고 답하기(AI_CHAT_RECORDS, 선택)와 해외로 보내기(OVERSEAS_TRANSFER, 당당이 · 메모 정리에 필수)를 따로. 넘긴 것만 저장
+export async function saveChatConsents(consents: { records?: boolean; overseas?: boolean }) {
   const items: { type: ConsentType; granted: boolean }[] = [
-    { type: 'AI_CHAT_RECORDS', granted: agreed },
-    ...(agreed ? [{ type: 'OVERSEAS_TRANSFER' as const, granted: true }] : []),
+    ...(consents.records === undefined
+      ? []
+      : [{ type: 'AI_CHAT_RECORDS' as const, granted: consents.records }]),
+    ...(consents.overseas === undefined
+      ? []
+      : [{ type: 'OVERSEAS_TRANSFER' as const, granted: consents.overseas }]),
   ]
   await apiClient.post('/me/consents', { items })
 }
