@@ -9,10 +9,15 @@ import iconSensitive from '@/assets/icons/legal/sum-sensitive.svg'
 import iconThird from '@/assets/icons/legal/sum-third.svg'
 import iconTransfer from '@/assets/icons/legal/sum-transfer.svg'
 import Toast from '@/components/common/Toast'
-import ClauseList, { ClauseBody, type Clause } from '@/components/legal/ClauseList'
+import ClauseList, {
+  ClauseBody,
+  ClauseParagraphs,
+  type Clause,
+} from '@/components/legal/ClauseList'
 import DocumentHead from '@/components/legal/DocumentHead'
 import LegalLayout from '@/components/legal/LegalLayout'
 import LegalTable from '@/components/legal/LegalTable'
+import TransferTables from '@/components/legal/TransferTables'
 import { LEGAL_VERSION } from '@/constants/legal'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
@@ -39,7 +44,7 @@ function PrivacyPolicyPage() {
     {
       icon: iconTransfer,
       title: '국외 이전',
-      body: 'AI 기능 · 메일 · 웹 전달',
+      body: 'OpenAI·Google·Apple·Vercel (미국)',
       to: ROUTES.LEGAL_TRANSFER,
     },
     { icon: iconOfficer, title: '보호책임자', body: '임다현 · ddangdang2026@gmail.com' },
@@ -164,34 +169,14 @@ function PrivacyPolicyPage() {
     {
       title: '제6조 개인정보의 국외 이전',
       body: (
-        <ClauseBody
-          lines={[
-            'AI 기능을 켠 경우에만 아래처럼 해외로 보내요. 마이 › AI 설정에서 끌 수 있고, 꺼도 기록·알림은 그대로 써요.',
-          ]}
-          rows={[
-            { label: '받는 곳 · 국가', value: 'OpenAI OpCo, LLC · 미국' },
-            {
-              label: '보내는 때 · 방법',
-              value: '당당이에게 질문하거나 진료 메모 정리를 누를 때, 암호화 통신(HTTPS)으로',
-            },
-            {
-              label: '보내는 항목',
-              value:
-                '질문 내용, 필요한 혈당 숫자와 날짜, 정리를 요청한 진료 메모 (이름·연락처는 보내지 않아요)',
-            },
-            {
-              label: '보관 기간',
-              value:
-                'OpenAI가 오남용 확인 목적으로 최대 30일 보관한 뒤 삭제 · AI 학습에 쓰지 않아요',
-            },
-          ]}
-          note="메일 발송(Google)과 웹 화면 전달(Vercel)도 미국 서버를 거쳐요."
-          // 이전 목적 · 거부 방법과 효과는 국외 이전 고지 화면에
-          link={{
-            label: '국외 이전 고지 자세히 보기',
-            onClick: () => navigate(ROUTES.LEGAL_TRANSFER),
-          }}
-        />
+        <div className="flex flex-col gap-3">
+          <ClauseParagraphs
+            lines={[
+              '아래 경우에 해외로 보내요. 받는 곳마다 보내는 때·항목·보관 기간과 거부 방법을 알려 드려요.',
+            ]}
+          />
+          <TransferTables />
+        </div>
       ),
     },
     {
