@@ -10,6 +10,8 @@ const TARGET: Record<InboxType, { to: string; state?: object }> = {
   visitToday: { to: ROUTES.VISIT_REPORT },
   visitNote: { to: ROUTES.VISIT_NOTE },
   postpartum: { to: ROUTES.POSTPARTUM_CHECK },
+  // 광고 받기 토글이 있는 알림 설정
+  marketing: { to: ROUTES.MY_NOTIFICATIONS },
 }
 
 // 알림을 누르면 읽음 표시하고 그 화면으로. 알림함 · 앱 안 배너 같이 씀
