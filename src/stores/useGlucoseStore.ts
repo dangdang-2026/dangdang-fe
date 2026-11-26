@@ -675,3 +675,12 @@ export async function saveSkipMeal(mealId: string) {
     }))
   }
 }
+
+// from~to(오늘까지)를 31일씩 차례로 서버와 맞춤. 지난 날짜 기준으로 서버가 다시 판정한 뒤 등. 실패한 구간은 건너뜀
+export async function syncLongRange(from: Date, to: Date) {
+  const end = startOfDay(to)
+  for (let chunk = startOfDay(from); chunk <= end; chunk = addDays(chunk, RANGE_MAX_DAYS)) {
+    const chunkEnd = addDays(chunk, RANGE_MAX_DAYS - 1)
+    await syncRange(chunk, chunkEnd < end ? chunkEnd : end).catch(() => {})
+  }
+}
