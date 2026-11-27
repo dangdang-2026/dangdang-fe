@@ -2,7 +2,8 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { MeasureSlotKey } from '@/types/criteria'
 
-export type AgreementKey = 'age' | 'terms' | 'privacy' | 'sensitive' | 'marketing'
+// ai: [선택] AI 기능 · 해외 전송(미국 OpenAI)
+export type AgreementKey = 'age' | 'terms' | 'privacy' | 'sensitive' | 'ai' | 'marketing'
 
 export const REQUIRED_AGREEMENTS: AgreementKey[] = ['age', 'terms', 'privacy', 'sensitive']
 

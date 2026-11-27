@@ -17,15 +17,18 @@ const CONSENT_TYPE: Record<AgreementKey, ConsentType> = {
   terms: 'TERMS',
   privacy: 'PRIVACY',
   sensitive: 'SENSITIVE',
+  ai: 'OVERSEAS_TRANSFER',
   marketing: 'MARKETING',
 }
 
-// 약관 화면(A-01) 5개 항목을 한 번에 저장. 안 고른 선택 항목은 거부로
+// 고를 때만 저장하는 항목. AI · 해외 전송은 안 골라도 전에 당당이에서 한 동의를 끄지 않음
+const ONLY_WHEN_AGREED: AgreementKey[] = ['ai']
+
+// 약관 화면(A-01) 항목을 한 번에 저장. 안 고른 선택 항목은 거부로(AI · 해외 전송은 고를 때만)
 export async function saveConsents(agreed: AgreementKey[]) {
-  const items = (Object.keys(CONSENT_TYPE) as AgreementKey[]).map((key) => ({
-    type: CONSENT_TYPE[key],
-    granted: agreed.includes(key),
-  }))
+  const items = (Object.keys(CONSENT_TYPE) as AgreementKey[])
+    .filter((key) => agreed.includes(key) || !ONLY_WHEN_AGREED.includes(key))
+    .map((key) => ({ type: CONSENT_TYPE[key], granted: agreed.includes(key) }))
   await apiClient.post('/me/consents', { items })
 }
 
