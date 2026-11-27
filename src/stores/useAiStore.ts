@@ -8,7 +8,8 @@ import {
 } from '@/api/consent'
 
 // 동의·거절과 그 날짜. 아직 안 물어봤으면 null
-export type AiConsent = { agreed: boolean; at: string } | null
+// reconsent: 문서가 바뀌어 다시 동의해야 함(거절이 아님)
+export type AiConsent = { agreed: boolean; at: string; reconsent?: boolean } | null
 
 export type AiFeature = 'photo' | 'chat' | 'overseas'
 
@@ -95,7 +96,12 @@ export async function syncAiConsents() {
   if (version !== consentVersion) return
   const toConsent = (type: string): AiConsent => {
     const item = items.find((consent) => consent.type === type)
-    return item?.occurredAt ? { agreed: item.granted, at: item.occurredAt } : null
+    if (!item?.occurredAt) return null
+    return {
+      agreed: item.granted,
+      at: item.occurredAt,
+      reconsent: item.needsReconsent || undefined,
+    }
   }
   useAiStore.setState({
     photo: toConsent('AI_PHOTO'),

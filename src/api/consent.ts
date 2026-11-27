@@ -36,7 +36,14 @@ export async function saveConsents(agreed: AgreementKey[]) {
 // 백엔드 ConsentResponse. 한 번도 안 고른 항목은 granted=false · occurredAt=null
 type ConsentResponse = {
   completed: boolean
-  items: { type: ConsentType; required: boolean; granted: boolean; occurredAt: string | null }[]
+  // needsReconsent: 예전 문서 버전에 동의해서 다시 물어야 함(거절과 다름)
+  items: {
+    type: ConsentType
+    required: boolean
+    granted: boolean
+    occurredAt: string | null
+    needsReconsent?: boolean
+  }[]
 }
 
 // 동의 항목별 최신 상태

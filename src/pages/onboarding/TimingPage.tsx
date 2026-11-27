@@ -20,7 +20,7 @@ const OPTIONS: Option[] = [
   {
     value: null,
     title: '아직 몰라요',
-    description: '다음 진료 때 확인해도 괜찮아요. 그동안 목표 비교는 꺼 둘게요.',
+    description: '다음 진료 때 확인해도 괜찮아요. 알림·목표 비교 없이 기록만 해요.',
   },
 ]
 
@@ -53,7 +53,11 @@ function TimingPage() {
           안내받으셨나요?
         </h1>
         <p className="text-grey-500 text-sm leading-normal">
-          알림 시간을 이 기준으로 맞춰요. 언제든 바꿀 수 있어요.
+          보통 첫술부터 세요.
+          <br />
+          병원에서 &apos;다 먹고 나서부터&apos;라고 했다면
+          <br />
+          &apos;다른 시간으로 들었어요&apos;에서 늘려 주세요.
         </p>
       </div>
 
