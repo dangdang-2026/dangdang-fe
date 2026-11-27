@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router'
+import { useLocation } from 'react-router'
 import { deleteAccount, startKakaoWithdraw, type CommunityPostsOnLeave } from '@/api/auth'
 import { getErrorCode } from '@/api/axios'
 import { getSensitiveConsentAt, withdrawSensitiveConsent } from '@/api/consent'
 import { getRecordCalendar } from '@/api/records'
 import { getMe } from '@/api/me'
 import iconDownload from '@/assets/icons/download.svg'
-import iconFileGrey from '@/assets/icons/file-grey.svg'
 import iconCamera from '@/assets/icons/my/data-camera.svg'
-import iconInfo from '@/assets/icons/my/data-info.svg'
 import iconShield from '@/assets/icons/my/data-shield.svg'
 import iconTrash from '@/assets/icons/my/data-trash.svg'
 import iconChevron from '@/assets/icons/nav-next.svg'
@@ -40,7 +38,6 @@ type DataRow = {
 
 // Figma M-07 데이터 · 개인정보 · M-08 탈퇴 확인
 function DataPage() {
-  const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.MY)
   const location = useLocation()
   // 비밀번호가 있는 계정(이메일 가입)은 카카오로 로그인했어도 비밀번호로, 카카오 가입자는 카카오로 확인
@@ -150,7 +147,6 @@ function DataPage() {
     }
   }
 
-  const openTerms = () => navigate(ROUTES.MY_TERMS)
   const rows: DataRow[] = [
     {
       icon: iconDownload,
@@ -173,19 +169,7 @@ function DataPage() {
       description: '철회하면 기록·알림이 멈춰요',
       onClick: openWithdrawConsent,
     },
-    {
-      icon: iconFileGrey,
-      tone: 'grey',
-      title: '개인정보 처리방침',
-      onClick: () => navigate(ROUTES.LEGAL_PRIVACY),
-    },
-    {
-      icon: iconFileGrey,
-      tone: 'grey',
-      title: '이용약관',
-      onClick: () => navigate(ROUTES.LEGAL_TERMS),
-    },
-    { icon: iconInfo, tone: 'grey', title: '의료기기 아님 고지', onClick: openTerms },
+    // 처리방침 · 이용약관 · 고지는 마이 › 약관 · 고지에 있어서 여기선 뺌
   ]
 
   const withdraw = async (posts: CommunityPostsOnLeave, password: string | null) => {

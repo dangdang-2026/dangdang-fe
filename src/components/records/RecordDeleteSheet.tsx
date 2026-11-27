@@ -28,7 +28,7 @@ function RecordDeleteSheet({ record, label, onConfirm, onClose }: RecordDeleteSh
           </p>
         </div>
       }
-      description="지운 기록은 진료 리포트에서도 빠져요."
+      description={'지운 기록은 진료 리포트에서도 빠져요.\n지운 뒤 5초 동안은 되돌릴 수 있어요.'}
       confirmLabel="지우기"
       danger
       onConfirm={onConfirm}
