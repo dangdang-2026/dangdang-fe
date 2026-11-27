@@ -111,8 +111,13 @@ function HospitalsPage() {
     setDeleting(null)
     const undo = deleteHospitalLater(hospital.id, {
       onDeleted: (wasPrimary, next) => {
-        // 대표 병원을 지우면 다음 병원이 대표가 되고 그 진료일을 이어받음
-        if (wasPrimary) saveNextVisit(next?.nextVisitAt ?? null).catch(() => {})
+        // 대표 병원을 지우면 다음 병원이 대표가 되고 그 진료일을 이어받음. 그사이 대표가 또 바뀌었으면 안 씀
+        if (!wasPrimary || useHospitalStore.getState().hospitals[0]?.id !== next?.id) return
+        saveNextVisit(next?.nextVisitAt ?? null).catch(() => {})
+      },
+      // 되돌린 병원이 다시 대표가 되면 그 병원 진료일로
+      onRestoredPrimary: (restored) => {
+        saveNextVisit(restored.nextVisitAt ?? null).catch(() => {})
       },
       onFailed: () =>
         setToast({ message: `${hospital.name}${objectParticle(hospital.name)} 지우지 못했어요` }),
@@ -122,7 +127,11 @@ function HospitalsPage() {
       action: {
         label: '되돌리기',
         // 앱을 잠시 내렸다 오면 이미 서버에서 지웠을 수 있음
-        onClick: () => setToast(undo() ? null : { message: '이미 지워서 되돌릴 수 없어요' }),
+        // 토스트가 버튼을 누른 뒤 스스로 닫히므로 실패 안내는 그다음에 띄움
+        onClick: () => {
+          if (!undo())
+            window.setTimeout(() => setToast({ message: '이미 지워서 되돌릴 수 없어요' }), 0)
+        },
       },
     })
   }

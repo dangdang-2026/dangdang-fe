@@ -57,11 +57,15 @@ function readPrepared(): string[] {
   }
 }
 
-// 오늘이 검사일이고 아직 준비 확인 전인 검사
-function getCheckToday(check: PostpartumCheck | null, prepared: string[], now: Date) {
-  if (!check || prepared.includes(check.id)) return null
-  const date = parseDateKey(check.date)
-  return date && isSameDay(date, now) ? check : null
+// 결과를 안 적은 검사 중 오늘이 검사일이고 아직 준비 확인 전인 것(가장 이른 검사가 아니어도)
+function getCheckToday(checks: PostpartumCheck[], prepared: string[], now: Date) {
+  return (
+    checks.find((check) => {
+      if (check.memo !== null || prepared.includes(check.id)) return false
+      const date = parseDateKey(check.date)
+      return !!date && isSameDay(date, now)
+    }) ?? null
+  )
 }
 
 function writePrepared(ids: string[]) {
@@ -76,7 +80,8 @@ function writePrepared(ids: string[]) {
 function PostpartumToday({ name, deliveryDate, now }: PostpartumTodayProps) {
   const navigate = useNavigate()
   const checkRemindAt = useProfileStore((state) => state.checkRemindAt)
-  const pendingCheck = getPendingCheck(useProfileStore((state) => state.postpartumChecks))
+  const postpartumChecks = useProfileStore((state) => state.postpartumChecks)
+  const pendingCheck = getPendingCheck(postpartumChecks)
   const reportCount = useReportStore((state) => state.reports.length)
   const recordCount = useGlucoseStore((state) => state.records.length)
   const [remindSheet, setRemindSheet] = useState(false)
@@ -99,7 +104,7 @@ function PostpartumToday({ name, deliveryDate, now }: PostpartumTodayProps) {
   const showCheckTask = !remindAt || remindAt <= startOfDay(now)
   const archiveSummary = `리포트 ${reportCount}장 · 기록 ${recordCount}개`
   // Figma E-05d 검사 당일엔 준비 확인 카드부터
-  const checkToday = getCheckToday(pendingCheck, prepared, now)
+  const checkToday = getCheckToday(postpartumChecks, prepared, now)
 
   const markPrepared = (id: string) => {
     const next = prepared.includes(id) ? prepared : [...prepared, id]

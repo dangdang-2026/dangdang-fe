@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SEARCH_KEYWORD_MAX, SEARCH_KEYWORD_MIN, searchHospitals } from '@/api/careSites'
 import iconSearch from '@/assets/icons/search.svg'
 import iconChevron from '@/assets/icons/postpartum/chevron-md.svg'
@@ -14,6 +14,8 @@ import { objectParticle } from '@/utils/josa'
 const SEARCH_DELAY_MS = 300
 
 type SearchResult = {
+  // 검색할 때마다 올림. 다시 찾기 · 다른 검색어 뒤에 늦게 온 다음 장은 버림
+  run: number
   keyword: string
   status: 'loading' | 'done' | 'error'
   items: HospitalInfo[]
@@ -25,7 +27,12 @@ type SearchResult = {
   moreFailed: boolean
 }
 
-const firstResult = (keyword: string, status: SearchResult['status']): SearchResult => ({
+const firstResult = (
+  run: number,
+  keyword: string,
+  status: SearchResult['status'],
+): SearchResult => ({
+  run,
   keyword,
   status,
   items: [],
@@ -42,6 +49,13 @@ const sameHospital = (a: HospitalInfo, b: HospitalInfo) =>
     ? a.hiraCode === b.hiraCode
     : a.name === b.name && a.address === b.address
 
+// 이미 있는 병원 · 이번에 받은 것끼리도 겹치면 한 번만
+const addUnique = (base: HospitalInfo[], incoming: HospitalInfo[]) =>
+  incoming.reduce(
+    (list, item) => (list.some((seen) => sameHospital(seen, item)) ? list : [...list, item]),
+    base,
+  )
+
 // Figma C-21 병원 찾기 · C-22 찾는 병원 없음. 서버가 받아 둔 심평원 병원 목록에서 찾음
 function HospitalSearchPage() {
   const goBack = useGoBack(ROUTES.MY_HOSPITALS)
@@ -50,6 +64,7 @@ function HospitalSearchPage() {
   const [search, setSearch] = useState<SearchResult | null>(null)
   // 다시 찾기를 누르면 같은 검색어로 한 번 더
   const [retry, setRetry] = useState(0)
+  const runRef = useRef(0)
   const keyword = query.trim()
   const searchable = keyword.length >= SEARCH_KEYWORD_MIN
 
@@ -58,14 +73,22 @@ function HospitalSearchPage() {
     // 늦게 온 이전 검색어 결과는 버림
     let stale = false
     const timer = window.setTimeout(() => {
-      setSearch(firstResult(keyword, 'loading'))
+      runRef.current += 1
+      const run = runRef.current
+      setSearch(firstResult(run, keyword, 'loading'))
       searchHospitals(keyword)
         .then(({ items, hasNext, totalCount }) => {
-          if (!stale) setSearch({ ...firstResult(keyword, 'done'), items, hasNext, totalCount })
+          if (!stale)
+            setSearch({
+              ...firstResult(run, keyword, 'done'),
+              items: addUnique([], items),
+              hasNext,
+              totalCount,
+            })
         })
         .catch(() => {
           // 검색이 안 되면(CARE_SITE_50201 등) 직접 적기로 안내
-          if (!stale) setSearch(firstResult(keyword, 'error'))
+          if (!stale) setSearch(firstResult(run, keyword, 'error'))
         })
     }, SEARCH_DELAY_MS)
     return () => {
@@ -80,7 +103,7 @@ function HospitalSearchPage() {
   const notFound = current?.status === 'done' && results.length === 0
   const failed = current?.status === 'error'
 
-  // 다음 장. 검색어가 바뀌었으면 늦게 온 결과는 버림
+  // 다음 장. 그사이 새로 검색했으면 늦게 온 결과는 버림
   const loadMore = () => {
     if (!current?.hasNext || current.loadingMore) return
     const page = current.page + 1
@@ -88,13 +111,10 @@ function HospitalSearchPage() {
     searchHospitals(current.keyword, page)
       .then(({ items, hasNext, totalCount }) =>
         setSearch((prev) =>
-          prev?.keyword === current.keyword
+          prev?.run === current.run
             ? {
                 ...prev,
-                items: [
-                  ...prev.items,
-                  ...items.filter((item) => !prev.items.some((p) => sameHospital(p, item))),
-                ],
+                items: addUnique(prev.items, items),
                 page,
                 hasNext,
                 totalCount,
@@ -105,9 +125,7 @@ function HospitalSearchPage() {
       )
       .catch(() =>
         setSearch((prev) =>
-          prev?.keyword === current.keyword
-            ? { ...prev, loadingMore: false, moreFailed: true }
-            : prev,
+          prev?.run === current.run ? { ...prev, loadingMore: false, moreFailed: true } : prev,
         ),
       )
   }

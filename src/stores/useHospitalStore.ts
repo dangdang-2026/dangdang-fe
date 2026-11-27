@@ -43,9 +43,20 @@ export const useHospitalStore = create<HospitalState>()(
   ),
 )
 
+// 서버가 대표로 아는 병원. 지우기 · 되돌리기가 겹쳐도 대표를 넘길지 이걸로 판단
+let serverPrimaryId: string | null = null
+const getPrimaryId = () => serverPrimaryId ?? useHospitalStore.getState().hospitals[0]?.id ?? null
+
+function makePrimary(hospital: Hospital) {
+  serverPrimaryId = hospital.id
+  void setPrimaryCareSite(hospital.id).catch(() => {})
+}
+
 // 서버 병원 목록으로 바꿈. 서버에 없는 병원 종류·다음 진료일은 기기 값을 이어 씀
 export async function syncHospitals() {
   const hospitals = await getCareSites()
+  // 서버는 대표 병원을 먼저 줌
+  serverPrimaryId = hospitals[0]?.id ?? null
   const local = useHospitalStore.getState().hospitals
   useHospitalStore.setState({
     // 되돌리기를 기다리는 병원은 다시 넣지 않음
@@ -62,6 +73,7 @@ export async function syncHospitals() {
 export async function saveNewHospital(input: HospitalInput) {
   const primary = useHospitalStore.getState().hospitals.length === 0
   const saved = await createCareSite(input, primary)
+  if (primary) serverPrimaryId = saved.id
   const hospital = { ...saved, kind: input.kind, nextVisitAt: input.nextVisitAt }
   useHospitalStore.setState((state) => ({ hospitals: [...state.hospitals, hospital] }))
   return hospital
@@ -93,33 +105,40 @@ export async function saveHospitalEdit(id: string, input: HospitalInput) {
 export const HOSPITAL_UNDO_MS = 4500
 
 // 되돌리기를 기다리거나 서버에서 지우는 중인 병원. 지운 자리를 기억해 되돌리면 원래 자리로
-const pendingDeletes = new Map<
-  string,
-  { hospital: Hospital; index: number; timer: number; callbacks: DeleteCallbacks; sending: boolean }
->()
+// order: 지울 때 목록 순서(되돌릴 때 앞 병원 뒤에 넣으려고)
+type PendingDelete = {
+  hospital: Hospital
+  order: string[]
+  timer: number
+  callbacks: DeleteCallbacks
+  sending: boolean
+}
+const pendingDeletes = new Map<string, PendingDelete>()
 
 type DeleteCallbacks = {
   // 서버에서 지움. 대표 병원이었으면 다음 병원이 대표
   onDeleted: (wasPrimary: boolean, nextPrimary: Hospital | undefined) => void
   onFailed: () => void
+  // 되돌린 병원이 다시 대표가 됨(그사이 서버 대표가 다른 병원으로 넘어갔을 때)
+  onRestoredPrimary: (hospital: Hospital) => void
 }
 
 // 화면에서 먼저 빼고 몇 초 뒤 서버에서 지움. 돌려준 함수로 되돌림(이미 보냈으면 false)
 export function deleteHospitalLater(id: string, callbacks: DeleteCallbacks) {
   const { hospitals } = useHospitalStore.getState()
-  const index = hospitals.findIndex((item) => item.id === id)
-  const hospital = hospitals[index]
+  const hospital = hospitals.find((item) => item.id === id)
   if (!hospital || pendingDeletes.has(id)) return () => false
   useHospitalStore.setState({ hospitals: hospitals.filter((item) => item.id !== id) })
   const timer = window.setTimeout(() => void commitDelete(id), HOSPITAL_UNDO_MS)
-  pendingDeletes.set(id, { hospital, index, timer, callbacks, sending: false })
+  const order = hospitals.map((item) => item.id)
+  pendingDeletes.set(id, { hospital, order, timer, callbacks, sending: false })
   return () => {
     const pending = pendingDeletes.get(id)
     // 서버에 이미 보냈으면 되돌릴 수 없음
     if (!pending || pending.sending) return false
     window.clearTimeout(pending.timer)
     pendingDeletes.delete(id)
-    restoreHospital(pending.hospital, pending.index)
+    restoreHospital(pending)
     return true
   }
 }
@@ -133,31 +152,38 @@ export function flushHospitalDeletes() {
   })
 }
 
-// 되돌린 병원이 첫 자리면 서버에서도 대표로(그사이 다른 대표 지우기로 서버 대표가 바뀌었을 수 있음)
-function restoreHospital(hospital: Hospital, index: number) {
+// 지울 때 앞에 있던 병원 중 남아 있는 가장 가까운 병원 뒤로. 맨 앞이면 서버 대표와 다를 때만 대표로
+function restoreHospital({ hospital, order, callbacks }: PendingDelete) {
   let restoredAt = -1
   useHospitalStore.setState((state) => {
     if (state.hospitals.some((item) => item.id === hospital.id)) return state
+    const before = order.slice(0, order.indexOf(hospital.id)).reverse()
+    const anchor = before.find((id) => state.hospitals.some((item) => item.id === id))
+    restoredAt = anchor ? state.hospitals.findIndex((item) => item.id === anchor) + 1 : 0
     const hospitals = [...state.hospitals]
-    restoredAt = Math.min(index, hospitals.length)
     hospitals.splice(restoredAt, 0, hospital)
     return { hospitals }
   })
-  if (restoredAt === 0) void setPrimaryCareSite(hospital.id).catch(() => {})
+  if (restoredAt === 0 && getPrimaryId() !== hospital.id) {
+    makePrimary(hospital)
+    callbacks.onRestoredPrimary(hospital)
+  }
 }
 
 async function commitDelete(id: string) {
   const pending = pendingDeletes.get(id)
   if (!pending || pending.sending) return
   pending.sending = true
-  const { hospital, index, callbacks } = pending
+  const { hospital, callbacks } = pending
+  // 지울 때가 아니라 서버에 보낼 때 서버 대표인지로 판단(다른 지우기 · 되돌리기와 겹쳐도)
+  const wasPrimary = getPrimaryId() === hospital.id
   try {
     await deleteCareSite(hospital.id)
   } catch (error) {
     // 이미 지운 병원이면 지운 걸로 봄. 아니면 원래 자리로
     if (getErrorCode(error) !== NOT_FOUND) {
       pendingDeletes.delete(id)
-      restoreHospital(hospital, index)
+      restoreHospital(pending)
       callbacks.onFailed()
       return
     }
@@ -165,11 +191,12 @@ async function commitDelete(id: string) {
     // 지우는 중에 목록을 다시 받아도 안 돌아오게, 끝날 때까지 남겨 둠
     if (pendingDeletes.get(id) === pending) pendingDeletes.delete(id)
   }
+  if (!wasPrimary) return callbacks.onDeleted(false, undefined)
   // 대표 병원을 지우면 지금 첫 병원을 서버에서도 대표로. 실패해도 앱은 첫 병원을 대표로 씀
-  const wasPrimary = index === 0
-  const next = wasPrimary ? useHospitalStore.getState().hospitals[0] : undefined
-  if (next) await setPrimaryCareSite(next.id).catch(() => {})
-  callbacks.onDeleted(wasPrimary, next)
+  const next = useHospitalStore.getState().hospitals[0]
+  if (next) makePrimary(next)
+  else serverPrimaryId = null
+  callbacks.onDeleted(true, next)
 }
 
 // 앱을 내리거나 닫을 때 기다리던 병원 지우기를 바로 보냄
