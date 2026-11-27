@@ -471,15 +471,33 @@ function TodayPage() {
       )}
       <div className={online ? 'mt-6' : 'mt-3.5'}>
         {hospitalized ? (
-          <HospitalHero
-            variant={measurePaused && !inHospital ? 'paused' : 'hospital'}
-            onResume={() => {
-              ;(measurePaused && !inHospital ? savePaused(false) : saveHospitalized(false))
-                .then(() => setToast('측정 알림을 다시 켰어요'))
-                .catch(() => setToast('알림을 다시 켜지 못했어요. 잠시 후 다시 시도해 주세요'))
-            }}
-            onDelivered={() => navigate(ROUTES.POSTPARTUM_DELIVERY)}
-          />
+          <>
+            <HospitalHero
+              variant={measurePaused && !inHospital ? 'paused' : 'hospital'}
+              onResume={() => {
+                ;(measurePaused && !inHospital ? savePaused(false) : saveHospitalized(false))
+                  .then(() => setToast('측정 알림을 다시 켰어요'))
+                  .catch(() => setToast('알림을 다시 켜지 못했어요. 잠시 후 다시 시도해 주세요'))
+              }}
+              onDelivered={() => navigate(ROUTES.POSTPARTUM_DELIVERY)}
+            />
+            {/* Figma E-03b 다른 상황으로 알림만 멈췄을 때 마음 상담 줄 */}
+            {measurePaused && !inHospital && (
+              <p className="bg-grey-100 text-t7 text-grey-700 mt-4 flex items-center rounded-2xl px-4.5 py-4">
+                <span className="flex-1">
+                  마음이 힘들 땐{' '}
+                  <a href="tel:109" className="font-bold underline">
+                    109
+                  </a>
+                  {' · '}
+                  <a href="tel:15770199" className="font-bold underline">
+                    1577-0199
+                  </a>
+                </span>
+                <span aria-hidden>›</span>
+              </p>
+            )}
+          </>
         ) : !online && heroState.kind === 'eating' ? (
           // Figma H-12 식사 중 연결이 끊기면 알림 예약 안 됨 안내
           <OfflineHero meal={heroState.meal} dueAt={heroState.dueAt} onRetry={retryConnection} />

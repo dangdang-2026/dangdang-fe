@@ -1,6 +1,7 @@
 // 올리기 전 확인. 서버 AI 확인이 안 될 때만 낱말로 걸러냄
 
-export type PostWarning = { kind: 'urgent' | 'dose'; quote: string }
+// hypo: 저혈당일 수 있는 말(서버 LOW_GLUCOSE)
+export type PostWarning = { kind: 'urgent' | 'hypo' | 'dose'; quote: string }
 
 // 출혈·태동 감소·심한 통증·위기 표현
 const URGENT =

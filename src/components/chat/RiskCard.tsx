@@ -50,6 +50,12 @@ const LEGACY: Record<'URGENT' | 'MIND', { title: string; warning: string }> = {
   MIND: { title: '혼자 견디지 않아도 돼요', warning: '나를 해칠 것 같거나 위급하면 바로 119' },
 }
 
+// Figma Q-07b 저혈당 기본 제목 · 빨간 줄. 서버가 제목을 비워 보내도 이 문구로
+const HYPO_DEFAULT = {
+  title: '병원에서 안내받은 저혈당 대처를\n먼저 해 주세요',
+  warning: '어지럽거나 의식이 흐려지면 바로 119',
+}
+
 function NoticeLabel() {
   return (
     <p className="text-grey-600 flex items-center gap-1.5 text-xs leading-snug font-medium">
@@ -107,11 +113,11 @@ function RiskCard({ text, actions, dose, risk }: RiskCardProps) {
   }
 
   const type: RiskType = risk?.type ?? (actions.includes('CALL_109') ? 'MIND' : 'URGENT')
-  const legacy = LEGACY[type === 'MIND' ? 'MIND' : 'URGENT']
+  const legacy = type === 'HYPO' ? HYPO_DEFAULT : LEGACY[type === 'MIND' ? 'MIND' : 'URGENT']
   // 예전 줄: 병원 번호가 없으면 병원 연락 대신 바로 연락하라고
   const title =
-    risk?.title ?? (type === 'URGENT' && !hospital.phone ? '지금 바로 연락해 주세요' : legacy.title)
-  const warning = risk?.warning ?? legacy.warning
+    risk?.title || (type === 'URGENT' && !hospital.phone ? '지금 바로 연락해 주세요' : legacy.title)
+  const warning = risk?.warning || legacy.warning
   // 서버가 준 순서대로. 예전 줄은 버튼 목록이 비어 있을 수 있어 예전처럼 정해진 버튼(119는 늘)
   const order: ChatCallAction[] = risk
     ? actions

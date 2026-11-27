@@ -8,10 +8,12 @@ type EmergencyBlockProps = {
   onWriteMemo: () => void
   // 메모 · 기본 안내 대신 보여 줄 말. 예: 혈당계 HI · LO
   message?: ReactNode
+  // 맨 아래 119 안내. 기본은 어지러울 때
+  footnote?: ReactNode
 }
 
 // Figma 당당/위급 안내. 낮은 값 등에서 늘 펼쳐 보이는 「지금 먼저 할 일」. 앱은 숫자를 정하지 않음
-function EmergencyBlock({ onWriteMemo, message }: EmergencyBlockProps) {
+function EmergencyBlock({ onWriteMemo, message, footnote }: EmergencyBlockProps) {
   const memo = useProfileStore((state) => state.contactMemo)
   const hospital = usePrimaryHospital()
 
@@ -69,9 +71,13 @@ function EmergencyBlock({ onWriteMemo, message }: EmergencyBlockProps) {
         </a>
       </div>
       <p className="text-grey-700 mt-3 text-sm leading-normal font-medium">
-        어지럽거나 정신이 흐려지면
-        <br />
-        바로 119에 연락해 주세요.
+        {footnote ?? (
+          <>
+            어지럽거나 정신이 흐려지면
+            <br />
+            바로 119에 연락해 주세요.
+          </>
+        )}
       </p>
     </section>
   )
