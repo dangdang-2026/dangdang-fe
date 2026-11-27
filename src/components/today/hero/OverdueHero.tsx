@@ -2,7 +2,6 @@ import iconDropWhite from '@/assets/icons/drop-white.svg'
 import faceCheer from '@/assets/images/dangdang/face-cheer.svg'
 import HeroShell from '@/components/today/hero/HeroShell'
 import { HeroButton, HillDangdang } from '@/components/today/hero/HeroParts'
-import { formatDuration } from '@/utils/criteria'
 
 type OverdueHeroProps = {
   postMealHours: number | null
@@ -12,11 +11,9 @@ type OverdueHeroProps = {
   onSkipMeal: () => void
 }
 
-// Figma H-05 측정 시간 지남: 지금 재면 식후 몇 시간 몇 분으로 기록되는지
+// Figma H-05 · E-05c 측정 시간 지남: 늦어도 지금 재면 된다고 안내
 function OverdueHero({ postMealHours, dueAt, now, onInputGlucose, onSkipMeal }: OverdueHeroProps) {
   const lateMinutes = Math.floor((now.getTime() - dueAt.getTime()) / 60000)
-  // 예: 식후 1시간 25분
-  const elapsed = formatDuration((postMealHours ?? 0) + lateMinutes / 60)
 
   return (
     <HeroShell
@@ -25,23 +22,21 @@ function OverdueHero({ postMealHours, dueAt, now, onInputGlucose, onSkipMeal }: 
       muted
       decoration={<HillDangdang face={faceCheer} />}
     >
-      <h2 className="text-t3 text-grey-900 mt-1.5">
-        지금 재면
+      <h2 className="text-title-2 text-grey-900 mt-2.5">
+        괜찮아요,
         <br />
-        &apos;식후 {elapsed}&apos;으로
-        <br />
-        기록돼요
+        지금 재도 돼요
       </h2>
-      <p className="text-body-3 text-grey-700 mt-2.5">리포트에 늦게 잰 값으로 표시돼요</p>
+      <p className="text-body-3 text-grey-700 mt-5">늦게 잰 시간도 그대로 기록돼요</p>
       <button
         type="button"
-        className="text-body-3 text-grey-600 mt-3 self-start"
+        className="text-body-3 text-grey-600 mt-5 self-start"
         onClick={onSkipMeal}
       >
-        이번 끼니는 건너뛸게요
+        이번 끼니는 건너뛰기
       </button>
       <HeroButton icon={iconDropWhite} onClick={onInputGlucose}>
-        혈당 입력
+        지금 입력
       </HeroButton>
     </HeroShell>
   )

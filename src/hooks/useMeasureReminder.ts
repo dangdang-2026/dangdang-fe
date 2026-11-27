@@ -9,6 +9,7 @@ import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useNotificationStore } from '@/stores/useNotificationStore'
 import { useProfileStore } from '@/stores/useProfileStore'
 import type { Meal } from '@/types/glucose'
+import { formatTime } from '@/utils/date'
 import { getPendingMeal, getSlotLabel } from '@/utils/glucose'
 
 const MINUTE = 60 * 1000
@@ -42,11 +43,19 @@ export function snoozeOnDevice(mealId: string) {
   return true
 }
 
-// Figma E-05 측정 알림. 가리기면 수치·끼니 없이
-async function showMeasureNotification(meal: Meal, hours: number | null, hide: boolean) {
+// Figma E-05 측정 알림 · E-05b 첫 알림(식사 시작 시각 줄) · E-05c 다시 알림. 가리기면 수치·끼니 없이
+async function showMeasureNotification(
+  meal: Meal,
+  hours: number | null,
+  hide: boolean,
+  again: boolean,
+) {
   const body = hide
     ? '확인할 일이 있어요'
-    : `${getSlotLabel('post-meal', meal.type, hours)} 혈당 잴 시간이에요`
+    : again
+      ? '아직 혈당을 안 쟀다면 지금 재 주세요'
+      : `${getSlotLabel('post-meal', meal.type, hours)}, 잴 시간이에요
+${formatTime(new Date(meal.startedAt))}에 식사를 시작했어요`
   const options: NotificationOptions & { actions?: { action: string; title: string }[] } = {
     body,
     tag: `measure-${meal.id}`,
@@ -111,7 +120,12 @@ export function useMeasureReminder() {
           const deviceSnooze = key.includes(':snooze:')
           if (!deviceSnooze && !still.meal.pending && canShowAlertBanner()) return
           fired.add(key)
-          void showMeasureNotification(meal, postMealHours, hideOnLockScreen)
+          void showMeasureNotification(
+            meal,
+            postMealHours,
+            hideOnLockScreen,
+            !key.endsWith(':first'),
+          )
         },
         Math.max(delay, 0),
       )
