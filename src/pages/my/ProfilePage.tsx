@@ -92,11 +92,12 @@ function ProfilePage() {
 
   // 출산은 출산일 입력으로. 입원 · 다른 상황은 서버가 알림만 멈추고 홈에서 바로 보여 줌
   const chooseSituation = (choice: BirthOrHospital) => {
+    // 입원 · 다른 상황을 저장하는 중엔 다른 버튼을 막음(저장 뒤 홈으로 끌려가지 않게)
+    if (choosing) return
     if (choice === 'birth') {
       navigate(ROUTES.POSTPARTUM_DELIVERY)
       return
     }
-    if (choosing) return
     setChoosing(true)
     ;(choice === 'other' ? savePaused(true) : saveHospitalized(true))
       .then(() => navigate(ROUTES.TODAY))
@@ -259,6 +260,7 @@ function ProfilePage() {
             </button>
             <button
               type="button"
+              disabled={choosing}
               className="text-grey-900 h-12 flex-1 rounded-xl bg-white text-base leading-none font-bold"
               onClick={() => chooseSituation('birth')}
             >

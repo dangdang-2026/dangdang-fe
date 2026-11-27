@@ -132,6 +132,7 @@ const HEALTH_STORES = [
   'dangdang-inbox',
   'dangdang-profile',
   'dangdang-onboarding',
+  'dangdang-postpartum-prepared',
 ]
 export function restartAfterSensitiveWithdraw() {
   clearAndLeave(HEALTH_STORES, ROUTES.ONBOARDING_TERMS, CONSENT_RESTART_KEY)

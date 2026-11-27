@@ -15,9 +15,9 @@ function GraduationPage() {
   // 산후 홈에서 졸업한 뒤 서버가 준 숫자
   const graduation = (location.state as { graduation?: GraduationStats } | null)?.graduation
   const localReportCount = useReportStore((state) => state.reports.length)
-  // 서버 리포트 수(날짜 미정 리포트도 셈). 받기 전 · 실패면 기기 목록 수
-  const [serverReportCount, setServerReportCount] = useState<number | null>(null)
-  const reportCount = serverReportCount ?? localReportCount
+  // 서버 리포트 수(날짜 미정 리포트도 셈). 실패면 기기 목록 수, 받기 전엔 비워 둠(숫자가 바뀌어 보이지 않게)
+  const [serverReportCount, setServerReportCount] = useState<number | 'failed' | null>(null)
+  const reportCount = serverReportCount === 'failed' ? localReportCount : serverReportCount
 
   useEffect(() => {
     let stale = false
@@ -25,7 +25,9 @@ function GraduationPage() {
       .then((count) => {
         if (!stale) setServerReportCount(count)
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!stale) setServerReportCount('failed')
+      })
     return () => {
       stale = true
     }
@@ -38,7 +40,7 @@ function GraduationPage() {
 
   const stats = [
     { value: `${graduation.keptMeasurements}번`, label: '지킨 측정' },
-    { value: `${reportCount}장`, label: '진료 리포트' },
+    { value: reportCount === null ? '…' : `${reportCount}장`, label: '진료 리포트' },
     { value: `${graduation.weeksTogether}주`, label: '함께한 시간' },
   ]
 

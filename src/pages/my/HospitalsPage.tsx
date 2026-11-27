@@ -121,10 +121,8 @@ function HospitalsPage() {
       message: '병원을 지웠어요',
       action: {
         label: '되돌리기',
-        onClick: () => {
-          undo()
-          setToast(null)
-        },
+        // 앱을 잠시 내렸다 오면 이미 서버에서 지웠을 수 있음
+        onClick: () => setToast(undo() ? null : { message: '이미 지워서 되돌릴 수 없어요' }),
       },
     })
   }

@@ -89,12 +89,14 @@ export async function saveHospitalEdit(id: string, input: HospitalInput) {
   }
 }
 
-// 화면에서 바로 지우고 서버에서도 삭제. 실패하면 목록을 되돌림
 // 되돌리기 토스트(4초)가 닫힌 뒤 서버에서 지움. 서버에 되살리기가 없어서 그때까지 기다림
 export const HOSPITAL_UNDO_MS = 4500
 
-// 되돌리기를 기다리는 병원. 지운 자리를 기억해 되돌리면 원래 자리로
-const pendingDeletes = new Map<string, { hospital: Hospital; index: number; timer: number }>()
+// 되돌리기를 기다리거나 서버에서 지우는 중인 병원. 지운 자리를 기억해 되돌리면 원래 자리로
+const pendingDeletes = new Map<
+  string,
+  { hospital: Hospital; index: number; timer: number; callbacks: DeleteCallbacks; sending: boolean }
+>()
 
 type DeleteCallbacks = {
   // 서버에서 지움. 대표 병원이었으면 다음 병원이 대표
@@ -102,49 +104,78 @@ type DeleteCallbacks = {
   onFailed: () => void
 }
 
-// 화면에서 먼저 빼고 몇 초 뒤 서버에서 지움. 돌려준 함수로 되돌림
+// 화면에서 먼저 빼고 몇 초 뒤 서버에서 지움. 돌려준 함수로 되돌림(이미 보냈으면 false)
 export function deleteHospitalLater(id: string, callbacks: DeleteCallbacks) {
   const { hospitals } = useHospitalStore.getState()
   const index = hospitals.findIndex((item) => item.id === id)
   const hospital = hospitals[index]
-  if (!hospital || pendingDeletes.has(id)) return () => {}
+  if (!hospital || pendingDeletes.has(id)) return () => false
   useHospitalStore.setState({ hospitals: hospitals.filter((item) => item.id !== id) })
-  const timer = window.setTimeout(() => {
-    pendingDeletes.delete(id)
-    void commitDelete(hospital, index === 0, callbacks)
-  }, HOSPITAL_UNDO_MS)
-  pendingDeletes.set(id, { hospital, index, timer })
+  const timer = window.setTimeout(() => void commitDelete(id), HOSPITAL_UNDO_MS)
+  pendingDeletes.set(id, { hospital, index, timer, callbacks, sending: false })
   return () => {
     const pending = pendingDeletes.get(id)
-    if (!pending) return
+    // 서버에 이미 보냈으면 되돌릴 수 없음
+    if (!pending || pending.sending) return false
     window.clearTimeout(pending.timer)
     pendingDeletes.delete(id)
     restoreHospital(pending.hospital, pending.index)
+    return true
   }
 }
 
-function restoreHospital(hospital: Hospital, index: number) {
-  useHospitalStore.setState((state) => {
-    if (state.hospitals.some((item) => item.id === hospital.id)) return state
-    const hospitals = [...state.hospitals]
-    hospitals.splice(Math.min(index, hospitals.length), 0, hospital)
-    return { hospitals }
+// 앱을 닫거나 내리기 전에 기다리던 지우기를 바로 보냄(다음에 켤 때 지운 병원이 돌아오지 않게)
+export function flushHospitalDeletes() {
+  pendingDeletes.forEach((pending, id) => {
+    if (pending.sending) return
+    window.clearTimeout(pending.timer)
+    void commitDelete(id)
   })
 }
 
-async function commitDelete(hospital: Hospital, wasPrimary: boolean, callbacks: DeleteCallbacks) {
+// 되돌린 병원이 첫 자리면 서버에서도 대표로(그사이 다른 대표 지우기로 서버 대표가 바뀌었을 수 있음)
+function restoreHospital(hospital: Hospital, index: number) {
+  let restoredAt = -1
+  useHospitalStore.setState((state) => {
+    if (state.hospitals.some((item) => item.id === hospital.id)) return state
+    const hospitals = [...state.hospitals]
+    restoredAt = Math.min(index, hospitals.length)
+    hospitals.splice(restoredAt, 0, hospital)
+    return { hospitals }
+  })
+  if (restoredAt === 0) void setPrimaryCareSite(hospital.id).catch(() => {})
+}
+
+async function commitDelete(id: string) {
+  const pending = pendingDeletes.get(id)
+  if (!pending || pending.sending) return
+  pending.sending = true
+  const { hospital, index, callbacks } = pending
   try {
     await deleteCareSite(hospital.id)
   } catch (error) {
-    // 이미 지운 병원이면 지운 걸로 봄
+    // 이미 지운 병원이면 지운 걸로 봄. 아니면 원래 자리로
     if (getErrorCode(error) !== NOT_FOUND) {
-      restoreHospital(hospital, wasPrimary ? 0 : useHospitalStore.getState().hospitals.length)
+      pendingDeletes.delete(id)
+      restoreHospital(hospital, index)
       callbacks.onFailed()
       return
     }
+  } finally {
+    // 지우는 중에 목록을 다시 받아도 안 돌아오게, 끝날 때까지 남겨 둠
+    if (pendingDeletes.get(id) === pending) pendingDeletes.delete(id)
   }
   // 대표 병원을 지우면 지금 첫 병원을 서버에서도 대표로. 실패해도 앱은 첫 병원을 대표로 씀
+  const wasPrimary = index === 0
   const next = wasPrimary ? useHospitalStore.getState().hospitals[0] : undefined
   if (next) await setPrimaryCareSite(next.id).catch(() => {})
   callbacks.onDeleted(wasPrimary, next)
+}
+
+// 앱을 내리거나 닫을 때 기다리던 병원 지우기를 바로 보냄
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', flushHospitalDeletes)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushHospitalDeletes()
+  })
 }

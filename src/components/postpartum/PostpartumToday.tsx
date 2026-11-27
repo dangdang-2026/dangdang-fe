@@ -82,10 +82,11 @@ function PostpartumToday({ name, deliveryDate, now }: PostpartumTodayProps) {
   const [remindSheet, setRemindSheet] = useState(false)
   const [prepared, setPrepared] = useState(() => readPrepared())
   const [toast, setToast] = useState<string | null>(null)
-  const closeToast = () => setToast(null)
+  // 다시 그려도 같은 함수(토스트 시간이 처음부터 다시 세지지 않게)
+  const [closeToast] = useState(() => () => setToast(null))
   const [finishing, setFinishing] = useState(false)
   const [graduating, setGraduating] = useState(false)
-  const closeFinish = () => setFinishing(false)
+  const [closeFinish] = useState(() => () => setFinishing(false))
 
   // 산후 홈에 들어올 때 다른 기기에서 바꾼 출산일 · 다시 물어볼 날을 반영. 실패하면 기기 값 그대로
   useEffect(() => {

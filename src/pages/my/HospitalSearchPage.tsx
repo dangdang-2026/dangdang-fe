@@ -21,6 +21,8 @@ type SearchResult = {
   hasNext: boolean
   totalCount: number
   loadingMore: boolean
+  // 다음 장을 못 받았는지
+  moreFailed: boolean
 }
 
 const firstResult = (keyword: string, status: SearchResult['status']): SearchResult => ({
@@ -31,7 +33,14 @@ const firstResult = (keyword: string, status: SearchResult['status']): SearchRes
   hasNext: false,
   totalCount: 0,
   loadingMore: false,
+  moreFailed: false,
 })
+
+// 장 사이에 같은 병원이 또 오면 한 번만. 병원 코드가 없으면 이름 · 주소로
+const sameHospital = (a: HospitalInfo, b: HospitalInfo) =>
+  a.hiraCode || b.hiraCode
+    ? a.hiraCode === b.hiraCode
+    : a.name === b.name && a.address === b.address
 
 // Figma C-21 병원 찾기 · C-22 찾는 병원 없음. 서버가 받아 둔 심평원 병원 목록에서 찾음
 function HospitalSearchPage() {
@@ -75,7 +84,7 @@ function HospitalSearchPage() {
   const loadMore = () => {
     if (!current?.hasNext || current.loadingMore) return
     const page = current.page + 1
-    setSearch({ ...current, loadingMore: true })
+    setSearch({ ...current, loadingMore: true, moreFailed: false })
     searchHospitals(current.keyword, page)
       .then(({ items, hasNext, totalCount }) =>
         setSearch((prev) =>
@@ -84,9 +93,7 @@ function HospitalSearchPage() {
                 ...prev,
                 items: [
                   ...prev.items,
-                  ...items.filter(
-                    (item) => !prev.items.some((p) => p.hiraCode && p.hiraCode === item.hiraCode),
-                  ),
+                  ...items.filter((item) => !prev.items.some((p) => sameHospital(p, item))),
                 ],
                 page,
                 hasNext,
@@ -98,7 +105,9 @@ function HospitalSearchPage() {
       )
       .catch(() =>
         setSearch((prev) =>
-          prev?.keyword === current.keyword ? { ...prev, loadingMore: false } : prev,
+          prev?.keyword === current.keyword
+            ? { ...prev, loadingMore: false, moreFailed: true }
+            : prev,
         ),
       )
   }
@@ -201,8 +210,8 @@ function HospitalSearchPage() {
             <p className="text-t7 text-grey-600">{guide}</p>
             {results.length > 0 && (
               <ul className="border-grey-200 divide-grey-100 divide-y overflow-hidden rounded-2xl border">
-                {results.map((item) => (
-                  <li key={item.hiraCode ?? `${item.name}-${item.address ?? ''}`}>
+                {results.map((item, index) => (
+                  <li key={item.hiraCode ?? `${index}-${item.name}`}>
                     <button
                       type="button"
                       className="flex w-full items-center gap-3 py-3.5 pr-4 pl-4.5 text-left"
@@ -221,6 +230,11 @@ function HospitalSearchPage() {
                   </li>
                 ))}
               </ul>
+            )}
+            {current?.moreFailed && (
+              <p role="alert" className="text-t7 text-center text-red-500">
+                더 불러오지 못했어요. 다시 눌러 주세요
+              </p>
             )}
             {current?.hasNext && (
               <MorePostsButton
