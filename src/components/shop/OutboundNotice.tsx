@@ -32,8 +32,10 @@ function OutboundNotice({ sellerName, pending, onGo, onClose }: OutboundNoticePr
           {seller}에서 구매를 이어갈까요?
         </h2>
         <p className="text-t6 text-grey-700 mt-3.5 break-keep">
-          결제 · 배송 · 교환 · 환불은 {seller}에서 해요. 이 링크로 사면 당당이 판매처에서 수수료를
-          받아요. 가격은 같아요.
+          결제 · 배송 · 교환 · 환불은 {seller}에서 해요.
+          <br />이 링크로 사면 당당이 판매처에서 수수료를 받아요.
+          <br />
+          가격은 같아요.
         </p>
       </div>
       <div className="mt-15 flex flex-col gap-2.5">

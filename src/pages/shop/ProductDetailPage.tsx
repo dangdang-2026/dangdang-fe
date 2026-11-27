@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type UIEvent } from 'react'
 import { useParams } from 'react-router'
-import iconBack from '@/assets/icons/back.svg'
+// 사진 위라 기본 회색 뒤로 대신 진한 색
+import iconBack from '@/assets/icons/shop/back-dark.svg'
 import iconHeartFilled from '@/assets/icons/shop/heart-filled.svg'
 import iconHeart from '@/assets/icons/shop/heart.svg'
 import iconShare from '@/assets/icons/shop/share.svg'
@@ -137,7 +138,11 @@ function ProductDetailPage() {
 
   const buy = () => {
     if (isOutboundNoticeHidden()) goSeller(false)
-    else setNotice(true)
+    else {
+      // 찜 안내가 떠 있으면 안내 버튼을 가려서 닫음
+      setToast(null)
+      setNotice(true)
+    }
   }
 
   const header = (
