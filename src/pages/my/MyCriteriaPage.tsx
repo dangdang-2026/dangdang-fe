@@ -26,6 +26,7 @@ import {
   useProfileStore,
   type CareMode,
 } from '@/stores/useProfileStore'
+import { formatMonthDay } from '@/utils/date'
 import type { MeasureSlotKey } from '@/types/criteria'
 import {
   MEASURE_SLOT_LABEL,
@@ -37,7 +38,7 @@ import {
 } from '@/utils/criteria'
 
 const CARE_MODE_OPTIONS: { value: CareMode; label: string }[] = [
-  { value: 'diet', label: '식사·운동' },
+  { value: 'diet', label: '식사 관리' },
   { value: 'insulin', label: '인슐린 함께' },
   { value: 'oral', label: '먹는 약 함께' },
 ]
@@ -209,9 +210,10 @@ function MyCriteriaPage() {
           {targetsValid ? (
             <p className="text-grey-600 text-xs leading-normal">
               {criteria.version > 1
-                ? `${appliedFrom.getMonth() + 1}/${appliedFrom.getDate()} 진료 때 들은 대로 내가 입력`
-                : '병원에서 들은 대로 내가 입력'}{' '}
-              · 바꾸면 진료 탭 기준 이력에 남아요
+                ? `${formatMonthDay(appliedFrom)} 진료 때 들은 대로 내가 적었어요.`
+                : '병원에서 들은 대로 내가 적었어요.'}
+              <br />
+              측정 시점·목표를 바꾸면 진료 탭 기준 이력에 모두 남아요.
             </p>
           ) : (
             <p className="text-t7 text-red-500">

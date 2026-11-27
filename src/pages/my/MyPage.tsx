@@ -98,7 +98,9 @@ function MyPage() {
 
   const criteriaSummary = [
     criteria.postMealHours ? `식후 ${formatDuration(criteria.postMealHours)}` : '측정 시점 모름',
-    criteria.targets.postMeal !== null ? `목표 ${criteria.targets.postMeal} 미만` : '목표 없음',
+    criteria.targets.postMeal !== null
+      ? `목표 ${criteria.targets.postMeal} mg/dL 미만`
+      : '목표 없음',
   ].join(' · ')
 
   return (

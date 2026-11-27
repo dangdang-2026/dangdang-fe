@@ -12,7 +12,7 @@ type PostpartumHeroProps = {
 function PostpartumHero({ onOpenSettings }: PostpartumHeroProps) {
   return (
     <HeroShell
-      status="출산 축하해요"
+      status="산후 관리 중"
       postMealHours={null}
       chip="산후 모드"
       muted

@@ -478,6 +478,7 @@ function TodayPage() {
                 .then(() => setToast('측정 알림을 다시 켰어요'))
                 .catch(() => setToast('알림을 다시 켜지 못했어요. 잠시 후 다시 시도해 주세요'))
             }}
+            onDelivered={() => navigate(ROUTES.POSTPARTUM_DELIVERY)}
           />
         ) : !online && heroState.kind === 'eating' ? (
           // Figma H-12 식사 중 연결이 끊기면 알림 예약 안 됨 안내

@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import iconChevron from '@/assets/icons/nav-next.svg'
 import iconArchive from '@/assets/icons/postpartum/archive-lg.svg'
 import iconChevronMd from '@/assets/icons/postpartum/chevron-md.svg'
-import iconCalendar from '@/assets/icons/postpartum/calendar.svg'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import CheckScheduleCard from '@/components/postpartum/CheckScheduleCard'
+import CheckTaskCard from '@/components/postpartum/CheckTaskCard'
 import RemindLaterSheet from '@/components/postpartum/RemindLaterSheet'
 import TodayHeader from '@/components/today/TodayHeader'
 import PostpartumHero from '@/components/today/hero/PostpartumHero'
@@ -20,7 +20,15 @@ import {
   useProfileStore,
 } from '@/stores/useProfileStore'
 import { useReportStore } from '@/stores/useReportStore'
-import { diffInDays, formatMonthDay, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
+import {
+  diffInDays,
+  formatMonthDay,
+  isSameDay,
+  parseDateKey,
+  startOfDay,
+  toDateKey,
+} from '@/utils/date'
+import type { PostpartumCheck } from '@/stores/useProfileStore'
 import { getPendingCheck } from '@/utils/postpartum'
 
 type PostpartumTodayProps = {
@@ -30,26 +38,60 @@ type PostpartumTodayProps = {
   now: Date
 }
 
-// 예: 출산 3주. 첫 주는 날로
+// 예: 산후 3주 · 10월 14일 출산. 첫 주는 날로
 function formatSinceDelivery(deliveryDate: Date, now: Date) {
   const days = diffInDays(deliveryDate, now)
-  if (days <= 0) return '출산한 날'
-  return days < 7 ? `출산 ${days}일` : `출산 ${Math.floor(days / 7)}주`
+  const since = days <= 0 ? '오늘' : days < 7 ? `산후 ${days}일` : `산후 ${Math.floor(days / 7)}주`
+  return `${since} · ${formatMonthDay(deliveryDate)} 출산`
+}
+
+// 검사 당일 「준비했어요」를 누른 검사. 그날은 검사 일정 카드(결과 적기)로
+const PREPARED_KEY = 'dangdang-postpartum-prepared'
+
+function readPrepared(): string[] {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(PREPARED_KEY) ?? '[]')
+    return Array.isArray(saved) ? saved.filter((id) => typeof id === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+// 결과를 안 적은 검사 중 오늘이 검사일이고 아직 준비 확인 전인 것(가장 이른 검사가 아니어도)
+function getCheckToday(checks: PostpartumCheck[], prepared: string[], now: Date) {
+  return (
+    checks.find((check) => {
+      if (check.memo !== null || prepared.includes(check.id)) return false
+      const date = parseDateKey(check.date)
+      return !!date && isSameDay(date, now)
+    }) ?? null
+  )
+}
+
+function writePrepared(ids: string[]) {
+  try {
+    localStorage.setItem(PREPARED_KEY, JSON.stringify(ids))
+  } catch {
+    // 저장 못 하면 이번에만 넘어감
+  }
 }
 
 // Figma E-07 오늘 · 산후 모드 · E-10 검사 일정 등록 뒤: 히어로(또는 검사 카드) + 할 일 + 보관함
 function PostpartumToday({ name, deliveryDate, now }: PostpartumTodayProps) {
   const navigate = useNavigate()
   const checkRemindAt = useProfileStore((state) => state.checkRemindAt)
-  const pendingCheck = getPendingCheck(useProfileStore((state) => state.postpartumChecks))
+  const postpartumChecks = useProfileStore((state) => state.postpartumChecks)
+  const pendingCheck = getPendingCheck(postpartumChecks)
   const reportCount = useReportStore((state) => state.reports.length)
   const recordCount = useGlucoseStore((state) => state.records.length)
   const [remindSheet, setRemindSheet] = useState(false)
+  const [prepared, setPrepared] = useState(() => readPrepared())
   const [toast, setToast] = useState<string | null>(null)
-  const closeToast = useCallback(() => setToast(null), [])
+  // 다시 그려도 같은 함수(토스트 시간이 처음부터 다시 세지지 않게)
+  const [closeToast] = useState(() => () => setToast(null))
   const [finishing, setFinishing] = useState(false)
   const [graduating, setGraduating] = useState(false)
-  const closeFinish = useCallback(() => setFinishing(false), [])
+  const [closeFinish] = useState(() => () => setFinishing(false))
 
   // 산후 홈에 들어올 때 다른 기기에서 바꾼 출산일 · 다시 물어볼 날을 반영. 실패하면 기기 값 그대로
   useEffect(() => {
@@ -61,6 +103,15 @@ function PostpartumToday({ name, deliveryDate, now }: PostpartumTodayProps) {
   // 다시 물어볼 날 전까지는 할 일 카드를 숨김
   const showCheckTask = !remindAt || remindAt <= startOfDay(now)
   const archiveSummary = `리포트 ${reportCount}장 · 기록 ${recordCount}개`
+  // Figma E-05d 검사 당일엔 준비 확인 카드부터
+  const checkToday = getCheckToday(postpartumChecks, prepared, now)
+
+  const markPrepared = (id: string) => {
+    const next = prepared.includes(id) ? prepared : [...prepared, id]
+    setPrepared(next)
+    writePrepared(next)
+    setToast('검사 잘 다녀오세요')
+  }
 
   // 산후 관리 마치기 = 서버 졸업. 마치면 산후 홈 · 검사 일정을 못 써서 확인 뒤 진행
   const finishPostpartum = () => {
@@ -101,7 +152,7 @@ function PostpartumToday({ name, deliveryDate, now }: PostpartumTodayProps) {
   )
 
   // E-10 일정을 적은 뒤엔 흰 바탕에 검사 일정 카드 + 테두리 보관함
-  if (pendingCheck) {
+  if (pendingCheck && !checkToday) {
     return (
       <div className="pt-4">
         <header className="flex flex-col gap-5.5">
@@ -154,36 +205,36 @@ function PostpartumToday({ name, deliveryDate, now }: PostpartumTodayProps) {
         <PostpartumHero onOpenSettings={() => navigate(ROUTES.MY_NOTIFICATIONS)} />
       </div>
 
-      {showCheckTask && (
-        <section className="rounded-hero shadow-task mt-4.5 flex flex-col gap-3.5 bg-white p-5">
-          <div className="flex items-center gap-3">
-            <span className="rounded-2xl bg-yellow-50 p-3">
-              <img src={iconCalendar} alt="" width={22} height={22} />
-            </span>
-            <div className="flex flex-col gap-0.5">
-              <h2 className="text-grey-900 text-base leading-normal font-bold">
-                산후 혈당 검사일 적어 두기
-              </h2>
-              <p className="text-t7 text-grey-600">병원에서 들은 날짜만 적어요</p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="bg-grey-900 h-12 flex-1 rounded-xl text-base leading-none font-bold text-white"
-              onClick={() => navigate(ROUTES.POSTPARTUM_CHECK)}
-            >
-              날짜 입력
-            </button>
-            <button
-              type="button"
-              className="bg-grey-100 text-grey-900 h-12 flex-1 rounded-xl text-base leading-none font-bold"
-              onClick={() => setRemindSheet(true)}
-            >
-              다시 물어볼 날 고르기
-            </button>
-          </div>
-        </section>
+      {checkToday ? (
+        <CheckTaskCard
+          title="오늘 산후 검사"
+          description={<p className="text-t7 text-grey-600">병원 안내대로 준비했나요?</p>}
+          primary={{ label: '준비했어요', onClick: () => markPrepared(checkToday.id) }}
+          secondary={{
+            label: '검사 날짜 바꿀게요',
+            onClick: () => navigate(`${ROUTES.POSTPARTUM_CHECK}?id=${checkToday.id}`),
+          }}
+        />
+      ) : (
+        showCheckTask && (
+          <CheckTaskCard
+            title="산후 혈당 검사일 적어 두기"
+            description={
+              <>
+                <p className="text-t7 text-grey-600">많은 병원이 출산 후 4~12주에 해요</p>
+                <button
+                  type="button"
+                  className="text-t7 self-start font-medium text-blue-600"
+                  onClick={() => navigate(ROUTES.POSTPARTUM_GUIDE)}
+                >
+                  병원에 물어보세요 ›
+                </button>
+              </>
+            }
+            primary={{ label: '날짜 입력', onClick: () => navigate(ROUTES.POSTPARTUM_CHECK) }}
+            secondary={{ label: '다시 물어볼 날 고르기', onClick: () => setRemindSheet(true) }}
+          />
+        )
       )}
 
       <button

@@ -9,7 +9,7 @@ import ConfirmSheet from '@/components/common/ConfirmSheet'
 import SubPageHeader from '@/components/common/SubPageHeader'
 import Toast from '@/components/common/Toast'
 import ProfileDateSheet from '@/components/my/ProfileDateSheet'
-import BirthOrHospitalSheet from '@/components/postpartum/BirthOrHospitalSheet'
+import type { BirthOrHospital } from '@/components/postpartum/BirthOrHospitalSheet'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { useAuthStore } from '@/stores/useAuthStore'
@@ -48,7 +48,10 @@ const DATE_ERROR: Record<string, string> = {
 }
 
 // 예: 2027. 1. 17
-const formatDot = (date: Date) => `${date.getFullYear()}. ${date.getMonth() + 1}. ${date.getDate()}`
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
+// 예: 2027년 1월 17일(일)
+const formatFullDate = (date: Date) =>
+  `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일(${WEEKDAYS[date.getDay()]})`
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -85,7 +88,24 @@ function ProfilePage() {
   const { name, dueDate, diagnosisDate, deliveryDate, updateProfile } = useProfileStore()
   const [nameDraft, setNameDraft] = useState(name)
   const [editing, setEditing] = useState<DateField | null>(null)
-  const [birthSheet, setBirthSheet] = useState(false)
+  const [choosing, setChoosing] = useState(false)
+
+  // 출산은 출산일 입력으로. 입원 · 다른 상황은 서버가 알림만 멈추고 홈에서 바로 보여 줌
+  const chooseSituation = (choice: BirthOrHospital) => {
+    // 입원 · 다른 상황을 저장하는 중엔 다른 버튼을 막음(저장 뒤 홈으로 끌려가지 않게)
+    if (choosing) return
+    if (choice === 'birth') {
+      navigate(ROUTES.POSTPARTUM_DELIVERY)
+      return
+    }
+    setChoosing(true)
+    ;(choice === 'other' ? savePaused(true) : saveHospitalized(true))
+      .then(() => navigate(ROUTES.TODAY))
+      .catch(() => {
+        setChoosing(false)
+        setToast('상황을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
+      })
+  }
   const [undoSheet, setUndoSheet] = useState(false)
   const [undoing, setUndoing] = useState(false)
   // 비밀번호를 바꾸고 돌아오면 알림
@@ -169,7 +189,7 @@ function ProfilePage() {
       <SubPageHeader title="내 정보" onBack={goBack} />
 
       <div className="mt-3.5 flex flex-col gap-4">
-        <Field label="이름">
+        <Field label="부를 이름">
           <input
             value={nameDraft}
             maxLength={10}
@@ -191,7 +211,7 @@ function ProfilePage() {
               <span
                 className={`flex-1 text-base font-medium tracking-tight ${dates[field] ? 'text-grey-900' : 'text-grey-400'}`}
               >
-                {dates[field] ? formatDot(dates[field]) : '아직 안 적었어요'}
+                {dates[field] ? formatFullDate(dates[field]) : '아직 안 적었어요'}
               </span>
               <span className="text-grey-700 text-sm leading-normal font-bold">
                 {dates[field] ? '바꾸기' : '적기'}
@@ -225,16 +245,35 @@ function ProfilePage() {
         <section className="mt-6 flex flex-col gap-2.5 rounded-3xl bg-yellow-50 p-4.5">
           <h2 className="text-subtitle-1 text-grey-900">출산·입원하셨나요?</h2>
           <p className="text-grey-700 text-sm leading-normal">
-            입원하면 알림만 잠시 멈추고, 출산일을 적으면
+            입원하면 알림만 잠시 멈춰요.
             <br />
-            산후 모드로 바뀌어요.
+            출산하면 출산일을 적고 산후 관리로 바뀌어요.
           </p>
+          <div className="flex gap-2.5">
+            <button
+              type="button"
+              disabled={choosing}
+              className="text-grey-900 h-12 flex-1 rounded-xl bg-white text-base leading-none font-bold"
+              onClick={() => chooseSituation('hospital')}
+            >
+              입원했어요
+            </button>
+            <button
+              type="button"
+              disabled={choosing}
+              className="text-grey-900 h-12 flex-1 rounded-xl bg-white text-base leading-none font-bold"
+              onClick={() => chooseSituation('birth')}
+            >
+              출산했어요
+            </button>
+          </div>
           <button
             type="button"
-            className="bg-grey-900 h-12 rounded-xl text-base leading-none font-bold text-white"
-            onClick={() => setBirthSheet(true)}
+            disabled={choosing}
+            className="text-grey-700 mx-auto py-1.5 text-sm font-medium"
+            onClick={() => chooseSituation('other')}
           >
-            출산·입원했어요
+            다른 상황이에요 ›
           </button>
         </section>
       )}
@@ -296,24 +335,6 @@ function ProfilePage() {
           today={today}
           onSave={(date) => void saveDate(editing, date)}
           onClose={closeSheet}
-        />
-      )}
-      {birthSheet && (
-        <BirthOrHospitalSheet
-          onNext={(choice) => {
-            if (choice === 'birth') {
-              navigate(ROUTES.POSTPARTUM_DELIVERY)
-              return
-            }
-            // 입원 · 다른 상황은 서버가 알림만 멈추고 홈에서 바로 보여 줌
-            ;(choice === 'other' ? savePaused(true) : saveHospitalized(true))
-              .then(() => navigate(ROUTES.TODAY))
-              .catch(() => {
-                setBirthSheet(false)
-                setToast('상황을 저장하지 못했어요. 잠시 후 다시 시도해 주세요')
-              })
-          }}
-          onClose={() => setBirthSheet(false)}
         />
       )}
       {undoSheet && (

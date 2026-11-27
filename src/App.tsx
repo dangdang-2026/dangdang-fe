@@ -80,6 +80,7 @@ import PrivacyPolicyPage from '@/pages/legal/PrivacyPolicyPage'
 import SensitiveConsentPage from '@/pages/legal/SensitiveConsentPage'
 import MarketingConsentPage from '@/pages/legal/MarketingConsentPage'
 import PrivacyVersionsPage from '@/pages/legal/PrivacyVersionsPage'
+import TermsVersionsPage from '@/pages/legal/TermsVersionsPage'
 import BlockedPage from '@/pages/my/BlockedPage'
 import ContactPage from '@/pages/my/ContactPage'
 import ServiceTermsPage from '@/pages/legal/ServiceTermsPage'
@@ -155,6 +156,7 @@ function App() {
         <Route path={ROUTES.LEGAL_TRANSFER} element={<TransferNoticePage />} />
         <Route path={ROUTES.LEGAL_MARKETING} element={<MarketingConsentPage />} />
         <Route path={ROUTES.LEGAL_PRIVACY_VERSIONS} element={<PrivacyVersionsPage />} />
+        <Route path={ROUTES.LEGAL_TERMS_VERSIONS} element={<TermsVersionsPage />} />
         <Route element={<OnboardingGate />}>
           <Route path={ROUTES.ONBOARDING_TOUR} element={<TourPage />} />
           <Route element={<TabLayout />}>

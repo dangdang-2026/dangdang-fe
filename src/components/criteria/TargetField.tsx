@@ -22,7 +22,7 @@ function TargetField({ label, value, onChange, onBlur }: TargetFieldProps) {
           onChange={(event) => onChange(event.target.value.replace(/\D/g, '').slice(0, 3))}
           onBlur={onBlur}
         />
-        <span className="text-grey-500 text-sm leading-normal">미만</span>
+        <span className="text-grey-500 text-sm leading-normal">mg/dL 미만</span>
       </span>
     </label>
   )

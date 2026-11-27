@@ -97,7 +97,14 @@ type VisitReportItem = {
   createdAt: string
 }
 
-type VisitReportPage = { items: VisitReportItem[]; page: number; size: number; hasNext: boolean }
+type VisitReportPage = {
+  items: VisitReportItem[]
+  page: number
+  size: number
+  hasNext: boolean
+  // 저장한 리포트 전체 수(날짜 미정 포함)
+  totalCount?: number
+}
 
 // 지난 리포트 한 줄. 숫자는 서버가 볼 때마다 다시 계산
 export type SavedReport = {
@@ -120,6 +127,15 @@ export type SavedReport = {
 // 한 번에 받는 수(서버 상한 100)와 안전장치 쪽 수(1만 개)
 const PAGE_SIZE = 100
 const MAX_PAGES = 100
+
+// 저장한 리포트 수. 한 줄만 받아 전체 수만 봄
+export async function getVisitReportCount() {
+  const { data } = await apiClient.get<BaseResponse<VisitReportPage>>('/visit-reports', {
+    params: { page: 0, size: 1 },
+  })
+  if (typeof data.data?.totalCount !== 'number') throw new Error('리포트 수 응답이 비어 있음')
+  return data.data.totalCount
+}
 
 // 지난 리포트 전부. 최근 저장 순, 기간을 모르는(진료 날짜 미정) 리포트는 열 수 없어 뺌
 export async function getVisitReports() {

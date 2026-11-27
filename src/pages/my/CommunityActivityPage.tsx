@@ -11,6 +11,22 @@ import { useNow } from '@/hooks/useNow'
 import { ACTIVITY_LABEL, formatCount, formatRelativeTime, isActivityType } from '@/utils/community'
 import type { ActivityType } from '@/utils/community'
 
+// Figma M-24b 아무것도 없음. 댓글 · 공감은 같은 모양으로
+const EMPTY: Record<ActivityType, { title: string; description: string }> = {
+  posts: {
+    title: '아직 쓴 글이 없어요',
+    description: '궁금한 점이나 나누고 싶은 이야기를\n커뮤니티에 남겨 보세요.',
+  },
+  comments: {
+    title: '아직 쓴 댓글이 없어요',
+    description: '다른 산모들의 이야기에\n댓글로 마음을 나눠 보세요.',
+  },
+  liked: {
+    title: '아직 공감한 글이 없어요',
+    description: '마음에 닿는 글에\n공감을 눌러 보세요.',
+  },
+}
+
 type ActivityListProps = {
   type: ActivityType
 }
@@ -49,9 +65,20 @@ function ActivityList({ type }: ActivityListProps) {
   )
   // 비어 있어도 서버에 다음 장이 있으면 더 보기를 남김
   if (empty) {
+    const { title, description } = EMPTY[type]
     return (
       <>
-        <p className="text-grey-500 py-20 text-center text-sm leading-normal">아직 없어요</p>
+        <div className="flex flex-col items-center gap-1.5 pt-36 text-center">
+          <p className="text-subtitle-1 text-grey-900">{title}</p>
+          <p className="text-grey-600 text-sm leading-relaxed whitespace-pre-line">{description}</p>
+          <button
+            type="button"
+            className="bg-grey-100 text-grey-700 mt-5 rounded-xl px-4.5 py-3 text-sm leading-snug font-bold"
+            onClick={() => navigate(ROUTES.COMMUNITY)}
+          >
+            커뮤니티로 가기
+          </button>
+        </div>
         {moreFailed}
         {more}
       </>
