@@ -49,12 +49,15 @@ async function showMeasureNotification(
   hours: number | null,
   hide: boolean,
   again: boolean,
+  dueAt: Date,
 ) {
+  const slot = getSlotLabel('post-meal', meal.type, hours)
   const body = hide
     ? '확인할 일이 있어요'
     : again
-      ? '아직 혈당을 안 쟀다면 지금 재 주세요'
-      : `${getSlotLabel('post-meal', meal.type, hours)}, 잴 시간이에요
+      ? `아직 혈당을 안 쟀다면 지금 재 주세요
+${slot} · ${formatTime(dueAt)} 측정`
+      : `${slot}, 잴 시간이에요
 ${formatTime(new Date(meal.startedAt))}에 식사를 시작했어요`
   const options: NotificationOptions & { actions?: { action: string; title: string }[] } = {
     body,
@@ -125,6 +128,7 @@ export function useMeasureReminder() {
             postMealHours,
             hideOnLockScreen,
             !key.endsWith(':first'),
+            dueAt,
           )
         },
         Math.max(delay, 0),

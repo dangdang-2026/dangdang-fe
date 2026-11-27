@@ -36,7 +36,7 @@ function MeasureTimeHero({
       </p>
       <div className="mt-5">
         <HeroChip icon={iconClock} onClick={onSnooze}>
-          10분 뒤 다시 알려 줘
+          10분 뒤에 잴게요
         </HeroChip>
       </div>
       <HeroButton icon={iconDropWhite} onClick={onInputGlucose}>

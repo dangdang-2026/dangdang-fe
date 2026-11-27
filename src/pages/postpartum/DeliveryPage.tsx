@@ -49,7 +49,11 @@ function DeliveryPage() {
       selected: isSameDay(date, today),
       onClick: () => setDate(today),
     },
-    { label: '어제', selected: isSameDay(date, yesterday), onClick: () => setDate(yesterday) },
+    {
+      label: `어제 · ${formatSlash(yesterday)}`,
+      selected: isSameDay(date, yesterday),
+      onClick: () => setDate(yesterday),
+    },
     {
       label: picked ? formatSlash(date) : '직접 고르기',
       selected: picked,
@@ -75,7 +79,7 @@ function DeliveryPage() {
 
       <div className="mt-2.5 flex items-center justify-between">
         <h1 className="text-title-2 text-grey-900">
-          출산을 축하해요
+          고생 많으셨어요
           <br />
           출산일을 알려 주세요
         </h1>
@@ -116,10 +120,16 @@ function DeliveryPage() {
         </ul>
       </section>
 
+      {/* 잘못 눌러도 내 정보에서 출산 전으로 되돌릴 수 있음 */}
+      <p className="text-t7 text-grey-600 mt-auto pb-3 text-center">
+        잘못 눌렀다면 마이 › 내 정보에서
+        <br />
+        되돌릴 수 있어요
+      </p>
       <button
         type="button"
         disabled={saving}
-        className="text-subtitle-1 bg-primary mt-auto h-14 rounded-xl leading-none text-white"
+        className="text-subtitle-1 bg-primary h-14 rounded-xl leading-none text-white"
         onClick={switchToPostpartum}
       >
         산후 모드로 바꾸기
