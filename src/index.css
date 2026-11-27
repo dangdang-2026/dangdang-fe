@@ -62,6 +62,10 @@
   --color-camera: #0d0d0f;
   /* Figma fill/divider. 앱 안 알림 배너 테두리 */
   --color-divider: rgb(0 27 55 / 0.1);
+  /* 판매처 이동 안내 배경 · 동그라미 그라디언트 */
+  --color-outbound-glow: #fff7e0;
+  --color-outbound-from: #ffd459;
+  --color-outbound-to: #fa990d;
 
   /* Figma 타이포그래피. 자간은 Figma % 값을 em으로 변환 */
   --text-display: 76px;
@@ -157,6 +161,9 @@
   --shadow-sheet: 0 0 7.3px 0 rgb(0 0 0 / 0.25);
   --shadow-guide: 0 8px 24px 0 rgb(0 0 0 / 0.1);
   --shadow-offline: 0 6px 16px 0 rgb(128 89 0 / 0.06);
+  /* 상품 상세 아래 버튼 줄 · 판매처 이동 동그라미 */
+  --shadow-buy-bar: 0 -4px 12px 0 rgb(0 0 0 / 0.06);
+  --shadow-outbound: 0 8px 20px 0 rgb(250 153 0 / 0.3);
   /* E-05b 앱 안 알림 배너 */
   --shadow-alert: 0 8px 12px 0 rgb(0 18 43 / 0.12);
   /* A-05 스포트라이트: 구멍 밖 화면 전체를 가림 */

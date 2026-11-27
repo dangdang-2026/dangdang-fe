@@ -69,6 +69,9 @@ export const ROUTES = {
   MY_COMMUNITY_ACTIVITY: '/my/community/activity',
   MY_BLOCKED: '/my/community/blocked',
   MY_CONTACT: '/my/contact',
+  MY_LIKED: '/my/liked-products',
+  MY_RECENT: '/my/recent-products',
+  MY_VISITS: '/my/product-visits',
 } as const
 
 export const communityBoardPath = (board: string) => `/community/board/${board}`
