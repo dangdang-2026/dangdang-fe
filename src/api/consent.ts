@@ -11,6 +11,7 @@ type ConsentType =
   | 'AI_PHOTO'
   | 'AI_CHAT_RECORDS'
   | 'OVERSEAS_TRANSFER'
+  | 'COMMUNITY_AI_CHECK'
 
 const CONSENT_TYPE: Record<AgreementKey, ConsentType> = {
   age: 'AGE_14',
@@ -43,6 +44,16 @@ export async function getConsents() {
   const { data } = await apiClient.get<BaseResponse<ConsentResponse>>('/me/consents')
   if (!data.data) throw new Error('동의 상태 응답이 비어 있음')
   return data.data.items
+}
+
+// 커뮤니티 글 AI 확인(해외 전송) 고지를 확인함. 안 하면 서버가 AI 없이 규칙으로만 확인
+export async function saveCommunityAiCheck() {
+  await apiClient.post('/me/consents', { items: [{ type: 'COMMUNITY_AI_CHECK', granted: true }] })
+}
+
+// 커뮤니티 AI 확인을 했는지(예전 문서 버전이면 서버가 false로 줌)
+export async function hasCommunityAiCheck() {
+  return (await getConsents()).some((item) => item.type === 'COMMUNITY_AI_CHECK' && item.granted)
 }
 
 // 당당이 동의. 기록 보고 답하기(AI_CHAT_RECORDS, 선택)와 해외로 보내기(OVERSEAS_TRANSFER, 당당이 · 메모 정리에 필수)를 따로. 넘긴 것만 저장
