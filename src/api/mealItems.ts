@@ -34,6 +34,8 @@ export type MealItemSummary = {
   nutritionOverride: MealNutrition | null
   // 주식인지. 직접 적은 음식은 false, 배포 전 서버엔 없음
   isStaple?: boolean
+  // servings를 부르는 말(공기 · 그릇 · 접시 · 잔 · 줄 · 개 · 인분)
+  unitLabel?: string
 }
 
 // 백엔드 MealItemResponse. mealUpdatedAt은 다음 영양값 입력의 expectedUpdatedAt

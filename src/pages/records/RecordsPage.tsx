@@ -192,11 +192,16 @@ function RecordsPage() {
     setRemoving(true)
     try {
       const id = deleting.id
-      await removeRecord(id)
-      setToast({
-        message: '기록을 지웠어요',
-        action: { label: '되돌리기', onClick: () => undo(() => restoreRecord(id)) },
-      })
+      const result = await removeRecord(id)
+      // 다른 기기에서 이미 지웠으면 되돌리기 없이
+      setToast(
+        result === 'gone'
+          ? { message: '이미 지운 기록이에요' }
+          : {
+              message: '기록을 지웠어요',
+              action: { label: '되돌리기', onClick: () => undo(() => restoreRecord(id)) },
+            },
+      )
     } catch {
       setToast({ message: '기록을 지우지 못했어요. 잠시 후 다시 시도해 주세요' })
     } finally {

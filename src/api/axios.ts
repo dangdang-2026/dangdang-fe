@@ -39,6 +39,13 @@ export function getErrorData<T>(error: unknown): Partial<T> | null {
   return error.response?.data?.data ?? null
 }
 
+// 다시 보내면 될 실패인지. 응답이 없거나(끊김) 서버 오류(5xx)일 때만
+export function isRetryableError(error: unknown) {
+  if (!axios.isAxiosError(error)) return false
+  const status = error.response?.status
+  return status === undefined || status >= 500
+}
+
 // 서버가 보낸 에러 문구. 응답이 없으면 undefined
 export function getErrorMessage(error: unknown) {
   if (!axios.isAxiosError<BaseResponse<unknown>>(error)) return undefined

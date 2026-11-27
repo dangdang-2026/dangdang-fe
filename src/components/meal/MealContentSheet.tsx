@@ -17,7 +17,6 @@ import NutritionSourceSheet from '@/components/meal/NutritionSourceSheet'
 import { MEAL_LABEL } from '@/constants/glucose'
 import { foodHistoryPath } from '@/constants/routes'
 import { useFoodSearch, useFoods } from '@/hooks/useFoods'
-import { DEFAULT_RECENT_FOODS } from '@/mocks/foods'
 import { useFoodStore } from '@/stores/useFoodStore'
 import { useGlucoseStore } from '@/stores/useGlucoseStore'
 import { useMealSettingsStore } from '@/stores/useMealSettingsStore'
@@ -119,8 +118,8 @@ function MealContentSheet({
     ...new Set([
       ...(aiChips ?? []),
       ...(meal.foods ?? []),
-      // 최근 음식이 모자라면 기본 음식으로 채움. AI 후보가 있으면 후보만
-      ...(aiChips ? [] : [...new Set([...recent, ...DEFAULT_RECENT_FOODS])].slice(0, RECENT_LIMIT)),
+      // 내가 먹은 최근 음식만(목업 기본 음식 없음). AI 후보가 있으면 후보만
+      ...(aiChips ? [] : recent),
       ...searched,
     ]),
   ]

@@ -25,6 +25,8 @@ export type FoodResponse = {
   sourceVersion: string
   // 주식(밥 · 면 · 빵 끼니)인지. 배포 전 서버엔 없음
   isStaple?: boolean
+  // 1인분을 부르는 말(공기 · 그릇 · 접시 · 잔 · 줄 · 개 · 인분)
+  unitLabel?: string
 }
 
 // 백엔드 FoodPageResponse
@@ -47,7 +49,7 @@ export function toFood(item: FoodResponse): Food {
   return {
     code: item.foodCode,
     name: item.displayName,
-    unit: SERVER_FOOD_UNIT,
+    unit: item.unitLabel ?? SERVER_FOOD_UNIT,
     // 서버 주식 구분. 칸이 없는 예전 서버만 이름(밥·면 등)으로 짐작
     staple: item.isStaple ?? looksLikeStaple(item.displayName),
     nutrition:
@@ -100,20 +102,26 @@ type FoodHistoryPageResponse = {
 // 한 번에 받을 최대 개수(서버 상한 100)
 const HISTORY_SIZE = 100
 
-// 같은 음식 지난 기록. 고른 음식(식품코드)만 됨. 간식은 프론트 끼니에 없어 뺌
+// 다음 장을 받는 최대 횟수(100개씩)
+const HISTORY_MAX_PAGES = 20
+
+// 같은 음식 지난 기록. 고른 음식(식품코드)만 됨. 간식은 프론트 끼니에 없어 뺌. 다음 장까지 다 받음
 export async function getFoodMeals(code: string) {
-  const { data } = await apiClient.get<BaseResponse<FoodHistoryPageResponse>>(
-    `/foods/${encodeURIComponent(code)}/history`,
-    { params: { size: HISTORY_SIZE } },
-  )
-  if (!data.data) throw new Error('지난 기록 응답이 비어 있음')
   const meals: ServerMeal[] = []
   const records: GlucoseRecord[] = []
-  data.data.items.forEach((item) => {
-    const meal = fromServerMeal(item)
-    if (!meal) return
-    meals.push(meal)
-    records.push(...item.readings.map(toGlucoseRecord))
-  })
+  for (let page = 0; page < HISTORY_MAX_PAGES; page += 1) {
+    const { data } = await apiClient.get<BaseResponse<FoodHistoryPageResponse>>(
+      `/foods/${encodeURIComponent(code)}/history`,
+      { params: { page, size: HISTORY_SIZE } },
+    )
+    if (!data.data) throw new Error('지난 기록 응답이 비어 있음')
+    data.data.items.forEach((item) => {
+      const meal = fromServerMeal(item)
+      if (!meal) return
+      meals.push(meal)
+      records.push(...item.readings.map(toGlucoseRecord))
+    })
+    if (!data.data.hasNext) break
+  }
   return { meals, records }
 }

@@ -197,6 +197,15 @@ export async function updateReading(id: string, changes: ReadingChanges) {
   return toGlucoseRecord(data.data)
 }
 
+// 식사만 붙임. 다른 칸은 안 보내 다른 기기에서 고친 값을 덮지 않음(수정됨으로도 안 셈)
+export async function linkReadingToMeal(id: string, mealId: string) {
+  const { data } = await apiClient.patch<BaseResponse<ReadingResponse>>(`/readings/${id}`, {
+    mealId: Number(mealId),
+  })
+  if (!data.data) throw new Error('혈당 식사 연결 응답이 비어 있음')
+  return toGlucoseRecord(data.data)
+}
+
 // 삭제. 서버는 soft delete라 이후 목록에서 빠짐
 export async function deleteReading(id: string) {
   await apiClient.delete(`/readings/${id}`)

@@ -147,6 +147,7 @@ const ACCOUNT_STORES = [
   'dangdang-community',
   'dangdang-meal-settings',
   'dangdang-ai',
+  'dangdang-reminder-opens',
   DEVICE_OWNER_KEY,
 ]
 

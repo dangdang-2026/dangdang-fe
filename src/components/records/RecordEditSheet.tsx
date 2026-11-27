@@ -39,11 +39,19 @@ const toSlotKey = (record: Pick<GlucoseRecord, 'slot' | 'mealType'>): MeasureSlo
 // 서버 거절 이유별 안내
 const SAVE_ERROR: Record<string, string> = {
   READING_40903: '다른 곳에서 먼저 고쳤어요. 새로 불러온 기록을 확인해 주세요',
+  READING_40401: '이미 지운 기록이에요',
   READING_40005: '식후 혈당은 그 식사를 시작한 뒤 시각으로 골라 주세요',
 }
 
 // Figma D-05·D-06 혈당 기록 고치기. 수치 · 시점 · 날짜 · 잰 시각
-function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheetProps) {
+function RecordEditSheet({
+  record: initialRecord,
+  onClose,
+  onSaved,
+  onDelete,
+}: RecordEditSheetProps) {
+  // 충돌(409)로 새로 받으면 새 기록 기준으로 다시 보여 줌
+  const [record, setRecord] = useState(initialRecord)
   const measuredAt = new Date(record.measuredAt)
   const now = useNow()
   const meals = useGlucoseStore((state) => state.meals)
@@ -109,9 +117,19 @@ function RecordEditSheet({ record, onClose, onSaved, onDelete }: RecordEditSheet
       })
       onSaved()
     } catch (error) {
-      setSaveError(
-        SAVE_ERROR[getErrorCode(error) ?? ''] ?? '고치지 못했어요. 잠시 후 다시 시도해 주세요',
-      )
+      const code = getErrorCode(error) ?? ''
+      // 충돌이면 다시 받은 값으로 칸을 바꿔 옛 값으로 덮어쓰지 않게
+      const fresh = useGlucoseStore.getState().records.find((item) => item.id === record.id)
+      if (code === 'READING_40903' && fresh) {
+        setRecord(fresh)
+        setDigits(fresh.meterLimit ? '' : String(fresh.value))
+        setSlotKey(toSlotKey(fresh))
+        setDay(startOfDay(new Date(fresh.measuredAt)))
+        setTime(formatTime(new Date(fresh.measuredAt)))
+      }
+      // 이미 지운 기록이면 목록에서 빠졌으니 닫음
+      if (code === 'READING_40401') return onClose()
+      setSaveError(SAVE_ERROR[code] ?? '고치지 못했어요. 잠시 후 다시 시도해 주세요')
     } finally {
       setSaving(false)
     }

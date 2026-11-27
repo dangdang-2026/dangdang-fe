@@ -7,14 +7,18 @@ import {
   type ServerJudgment,
   type ServerSlot,
 } from '@/api/readings'
-import type { GlucoseRecord } from '@/types/glucose'
+import { fromServerInsulin, type ServerInsulinType } from '@/api/insulin'
+import type { GlucoseRecord, InsulinRecord } from '@/types/glucose'
 import { addDays, parseDateKey, toDateKey } from '@/utils/date'
 
-// 백엔드 RecordEventResponse. type에 맞는 칸(reading 또는 meal) 하나만 옴
+// 백엔드 RecordEventResponse. type에 맞는 칸(reading · meal · insulin) 하나만 옴
 type RecordEventResponse = {
-  type: 'READING' | 'MEAL'
+  type: 'READING' | 'MEAL' | 'INSULIN'
   id: number
   occurredAt: string
+  // 저장한 뒤 고친 적이 있는지
+  modified?: boolean
+  insulin?: { insulinType: ServerInsulinType; mealSlot: ServerMealSlot | null; units: number }
   reading?: {
     value: number
     readingType: ReadingType
@@ -37,7 +41,7 @@ type RecordsResponse = {
   days: { date: string; events: RecordEventResponse[] }[]
 }
 
-// from~to(둘 다 포함, 최대 31일) 혈당 · 식사. range.to는 다음 날 00:00(포함 안 함)
+// from~to(둘 다 포함, 최대 31일) 혈당 · 식사 · 인슐린. range.to는 다음 날 00:00(포함 안 함)
 export async function getRecords(from: Date, to: Date) {
   const { data } = await apiClient.get<BaseResponse<RecordsResponse>>('/records', {
     params: { from: toDateKey(from), to: toDateKey(to) },
@@ -46,7 +50,19 @@ export async function getRecords(from: Date, to: Date) {
   const events = data.data.days.flatMap((day) => day.events)
   const meals: ServerMeal[] = []
   const records: GlucoseRecord[] = []
+  const insulins: InsulinRecord[] = []
   events.forEach((event) => {
+    if (event.type === 'INSULIN' && event.insulin) {
+      insulins.push(
+        fromServerInsulin({
+          insulinLogId: event.id,
+          ...event.insulin,
+          takenAt: event.occurredAt,
+          // 고친 시각은 안 와서 고친 적 있는지만 표시
+          editedAt: event.modified ? event.occurredAt : null,
+        }),
+      )
+    }
     if (event.type === 'MEAL' && event.meal) {
       const meal = fromServerMeal({
         mealId: event.id,
@@ -67,7 +83,7 @@ export async function getRecords(from: Date, to: Date) {
       })
     }
   })
-  return { range: { from, to: addDays(to, 1) }, meals, records }
+  return { range: { from, to: addDays(to, 1) }, meals, records, insulins }
 }
 
 // 백엔드 CalendarDayStatus

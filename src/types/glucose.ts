@@ -100,6 +100,8 @@ export type GlucoseRecord = {
   originalMeterLimit?: MeterLimit | null
   // 혈당계에 HI · LO가 떠서 그 글자로 적음. value에는 혈당계 끝값(HI 600 · LO 20)
   meterLimit?: MeterLimit | null
+  // 못 보낸 식사에 적어 서버에서 아직 끼니와 안 이어짐. 식사를 보낸 뒤 이어 줌
+  unlinked?: boolean
 }
 
 // 백엔드 ReadingTiming. 재야 할 시각과 비교(±15분)

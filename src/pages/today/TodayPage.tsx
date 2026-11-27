@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { getErrorCode } from '@/api/axios'
 import { canServerPush, subscribePush } from '@/api/push'
-import { openReminder, snoozeReminder } from '@/api/reminders'
+import { openReminderLater, snoozeReminder } from '@/api/reminders'
 import EmergencyBlock from '@/components/common/EmergencyBlock'
 import TimeWheelSheet from '@/components/common/TimeWheelSheet'
 import Toast from '@/components/common/Toast'
@@ -53,6 +53,7 @@ import {
   saveInsulin,
   saveMealStart,
   saveSkipMeal,
+  sendUnsentGlucose,
   useGlucoseStore,
 } from '@/stores/useGlucoseStore'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
@@ -131,7 +132,8 @@ function TodayPage() {
   // 서버 알림을 눌러 들어오면 열람 처리. 실패해도 입력은 그대로
   const reminderId = searchParams.get('reminderId')
   useEffect(() => {
-    if (reminderId) openReminder(reminderId).catch(() => {})
+    // 못 보내면 다음 동기화 때 다시
+    if (reminderId) openReminderLater(reminderId)
   }, [reminderId])
   const hasUnread = useInboxStore((state) => state.items.some((item) => !item.readAt))
   const [writingMeal, setWritingMeal] = useState<Meal | null>(null)
@@ -215,10 +217,13 @@ function TodayPage() {
   const lastCriteria = lastEntered
     ? getCriteriaAt(criteriaVersions, new Date(lastEntered.measuredAt))
     : null
+  // 서버가 붙인 목표(targetValue)가 있으면 그 값, 아직 못 받았으면 기준으로 계산
   const lastTarget =
-    lastEntered && lastCriteria
-      ? getTarget(lastEntered.slot, lastCriteria.targets, lastCriteria.postMealHours)
-      : null
+    lastEntered?.targetValue !== undefined
+      ? lastEntered.targetValue
+      : lastEntered && lastCriteria
+        ? getTarget(lastEntered.slot, lastCriteria.targets, lastCriteria.postMealHours)
+        : null
   const showHighCard =
     justEntered && !!lastEntered && lastTarget !== null && isAboveTarget(lastEntered, lastTarget)
   // 출산 예정일이 가까우면 입원·출산 입구. 입원 중이면 안 보임
@@ -411,10 +416,11 @@ function TodayPage() {
     }
   }
 
-  // 다시 연결하기. 아직 끊겨 있으면 알려 줌
+  // 다시 연결하기. 아직 끊겨 있으면 알려 주고, 연결됐으면 못 보낸 식사부터 보냄
   const retryConnection = () => {
     recheck()
     if (!navigator.onLine) setToast('아직 인터넷에 연결되지 않았어요')
+    else void sendUnsentGlucose().catch(() => {})
   }
 
   const handleSaved = (record: GlucoseRecord) => {
