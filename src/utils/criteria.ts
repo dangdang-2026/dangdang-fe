@@ -55,11 +55,10 @@ export const toTarget = (value: string) => (value === '' ? null : Number(value))
 export const isValidTarget = (value: string) =>
   value === '' || (Number(value) >= GLUCOSE_MIN && Number(value) <= GLUCOSE_MAX)
 
-// 알림 시각. 예: 07:00 → 아침 7:00, 13:30 → 오후 1:30
+// 알림 시각. 예: 07:00 → 오전 7:00, 13:30 → 오후 1:30
 export function formatAlarmTime(time: string) {
   const [hours, minutes] = time.split(':').map(Number)
-  const label = formatMeridiemTime(new Date(2000, 0, 1, hours, minutes))
-  return hours >= 4 && hours < 11 ? label.replace('오전', '아침') : label
+  return formatMeridiemTime(new Date(2000, 0, 1, hours, minutes))
 }
 
 export function formatPostMealHours(hours: number | null) {
