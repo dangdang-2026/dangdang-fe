@@ -1,10 +1,10 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
 import type { Department, Hospital, HospitalInfo } from '@/types/hospital'
 
-// 백엔드 HospitalSearchResponse. 심평원에 등록된 병원
+// 백엔드 HospitalSearchResponse. 서버가 받아 둔 심평원 병원 목록(DB)에서 찾음
 type HospitalSearchResponse = {
   items: {
-    // 심평원 응답에 없으면 null
+    // 병원 등록에 그대로 넘김. 첫 적재 전 심평원 직접 검색에선 빠질 수 있음
     hiraCode: string | null
     name: string
     // 상급종합·종합병원·병원·의원 등
@@ -14,6 +14,7 @@ type HospitalSearchResponse = {
   }[]
   page: number
   size: number
+  // 검색어에 걸린 전체 병원 수
   totalCount: number
   hasNext: boolean
 }
@@ -24,19 +25,20 @@ export const SEARCH_KEYWORD_MAX = 50
 // 한 번에 받을 수 있는 최대 개수(서버 상한 50)
 const SEARCH_SIZE = 50
 
-// 심평원 병원 검색. 고른 병원은 hiraCode까지 병원 추가에 그대로 넘김
-export async function searchHospitals(keyword: string) {
+// 병원 검색 한 장. 이름이 같은 병원 → 검색어로 시작하는 병원 순. 고른 병원은 hiraCode까지 병원 추가에 그대로 넘김
+export async function searchHospitals(keyword: string, page = 0) {
   const { data } = await apiClient.get<BaseResponse<HospitalSearchResponse>>('/care-sites/search', {
-    params: { keyword, page: 0, size: SEARCH_SIZE },
+    params: { keyword, page, size: SEARCH_SIZE },
   })
   if (!data.data) throw new Error('병원 검색 응답이 비어 있음')
-  return data.data.items.map((item): HospitalInfo => ({
+  const items = data.data.items.map((item): HospitalInfo => ({
     hiraCode: item.hiraCode ?? undefined,
     name: item.name,
     kind: item.category ?? undefined,
     address: item.address ?? undefined,
     phone: item.phone ?? undefined,
   }))
+  return { items, hasNext: data.data.hasNext, totalCount: data.data.totalCount }
 }
 
 // 백엔드 Department
