@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getProducts, type Product, type ProductQuery } from '@/api/shop'
 
 type ProductListState = {
@@ -15,6 +15,8 @@ export function useProductList(query: ProductQuery, enabled = true) {
   const key = JSON.stringify(query)
   const [state, setState] = useState<ProductListState | null>(null)
   const [reloadCount, setReloadCount] = useState(0)
+  // 다시 받으면 올림. 그 전에 보낸 더 보기 응답은 버림
+  const generation = useRef(0)
 
   useEffect(() => {
     if (!enabled) return
@@ -37,9 +39,11 @@ export function useProductList(query: ProductQuery, enabled = true) {
   const loadMore = useCallback(() => {
     if (!current?.hasNext || current.loadingMore) return
     const page = current.page + 1
+    const sent = generation.current
     setState({ ...current, loadingMore: true })
     getProducts(JSON.parse(key) as ProductQuery, page)
       .then(({ items, hasNext }) => {
+        if (sent !== generation.current) return
         setState((prev) =>
           prev?.key === key
             ? {
@@ -61,7 +65,10 @@ export function useProductList(query: ProductQuery, enabled = true) {
       })
   }, [current, key])
 
-  const reload = useCallback(() => setReloadCount((count) => count + 1), [])
+  const reload = useCallback(() => {
+    generation.current += 1
+    setReloadCount((count) => count + 1)
+  }, [])
 
   return {
     items: current?.items ?? [],

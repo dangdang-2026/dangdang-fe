@@ -25,6 +25,8 @@ export function useCursorList<P extends CursorPage<{ id: string }>>(
   // 매 렌더 새로 만든 함수여도 처음 한 번만 받게
   const loadRef = useRef(load)
   const firstRef = useRef(onFirstPage)
+  // 다시 받으면 올림. 그 전에 보낸 더 보기 응답은 버림(모두 지우기 뒤 지운 줄이 다시 붙지 않게)
+  const generation = useRef(0)
 
   useEffect(() => {
     let stale = false
@@ -51,10 +53,12 @@ export function useCursorList<P extends CursorPage<{ id: string }>>(
   const loadMore = useCallback(() => {
     if (!state.nextCursor || state.loadingMore) return
     const cursor = state.nextCursor
+    const sent = generation.current
     setState((prev) => ({ ...prev, loadingMore: true }))
     loadRef
       .current(cursor)
-      .then((page) =>
+      .then((page) => {
+        if (sent !== generation.current) return
         setState((prev) => ({
           ...prev,
           // 그사이 새로 생긴 줄 때문에 겹친 건 한 번만
@@ -64,12 +68,18 @@ export function useCursorList<P extends CursorPage<{ id: string }>>(
           ],
           nextCursor: page.nextCursor,
           loadingMore: false,
-        })),
-      )
-      .catch(() => setState((prev) => ({ ...prev, loadingMore: false })))
+        }))
+      })
+      .catch(() => {
+        if (sent === generation.current) setState((prev) => ({ ...prev, loadingMore: false }))
+      })
   }, [state.nextCursor, state.loadingMore])
 
-  const reload = useCallback(() => setReloadCount((count) => count + 1), [])
+  const reload = useCallback(() => {
+    generation.current += 1
+    setState((prev) => ({ ...prev, loadingMore: false }))
+    setReloadCount((count) => count + 1)
+  }, [])
 
   // 찜 빼기 · 지우기처럼 화면에서 바로 바꿀 때
   const setItems = useCallback(

@@ -42,7 +42,13 @@ function ProductVisitsPage() {
     if (visiting) return
     setVisiting(visit.id)
     openSellerPage(() => visitProduct(visit.productId))
-      .then(() => list.reload())
+      // 서버는 새 이동 기록을 한 줄 더 만듦. 받아 둔 장은 그대로 두고 맨 위에만 붙임
+      .then(() =>
+        list.setItems((items) => [
+          { ...visit, id: `again-${Date.now()}`, visitedAt: new Date().toISOString() },
+          ...items,
+        ]),
+      )
       .catch((error: unknown) => {
         if (getErrorCode(error) === 'SHOP_40401') {
           list.setItems((items) =>

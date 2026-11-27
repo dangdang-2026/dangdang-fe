@@ -32,14 +32,15 @@ function PhotoSlider({ urls }: { urls: string[] }) {
   const photos = urls.length > 0 ? urls : [null]
 
   return (
-    <div className="relative">
+    // 피그마처럼 사진이 상태 바 뒤까지(높이 420px은 상태 바 포함)
+    <div className="relative -mt-[env(safe-area-inset-top)]">
       <div
         className="flex snap-x snap-mandatory [scrollbar-width:none] overflow-x-auto"
         onScroll={onScroll}
       >
         {photos.map((url, i) => (
           <ProductImage
-            key={url ?? i}
+            key={i}
             src={url}
             className="bg-grey-100 h-105 w-full shrink-0 snap-center"
           />
@@ -122,17 +123,21 @@ function ProductDetailPage() {
 
   const goSeller = (hide: boolean) => {
     if (!product || visiting) return
-    if (hide) hideOutboundNotice()
     setVisiting(true)
     openSellerPage(() => visitProduct(product.id))
-      .then(() => setNotice(false))
-      .catch((error: unknown) =>
-        setToast(
-          getErrorCode(error) === 'SHOP_40401'
-            ? '판매가 끝난 상품이에요'
-            : '판매처로 가지 못했어요. 잠시 후 다시 시도해 주세요',
-        ),
-      )
+      .then(() => {
+        // 7일 동안 보지 않기는 판매처로 간 뒤에만 남김
+        if (hide) hideOutboundNotice()
+        setNotice(false)
+      })
+      .catch((error: unknown) => {
+        if (getErrorCode(error) === 'SHOP_40401') {
+          setNotice(false)
+          setState({ id: product.id, error: 'gone' })
+          return
+        }
+        setToast('판매처로 가지 못했어요. 잠시 후 다시 시도해 주세요')
+      })
       .finally(() => setVisiting(false))
   }
 

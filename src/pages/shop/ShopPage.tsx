@@ -98,7 +98,9 @@ function ShopPage() {
   const [params, setParams] = useSearchParams()
   const view = toView(params.get('view'))
   const [query, setQuery] = useState(params.get('q') ?? '')
-  const q = useDebouncedValue(query.trim(), 300)
+  const debounced = useDebouncedValue(query.trim(), 300)
+  // 지울 때는 기다리지 않고 바로(카테고리를 눌렀는데 이전 검색 결과가 남지 않게)
+  const q = query.trim() ? debounced : ''
   const list = useProductList(toQuery(view, q))
   const [picks, setPicks] = useState<Product[]>([])
 

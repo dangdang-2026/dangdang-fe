@@ -20,10 +20,17 @@ function RecentProductsPage() {
   const closeToast = useCallback(() => setToast(null), [])
 
   const remove = (id: string) => {
-    const before = list.items
+    const index = list.items.findIndex((item) => item.id === id)
+    const removed = list.items[index]
+    if (!removed) return
     list.setItems((items) => items.filter((item) => item.id !== id))
     removeRecentProduct(id).catch(() => {
-      list.setItems(() => before)
+      // 그사이 지운 다른 상품은 그대로, 실패한 것만 원래 자리에
+      list.setItems((items) =>
+        items.some((item) => item.id === id)
+          ? items
+          : [...items.slice(0, index), removed, ...items.slice(index)],
+      )
       setToast('지우지 못했어요. 잠시 후 다시 시도해 주세요')
     })
   }

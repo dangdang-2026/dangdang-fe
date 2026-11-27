@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import iconBack from '@/assets/icons/back.svg'
 import iconCalendar from '@/assets/icons/calendar.svg'
 import iconChart from '@/assets/icons/stats/chart.svg'
 import Toast from '@/components/common/Toast'
@@ -15,7 +14,6 @@ import RecordTimeline from '@/components/records/RecordTimeline'
 import WeekPicker from '@/components/records/WeekPicker'
 import { MEAL_LABEL } from '@/constants/glucose'
 import { ROUTES } from '@/constants/routes'
-import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useWeekRecordsSync } from '@/hooks/useWeekRecordsSync'
@@ -75,8 +73,6 @@ function RecordsPage() {
   } | null>(null)
   const criteria = useCriteria()
   const navigate = useNavigate()
-  // 탭이 아니라서 뒤로 가면 오늘 화면
-  const goBack = useGoBack(ROUTES.TODAY)
 
   const now = useNow()
   const today = startOfDay(now)
@@ -251,15 +247,11 @@ function RecordsPage() {
   }
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 px-5 pt-2 pb-10">
+    // 머리는 탭일 때 그대로, 탭 바만 빠짐
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 px-5 pt-4.5 pb-10">
       <WarmBackground />
-      <header className="flex h-14 items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button type="button" aria-label="뒤로" onClick={goBack}>
-            <img src={iconBack} alt="" width={24} height={24} />
-          </button>
-          <h1 className="text-title-2 text-grey-900">기록</h1>
-        </div>
+      <header className="flex items-center justify-between">
+        <h1 className="text-title-2 text-grey-900">기록</h1>
         <div className="flex gap-2">
           <button
             type="button"

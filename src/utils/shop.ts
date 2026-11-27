@@ -54,6 +54,9 @@ export async function openSellerPage(getUrl: () => Promise<string>) {
   const popup = window.open('', '_blank')
   try {
     const url = await getUrl()
+    // 서버 데이터가 잘못돼도 웹 주소(https · http)만 엶. javascript: 같은 건 앱 권한으로 돌 수 있음
+    if (!['https:', 'http:'].includes(new URL(url).protocol))
+      throw new Error('판매처 주소가 웹 주소가 아님')
     if (popup) {
       popup.opener = null
       popup.location.href = url
