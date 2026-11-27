@@ -252,7 +252,8 @@ function RecordsPage() {
   }
 
   return (
-    <main className="px-5 pt-4.5">
+    // 머리는 탭일 때 그대로, 탭 바만 빠짐
+    <main className="mx-auto min-h-dvh w-full max-w-107.5 px-5 pt-4.5 pb-10">
       <WarmBackground />
       <header className="flex items-center justify-between">
         <h1 className="text-title-2 text-grey-900">기록</h1>

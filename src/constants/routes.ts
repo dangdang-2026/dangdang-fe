@@ -20,6 +20,8 @@ export const ROUTES = {
   RECORDS_CALENDAR: '/records/calendar',
   RECORDS_STATS: '/records/stats',
   RECORDS_FOOD_HISTORY: '/records/food-history',
+  SHOP: '/shop',
+  SHOP_PRODUCT: '/shop/products/:id',
   VISIT: '/visit',
   VISIT_REPORT: '/visit/report',
   VISIT_REPORTS: '/visit/reports',
@@ -67,6 +69,9 @@ export const ROUTES = {
   MY_COMMUNITY_ACTIVITY: '/my/community/activity',
   MY_BLOCKED: '/my/community/blocked',
   MY_CONTACT: '/my/contact',
+  MY_LIKED: '/my/liked-products',
+  MY_RECENT: '/my/recent-products',
+  MY_VISITS: '/my/product-visits',
 } as const
 
 export const communityBoardPath = (board: string) => `/community/board/${board}`

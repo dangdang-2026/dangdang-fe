@@ -1,15 +1,19 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { logoutFromServer } from '@/api/auth'
 import { clearPendingKakao } from '@/utils/kakaoPending'
 import { unsubscribePush } from '@/api/push'
+import { getShoppingSummary } from '@/api/shop'
 import iconBell from '@/assets/icons/my/bell.svg'
 import iconChevronDark from '@/assets/icons/my/chevron-dark.svg'
 import iconMenuAi from '@/assets/icons/my/menu-ai.svg'
 import iconMenuBell from '@/assets/icons/my/menu-bell.svg'
+import iconMenuClock from '@/assets/icons/my/menu-clock.svg'
 import iconMenuCommunity from '@/assets/icons/my/menu-community.svg'
 import iconMenuData from '@/assets/icons/my/menu-data.svg'
+import iconMenuExternal from '@/assets/icons/my/menu-external.svg'
 import iconMenuFood from '@/assets/icons/my/menu-food.svg'
+import iconMenuHeart from '@/assets/icons/my/menu-heart.svg'
 import iconMenuHelp from '@/assets/icons/my/menu-help.svg'
 import iconMenuHospital from '@/assets/icons/my/menu-hospital.svg'
 import iconMenuTarget from '@/assets/icons/my/menu-target.svg'
@@ -66,6 +70,20 @@ function MyPage() {
   const logout = useAuthStore((state) => state.logout)
   const [logoutSheet, setLogoutSheet] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  const [shopping, setShopping] = useState<{ likedCount: number; recentCount: number } | null>(null)
+
+  // 쇼핑 메뉴 숫자. 못 받으면 숫자 없이
+  useEffect(() => {
+    let stale = false
+    getShoppingSummary()
+      .then((summary) => {
+        if (!stale) setShopping(summary)
+      })
+      .catch(() => {})
+    return () => {
+      stale = true
+    }
+  }, [])
 
   const age = getPregnancyAge(dueDate, now)
   const visit = getVisitStatus(nextVisitAt, now)
@@ -179,6 +197,29 @@ function MyPage() {
               title: '식사 기록 설정',
               description: `양 적는 방식 · ${portionUnit === 'GRAM' ? '그램' : '인분'}`,
               onClick: () => navigate(ROUTES.MY_MEAL_SETTINGS),
+            },
+          ]}
+        />
+        <MyMenuGroup
+          title="쇼핑"
+          items={[
+            {
+              icon: iconMenuHeart,
+              title: '찜한 상품',
+              description: shopping ? `저장해 둔 상품 ${shopping.likedCount}개` : '저장해 둔 상품',
+              onClick: () => navigate(ROUTES.MY_LIKED),
+            },
+            {
+              icon: iconMenuClock,
+              title: '최근 본 상품',
+              description: shopping ? `최근 7일 · ${shopping.recentCount}개` : '최근 7일',
+              onClick: () => navigate(ROUTES.MY_RECENT),
+            },
+            {
+              icon: iconMenuExternal,
+              title: '판매처로 간 기록',
+              description: '주문·배송은 판매처에서 확인해요',
+              onClick: () => navigate(ROUTES.MY_VISITS),
             },
           ]}
         />

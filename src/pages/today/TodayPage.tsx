@@ -319,13 +319,6 @@ function TodayPage() {
     setPermissionSheet(true)
   }
 
-  // 식사 적기는 오늘 마지막 끼니. 아직 없으면 식사 시작부터
-  const writeLatestMeal = () => {
-    const latest = todayMeals.at(-1)
-    if (latest) setWritingMeal(latest)
-    else setToast('식사 시작을 먼저 눌러 주세요')
-  }
-
   // 하루 정리에서 비어 있는 식후 측정 채우기
   const fillMissed = (meal: Meal, dueAt: Date) => {
     setSheetTarget({
@@ -539,7 +532,7 @@ function TodayPage() {
               <QuickActions
                 insulinMode={insulinMode}
                 onInputGlucose={openGlucoseSheet}
-                onWriteMeal={writeLatestMeal}
+                onOpenRecords={() => navigate(ROUTES.RECORDS)}
                 onOpenReport={() => navigate(ROUTES.VISIT_REPORTS)}
                 onInsulin={() => setInsulinSheet(true)}
                 onContactMemo={() => setMemoSheet(true)}

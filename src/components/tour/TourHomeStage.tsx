@@ -62,7 +62,7 @@ function TourHomeStage({ eating }: TourHomeStageProps) {
         <QuickActions
           insulinMode={false}
           onInputGlucose={noop}
-          onWriteMeal={noop}
+          onOpenRecords={noop}
           onOpenReport={noop}
           onInsulin={noop}
           onContactMemo={noop}
