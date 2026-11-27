@@ -13,7 +13,7 @@ import { DEPARTMENTS, DEPARTMENT_CHIP, DEPARTMENT_NOTE } from '@/constants/hospi
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import {
-  deleteHospital,
+  deleteHospitalLater,
   HospitalGoneError,
   saveHospitalEdit,
   saveNewHospital,
@@ -49,7 +49,10 @@ function HospitalsPage() {
     return draft ? { mode: 'add', ...draft } : null
   })
   const [deleting, setDeleting] = useState<{ hospital: Hospital; index: number } | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{
+    message: string
+    action?: { label: string; onClick: () => void }
+  } | null>(null)
   // 서버 저장 중엔 다시 눌러도 한 번만
   const [saving, setSaving] = useState(false)
   const closeToast = useCallback(() => setToast(null), [])
@@ -72,14 +75,14 @@ function HospitalsPage() {
         await saveNewHospital(first ? { ...input, nextVisitAt: null } : input)
       } catch {
         // 시트는 열어 둬 다시 누를 수 있게
-        setToast('병원을 추가하지 못했어요. 잠시 후 다시 시도해 주세요')
+        setToast({ message: '병원을 추가하지 못했어요. 잠시 후 다시 시도해 주세요' })
         return
       } finally {
         setSaving(false)
       }
       // 대표 병원의 다음 진료일은 진료 일정으로. 못 남기면 진료 탭에서 다시 정함
       if (first) saveNextVisit(input.nextVisitAt).catch(() => {})
-      setToast(`${input.name}${objectParticle(input.name)} 추가했어요`)
+      setToast({ message: `${input.name}${objectParticle(input.name)} 추가했어요` })
       closeSheet()
       return
     }
@@ -90,30 +93,40 @@ function HospitalsPage() {
         sheet.hospital.id,
         sheet.index === 0 ? { ...input, nextVisitAt: null } : input,
       )
-      setToast('병원 정보를 고쳤어요')
+      setToast({ message: '병원 정보를 고쳤어요' })
     } catch (error) {
-      setToast(
-        error instanceof HospitalGoneError
-          ? '이미 지워진 병원이에요'
-          : '병원 정보를 저장하지 못했어요. 잠시 후 다시 시도해 주세요',
-      )
+      setToast({
+        message:
+          error instanceof HospitalGoneError
+            ? '이미 지워진 병원이에요'
+            : '병원 정보를 저장하지 못했어요. 잠시 후 다시 시도해 주세요',
+      })
     }
   }
 
-  // 화면에서 바로 지우고 서버에 못 지우면 되돌림
-  const confirmDelete = async () => {
+  // 화면에서 바로 빼고 되돌리기를 기다린 뒤 서버에서 지움. 못 지우면 다시 보임
+  const confirmDelete = () => {
     if (!deleting) return
-    const { hospital, index } = deleting
+    const { hospital } = deleting
     setDeleting(null)
-    try {
-      await deleteHospital(hospital.id)
-    } catch {
-      setToast('병원을 지우지 못했어요. 잠시 후 다시 시도해 주세요')
-      return
-    }
-    // 대표 병원을 지우면 다음 병원이 대표가 되고 그 진료일을 이어받음
-    if (index === 0) saveNextVisit(hospitals[1]?.nextVisitAt ?? null).catch(() => {})
-    setToast('병원을 지웠어요')
+    const undo = deleteHospitalLater(hospital.id, {
+      onDeleted: (wasPrimary, next) => {
+        // 대표 병원을 지우면 다음 병원이 대표가 되고 그 진료일을 이어받음
+        if (wasPrimary) saveNextVisit(next?.nextVisitAt ?? null).catch(() => {})
+      },
+      onFailed: () =>
+        setToast({ message: `${hospital.name}${objectParticle(hospital.name)} 지우지 못했어요` }),
+    })
+    setToast({
+      message: '병원을 지웠어요',
+      action: {
+        label: '되돌리기',
+        onClick: () => {
+          undo()
+          setToast(null)
+        },
+      },
+    })
   }
 
   return (
@@ -225,11 +238,11 @@ function HospitalsPage() {
       {deleting && (
         <HospitalDeleteSheet
           name={deleting.hospital.name}
-          onConfirm={() => void confirmDelete()}
+          onConfirm={confirmDelete}
           onClose={() => setDeleting(null)}
         />
       )}
-      {toast && <Toast message={toast} onClose={closeToast} />}
+      {toast && <Toast message={toast.message} action={toast.action} onClose={closeToast} />}
     </main>
   )
 }
