@@ -58,6 +58,7 @@ export const ROUTES = {
   LEGAL_TRANSFER: '/legal/transfer',
   LEGAL_MARKETING: '/legal/marketing',
   LEGAL_PRIVACY_VERSIONS: '/legal/privacy/versions',
+  LEGAL_TERMS_VERSIONS: '/legal/terms/versions',
   POSTPARTUM_DELIVERY: '/postpartum/delivery',
   POSTPARTUM_CHECK: '/postpartum/check',
   POSTPARTUM_CHECK_RESULT: '/postpartum/check/result',

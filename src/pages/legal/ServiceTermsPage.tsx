@@ -1,5 +1,4 @@
-import { useCallback, useState } from 'react'
-import Toast from '@/components/common/Toast'
+import { useNavigate } from 'react-router'
 import ClauseList, { ClauseBody, type Clause } from '@/components/legal/ClauseList'
 import DocumentHead from '@/components/legal/DocumentHead'
 import LegalLayout from '@/components/legal/LegalLayout'
@@ -146,16 +145,15 @@ const CLAUSES: Clause[] = [
 
 // Figma N-03 이용약관 · N-07 조항 펼침
 function ServiceTermsPage() {
+  const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.MY_TERMS)
-  const [toast, setToast] = useState<string | null>(null)
-  const closeToast = useCallback(() => setToast(null), [])
 
   return (
     <LegalLayout title="이용약관" onBack={goBack}>
       <DocumentHead
         title="당당 서비스 이용약관"
         version={LEGAL_VERSION}
-        onVersions={() => setToast('지금 버전이 첫 버전이에요')}
+        onVersions={() => navigate(ROUTES.LEGAL_TERMS_VERSIONS)}
       />
       <p className="bg-grey-50 text-t7 text-grey-700 rounded-xl px-3.5 py-3 leading-5">
         당당은 의료기기가 아니에요.
@@ -167,8 +165,6 @@ function ServiceTermsPage() {
         의료 판단은 꼭 병원에서 받아 주세요.
       </p>
       <ClauseList clauses={CLAUSES} />
-
-      {toast && <Toast message={toast} onClose={closeToast} />}
     </LegalLayout>
   )
 }
