@@ -53,6 +53,7 @@ import {
   saveInsulin,
   saveMealStart,
   saveSkipMeal,
+  sendUnsentGlucose,
   useGlucoseStore,
 } from '@/stores/useGlucoseStore'
 import { useCriteriaStore } from '@/stores/useCriteriaStore'
@@ -411,10 +412,11 @@ function TodayPage() {
     }
   }
 
-  // 다시 연결하기. 아직 끊겨 있으면 알려 줌
+  // 다시 연결하기. 아직 끊겨 있으면 알려 주고, 연결됐으면 못 보낸 식사부터 보냄
   const retryConnection = () => {
     recheck()
     if (!navigator.onLine) setToast('아직 인터넷에 연결되지 않았어요')
+    else void sendUnsentGlucose().catch(() => {})
   }
 
   const handleSaved = (record: GlucoseRecord) => {
