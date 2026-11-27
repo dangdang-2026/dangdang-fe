@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router'
 import type { GraduationStats } from '@/api/pregnancy'
+import { getVisitReportCount } from '@/api/visitReports'
 import iconArchive from '@/assets/icons/postpartum/archive-md.svg'
 import DangdangAvatar from '@/components/common/DangdangAvatar'
 import { ROUTES } from '@/constants/routes'
@@ -12,7 +14,22 @@ function GraduationPage() {
   const location = useLocation()
   // 산후 홈에서 졸업한 뒤 서버가 준 숫자
   const graduation = (location.state as { graduation?: GraduationStats } | null)?.graduation
-  const reportCount = useReportStore((state) => state.reports.length)
+  const localReportCount = useReportStore((state) => state.reports.length)
+  // 서버 리포트 수(날짜 미정 리포트도 셈). 받기 전 · 실패면 기기 목록 수
+  const [serverReportCount, setServerReportCount] = useState<number | null>(null)
+  const reportCount = serverReportCount ?? localReportCount
+
+  useEffect(() => {
+    let stale = false
+    getVisitReportCount()
+      .then((count) => {
+        if (!stale) setServerReportCount(count)
+      })
+      .catch(() => {})
+    return () => {
+      stale = true
+    }
+  }, [])
   // 주소로 바로 열면 스플래시가 덮으므로 걷힌 뒤에 등장
   const splashing = useSplashStore((state) => state.visible)
 
