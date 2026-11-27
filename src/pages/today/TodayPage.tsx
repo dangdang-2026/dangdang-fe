@@ -216,10 +216,13 @@ function TodayPage() {
   const lastCriteria = lastEntered
     ? getCriteriaAt(criteriaVersions, new Date(lastEntered.measuredAt))
     : null
+  // 서버가 붙인 목표(targetValue)가 있으면 그 값, 아직 못 받았으면 기준으로 계산
   const lastTarget =
-    lastEntered && lastCriteria
-      ? getTarget(lastEntered.slot, lastCriteria.targets, lastCriteria.postMealHours)
-      : null
+    lastEntered?.targetValue !== undefined
+      ? lastEntered.targetValue
+      : lastEntered && lastCriteria
+        ? getTarget(lastEntered.slot, lastCriteria.targets, lastCriteria.postMealHours)
+        : null
   const showHighCard =
     justEntered && !!lastEntered && lastTarget !== null && isAboveTarget(lastEntered, lastTarget)
   // 출산 예정일이 가까우면 입원·출산 입구. 입원 중이면 안 보임

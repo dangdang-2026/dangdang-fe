@@ -636,13 +636,7 @@ export async function editRecord(id: string, changes: ReadingChanges) {
     if (getErrorCode(error) === 'READING_40401') dropRecord(id)
     if (getErrorCode(error) === 'READING_40903') {
       // 옮기려던 날과 원래 날을 둘 다 다시 받음(옛 값이 원래 날에 남지 않게)
-      const days = [changes.measuredAt, before?.measuredAt].flatMap((iso) =>
-        iso ? [startOfDay(new Date(iso))] : [],
-      )
-      const unique = days.filter(
-        (day, index) => days.findIndex((other) => other.getTime() === day.getTime()) === index,
-      )
-      await Promise.all(unique.map((day) => syncRange(day, day).catch(() => {})))
+      await resyncDays([changes.measuredAt, ...(before ? [before.measuredAt] : [])])
     }
     throw error
   }
@@ -664,6 +658,8 @@ export async function editMealStart(id: string, startedAt: Date) {
           .map((item) => (item.id === id ? { ...item, startedAt: startedAt.toISOString() } : item))
           .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()),
       }))
+      // 재야 할 시각이 바뀌어 서버가 다시 판정한 식후 혈당을 받음
+      if (!meal.pending) void resyncDays([meal.startedAt, startedAt.toISOString()])
     })
   mealStartQueue.set(id, run)
   try {
@@ -683,6 +679,14 @@ export async function removeMeal(id: string) {
     window.setTimeout(() => removedMeals.delete(id), UNDO_MS)
   }
   useGlucoseStore.setState((state) => ({ meals: state.meals.filter((item) => item.id !== id) }))
+  // 이 식사에 붙었던 혈당 판정이 바뀌어 그날을 다시 받음
+  if (meal && !meal.pending) void resyncDays([meal.startedAt])
+}
+
+// 날짜들을 하루씩 다시 받음(같은 날은 한 번). 실패하면 그대로
+function resyncDays(isoList: string[]) {
+  const days = [...new Set(isoList.map((iso) => startOfDay(new Date(iso)).getTime()))]
+  return Promise.all(days.map((time) => syncRange(new Date(time), new Date(time)).catch(() => {})))
 }
 
 // 지운 식사. 5분 안 되돌리면 기기에만 있던 음식 · 양 · 건너뜀을 다시 붙임

@@ -23,7 +23,7 @@ export const PENDING_EXPIRE_MS = 3 * 60 * MINUTE
 export const JUST_SAVED_MS = 30 * MINUTE
 // 이 시각부터 놓친 식후 측정은 "하루 정리"로 나중에 채우기 안내
 export const DAY_END_HOUR = 21
-// 예정 시각과 5분 이내면 제시간
-export const ON_TIME_MS = 5 * MINUTE
+// 예정 시각과 15분 이내면 제시간(서버 ON_TIME 판정과 같게)
+export const ON_TIME_MS = 15 * MINUTE
 // 이 값 미만이면 목표와 상관없이 낮음 안내(G-05)
 export const GLUCOSE_LOW = 70
