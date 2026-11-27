@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { getErrorCode } from '@/api/axios'
+import { getErrorCode, isRetryableError } from '@/api/axios'
 import {
   createInsulinLog,
   deleteInsulinLog,
@@ -23,6 +23,7 @@ import {
   createReading,
   deleteReading,
   getAllReadings,
+  linkReadingToMeal,
   restoreReading,
   updateReading,
   type ReadingChanges,
@@ -160,6 +161,9 @@ export const useGlucoseStore = create<GlucoseState>()(
   ),
 )
 
+// 서버 번호를 받은 식사의 옛 번호. 그사이 저장한 혈당이 옛 번호를 들고 와도 찾게
+const registeredMealIds = new Map<string, string>()
+
 // 보내는 중인 식사. 로그인 동기화와 로그아웃 전 보내기가 겹쳐도 한 번만 등록
 const sendingMeals = new Map<string, Promise<boolean>>()
 
@@ -178,6 +182,7 @@ function sendPendingMeal(meal: Meal, offline: boolean) {
 async function registerMeal(meal: Meal, offline: boolean) {
   try {
     const saved = await createMeal(meal.type, new Date(meal.startedAt), offline)
+    registeredMealIds.set(meal.id, saved.id)
     useGlucoseStore.setState((state) => ({
       // 서버 동기화로 같은 식사가 먼저 들어왔으면 음식 정보가 있는 기기 쪽만 남김
       meals: state.meals
@@ -211,21 +216,20 @@ const getKnownFoods = () => {
 
 // 받아 오는 중인 식품코드. 같은 음식을 여러 번 받지 않게
 const fetchingFoods = new Set<string>()
+// 음식 상세는 하나씩 차례로 받음(지난 기록이 많아도 요청이 몰리지 않게)
+let foodQueue = Promise.resolve()
 
-// 다른 기기에서 고른 음식도 이 기기가 알게 남김. 단위 · 주식은 바로, 1인분 영양값은 음식 상세로 받아 채움
+// 다른 기기에서 고른 음식도 이 기기가 알게 남김. 음식 상세를 받은 뒤에만 남김(이름 · 단위 · 주식 · 영양값)
 function rememberServerFoods(items: MealItemSummary[]) {
-  const known = new Set(getKnownFoods().flatMap((food) => (food.code ? [food.code] : [])))
+  const knownFoods = getKnownFoods()
+  const codes = new Set(knownFoods.flatMap((food) => (food.code ? [food.code] : [])))
+  const names = new Set(knownFoods.map((food) => food.name))
   items.forEach((item) => {
     const code = item.foodCode
-    if (!code || known.has(code) || fetchingFoods.has(code)) return
-    useFoodStore.getState().rememberFood({
-      code,
-      name: item.name,
-      unit: item.unitLabel ?? '인분',
-      staple: item.isStaple,
-    })
+    if (!code || codes.has(code) || names.has(item.name) || fetchingFoods.has(code)) return
     fetchingFoods.add(code)
-    getFood(code)
+    foodQueue = foodQueue
+      .then(() => getFood(code))
       .then(({ food }) => useFoodStore.getState().rememberFood({ ...food, name: item.name }))
       .catch(() => {})
       .finally(() => fetchingFoods.delete(code))
@@ -293,18 +297,20 @@ export function saveMealContent(
   return pushMealItems(mealId)
 }
 
-// 시작 중인 식사. 연달아 눌러도 식사는 하나만
-let startingMeal: Promise<boolean> | null = null
+// 시작 중인 식사. 같은 끼니를 연달아 눌러도 하나만(다른 끼니는 따로)
+const startingMeals = new Map<MealType, Promise<boolean>>()
 
 // 식사 시작은 원탭이라 기기에 먼저 적고 서버에 보냄. 실패하면 pending으로 남겨 동기화 때 다시 보냄
 export function saveMealStart(type: MealType, now = new Date()) {
-  if (startingMeal) return startingMeal
+  const starting = startingMeals.get(type)
+  if (starting) return starting
   const id = useGlucoseStore.getState().startMeal(type, now)
   const meal = useGlucoseStore.getState().meals.find((item) => item.id === id)
-  startingMeal = (meal ? sendPendingMeal(meal, false) : Promise.resolve(false)).finally(() => {
-    startingMeal = null
+  const job = (meal ? sendPendingMeal(meal, false) : Promise.resolve(false)).finally(() => {
+    startingMeals.delete(type)
   })
-  return startingMeal
+  startingMeals.set(type, job)
+  return job
 }
 
 // 못 보낸 식사를 먼저 보내고 서버 식사로 바꿈. 음식·양·건너뜀처럼 기기에만 있는 정보는 같은 식사에 다시 붙임
@@ -347,11 +353,7 @@ async function linkUnlinkedRecords() {
   await Promise.all(
     targets.map(async ({ record, meal }) => {
       try {
-        const saved = await updateReading(record.id, {
-          measuredAt: record.measuredAt,
-          target: { slot: 'post-meal', mealType: record.mealType ?? meal.type },
-          mealId: meal.id,
-        })
+        const saved = await linkReadingToMeal(record.id, meal.id)
         useGlucoseStore.setState((state) => ({
           records: state.records.map((item) =>
             item.id === record.id
@@ -360,12 +362,22 @@ async function linkUnlinkedRecords() {
           ),
         }))
       } catch (error) {
-        // 서버에서 지운 혈당이면 더 잇지 않음
+        // 끊김 · 서버 오류만 다음에 다시. 지운 혈당은 빼고, 다시 해도 안 될 실패(식사 시작 앞 등)는 접음
+        if (isRetryableError(error)) return
         if (getErrorCode(error) === 'READING_40401') dropRecord(record.id)
+        else clearUnlinked(record.id)
       }
     }),
   )
 }
+
+// 더 이어 주지 않음
+const clearUnlinked = (id: string) =>
+  useGlucoseStore.setState((state) => ({
+    records: state.records.map((record) =>
+      record.id === id ? { ...record, unlinked: undefined } : record,
+    ),
+  }))
 
 // 서버에서 이미 지운 혈당. 기기에서도 뺌
 const dropRecord = (id: string) =>
@@ -395,6 +407,8 @@ function mergeInsulins(
   inRange: (iso: string) => boolean,
   known: Set<string>,
   startedAt: number,
+  // 기록 조회 인슐린은 고친 시각이 없어 기기에 있던 시각을 남김
+  keepEditedAt = false,
 ) {
   const fresh = server.filter((insulin) => !removedInsulinIds.has(insulin.id))
   const serverById = new Map(fresh.map((insulin) => [insulin.id, insulin]))
@@ -409,9 +423,13 @@ function mergeInsulins(
   )
   const keptIds = new Set(kept.map((insulin) => insulin.id))
   return [
-    ...kept.map((insulin) =>
-      editedSince(insulin.id) ? insulin : (serverById.get(insulin.id) ?? insulin),
-    ),
+    ...kept.map((insulin) => {
+      const server = serverById.get(insulin.id)
+      if (editedSince(insulin.id) || !server) return insulin
+      return keepEditedAt && server.editedAt && insulin.editedAt
+        ? { ...server, editedAt: insulin.editedAt }
+        : server
+    }),
     ...fresh.filter((insulin) => !keptIds.has(insulin.id)),
   ].sort((a, b) => toTime(a.takenAt) - toTime(b.takenAt))
 }
@@ -476,14 +494,19 @@ export async function saveRecord(
   const meal = useGlucoseStore.getState().meals.find((item) => item.id === target.mealId)
   const serverMealId = meal && !meal.pending ? meal.id : undefined
   const saved = await createReading(target, value, measuredAt, serverMealId)
+  // 저장하는 사이 식사가 서버 번호를 받았으면 새 번호로
+  const mealId = target.mealId && (registeredMealIds.get(target.mealId) ?? target.mealId)
   const record = {
     ...saved,
-    mealId: saved.mealId ?? target.mealId,
+    mealId: saved.mealId ?? mealId,
     mealType: target.mealType ?? saved.mealType,
     // 못 보낸 식사에 적었으면 식사를 보낸 뒤 서버에서 이어 줌
-    ...(meal?.pending && { unlinked: true }),
+    ...(meal?.pending && !saved.mealId && { unlinked: true }),
   }
   useGlucoseStore.getState().addRecord(record)
+  // 그사이 식사를 이미 보냈으면 바로 이어 줌
+  const current = useGlucoseStore.getState().meals.find((item) => item.id === mealId)
+  if (record.unlinked && current && !current.pending) void linkUnlinkedRecords()
   return record
 }
 
@@ -617,6 +640,7 @@ export async function syncServerRange<T extends ServerRangeData>(load: () => Pro
               ...server,
               mealId: server.mealId ?? record.mealId,
               mealType: server.mealType ?? record.mealType,
+              unlinked: server.mealId ? undefined : record.unlinked,
             }
           : record
       }),
@@ -624,7 +648,14 @@ export async function syncServerRange<T extends ServerRangeData>(load: () => Pro
     ].sort((a, b) => toTime(a.measuredAt) - toTime(b.measuredAt))
 
     if (!data.insulins) return { meals, records }
-    const insulins = mergeInsulins(state.insulins, data.insulins, inRange, knownInsulins, startedAt)
+    const insulins = mergeInsulins(
+      state.insulins,
+      data.insulins,
+      inRange,
+      knownInsulins,
+      startedAt,
+      true,
+    )
     return { meals, records, insulins }
   })
   return data

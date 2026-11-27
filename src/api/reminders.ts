@@ -1,4 +1,4 @@
-import { apiClient } from '@/api/axios'
+import { apiClient, isRetryableError } from '@/api/axios'
 
 // 열람을 못 보낸 측정 알림 번호. 다음 동기화 때 다시 보냄
 export const PENDING_OPENS_KEY = 'dangdang-reminder-opens'
@@ -26,9 +26,11 @@ function writePendingOpens(ids: string[]) {
   }
 }
 
-// 열람 보내기. 못 보내면 남겨 두고 다음에 다시(재알림이 또 울리지 않게)
+// 열람 보내기. 끊김 · 서버 오류면 남겨 두고 다음에 다시(재알림이 또 울리지 않게)
 export function openReminderLater(id: string) {
-  openReminder(id).catch(() => writePendingOpens([...new Set([...readPendingOpens(), id])]))
+  openReminder(id).catch((error: unknown) => {
+    if (isRetryableError(error)) writePendingOpens([...new Set([...readPendingOpens(), id])])
+  })
 }
 
 // 남겨 둔 열람을 다시 보냄. 보낸 것만 지움
@@ -36,8 +38,14 @@ export async function retryPendingOpens() {
   const ids = readPendingOpens()
   if (ids.length === 0) return
   const results = await Promise.allSettled(ids.map((id) => openReminder(id)))
-  const sent = new Set(ids.filter((_, index) => results[index].status === 'fulfilled'))
-  writePendingOpens(readPendingOpens().filter((id) => !sent.has(id)))
+  // 보냈거나 다시 해도 안 될 것(지운 알림 등)은 지움
+  const done = new Set(
+    ids.filter((_, index) => {
+      const result = results[index]
+      return result.status === 'fulfilled' || !isRetryableError(result.reason)
+    }),
+  )
+  writePendingOpens(readPendingOpens().filter((id) => !done.has(id)))
 }
 
 // 측정 알림 10분 뒤 다시. 서버가 10분 뒤 한 번 더 보냄

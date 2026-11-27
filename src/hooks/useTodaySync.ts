@@ -4,8 +4,7 @@ import { getToday } from '@/api/today'
 import { sendUnsentGlucose, syncServerRange } from '@/stores/useGlucoseStore'
 import { addDays, startOfDay } from '@/utils/date'
 
-// 오늘 화면에 들어올 때 · 앱으로 돌아올 때 · 날짜가 바뀔 때 · 다시 연결될 때 오늘 기록을 서버와 맞춤
-// 못 보낸 식사부터 보내고 받음. pushReady는 서버에 살아 있는 푸시 구독이 있는지
+// 들어올 때 · 앱 복귀 · 자정 · 다시 연결 때 못 보낸 것부터 보내고 오늘 기록을 받음(pushReady: 서버 푸시 구독 있는지)
 export function useTodaySync() {
   const [pushReady, setPushReady] = useState<boolean | null>(null)
 

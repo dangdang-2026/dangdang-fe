@@ -127,6 +127,8 @@ function RecordEditSheet({
         setDay(startOfDay(new Date(fresh.measuredAt)))
         setTime(formatTime(new Date(fresh.measuredAt)))
       }
+      // 이미 지운 기록이면 목록에서 빠졌으니 닫음
+      if (code === 'READING_40401') return onClose()
       setSaveError(SAVE_ERROR[code] ?? '고치지 못했어요. 잠시 후 다시 시도해 주세요')
     } finally {
       setSaving(false)
