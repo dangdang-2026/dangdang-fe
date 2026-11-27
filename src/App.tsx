@@ -55,6 +55,9 @@ import MealGuidePage from '@/pages/my/MealGuidePage'
 import MyFoodsPage from '@/pages/my/MyFoodsPage'
 import MealSettingsPage from '@/pages/my/MealSettingsPage'
 import MyPage from '@/pages/my/MyPage'
+import LikedProductsPage from '@/pages/my/LikedProductsPage'
+import RecentProductsPage from '@/pages/my/RecentProductsPage'
+import ProductVisitsPage from '@/pages/my/ProductVisitsPage'
 import NicknamePage from '@/pages/my/NicknamePage'
 import NotificationsPage from '@/pages/my/NotificationsPage'
 import PasswordChangePage from '@/pages/my/PasswordChangePage'
@@ -201,6 +204,9 @@ function App() {
           <Route path={ROUTES.MY_COMMUNITY_ACTIVITY} element={<CommunityActivityPage />} />
           <Route path={ROUTES.MY_BLOCKED} element={<BlockedPage />} />
           <Route path={ROUTES.MY_CONTACT} element={<ContactPage />} />
+          <Route path={ROUTES.MY_LIKED} element={<LikedProductsPage />} />
+          <Route path={ROUTES.MY_RECENT} element={<RecentProductsPage />} />
+          <Route path={ROUTES.MY_VISITS} element={<ProductVisitsPage />} />
           <Route path={ROUTES.COMMUNITY_POST} element={<PostDetailPage />} />
           <Route path={ROUTES.COMMUNITY_WRITE} element={<WritePage />} />
           <Route path={ROUTES.COMMUNITY_POLICY} element={<PolicyPage />} />
