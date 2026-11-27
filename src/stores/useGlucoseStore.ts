@@ -8,7 +8,8 @@ import {
   updateInsulinLog,
   type InsulinInput,
 } from '@/api/insulin'
-import { applyMealItems, toMealContent } from '@/api/mealItems'
+import { getFood } from '@/api/foods'
+import { applyMealItems, toMealContent, type MealItemSummary } from '@/api/mealItems'
 import {
   createMeal,
   deleteMeal,
@@ -208,10 +209,34 @@ const getKnownFoods = () => {
   return [...myFoods, ...pickedFoods]
 }
 
+// 받아 오는 중인 식품코드. 같은 음식을 여러 번 받지 않게
+const fetchingFoods = new Set<string>()
+
+// 다른 기기에서 고른 음식도 이 기기가 알게 남김. 단위 · 주식은 바로, 1인분 영양값은 음식 상세로 받아 채움
+function rememberServerFoods(items: MealItemSummary[]) {
+  const known = new Set(getKnownFoods().flatMap((food) => (food.code ? [food.code] : [])))
+  items.forEach((item) => {
+    const code = item.foodCode
+    if (!code || known.has(code) || fetchingFoods.has(code)) return
+    useFoodStore.getState().rememberFood({
+      code,
+      name: item.name,
+      unit: item.unitLabel ?? '인분',
+      staple: item.isStaple,
+    })
+    fetchingFoods.add(code)
+    getFood(code)
+      .then(({ food }) => useFoodStore.getState().rememberFood({ ...food, name: item.name }))
+      .catch(() => {})
+      .finally(() => fetchingFoods.delete(code))
+  })
+}
+
 // 서버 식사를 기기 식사에 합침. 기기에서 고치고 못 보낸 음식은 기기 값, 아니면 서버 항목
 export function mergeServerMeal(server: ServerMeal, local?: Meal): Meal {
   const { items, ...base } = server
   const meal: Meal = local ? { ...local, ...base } : { skipped: false, ...base }
+  if (items) rememberServerFoods(items)
   if (!items || meal.itemsPending) return meal
   // 항목 API 전에 기기에만 적은 음식은 서버로 옮김
   if (items.length === 0) return meal.foods?.length ? { ...meal, itemsPending: true } : meal
@@ -406,15 +431,9 @@ const ALL_FROM_YEAR = 2000
 // 앱 켤 때 받는 최근 기간. 서버 기간 조회 상한(31일)
 export const RANGE_MAX_DAYS = 31
 
-// from~to(둘 다 포함, 최대 31일) 혈당 · 식사 · 인슐린을 서버와 맞춤. 인슐린만 실패하면 혈당 · 식사만 맞춤
+// from~to(둘 다 포함, 최대 31일) 혈당 · 식사 · 인슐린을 서버와 맞춤. 기록 조회가 인슐린도 줘서 한 번에
 export function syncRange(from: Date, to: Date) {
-  return syncServerRange(async () => {
-    const [records, insulins] = await Promise.all([
-      getRecords(from, to),
-      getInsulinLogs(from, to).catch(() => undefined),
-    ])
-    return { ...records, insulins }
-  })
+  return syncServerRange(() => getRecords(from, to))
 }
 
 // 앱 켤 때 · 로그인 뒤. 이 기기에서 이 계정을 처음 받으면(계정이 바뀌어도) 전부, 그 뒤로는 최근 31일만

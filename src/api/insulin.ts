@@ -4,7 +4,7 @@ import type { InsulinRecord, MealType } from '@/types/glucose'
 import { toDateKey } from '@/utils/date'
 
 // 백엔드 InsulinType. 식사 때(속효성) · 자기 전(지속형)
-type ServerInsulinType = 'MEAL' | 'BEDTIME'
+export type ServerInsulinType = 'MEAL' | 'BEDTIME'
 
 // 백엔드 InsulinLogResponse. units는 6.0처럼 소수 한 자리
 export type InsulinLogResponse = {

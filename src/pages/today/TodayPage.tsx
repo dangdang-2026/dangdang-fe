@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { getErrorCode } from '@/api/axios'
 import { canServerPush, subscribePush } from '@/api/push'
-import { openReminder, snoozeReminder } from '@/api/reminders'
+import { openReminderLater, snoozeReminder } from '@/api/reminders'
 import EmergencyBlock from '@/components/common/EmergencyBlock'
 import TimeWheelSheet from '@/components/common/TimeWheelSheet'
 import Toast from '@/components/common/Toast'
@@ -132,7 +132,8 @@ function TodayPage() {
   // 서버 알림을 눌러 들어오면 열람 처리. 실패해도 입력은 그대로
   const reminderId = searchParams.get('reminderId')
   useEffect(() => {
-    if (reminderId) openReminder(reminderId).catch(() => {})
+    // 못 보내면 다음 동기화 때 다시
+    if (reminderId) openReminderLater(reminderId)
   }, [reminderId])
   const hasUnread = useInboxStore((state) => state.items.some((item) => !item.readAt))
   const [writingMeal, setWritingMeal] = useState<Meal | null>(null)

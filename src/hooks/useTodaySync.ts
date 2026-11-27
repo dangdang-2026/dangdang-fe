@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { retryPendingOpens } from '@/api/reminders'
 import { getToday } from '@/api/today'
 import { sendUnsentGlucose, syncServerRange } from '@/stores/useGlucoseStore'
 import { addDays, startOfDay } from '@/utils/date'
@@ -12,6 +13,7 @@ export function useTodaySync() {
     let stale = false
     // 실패하면 기기 기록 그대로 보여 줌
     const sync = () => {
+      void retryPendingOpens().catch(() => {})
       void sendUnsentGlucose()
         .catch(() => {})
         .then(() => syncServerRange(getToday))

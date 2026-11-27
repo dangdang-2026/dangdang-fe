@@ -24,6 +24,8 @@ export type MyFoodResponse = {
   updatedAt: string
   // 비슷한 음식을 따른 주식 여부, 없으면 false. 배포 전 서버엔 없음
   isStaple?: boolean
+  // 양을 부르는 말. 비슷한 음식을 따르고 없으면 인분
+  unitLabel?: string
 }
 
 const QUANTITY: Record<Portion, UsualQuantity> = {
@@ -74,7 +76,7 @@ export function toMyFood(item: MyFoodResponse, known: Food[]): MyFood {
   return {
     serverId: item.id,
     name: item.name,
-    unit: similar?.unit ?? MY_FOOD_UNIT,
+    unit: item.unitLabel ?? similar?.unit ?? MY_FOOD_UNIT,
     // 칸이 없는 예전 서버는 내 음식 추가 화면처럼 비슷한 음식을 따름
     staple: item.isStaple ?? !!similar?.staple,
     similarTo: similar?.name,
