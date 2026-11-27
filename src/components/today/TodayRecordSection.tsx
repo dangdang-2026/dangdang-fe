@@ -80,13 +80,10 @@ function TodayRecordSection({
     <section>
       <div className="flex items-center justify-between">
         <h2 className="text-title-3 text-grey-900">오늘 기록</h2>
-        {timeline.length > 0 ? (
-          <Link to={ROUTES.RECORDS} className="text-body-3 text-grey-500">
-            전체 보기
-          </Link>
-        ) : (
-          <span className="text-body-3 text-grey-500">0개</span>
-        )}
+        {/* 기록이 없어도 지난 기록을 보러 갈 수 있게 */}
+        <Link to={ROUTES.RECORDS} className="text-body-3 text-grey-500">
+          전체 보기
+        </Link>
       </div>
 
       {timeline.length > 0 ? (

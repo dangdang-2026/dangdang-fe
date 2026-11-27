@@ -246,10 +246,10 @@ function ChatPage() {
             {summary.measured === 0 ? (
               <>
                 <BotBubble>
-                  {summary.range} {summary.label} 기록이 없어요. 기록 탭에서 다른 날을 볼 수 있어요.
+                  {summary.range} {summary.label} 기록이 없어요. 기록 화면에서 다른 날을 볼 수 있어요.
                 </BotBubble>
                 <ChatActionButton icon={iconRecords} onClick={() => navigate(ROUTES.RECORDS)}>
-                  기록 탭에서 보기
+                  기록 보기
                 </ChatActionButton>
               </>
             ) : (
@@ -329,7 +329,7 @@ function ChatPage() {
         return (
           <BotMessage key={message.id} avatar="sorry">
             <BotBubble>
-              지금은 답을 만들 수 없어요. 잠시 뒤에 다시 물어봐 주세요. 기록은 기록 탭에서 바로 볼
+              지금은 답을 만들 수 없어요. 잠시 뒤에 다시 물어봐 주세요. 기록은 기록 화면에서 바로 볼
               수 있어요.
             </BotBubble>
             <div className="flex gap-2">
@@ -346,7 +346,7 @@ function ChatPage() {
                 </ChatActionButton>
               )}
               <ChatActionButton icon={iconRecords} onClick={() => navigate(ROUTES.RECORDS)}>
-                기록 탭에서 보기
+                기록 보기
               </ChatActionButton>
             </div>
           </BotMessage>
@@ -374,11 +374,11 @@ function ChatPage() {
         return (
           <BotMessage key={message.id} avatar="sorry">
             <BotBubble>
-              오늘은 질문을 모두 쓰셨어요. 내일 다시 물어봐 주세요. 기록은 기록 탭에서 바로 볼 수
+              오늘은 질문을 모두 쓰셨어요. 내일 다시 물어봐 주세요. 기록은 기록 화면에서 바로 볼 수
               있어요.
             </BotBubble>
             <ChatActionButton icon={iconRecords} onClick={() => navigate(ROUTES.RECORDS)}>
-              기록 탭에서 보기
+              기록 보기
             </ChatActionButton>
           </BotMessage>
         )

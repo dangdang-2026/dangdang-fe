@@ -154,13 +154,13 @@ function App() {
           <Route path={ROUTES.ONBOARDING_TOUR} element={<TourPage />} />
           <Route element={<TabLayout />}>
             <Route path={ROUTES.TODAY} element={<TodayPage />} />
-            <Route path={ROUTES.RECORDS} element={<RecordsPage />} />
             <Route path={ROUTES.VISIT} element={<VisitPage />} />
             <Route path={ROUTES.COMMUNITY} element={<CommunityPage />} />
             <Route path={ROUTES.COMMUNITY_BOARD} element={<BoardPage />} />
             <Route path={ROUTES.MY} element={<MyPage />} />
           </Route>
           {/* 탭 바 없는 화면 */}
+          <Route path={ROUTES.RECORDS} element={<RecordsPage />} />
           <Route path={ROUTES.RECORDS_CALENDAR} element={<RecordCalendarPage />} />
           <Route path={ROUTES.RECORDS_STATS} element={<StatsPage />} />
           <Route path={ROUTES.RECORDS_FOOD_HISTORY} element={<FoodHistoryPage />} />

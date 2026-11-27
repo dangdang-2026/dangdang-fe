@@ -20,6 +20,8 @@ export const ROUTES = {
   RECORDS_CALENDAR: '/records/calendar',
   RECORDS_STATS: '/records/stats',
   RECORDS_FOOD_HISTORY: '/records/food-history',
+  SHOP: '/shop',
+  SHOP_PRODUCT: '/shop/products/:id',
   VISIT: '/visit',
   VISIT_REPORT: '/visit/report',
   VISIT_REPORTS: '/visit/reports',

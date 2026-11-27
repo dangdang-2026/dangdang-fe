@@ -4,8 +4,8 @@ import { ROUTES } from '@/constants/routes'
 
 import iconHome from '@/assets/icons/tab-bar/home.svg'
 import iconHomeActive from '@/assets/icons/tab-bar/home-active.svg'
-import iconList from '@/assets/icons/tab-bar/list.svg'
-import iconListActive from '@/assets/icons/tab-bar/list-active.svg'
+import iconBag from '@/assets/icons/tab-bar/bag.svg'
+import iconBagActive from '@/assets/icons/tab-bar/bag-active.svg'
 import iconSteth from '@/assets/icons/tab-bar/steth.svg'
 import iconStethActive from '@/assets/icons/tab-bar/steth-active.svg'
 import iconCommunity from '@/assets/icons/tab-bar/community.svg'
@@ -15,7 +15,7 @@ import iconUserActive from '@/assets/icons/tab-bar/user-active.svg'
 
 const TABS = [
   { label: '오늘', to: ROUTES.TODAY, icon: iconHome, activeIcon: iconHomeActive },
-  { label: '기록', to: ROUTES.RECORDS, icon: iconList, activeIcon: iconListActive },
+  { label: '상점', to: ROUTES.SHOP, icon: iconBag, activeIcon: iconBagActive },
   { label: '진료', to: ROUTES.VISIT, icon: iconSteth, activeIcon: iconStethActive },
   { label: '커뮤니티', to: ROUTES.COMMUNITY, icon: iconCommunity, activeIcon: iconCommunityActive },
   { label: '마이', to: ROUTES.MY, icon: iconUser, activeIcon: iconUserActive },
