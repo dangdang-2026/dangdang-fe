@@ -155,7 +155,12 @@ type VisitReportItem = {
   careSiteName: string | null
   // yyyy-MM-dd. 진료용만
   visitDate: string | null
-  summary: { measured: number; inTargetRate: number | null; compared: boolean } | null
+  summary: {
+    measured: number
+    inTargetRate: number | null
+    outOfTarget?: number
+    compared: boolean
+  } | null
   createdAt: string
 }
 
@@ -171,8 +176,9 @@ type VisitReportPage = {
 // 지난 리포트 한 줄. 숫자는 서버가 볼 때마다 다시 계산
 export type SavedReport = {
   id: string
-  from: string
-  to: string
+  // 진료 날짜가 미정이면 null(열 수 없음)
+  from: string | null
+  to: string | null
   // 병원이 없거나 지웠으면 빈 글 · null
   hospital: string
   careSiteId: string | null
@@ -183,6 +189,8 @@ export type SavedReport = {
   measured: number
   // 목표 안 비율 0~1. 목표와 비교한 기록이 없으면 null(기준 받기 전)
   inTargetRate: number | null
+  // 목표 밖 횟수(그때 기준으로 서버가 셈)
+  outOfTarget: number
   createdAt: string
 }
 
@@ -199,7 +207,7 @@ export async function getVisitReportCount() {
   return data.data.totalCount
 }
 
-// 지난 리포트 전부. 최근 저장 순, 기간을 모르는(진료 날짜 미정) 리포트는 열 수 없어 뺌
+// 지난 리포트 전부. 최근 저장 순, 진료 날짜 미정 리포트도 목록에(열 수는 없음)
 export async function getVisitReports() {
   const items: VisitReportItem[] = []
   for (let page = 0; page < MAX_PAGES; page += 1) {
@@ -220,6 +228,7 @@ export async function getVisitReports() {
             id: String(item.id),
             from: item.from,
             to: item.to,
+            outOfTarget: item.summary?.outOfTarget ?? 0,
             hospital: item.careSiteName ?? '',
             careSiteId: item.careSiteId === null ? null : String(item.careSiteId),
             visitId: item.visitId === null ? null : String(item.visitId),
@@ -230,6 +239,23 @@ export async function getVisitReports() {
             createdAt: item.createdAt,
           },
         ]
-      : [],
+      : item.kind === 'VISIT'
+        ? [
+            {
+              id: String(item.id),
+              from: null,
+              to: null,
+              hospital: item.careSiteName ?? '',
+              careSiteId: item.careSiteId === null ? null : String(item.careSiteId),
+              visitId: item.visitId === null ? null : String(item.visitId),
+              visitDate: null,
+              custom: false,
+              measured: 0,
+              inTargetRate: null,
+              outOfTarget: 0,
+              createdAt: item.createdAt,
+            },
+          ]
+        : [],
   )
 }
