@@ -62,7 +62,8 @@ const formatDot = (iso: string) => {
 function formatConsent(consent: AiConsent) {
   if (!consent) return '아직 정하지 않았어요'
   // 예전 문서에 동의한 것. 거절과 다르게
-  if (consent.reconsent) return '바뀐 내용에 다시 동의해 주세요'
+  // 서버도 지금은 동의 안 함(granted=false)으로 봐서 스위치는 꺼짐. 켜면 바뀐 내용으로 다시 동의
+  if (consent.reconsent) return '바뀐 내용에 다시 동의해 주세요 · 켜면 다시 동의해요'
   return `${consent.agreed ? '동의함' : '동의 안 함'} · ${formatDot(consent.at)}`
 }
 

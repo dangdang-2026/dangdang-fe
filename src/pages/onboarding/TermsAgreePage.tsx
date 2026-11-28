@@ -88,6 +88,7 @@ function TermsAgreePage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.ONBOARDING)
   const saved = useOnboardingStore((state) => state.agreements)
+  const aiSaved = useOnboardingStore((state) => !!state.aiSaved)
   const setAnswers = useOnboardingStore((state) => state.setAnswers)
   const [agreed, setAgreed] = useState<AgreementKey[]>(saved)
   const [saving, setSaving] = useState(false)
@@ -103,10 +104,12 @@ function TermsAgreePage() {
     }
     setSaving(true)
     try {
-      await saveConsents(agreed, saved)
+      // 서버에 AI 동의가 저장돼 있으면 뺐을 때 거부를 보냄(오프라인 · 실패 뒤 다시 눌러도)
+      await saveConsents(agreed, aiSaved ? ['ai'] : [])
       // 고른 해외 전송 동의는 당당이 · 메모 정리가 바로 씀. 골랐다 뺐으면 끔
       if (agreed.includes('ai')) markOverseasConsent(true)
-      else if (saved.includes('ai')) markOverseasConsent(false)
+      else if (aiSaved) markOverseasConsent(false)
+      setAnswers({ aiSaved: agreed.includes('ai') })
       // 광고성 정보에 동의했으면 다음 화면에서 처리 결과를 알림(정보통신망법 제50조)
       navigate(ROUTES.ONBOARDING_TIMING, {
         state: agreed.includes('marketing') ? { toast: marketingResultText(true) } : null,

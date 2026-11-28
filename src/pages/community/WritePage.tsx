@@ -117,14 +117,21 @@ function WritePage() {
     hasCommunityAiCheck()
       .then((checked) => {
         if (stale) return
-        if (!checked) setAiCheckOpen(true)
-        useCommunityStore.getState().markAiCheckAsked()
+        // 이미 확인했으면 다시 안 물음. 아니면 시트가 실제로 보일 때 물어본 걸로
+        if (checked) useCommunityStore.getState().markAiCheckAsked()
+        else setAiCheckOpen(true)
       })
       .catch(() => {})
     return () => {
       stale = true
     }
   }, [nickname, aiCheckAsked])
+
+  // 이용 제한 · 이의 신청 시트가 닫혀 확인 시트가 보일 때만 물어본 걸로 남김
+  const aiCheckVisible = aiCheckOpen && !restrictedOpen && !appealOpen
+  useEffect(() => {
+    if (aiCheckVisible) useCommunityStore.getState().markAiCheckAsked()
+  }, [aiCheckVisible])
 
   const confirmAiCheck = () => {
     setAiCheckSaving(true)
@@ -431,7 +438,7 @@ function WritePage() {
         />
       )}
       {/* 이용 제한 · 이의 신청 시트가 떠 있으면 닫힌 뒤에 */}
-      {aiCheckOpen && !restrictedOpen && !appealOpen && (
+      {aiCheckVisible && (
         <CommunityAiCheckSheet
           saving={aiCheckSaving}
           error={aiCheckError}

@@ -8,14 +8,19 @@ type ToastProps = {
   message: string
   action?: { label: string; onClick: () => void }
   onClose: () => void
+  // 떠 있는 시간(ms). 안 주면 기본값. 예: 기록 지우기 되돌리기는 안내대로 5초
+  duration?: number
 }
 
 // Figma H-06·C-17 토스트. 챗봇 버튼 아래쪽에 맞춰 탭 바 위 고정
-function Toast({ message, action, onClose }: ToastProps) {
+function Toast({ message, action, onClose, duration }: ToastProps) {
   useEffect(() => {
-    const timer = window.setTimeout(onClose, action ? ACTION_TOAST_DURATION_MS : TOAST_DURATION_MS)
+    const timer = window.setTimeout(
+      onClose,
+      duration ?? (action ? ACTION_TOAST_DURATION_MS : TOAST_DURATION_MS),
+    )
     return () => window.clearTimeout(timer)
-  }, [message, action, onClose])
+  }, [message, action, onClose, duration])
 
   return (
     <div
