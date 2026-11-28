@@ -5,6 +5,9 @@ export type Question = {
   createdAt: string
   // 서버 순서. 되돌릴 때 원래 자리로
   sortOrder?: number
+  // 카드뉴스에서 담은 카드 번호 · 그 카드가 내려갔는지
+  cardId?: string
+  cardWithdrawn?: boolean
 }
 
 // AI가 진료 후 메모에서 찾는 항목. 측정 시점·목표·다음 진료일만

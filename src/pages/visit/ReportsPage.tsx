@@ -71,7 +71,7 @@ function ReportsPage() {
     navigate(`${ROUTES.VISIT_REPORT}?${params}`)
   }
 
-  // 상태: 직접 고른 기간 > 기록 없음 > 기준 받기 전 > 목표 안 비율(서버가 기록마다 그때 기준으로 계산)
+  // 상태: 직접 고른 기간 > 기록 없음 > 기준 받기 전 > 목표 밖 횟수(서버가 기록마다 그때 기준으로 계산)
   const summarize = (saved: SavedReport) => {
     const from = parseDateKey(saved.from) ?? today
     const to = parseDateKey(saved.to) ?? today
@@ -81,8 +81,10 @@ function ReportsPage() {
         ? { text: '기록 없음', tone: 'none' as const }
         : saved.inTargetRate === null
           ? { text: '기준 받기 전', tone: 'none' as const }
-          : {
-              text: `내 기준 안 ${Math.round(saved.inTargetRate * 100)}%`,
+          : // 서버가 목표 밖 횟수를 안 줬거나 예전 앱이 기기에 남긴 목록이면 미확인
+            {
+              text:
+                saved.outOfTarget == null ? '목표 밖 확인 전' : `목표 밖 ${saved.outOfTarget}번`,
               tone: 'rate' as const,
             }
     const visitDate = parseDateKey(saved.visitDate)
@@ -146,6 +148,20 @@ function ReportsPage() {
           ) : (
             <ul className="flex flex-col gap-7">
               {shown.map((saved) => {
+                // 진료 날짜가 미정이면 기간을 몰라 열 수 없음
+                if (!saved.from || !saved.to) {
+                  return (
+                    <li
+                      key={saved.id}
+                      className="text-t7 text-grey-500 border-grey-200 rounded-2xl border px-4.5 py-4"
+                    >
+                      <span className="text-subtitle-1 text-grey-700 block font-medium">
+                        진료 날짜 미정 리포트
+                      </span>
+                      {saved.hospital && `${saved.hospital} · `}진료 날짜가 정해지면 열 수 있어요
+                    </li>
+                  )
+                }
                 const { from, to, status, measured, detail } = summarize(saved)
                 return (
                   <li key={saved.id}>

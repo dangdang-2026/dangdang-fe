@@ -16,7 +16,7 @@ type ReportShareSheetProps = {
   onClose: () => void
 }
 
-// Figma C-07 리포트 전하기. 서버에 올리지 않고 기기에서 만듦
+// Figma C-07 리포트 전하기. 사진 · PDF는 기기에서 만들어 고른 곳으로만
 function ReportShareSheet({
   hideName,
   onToggleHideName,
@@ -89,7 +89,7 @@ function ReportShareSheet({
       <p className="bg-grey-50 rounded-key flex items-center gap-2 px-3.5 py-3">
         <img src={iconShield} alt="" width={16} height={16} />
         <span className="text-body-3 text-grey-700">
-          리포트는 서버에 올리지 않고 기기에서 만들어요.
+          사진 · PDF는 기기에서 만들어 내가 고른 곳으로만 보내요.
           <br />
           사진첩에 저장하면 휴대폰 백업에 함께 올라갈 수 있어요.
         </span>

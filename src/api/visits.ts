@@ -60,9 +60,13 @@ export async function updateVisitAt(visitId: string, visitAt: string | null) {
 export type VisitQuestionResponse = {
   questionId: number
   content: string
-  source: 'USER' | 'CHATBOT'
+  source: 'USER' | 'CHATBOT' | 'CARD'
   sortOrder: number
   createdAt: string
+  // 카드뉴스에서 담았으면 그 카드 번호
+  sourceCardId?: number | null
+  // 출처 카드가 내려갔으면 true
+  sourceCardWithdrawn?: boolean
 }
 
 // 진료 질문 목록
@@ -74,16 +78,23 @@ export async function getVisitQuestions(visitId: string) {
 }
 
 // 진료 질문 등록(500자). sortOrder를 안 보내면 맨 뒤
-// chatMessageId: 당당이 「물어볼 말 정리」 답 번호. 서버가 확인하고 source CHATBOT, 아니면 404 VISIT_40405
+// chatMessageId: 당당이 「물어볼 말 정리」 답 번호(source CHATBOT), cardId: 카드뉴스에서 담은 카드 번호(source CARD). 둘 중 하나만
+export type QuestionSource = { chatMessageId?: string; cardId?: string }
+
 export async function createVisitQuestion(
   visitId: string,
   content: string,
   sortOrder?: number,
-  chatMessageId?: string,
+  source: QuestionSource = {},
 ) {
   const { data } = await apiClient.post<BaseResponse<VisitQuestionResponse>>(
     `/visits/${visitId}/questions`,
-    { content, sortOrder, chatMessageId: chatMessageId ? Number(chatMessageId) : undefined },
+    {
+      content,
+      sortOrder,
+      chatMessageId: source.chatMessageId ? Number(source.chatMessageId) : undefined,
+      cardId: source.cardId ? Number(source.cardId) : undefined,
+    },
   )
   if (!data.data) throw new Error('진료 질문 등록 응답이 비어 있음')
   return data.data

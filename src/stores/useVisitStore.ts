@@ -11,6 +11,7 @@ import {
   getVisitQuestions,
   updateVisitAt,
   updateVisitNote,
+  type QuestionSource,
   type VisitQuestionResponse,
   type VisitResponse,
 } from '@/api/visits'
@@ -22,6 +23,8 @@ type VisitState = {
   visitId: string | null
   // 다음 진료 일시. 모르면 null
   nextVisitAt: string | null
+  // 다음 진료 일정의 병원 번호. 없으면 대표 병원으로 보여 줌
+  visitCareSiteId: string | null
   // 지나간 진료일. 달력에 진료 태그로(D-13)
   pastVisits: string[]
   // 진료 탭 첫 진입에 다음 진료일을 물어봤는지
@@ -50,6 +53,7 @@ export const useVisitStore = create<VisitState>()(
     (set) => ({
       visitId: null,
       nextVisitAt: null,
+      visitCareSiteId: null,
       pastVisits: [],
       asked: false,
       questions: [],
@@ -109,6 +113,14 @@ function getPrimaryCareSiteId() {
   return Number.isFinite(id) ? id : null
 }
 
+// 지금 일정의 병원 번호(숫자). 없거나 내 병원 목록에서 지웠으면 null
+function visitCareSiteNo() {
+  const { visitCareSiteId } = useVisitStore.getState()
+  const id = Number(visitCareSiteId)
+  const kept = useHospitalStore.getState().hospitals.some((item) => item.id === visitCareSiteId)
+  return visitCareSiteId && kept && Number.isFinite(id) ? id : null
+}
+
 // 다음 진료일 정하기 · 바꾸기 · 모름. 화면엔 바로 바꾸고 서버에 못 남기면 되돌림
 // visited: 진료 후 메모에서 정한 날이라 지금 진료는 다녀온 것. 시각이 안 지났어도 새 진료로
 export async function saveNextVisit(at: string | null, { visited = false } = {}) {
@@ -125,14 +137,18 @@ export async function saveNextVisit(at: string | null, { visited = false } = {})
       const saved =
         visitId && !moving
           ? await updateVisitAt(visitId, at)
-          : await createVisit(getPrimaryCareSiteId(), at)
-      useVisitStore.setState({ visitId: String(saved.visitId) })
+          : // 다녀온 일정을 옮기면 그 일정의 병원으로, 처음이면 대표 병원
+            await createVisit(visitCareSiteNo() ?? getPrimaryCareSiteId(), at)
+      useVisitStore.setState({
+        visitId: String(saved.visitId),
+        visitCareSiteId: saved.careSiteId === null ? null : String(saved.careSiteId),
+      })
       if (!moving || !visitId) return
       // 메모는 다녀온 진료 것이라 새 진료에선 빈 메모로
       useVisitStore.setState({ note: '', noteVisitId: null, noteId: null, noteDirty: false })
       // 남은 질문은 새 진료로 옮김. 실패해도 일정은 저장된 것
       // 같은 차례 안에서 옮겨야 그사이 적은 질문이 두 번 옮겨지지 않음
-      await moveQuestions(visitId, String(saved.visitId)).catch(() => {})
+      await moveQuestions(String(saved.visitId)).catch(() => {})
     })
   } catch (error) {
     useVisitStore.setState({
@@ -183,9 +199,20 @@ async function loadVisits(keepLocal: boolean) {
     }
   }
   const current = pickCurrent(visits)
+  // 진료일을 저장하는 중이면 고른 날짜는 옛 서버 값으로 덮지 않고 일정 · 병원만 이음(일정을 두 번 만들지 않게)
+  if (useVisitSaveStore.getState().saving > 0) {
+    if (current && !useVisitStore.getState().visitId) {
+      useVisitStore.setState({
+        visitId: String(current.visitId),
+        visitCareSiteId: current.careSiteId != null ? String(current.careSiteId) : null,
+      })
+    }
+    return
+  }
   useVisitStore.setState((state) => ({
     visitId: current ? String(current.visitId) : null,
     nextVisitAt: current?.visitAt ?? null,
+    visitCareSiteId: current?.careSiteId != null ? String(current.careSiteId) : null,
     pastVisits: visits
       .filter((visit) => visit !== current && visit.visitAt)
       .map((visit) => visit.visitAt as string),
@@ -210,6 +237,8 @@ const toQuestion = (item: VisitQuestionResponse): Question => ({
   text: item.content,
   createdAt: item.createdAt,
   sortOrder: item.sortOrder,
+  ...(item.sourceCardId != null && { cardId: String(item.sourceCardId) }),
+  ...(item.sourceCardWithdrawn && { cardWithdrawn: true }),
 })
 
 // 질문을 붙일 진료 일정. 없으면 날짜 미정 일정을 만듦
@@ -221,40 +250,75 @@ async function ensureVisitId() {
   return String(saved.visitId)
 }
 
-// 기기 질문을 서버 질문으로 바꿔 끼움
-function replaceQuestion(localId: string, saved: VisitQuestionResponse) {
+// 당당이 답(VISIT_40405) · 출처 카드(VISIT_40406)를 서버가 못 알아봄
+const SOURCE_ERRORS = ['VISIT_40405', 'VISIT_40406']
+
+// 기기 질문의 출처. 내려간 카드는 서버가 거절해 출처 없이
+const cardSource = (question: Question): QuestionSource =>
+  question.cardWithdrawn ? {} : { cardId: question.cardId }
+
+// 질문 등록. 출처를 서버가 못 알아보면 출처 없이 다시, 카드가 내려갔으면 cardGone
+async function createWithSource(
+  visitId: string,
+  text: string,
+  sortOrder: number | undefined,
+  source: QuestionSource,
+) {
+  try {
+    return { saved: await createVisitQuestion(visitId, text, sortOrder, source), cardGone: false }
+  } catch (error) {
+    const code = getErrorCode(error) ?? ''
+    if (!SOURCE_ERRORS.includes(code)) throw error
+    const saved = await createVisitQuestion(visitId, text, sortOrder)
+    return { saved, cardGone: code === 'VISIT_40406' && !!source.cardId }
+  }
+}
+
+// 기기 질문을 서버 질문으로 바꿔 끼움. 내려간 카드 질문은 카드 번호 · 내려간 표시를 기기에 남김
+function replaceQuestion(question: Question, saved: VisitQuestionResponse, cardGone = false) {
+  const withdrawn = (question.cardWithdrawn || cardGone) && !!question.cardId
   useVisitStore.setState((state) => ({
-    questions: state.questions.map((item) => (item.id === localId ? toQuestion(saved) : item)),
+    questions: state.questions.map((item) =>
+      item.id === question.id
+        ? {
+            ...toQuestion(saved),
+            ...(withdrawn && { cardId: question.cardId, cardWithdrawn: true }),
+          }
+        : item,
+    ),
   }))
 }
 
-// 기기 질문 하나를 서버에 등록. 당당이 답 번호를 서버가 못 알아보면 번호 없이 다시 등록
-async function postQuestion(localId: string, sortOrder?: number, chatMessageId?: string) {
+// 등록 차례를 기다리는 기기 질문. 동기화가 출처 없이 먼저 올리지 않게
+const posting = new Set<string>()
+
+// 기기 질문 하나를 서버에 등록
+async function postQuestion(localId: string, sortOrder?: number, source: QuestionSource = {}) {
   const question = useVisitStore.getState().questions.find((item) => item.id === localId)
   // 등록 전에 지운 질문
   if (!question) return
   const visitId = await ensureVisitId()
-  const saved = await createVisitQuestion(visitId, question.text, sortOrder, chatMessageId).catch(
-    (error: unknown) => {
-      if (!chatMessageId || getErrorCode(error) !== 'VISIT_40405') throw error
-      return createVisitQuestion(visitId, question.text, sortOrder)
-    },
-  )
-  replaceQuestion(localId, saved)
+  const { saved, cardGone } = await createWithSource(visitId, question.text, sortOrder, source)
+  replaceQuestion({ ...question, cardId: question.cardId ?? source.cardId }, saved, cardGone)
 }
 
-// 물어볼 것 추가. 화면엔 바로 넣고 서버에 못 남기면 뺌. 당당이 답에서 왔으면 답 번호도 함께
-export async function saveQuestion(
-  text: string,
-  { chatMessageId }: { chatMessageId?: string } = {},
-) {
-  const localId = useVisitStore.getState().addQuestion(text)
+// 기기 질문 등록을 차례에 넣음. 못 남기면 화면에서 뺌
+async function enqueuePost(localId: string, sortOrder?: number, source: QuestionSource = {}) {
+  posting.add(localId)
   try {
-    await enqueue(() => postQuestion(localId, undefined, chatMessageId))
+    await enqueue(() => postQuestion(localId, sortOrder, source))
   } catch (error) {
     useVisitStore.getState().removeQuestion(localId)
     throw error
+  } finally {
+    posting.delete(localId)
   }
+}
+
+// 물어볼 것 추가. 화면엔 바로 넣고 서버에 못 남기면 뺌. 당당이 답에서 왔으면 답 번호도 함께
+export async function saveQuestion(text: string, source: QuestionSource = {}) {
+  const localId = useVisitStore.getState().addQuestion(text)
+  await enqueuePost(localId, undefined, source)
 }
 
 // 물어볼 것 지우기. 화면에서 바로 빼고 서버에 못 지우면 되돌림
@@ -264,6 +328,8 @@ export async function deleteQuestion(question: Question, index: number) {
     await enqueue(async () => {
       const { visitId } = useVisitStore.getState()
       if (visitId && isServerId(question.id)) await deleteVisitQuestion(visitId, question.id)
+      // 앞선 동기화가 서버 목록으로 다시 넣었을 수 있어 한 번 더 뺌
+      useVisitStore.getState().removeQuestion(question.id)
     })
   } catch (error) {
     useVisitStore.getState().restoreQuestion(question, index)
@@ -275,20 +341,34 @@ export async function deleteQuestion(question: Question, index: number) {
 export async function restoreDeletedQuestion(question: Question, index: number) {
   const localId = crypto.randomUUID()
   useVisitStore.getState().restoreQuestion({ ...question, id: localId }, index)
-  try {
-    await enqueue(() => postQuestion(localId, question.sortOrder))
-  } catch (error) {
-    useVisitStore.getState().removeQuestion(localId)
-    throw error
-  }
+  // 카드뉴스에서 담은 질문이면 출처 카드도 그대로(이미 내려간 카드면 출처 없이)
+  await enqueuePost(localId, question.sortOrder, cardSource(question))
 }
 
-// 다녀온 일정의 질문을 새 일정으로 다시 등록하고 지난 일정에서 지움
-async function moveQuestions(fromVisitId: string, toVisitId: string) {
-  for (const question of useVisitStore.getState().questions) {
-    const saved = await createVisitQuestion(toVisitId, question.text, question.sortOrder)
-    if (isServerId(question.id)) await deleteVisitQuestion(fromVisitId, question.id)
-    replaceQuestion(question.id, saved)
+// 다녀온 일정의 질문을 새 일정에 복사. 지난 일정에도 남겨 그때 리포트에 질문이 보이게
+// 중간에 끊기면 못 옮긴 질문은 기기 질문으로 돌려 다음 동기화 때 새 일정에 올림
+async function moveQuestions(toVisitId: string) {
+  const left = [...useVisitStore.getState().questions]
+  try {
+    while (left.length > 0) {
+      const question = left[0]
+      const { saved, cardGone } = await createWithSource(
+        toVisitId,
+        question.text,
+        question.sortOrder,
+        cardSource(question),
+      )
+      replaceQuestion(question, saved, cardGone)
+      left.shift()
+    }
+  } catch (error) {
+    const ids = new Set(left.map((item) => item.id))
+    useVisitStore.setState((state) => ({
+      questions: state.questions.map((item) =>
+        ids.has(item.id) ? { ...item, id: crypto.randomUUID() } : item,
+      ),
+    }))
+    throw error
   }
 }
 
@@ -296,16 +376,47 @@ async function moveQuestions(fromVisitId: string, toVisitId: string) {
 // 새로 로그인하면 기기에 남은 질문은 다른 계정 것일 수 있어 버림
 export function syncQuestions(keepLocal = true) {
   return enqueue(async () => {
-    const local = keepLocal ? useVisitStore.getState().questions : []
+    const before = useVisitStore.getState().questions
+    const local = keepLocal ? before : []
     const { visitId } = useVisitStore.getState()
     let server = visitId ? await getVisitQuestions(visitId) : []
-    const unsent = local.filter((item) => !isServerId(item.id))
+    // 등록 차례를 기다리는 질문은 그 차례에서 출처와 함께 올림
+    const unsent = local.filter((item) => !isServerId(item.id) && !posting.has(item.id))
+    // 서버엔 카드 번호를 못 남긴 내려간 카드 질문. 같은 질문 번호에 표시를 이어 붙임
+    const withdrawn = new Map(
+      local.filter((item) => item.cardWithdrawn).map((item) => [item.id, item.cardId]),
+    )
     if (unsent.length > 0) {
       const target = await ensureVisitId()
-      for (const item of unsent) await createVisitQuestion(target, item.text)
+      for (const item of unsent) {
+        const { saved, cardGone } = await createWithSource(
+          target,
+          item.text,
+          item.sortOrder,
+          cardSource(item),
+        )
+        if ((item.cardWithdrawn || cardGone) && item.cardId) {
+          withdrawn.set(String(saved.questionId), item.cardId)
+        }
+      }
       server = await getVisitQuestions(target)
     }
-    useVisitStore.setState({ questions: server.map(toQuestion) })
+    const fromServer = server.map((item): Question => {
+      const question = toQuestion(item)
+      const cardId = withdrawn.get(question.id)
+      return cardId && !question.cardId ? { ...question, cardId, cardWithdrawn: true } : question
+    })
+    // 받는 사이 새로 적었거나 등록 차례를 기다리는 질문은 남김
+    useVisitStore.setState((state) => ({
+      questions: [
+        ...fromServer,
+        ...state.questions.filter(
+          (item) =>
+            !isServerId(item.id) &&
+            (posting.has(item.id) || !before.some((seen) => seen.id === item.id)),
+        ),
+      ],
+    }))
   })
 }
 
@@ -354,9 +465,13 @@ export async function syncVisitNote(keepLocal = true) {
   // 연동 전에 적은 메모도 안 남긴 글로 봄
   const dirty = local.noteDirty || (!!local.note.trim() && !local.noteId)
   if (dirty) {
+    // 다른 진료에 쓰던 메모면 그 진료 · 메모 번호를 그대로 둠(지금 진료 메모를 덮지 않게)
+    const sameVisit = !local.noteVisitId || local.noteVisitId === visitId
     useVisitStore.setState({
       noteDirty: true,
-      ...(last && visitId ? { noteVisitId: visitId, noteId: String(last.noteId) } : {}),
+      ...(last && visitId && sameVisit
+        ? { noteVisitId: visitId, noteId: String(last.noteId) }
+        : {}),
     })
     await saveVisitNote()
     return

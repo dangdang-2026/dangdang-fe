@@ -35,7 +35,13 @@ function QuestionsCard({ questions, onAdd, onRemove }: QuestionsCardProps) {
               <span aria-hidden className="text-sm leading-normal font-bold text-yellow-600">
                 •
               </span>
-              <p className="text-grey-800 flex-1 text-sm leading-normal">{question.text}</p>
+              <p className="text-grey-800 flex-1 text-sm leading-normal">
+                {question.text}
+                {/* 카드뉴스에서 담은 질문인데 그 카드가 내려감 */}
+                {question.cardWithdrawn && (
+                  <span className="text-grey-500 block text-xs">출처 카드가 내려갔어요</span>
+                )}
+              </p>
               <button
                 type="button"
                 aria-label={`${question.text} 지우기`}
