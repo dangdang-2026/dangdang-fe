@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router'
 import { useNavigate } from 'react-router'
 import { getErrorCode, isRetryableError } from '@/api/axios'
-import { askChat } from '@/api/chat'
+import { askChat, getChatMessages } from '@/api/chat'
 import iconPhone from '@/assets/icons/chat/phone.svg'
 import iconRecords from '@/assets/icons/chat/records.svg'
 import iconRetry from '@/assets/icons/chat/retry.svg'
@@ -42,13 +42,27 @@ import { DRAFT_INTRO, summarizeServerCard } from '@/utils/chat'
 
 const newId = () => crypto.randomUUID()
 
-// 서버 대화를 다시 받아 방금 질문의 답이 저장됐는지 봄. 있으면 대화가 그걸로 맞춰짐
-async function recoverAnswer(question: string) {
+// 서버 대화 번호(숫자). 기기에만 있는 말풍선은 uuid라 0
+const serverNo = (id: string) => (/^\d+$/.test(id) ? Number(id) : 0)
+
+// 지금 화면의 마지막 서버 답 번호. 묻기 전에 적어 두고 복구 때 이보다 새 답인지 봄
+const lastServerBotNo = (messages: ChatMessage[]) =>
+  Math.max(0, ...messages.filter((message) => message.from === 'bot').map((m) => serverNo(m.id)))
+
+// 서버 대화를 먼저 보고, 묻기 전보다 새 답이 방금 질문 바로 뒤에 있을 때만 대화를 그걸로 맞춤
+// 없으면 화면을 건드리지 않음(임시 질문 말풍선이 사라지지 않게)
+async function recoverAnswer(question: string, botNoBefore: number) {
   try {
-    const { messages } = await syncChatMessages()
+    const { messages } = await getChatMessages()
     const last = messages.at(-1)
     const prev = messages.at(-2)
-    return last?.from === 'bot' && prev?.from === 'user' && prev.text === question
+    const found =
+      last?.from === 'bot' &&
+      serverNo(last.id) > botNoBefore &&
+      prev?.from === 'user' &&
+      prev.text === question
+    if (found) await syncChatMessages()
+    return found
   } catch {
     return false
   }
@@ -118,6 +132,8 @@ function ChatPage() {
   // 묻기 시작했으면 true. 이미 기다리는 중이면 false(요청이 겹치지 않게)
   const reply = (question: string, userId?: string) => {
     if (!startAsking('답을 찾고 있어요')) return false
+    // 같은 질문의 예전 답을 이번 답으로 착각하지 않게 묻기 전 마지막 서버 답 번호
+    const botNoBefore = lastServerBotNo(useChatStore.getState().messages)
     askChat(question)
       .then((result) => {
         // 새로 보낸 말풍선은 서버 번호로 바꿈. 다시 묻기 · 동의 뒤 묻기는 앞 말풍선이 이미 있어 답만
@@ -129,7 +145,7 @@ function ChatPage() {
       })
       .catch(async (error: unknown) => {
         // 끊김 · 시간 초과면 서버엔 답이 저장됐을 수 있어 대화를 다시 받아 보고, 있으면 실패 대신 그 답을
-        if (isRetryableError(error) && (await recoverAnswer(question))) {
+        if (isRetryableError(error) && (await recoverAnswer(question, botNoBefore))) {
           if (userId) removeMessage(userId)
           return
         }
@@ -171,14 +187,15 @@ function ChatPage() {
   const initialAsk = (location.state as { ask?: string } | null)?.ask
   const askedRef = useRef(false)
   useEffect(() => {
-    if (!initialAsk || askedRef.current) return
+    // 다른 답을 기다리는 중이면 끝날 때까지 들고 있다가 물음(버리지 않게)
+    if (!initialAsk || askedRef.current || thinking) return
     askedRef.current = true
     navigate(location.pathname, { replace: true, state: null })
     // 주소의 state를 비우면 effect가 다시 돌아도 askedRef로 한 번만 물어봄
     window.setTimeout(() => ask(initialAsk))
     // 들어올 때 한 번만
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialAsk])
+  }, [initialAsk, thinking])
 
   const addDraft = (id: string, text: string) => {
     // 서버 「물어볼 말 정리」 답이면 답 번호를 같이 보내 당당이 질문으로 남김
@@ -428,7 +445,13 @@ function ChatPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white break-keep">
-      <ChatHeader onBack={() => navigate(-1)} onHelp={() => setConsentSheet(true)} />
+      <ChatHeader
+        onBack={() => navigate(-1)}
+        // 기다리는 동안엔 동의 시트를 열지 않음(동의 뒤 질문이 겹치지 않게)
+        onHelp={() => {
+          if (!thinking) setConsentSheet(true)
+        }}
+      />
       <div className="flex flex-1 flex-col gap-4 p-5">
         {olderCursor !== null && (
           <button
