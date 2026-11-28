@@ -22,6 +22,7 @@ import {
   type PeriodStats,
   type StatsPeriod,
   type StatsSlot,
+  type StatsView,
 } from '@/utils/stats'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
@@ -111,18 +112,17 @@ function Section({
 
 type StatsPanelProps = {
   today: Date
+  view: StatsView
+  onViewChange: (view: StatsView) => void
 }
 
 // Figma D-17~D-21 혈당 통계. 기록 화면 「통계」 탭. 지난 같은 길이 기간과 비교만, 판단은 하지 않음
-function StatsPanel({ today }: StatsPanelProps) {
+function StatsPanel({ today, view, onViewChange }: StatsPanelProps) {
   const start = useRecordStart(today)
   const versions = useCriteriaStore((state) => state.versions)
   const criteria = useCriteria()
 
-  // 들어오면 공복부터
-  const [slot, setSlot] = useState<StatsSlot>('fasting')
-  const [period, setPeriod] = useState<StatsPeriod>('1m')
-  const [custom, setCustom] = useState<DateRange | null>(null)
+  const { slot, period, custom } = view
   const [rangeSheet, setRangeSheet] = useState(false)
   const [selected, setSelected] = useState<number | null>(null)
   const closeRangeSheet = useCallback(() => setRangeSheet(false), [])
@@ -213,7 +213,10 @@ function StatsPanel({ today }: StatsPanelProps) {
       'glucose',
       ' mg/dL',
     )
-    return `${delta} · ${names.previous} ${previous.average ?? '—'}`
+    // 지난 기간 평균이 없으면(그때 이 때 기록 없음) 숫자 없이
+    if (delta === null || previous.average === null)
+      return `${names.previous}엔 ${slotLabel} 기록이 없어요`
+    return `${delta} · ${names.previous} ${previous.average}`
   }
 
   const changePeriod = (next: StatsPeriod) => {
@@ -222,7 +225,7 @@ function StatsPanel({ today }: StatsPanelProps) {
       setRangeSheet(true)
       return
     }
-    setPeriod(next)
+    onViewChange({ ...view, period: next })
   }
 
   const mealAverages = MEAL_ORDER.filter((type) => stats.byMeal[type] !== null)
@@ -257,7 +260,7 @@ function StatsPanel({ today }: StatsPanelProps) {
                 : 'border-grey-200 text-grey-700 bg-white font-medium'
             }`}
             onClick={() => {
-              setSlot(key)
+              onViewChange({ ...view, slot: key })
               setSelected(null)
             }}
           >
@@ -306,7 +309,7 @@ function StatsPanel({ today }: StatsPanelProps) {
               previous={hasPrevious ? previous.days : null}
               targets={dayTargets}
               selected={selected}
-              onSelect={(index) => setSelected(index === selected ? null : index)}
+              onSelect={(index, toggle) => setSelected(toggle && index === selected ? null : index)}
             />
           </>
         ) : (
@@ -424,8 +427,7 @@ function StatsPanel({ today }: StatsPanelProps) {
           start={start}
           initial={custom}
           onApply={(next) => {
-            setCustom(next)
-            setPeriod('custom')
+            onViewChange({ ...view, custom: next, period: 'custom' })
             setRangeSheet(false)
           }}
           onClose={closeRangeSheet}

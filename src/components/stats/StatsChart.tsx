@@ -10,6 +10,8 @@ const TOP = 12
 const BOTTOM = 160
 // 낮은 값 기준(mg/dL). 기준 띠 아래 끝
 const LOW = 70
+// 눈금 글자끼리 최소 간격(px)
+const TICK_GAP = 14
 
 type Point = { x: number; y: number }
 
@@ -20,7 +22,8 @@ type StatsChartProps = {
   // 날마다 그날 병원 기준. 없으면 null(기준 띠 없음)
   targets: (number | null)[]
   selected: number | null
-  onSelect: (index: number | null) => void
+  // toggle: 처음 누를 때만 같은 날을 다시 누르면 풀기. 끄는 동안엔 옮기기만
+  onSelect: (index: number | null, toggle: boolean) => void
 }
 
 const shortDate = (date: Date) => `${date.getMonth() + 1}/${date.getDate()}`
@@ -58,12 +61,17 @@ function StatsChart({ current, previous, targets, selected, onSelect }: StatsCha
     Math.ceil((Math.max(...values, LOW) + 10) / 10) * 10,
     goals.length ? Math.ceil((Math.max(...goals) + 25) / 10) * 10 : 0,
   )
-  // 눈금 글자: 아래 · 70 · 기준(바뀌었으면 둘 다) · 위
-  const ticks = [...new Set([bottom, LOW, ...goals, top])]
-
   const x = (index: number) =>
     length > 1 ? LEFT + (index * (RIGHT - LEFT)) / (length - 1) : (LEFT + RIGHT) / 2
   const y = (value: number) => BOTTOM - ((value - bottom) / (top - bottom)) * (BOTTOM - TOP)
+  // 눈금 글자: 지금 기준 · 70 · 지난 기준 · 위 · 아래 순으로, 가까워 겹치는 글자는 뺌
+  const ticks = [goals.at(-1), LOW, ...goals.slice(0, -1).reverse(), top, bottom].reduce<number[]>(
+    (kept, tick) =>
+      tick === undefined || kept.some((other) => Math.abs(y(other) - y(tick)) < TICK_GAP)
+        ? kept
+        : [...kept, tick],
+    [],
+  )
   const toPoint = (index: number, value: number) => ({ x: x(index), y: y(value) })
 
   const currentRuns = segments(current, toPoint)
@@ -76,12 +84,13 @@ function StatsChart({ current, previous, targets, selected, onSelect }: StatsCha
     if (goal === null) return []
     const from = Math.max(LEFT, x(index) - half)
     const to = Math.min(RIGHT, x(index) + half)
-    return [{ from, to, goal }]
+    return [{ index, from, to, goal }]
   })
   const goalPath = bands
     .map((band, index) => {
       const previousBand = bands[index - 1]
-      const joined = previousBand && previousBand.to === band.from
+      // 바로 앞 날과 이어진 띠면 계단 세로선으로 잇기
+      const joined = previousBand && previousBand.index === band.index - 1
       return `${joined ? 'L' : 'M'}${band.from} ${y(band.goal)} L${band.to} ${y(band.goal)}`
     })
     .join(' ')
@@ -90,13 +99,13 @@ function StatsChart({ current, previous, targets, selected, onSelect }: StatsCha
   const labelIndexes =
     length <= 7 ? current.map((_, index) => index) : [0, Math.floor((length - 1) / 2), length - 1]
 
-  const pick = (event: PointerEvent<SVGSVGElement>) => {
+  const pick = (event: PointerEvent<SVGSVGElement>, toggle: boolean) => {
     const box = event.currentTarget.getBoundingClientRect()
     const position = ((event.clientX - box.left) / box.width) * WIDTH
     const index = Math.round(((position - LEFT) / (RIGHT - LEFT)) * (length - 1))
     const clamped = Math.min(length - 1, Math.max(0, index))
     // 기록이 없는 날은 짚지 않음
-    onSelect(current[clamped]?.value === null ? null : clamped)
+    onSelect(current[clamped]?.value === null ? null : clamped, toggle)
   }
 
   const selectedDay = selected !== null ? current[selected] : null
@@ -110,9 +119,9 @@ function StatsChart({ current, previous, targets, selected, onSelect }: StatsCha
       className="w-full touch-none overflow-visible select-none"
       onPointerDown={(event) => {
         setDragging(true)
-        pick(event)
+        pick(event, true)
       }}
-      onPointerMove={(event) => dragging && pick(event)}
+      onPointerMove={(event) => dragging && pick(event, false)}
       onPointerUp={() => setDragging(false)}
       onPointerLeave={() => setDragging(false)}
     >

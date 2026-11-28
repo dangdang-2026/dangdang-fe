@@ -51,6 +51,7 @@ import {
 } from '@/utils/date'
 import { formatGlucose, getBackfillTarget, getMeasureTarget, getSlotLabel } from '@/utils/glucose'
 import { formatInsulinLabel } from '@/utils/insulin'
+import { INITIAL_STATS_VIEW, type StatsView } from '@/utils/stats'
 
 type InputSheet = { target: MeasureTarget; backfillAt?: Date }
 
@@ -78,6 +79,7 @@ function RecordsPage() {
     duration?: number
   } | null>(null)
   const criteria = useCriteria()
+  const [statsView, setStatsView] = useState<StatsView>(INITIAL_STATS_VIEW)
   // 「‹ 기록」은 오늘로
   const goBack = useGoBack(ROUTES.TODAY)
 
@@ -310,7 +312,7 @@ function RecordsPage() {
 
         {statsTab ? (
           <div className="mt-4">
-            <StatsPanel today={today} />
+            <StatsPanel today={today} view={statsView} onViewChange={setStatsView} />
           </div>
         ) : calendarOpen ? (
           <div className="mt-4.5">

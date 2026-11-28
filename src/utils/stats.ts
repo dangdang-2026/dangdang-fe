@@ -50,6 +50,12 @@ export function getPreviousRange({ from, to }: DateRange): DateRange {
   return { from: addDays(from, -length), to: addDays(from, -1) }
 }
 
+// 통계에서 고른 때 · 기간. 기록 화면이 들고 있어 하루 탭에 다녀와도 그대로
+export type StatsView = { slot: StatsSlot; period: StatsPeriod; custom: DateRange | null }
+
+// 들어오면 공복 · 1개월부터
+export const INITIAL_STATS_VIEW: StatsView = { slot: 'fasting', period: '1m', custom: null }
+
 export type DayPoint = { date: Date; value: number | null; count: number }
 
 // 서버 통계를 화면용으로 바꾼 값
@@ -75,7 +81,7 @@ export type PeriodStats = {
 // 끝 글자에 받침이 있는지. 숫자는 읽는 소리로(0 영 · 1 일 · 3 삼 · 6 육 · 7 칠 · 8 팔)
 function hasBatchim(word: string) {
   const last = word.at(-1) ?? ''
-  if (/d/.test(last)) return '013678'.includes(last)
+  if (/[0-9]/.test(last)) return '013678'.includes(last)
   const code = last.charCodeAt(0) - 0xac00
   return code >= 0 && code <= 11171 && code % 28 !== 0
 }
