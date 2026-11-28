@@ -195,7 +195,10 @@ export function buildReport({
   const slots = SLOT_KEYS.map((key) => {
     const cells = days.flatMap((day) => (day.cells[key] ? [day.cells[key]] : []))
     const { slot, mealType } = toMeasureSlot(key)
-    const hasTarget = getTarget(slot, targets, postMealHours) !== null
+    // 서버 리포트는 그때 기준으로 판정한 기록이 있으면 비교한 것(기기에 기준을 아직 못 받아도)
+    const hasTarget = server
+      ? cells.some((cell) => cell.record.aboveTarget != null)
+      : getTarget(slot, targets, postMealHours) !== null
     const out = cells.filter((cell) => cell.isOutOfTarget)
     const counted = server?.slotCounts[key]
     return {
