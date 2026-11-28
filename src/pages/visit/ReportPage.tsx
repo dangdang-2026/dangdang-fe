@@ -32,6 +32,8 @@ import {
 
 // 화면이 그려진 뒤 사진을 미리 만들기까지 기다리는 시간
 const PHOTO_DELAY_MS = 500
+// 리포트 본문 · 그때 질문은 한 번까지 다시 받고, 또 못 받으면 기기 기록 · 질문 없이 전함(오프라인에서도 전하게)
+const RETRY_LIMIT = 1
 
 // Figma C-06 진료 리포트. 최근 2주 기록을 A4 1쪽으로
 function ReportPage() {
@@ -144,7 +146,7 @@ function ReportPage() {
       .then((saved) => {
         if (!canceled) setSavedReport({ id: reportId, ...saved })
       })
-      // 못 받으면 기기 기록으로 그리고 전하기는 막음
+      // 못 받으면 기기 기록으로 그리고 다시 받기 전까지 전하기는 막음
       .catch(() => {
         if (!canceled) setSavedReport({ id: reportId, failedTry: savedTry })
       })
@@ -191,8 +193,8 @@ function ReportPage() {
   const pastItems = pastForVisit && 'items' in pastForVisit ? pastForVisit.items : null
   const questionsFailed =
     !!pastForVisit && 'failedTry' in pastForVisit && pastForVisit.failedTry === questionsTry
-  // 그때 질문을 받기 전 · 못 받았을 땐 전하기를 막음
-  const questionsPending = !!pastVisitId && !pastItems
+  // 그때 질문을 받기 전엔 전하기를 막음. 못 받았으면 전할 때 다시 받음
+  const questionsPending = !!pastVisitId && !pastItems && !questionsFailed
   const questions = pastVisitId
     ? (pastItems ?? [])
     : reopened && !reportVisitId
@@ -250,7 +252,7 @@ function ReportPage() {
       return true
     }
     // 다시 연 리포트 본문을 못 받았으면 다시 받음
-    if (savedFailed) {
+    if (savedFailed && savedTry < RETRY_LIMIT) {
       setSavedTry((count) => count + 1)
       setToast('리포트를 불러오지 못했어요. 다시 불러올게요')
       return true
@@ -260,7 +262,7 @@ function ReportPage() {
       return true
     }
     // 지난 진료 질문을 받기 전 · 못 받았으면 질문 없이 전하지 않게
-    if (questionsFailed) {
+    if (questionsFailed && questionsTry < RETRY_LIMIT) {
       setQuestionsTry((count) => count + 1)
       setToast('그때 물어볼 것을 불러오지 못했어요. 다시 불러올게요')
       return true
