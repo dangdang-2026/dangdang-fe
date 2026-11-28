@@ -74,7 +74,10 @@ function MealWriteFlow({ meal, onClose, onSaved }: MealWriteFlowProps) {
   // 찾는 중에 이름으로 넘어가면 분석은 이어서 하고 식사 시트에 결과를 보여 줌(F-03·F-04)
   const [analysis, setAnalysis] = useState<Omit<PhotoAnalysis, 'photoUrl'> | null>(null)
   const handoffRef = useRef(false)
-  const [step, setStep] = useState<Step>(() => getFirstStep(meal, photoConsent?.agreed))
+  // 문서가 바뀌어 다시 물어야 하면 안 고른 것처럼 동의부터
+  const [step, setStep] = useState<Step>(() =>
+    getFirstStep(meal, photoConsent?.reconsent ? undefined : photoConsent?.agreed),
+  )
   // 사진은 기기 메모리에만. 흐름이 끝나면 지움
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
   // 음식 하나(F-12): AI 후보 + 직접 고른 음식 칩

@@ -74,6 +74,12 @@ export async function saveChatConsents(consents: { records?: boolean; overseas?:
   if (consents.overseas !== undefined) setConsent('overseas', consents.overseas)
 }
 
+// 가입 동의(A-01)에서 서버에 저장한 해외 전송 동의를 기기에 반영. 늦게 온 서버 동의 받기가 덮지 않게
+export function markOverseasConsent(agreed: boolean) {
+  consentVersion += 1
+  useAiStore.getState().setConsent('overseas', agreed)
+}
+
 // 서버에 사진 AI 분석 동의를 저장한 뒤 기기에 반영
 export async function savePhotoConsent(agreed: boolean) {
   consentVersion += 1

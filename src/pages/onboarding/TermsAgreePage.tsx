@@ -12,7 +12,7 @@ import OnboardingHeader from '@/components/onboarding/OnboardingHeader'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { marketingResultText } from '@/utils/consent'
-import { useAiStore } from '@/stores/useAiStore'
+import { markOverseasConsent } from '@/stores/useAiStore'
 import {
   REQUIRED_AGREEMENTS,
   useOnboardingStore,
@@ -103,9 +103,10 @@ function TermsAgreePage() {
     }
     setSaving(true)
     try {
-      await saveConsents(agreed)
-      // 고른 해외 전송 동의는 당당이 · 메모 정리가 바로 씀
-      if (agreed.includes('ai')) useAiStore.getState().setConsent('overseas', true)
+      await saveConsents(agreed, saved)
+      // 고른 해외 전송 동의는 당당이 · 메모 정리가 바로 씀. 골랐다 뺐으면 끔
+      if (agreed.includes('ai')) markOverseasConsent(true)
+      else if (saved.includes('ai')) markOverseasConsent(false)
       // 광고성 정보에 동의했으면 다음 화면에서 처리 결과를 알림(정보통신망법 제50조)
       navigate(ROUTES.ONBOARDING_TIMING, {
         state: agreed.includes('marketing') ? { toast: marketingResultText(true) } : null,

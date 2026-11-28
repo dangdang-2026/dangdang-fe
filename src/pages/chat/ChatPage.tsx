@@ -51,8 +51,10 @@ function ChatPage() {
   const criteria = useCriteria()
   const contactMemo = useProfileStore((state) => state.contactMemo)
 
-  // 기록 보기 · 해외로 보내기 중 아직 안 물어본 게 있으면 동의부터
-  const [consentSheet, setConsentSheet] = useState(consent === null || overseas === null)
+  // 기록 보기 · 해외로 보내기 중 아직 안 물어봤거나 문서가 바뀌어 다시 물어야 하면 동의부터
+  const [consentSheet, setConsentSheet] = useState(
+    consent === null || overseas === null || !!consent.reconsent || !!overseas.reconsent,
+  )
   // 동의를 기다리는 질문과 막힌 이유(기록 보기 · 해외로 보내기)
   const [pendingQuestion, setPendingQuestion] = useState<{
     text: string
@@ -246,7 +248,8 @@ function ChatPage() {
             {summary.measured === 0 ? (
               <>
                 <BotBubble>
-                  {summary.range} {summary.label} 기록이 없어요. 기록 화면에서 다른 날을 볼 수 있어요.
+                  {summary.range} {summary.label} 기록이 없어요. 기록 화면에서 다른 날을 볼 수
+                  있어요.
                 </BotBubble>
                 <ChatActionButton icon={iconRecords} onClick={() => navigate(ROUTES.RECORDS)}>
                   기록 보기
@@ -402,8 +405,8 @@ function ChatPage() {
         {loaded && messages.length === 0 && (
           <ChatIntro
             onAsk={ask}
-            recordsDeclined={consent !== null && !consent.agreed}
-            hideSuggestions={overseas !== null && !overseas.agreed}
+            recordsDeclined={consent !== null && !consent.agreed && !consent.reconsent}
+            hideSuggestions={overseas !== null && !overseas.agreed && !overseas.reconsent}
             onOpenSettings={() => navigate(ROUTES.MY_AI)}
           />
         )}

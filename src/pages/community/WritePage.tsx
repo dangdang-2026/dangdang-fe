@@ -64,6 +64,7 @@ function WritePage() {
   const aiCheckAsked = useCommunityStore((state) => state.aiCheckAsked)
   const [aiCheckOpen, setAiCheckOpen] = useState(false)
   const [aiCheckSaving, setAiCheckSaving] = useState(false)
+  const [aiCheckError, setAiCheckError] = useState<string | null>(null)
 
   // 고치기 > 임시 저장 > 게시판 쿼리 순으로 처음 값
   const [draft, setDraft] = useState<PostDraft>(() => {
@@ -127,9 +128,10 @@ function WritePage() {
 
   const confirmAiCheck = () => {
     setAiCheckSaving(true)
+    setAiCheckError(null)
     saveCommunityAiCheck()
       .then(() => setAiCheckOpen(false))
-      .catch(() => setToast('확인을 저장하지 못했어요. 글은 그대로 쓸 수 있어요'))
+      .catch(() => setAiCheckError('확인을 저장하지 못했어요. 닫아도 글은 그대로 쓸 수 있어요'))
       .finally(() => setAiCheckSaving(false))
   }
 
@@ -428,9 +430,11 @@ function WritePage() {
           onClose={closeAppeal}
         />
       )}
-      {aiCheckOpen && (
+      {/* 이용 제한 · 이의 신청 시트가 떠 있으면 닫힌 뒤에 */}
+      {aiCheckOpen && !restrictedOpen && !appealOpen && (
         <CommunityAiCheckSheet
           saving={aiCheckSaving}
+          error={aiCheckError}
           onConfirm={confirmAiCheck}
           onClose={() => setAiCheckOpen(false)}
         />

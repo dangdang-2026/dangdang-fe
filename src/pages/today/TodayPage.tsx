@@ -483,8 +483,8 @@ function TodayPage() {
             />
             {/* Figma E-03b 다른 상황으로 알림만 멈췄을 때 마음 상담 줄 */}
             {measurePaused && !inHospital && (
-              <p className="bg-grey-100 text-t7 text-grey-700 mt-4 flex items-center rounded-2xl px-4.5 py-4">
-                <span className="flex-1">
+              <p className="bg-grey-100 text-t7 text-grey-700 mt-4 rounded-2xl px-4.5 py-4">
+                <span>
                   마음이 힘들 땐{' '}
                   <a href="tel:109" className="font-bold underline">
                     109
@@ -494,7 +494,6 @@ function TodayPage() {
                     1577-0199
                   </a>
                 </span>
-                <span aria-hidden>›</span>
               </p>
             )}
           </>

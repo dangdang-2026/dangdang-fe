@@ -107,10 +107,10 @@ function NicknameSheet({ onSubmit, onPolicy, onClose }: NicknameSheetProps) {
             .then((error) => {
               setSubmitError(error)
               if (error) return
-              // 프로필을 만들었으면 AI 확인 고지도 남김. 못 남기면 다음 글쓰기 때 다시 물음
-              saveCommunityAiCheck()
-                .then(() => useCommunityStore.getState().markAiCheckAsked())
-                .catch(() => {})
+              // 프로필을 만들었으면 AI 확인 고지도 남김. 바로 확인한 걸로 두고(글쓰기에서 또 묻지 않게) 못 남기면 다음 글쓰기 때 다시 물음
+              const { markAiCheckAsked } = useCommunityStore.getState()
+              markAiCheckAsked()
+              saveCommunityAiCheck().catch(() => markAiCheckAsked(false))
             })
             .finally(() => setSubmitting(false))
         }}
