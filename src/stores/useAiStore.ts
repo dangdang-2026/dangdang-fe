@@ -8,7 +8,8 @@ import {
 } from '@/api/consent'
 
 // 동의·거절과 그 날짜. 아직 안 물어봤으면 null
-export type AiConsent = { agreed: boolean; at: string } | null
+// reconsent: 문서가 바뀌어 다시 동의해야 함(거절이 아님)
+export type AiConsent = { agreed: boolean; at: string; reconsent?: boolean } | null
 
 export type AiFeature = 'photo' | 'chat' | 'overseas'
 
@@ -73,6 +74,12 @@ export async function saveChatConsents(consents: { records?: boolean; overseas?:
   if (consents.overseas !== undefined) setConsent('overseas', consents.overseas)
 }
 
+// 가입 동의(A-01)에서 서버에 저장한 해외 전송 동의를 기기에 반영. 늦게 온 서버 동의 받기가 덮지 않게
+export function markOverseasConsent(agreed: boolean) {
+  consentVersion += 1
+  useAiStore.getState().setConsent('overseas', agreed)
+}
+
 // 서버에 사진 AI 분석 동의를 저장한 뒤 기기에 반영
 export async function savePhotoConsent(agreed: boolean) {
   consentVersion += 1
@@ -95,7 +102,12 @@ export async function syncAiConsents() {
   if (version !== consentVersion) return
   const toConsent = (type: string): AiConsent => {
     const item = items.find((consent) => consent.type === type)
-    return item?.occurredAt ? { agreed: item.granted, at: item.occurredAt } : null
+    if (!item?.occurredAt) return null
+    return {
+      agreed: item.granted,
+      at: item.occurredAt,
+      reconsent: item.needsReconsent || undefined,
+    }
   }
   useAiStore.setState({
     photo: toConsent('AI_PHOTO'),

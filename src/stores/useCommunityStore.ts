@@ -34,6 +34,9 @@ type CommunityState = {
   cachePosts: (posts: Post[], full?: boolean) => void
   // 메인 안내 띠를 닫았는지
   noticeDismissed: boolean
+  // 커뮤니티 AI 확인을 했거나 글쓰기에서 한 번 물어봤는지
+  aiCheckAsked: boolean
+  markAiCheckAsked: (asked?: boolean) => void
   // 바꾸면 내가 쓴 글·댓글 이름도 함께 바뀜(익명 글 빼고)
   setNickname: (nickname: string, showWeek?: boolean) => void
   setShowWeek: (showWeek: boolean) => void
@@ -131,6 +134,8 @@ export const useCommunityStore = create<CommunityState>()(
       cachePosts: (posts, full = false) =>
         set((state) => ({ posts: mergePosts(state.posts, posts, full) })),
       noticeDismissed: false,
+      aiCheckAsked: false,
+      markAiCheckAsked: (asked = true) => set({ aiCheckAsked: asked }),
       draft: null,
       restriction: null,
       blockedAuthors: [],

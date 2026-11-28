@@ -304,9 +304,12 @@ export async function deletePostDraft() {
   await apiClient.delete('/posts/drafts')
 }
 
-type PrecheckIssue = { kind: 'DOSE' | 'URGENT_MEDICAL' | 'MIND'; quote: string }
+type PrecheckIssue = {
+  kind: 'DOSE' | 'URGENT_MEDICAL' | 'MIND' | 'SAFETY' | 'LOW_GLUCOSE'
+  quote: string
+}
 
-// 올리기 전 문장 확인(AI). 위급 · 마음 위기가 먼저(U-30), 그다음 약 · 용량(U-15)
+// 올리기 전 문장 확인(AI). 위급 · 마음 · 폭력이 먼저(U-30), 그다음 저혈당(U-30c), 약 · 용량(U-15)
 // AI 서버가 꺼졌거나 늦으면 checked=false로 와서 undefined를 돌려줌
 export async function precheckPost(title: string, body: string) {
   const { data } = await apiClient.post<
@@ -314,9 +317,11 @@ export async function precheckPost(title: string, body: string) {
   >('/posts/precheck', { title, content: body })
   if (!data.data?.checked) return undefined
   const { issues } = data.data
-  const urgent = issues.find((issue) => issue.kind !== 'DOSE')
+  const urgent = issues.find((issue) => !['DOSE', 'LOW_GLUCOSE'].includes(issue.kind))
+  const hypo = issues.find((issue) => issue.kind === 'LOW_GLUCOSE')
   const dose = issues.find((issue) => issue.kind === 'DOSE')
   if (urgent) return { kind: 'urgent' as const, quote: urgent.quote }
+  if (hypo) return { kind: 'hypo' as const, quote: hypo.quote }
   if (dose) return { kind: 'dose' as const, quote: dose.quote }
   return null
 }

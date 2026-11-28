@@ -7,6 +7,8 @@ import NicknameField from '@/components/community/NicknameField'
 import { useNicknameCheck } from '@/hooks/useNicknameCheck'
 import { useCommunityStore } from '@/stores/useCommunityStore'
 import { createNickname } from '@/utils/nickname'
+import { saveCommunityAiCheck } from '@/api/consent'
+import CommunityAiNotice from '@/components/community/CommunityAiNotice'
 
 const PROMISES = [
   '진단·처방·약 이야기는 병원에 물어봐요',
@@ -29,6 +31,7 @@ function NicknameSheet({ onSubmit, onPolicy, onClose }: NicknameSheetProps) {
   // 커뮤니티 설정에서 먼저 정한 배지 설정으로 시작
   const [showWeek, setShowWeek] = useState(() => useCommunityStore.getState().showWeek)
   const [submitting, setSubmitting] = useState(false)
+  const [aiChecked, setAiChecked] = useState(false)
   // 시트가 토스트를 가려서 저장 실패는 시트 안에 보여 줌
   const [submitError, setSubmitError] = useState<string | null>(null)
   const check = useNicknameCheck(name)
@@ -88,18 +91,27 @@ function NicknameSheet({ onSubmit, onPolicy, onClose }: NicknameSheetProps) {
         </button>
       </div>
 
+      <CommunityAiNotice checked={aiChecked} onToggle={() => setAiChecked((value) => !value)} />
+
       {submitError && (
         <p className="text-xs leading-snug font-medium text-red-500">{submitError}</p>
       )}
       <button
         type="button"
-        disabled={check !== 'ok' || submitting}
+        disabled={check !== 'ok' || !aiChecked || submitting}
         className="bg-primary text-grey-900 disabled:bg-grey-100 disabled:text-grey-400 rounded-key py-4 text-base leading-snug font-bold"
         onClick={() => {
           setSubmitting(true)
           setSubmitError(null)
           void onSubmit(name.trim(), showWeek)
-            .then(setSubmitError)
+            .then((error) => {
+              setSubmitError(error)
+              if (error) return
+              // 프로필을 만들었으면 AI 확인 고지도 남김. 바로 확인한 걸로 두고(글쓰기에서 또 묻지 않게) 못 남기면 다음 글쓰기 때 다시 물음
+              const { markAiCheckAsked } = useCommunityStore.getState()
+              markAiCheckAsked()
+              saveCommunityAiCheck().catch(() => markAiCheckAsked(false))
+            })
             .finally(() => setSubmitting(false))
         }}
       >

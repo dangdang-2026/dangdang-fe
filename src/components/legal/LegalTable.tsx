@@ -32,7 +32,7 @@ function LegalTable({ head, title, caption, rows }: LegalTableProps) {
           className={`flex gap-3 px-3.5 py-3 text-xs leading-normal ${highlight ? 'bg-yellow-50' : ''}`}
         >
           <dt className="text-body-3 text-grey-800 w-22 shrink-0 font-bold">{label}</dt>
-          <dd className="text-t7 text-grey-700 flex-1">{value}</dd>
+          <dd className="text-t7 text-grey-700 flex-1 whitespace-pre-line">{value}</dd>
         </div>
       ))}
     </dl>

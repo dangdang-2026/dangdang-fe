@@ -11,7 +11,7 @@ type RecordDeleteSheetProps = {
   onClose: () => void
 }
 
-// Figma D-11 기록 삭제 확인. 지우는 기록을 보여 주고 빨간 버튼. 5초 되돌리기는 서버 API가 나오면
+// Figma D-11 기록 삭제 확인. 지우는 기록을 보여 주고 빨간 버튼. 지운 뒤 토스트로 5초 되돌리기
 function RecordDeleteSheet({ record, label, onConfirm, onClose }: RecordDeleteSheetProps) {
   const measuredAt = new Date(record.measuredAt)
   return (
@@ -28,7 +28,7 @@ function RecordDeleteSheet({ record, label, onConfirm, onClose }: RecordDeleteSh
           </p>
         </div>
       }
-      description="지운 기록은 진료 리포트에서도 빠져요."
+      description={'지운 기록은 진료 리포트에서도 빠져요.\n지운 뒤 5초 동안은 되돌릴 수 있어요.'}
       confirmLabel="지우기"
       danger
       onConfirm={onConfirm}

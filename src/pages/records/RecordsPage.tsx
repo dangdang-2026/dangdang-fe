@@ -52,6 +52,9 @@ import { formatInsulinLabel } from '@/utils/insulin'
 
 type InputSheet = { target: MeasureTarget; backfillAt?: Date }
 
+// 기록 지우기 되돌리기 토스트가 떠 있는 시간
+const RECORD_UNDO_TOAST_MS = 5000
+
 function RecordsPage() {
   const meals = useGlucoseStore((state) => state.meals)
   const records = useGlucoseStore((state) => state.records)
@@ -70,6 +73,7 @@ function RecordsPage() {
   const [toast, setToast] = useState<{
     message: string
     action?: { label: string; onClick: () => void }
+    duration?: number
   } | null>(null)
   const criteria = useCriteria()
   const navigate = useNavigate()
@@ -200,6 +204,8 @@ function RecordsPage() {
           : {
               message: '기록을 지웠어요',
               action: { label: '되돌리기', onClick: () => undo(() => restoreRecord(id)) },
+              // 지우기 시트 안내 「지운 뒤 5초 동안은 되돌릴 수 있어요」와 같게
+              duration: RECORD_UNDO_TOAST_MS,
             },
       )
     } catch {
@@ -393,7 +399,14 @@ function RecordsPage() {
           onClose={() => setDeletingInsulin(null)}
         />
       )}
-      {toast && <Toast message={toast.message} action={toast.action} onClose={closeToast} />}
+      {toast && (
+        <Toast
+          message={toast.message}
+          action={toast.action}
+          duration={toast.duration}
+          onClose={closeToast}
+        />
+      )}
     </main>
   )
 }

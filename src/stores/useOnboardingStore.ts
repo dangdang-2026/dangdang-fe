@@ -2,7 +2,8 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { MeasureSlotKey } from '@/types/criteria'
 
-export type AgreementKey = 'age' | 'terms' | 'privacy' | 'sensitive' | 'marketing'
+// ai: [선택] AI 기능 · 해외 전송(미국 OpenAI)
+export type AgreementKey = 'age' | 'terms' | 'privacy' | 'sensitive' | 'ai' | 'marketing'
 
 export const REQUIRED_AGREEMENTS: AgreementKey[] = ['age', 'terms', 'privacy', 'sensitive']
 
@@ -14,6 +15,8 @@ export type OnboardingAnswers = {
   measureSlots: MeasureSlotKey[]
   // YYYY-MM-DD. 나중에 적으면 null
   dueDate: string | null
+  // 이 가입에서 서버에 저장된 AI · 해외 전송 동의. 뺄 때 거부 저장이 성공해야 false
+  aiSaved?: boolean
 }
 
 type OnboardingState = OnboardingAnswers & {

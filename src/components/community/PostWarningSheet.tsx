@@ -1,5 +1,6 @@
 import iconAlert from '@/assets/icons/alert.svg'
 import BottomSheet from '@/components/common/BottomSheet'
+import EmergencyBlock from '@/components/common/EmergencyBlock'
 import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
 import type { PostWarning } from '@/utils/postCheck'
 
@@ -126,8 +127,48 @@ function UrgentWarning({ warning, onBack, onPostAnyway }: PostWarningSheetProps)
   )
 }
 
+// Figma U-30c 저혈당일 수 있는 말. 답을 기다리기보다 지금 대처부터
+function HypoWarning({ warning, onBack, onPostAnyway }: PostWarningSheetProps) {
+  const title = '올리기 전에 몸 상태부터 챙겨 주세요'
+  return (
+    <BottomSheet label={title} onClose={onBack}>
+      <div className="flex flex-col gap-1.5">
+        <h2 className="text-t4 text-grey-900">{title}</h2>
+        <p className="text-t6 text-grey-700 font-normal">
+          글에 저혈당일 수 있는 말이 있어요.
+          <br />
+          답을 기다리기보다 지금 대처가 먼저예요.
+        </p>
+      </div>
+      <p className="bg-grey-100 rounded-key text-grey-700 px-4 py-3.5 text-sm leading-normal">
+        “{warning.quote}”
+      </p>
+      <EmergencyBlock
+        onWriteMemo={() => {}}
+        message={'저혈당 증상이면 글을 올리기 전에\n병원에서 배운 대로 먼저 대처하세요.'}
+        footnote={
+          <>
+            나아지지 않거나 의식이 흐려지면
+            <br />
+            바로 119에 연락해 주세요.
+          </>
+        }
+      />
+      <button
+        type="button"
+        className="text-grey-600 h-11 self-center text-sm leading-snug font-medium"
+        onClick={onPostAnyway}
+      >
+        그래도 글 올리기
+      </button>
+    </BottomSheet>
+  )
+}
+
 function PostWarningSheet(props: PostWarningSheetProps) {
-  return props.warning.kind === 'urgent' ? <UrgentWarning {...props} /> : <DoseWarning {...props} />
+  if (props.warning.kind === 'urgent') return <UrgentWarning {...props} />
+  if (props.warning.kind === 'hypo') return <HypoWarning {...props} />
+  return <DoseWarning {...props} />
 }
 
 export default PostWarningSheet

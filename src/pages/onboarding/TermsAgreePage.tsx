@@ -12,6 +12,7 @@ import OnboardingHeader from '@/components/onboarding/OnboardingHeader'
 import { ROUTES } from '@/constants/routes'
 import { useGoBack } from '@/hooks/useGoBack'
 import { marketingResultText } from '@/utils/consent'
+import { markOverseasConsent } from '@/stores/useAiStore'
 import {
   REQUIRED_AGREEMENTS,
   useOnboardingStore,
@@ -35,7 +36,22 @@ const BASIC: Agreement[] = [
 const SENSITIVE: Agreement = {
   key: 'sensitive',
   label: '[필수] 민감정보(건강정보) 수집·이용',
-  description: '혈당·식사·임신 주수·인슐린 기록은 기록 관리와 진료 리포트에만 써요.',
+  document: true,
+}
+
+// 민감정보 항목 아래 고지 표
+const SENSITIVE_NOTICE = [
+  { label: '항목', value: '혈당·식사·사진·인슐린·임신 주수\n출산 예정일·진료 메모' },
+  { label: '목적', value: '기록 관리, 진료 리포트, 켠 AI 기능' },
+  { label: '보관', value: '탈퇴하면 바로 지워요 (백업 7일)' },
+  { label: '거부', value: '동의하지 않으면\n기록 기능을 쓸 수 없어요' },
+]
+
+// 고르면 해외 전송(OVERSEAS_TRANSFER)만 저장. 사진 분석 · 기록 보고 답하기는 처음 쓸 때 따로 물음
+const AI: Agreement = {
+  key: 'ai',
+  label: '[선택] AI 기능 · 해외 전송(미국 OpenAI)',
+  description: '안 해도 기록·리포트는 그대로 써요',
   document: true,
 }
 
@@ -51,10 +67,11 @@ const DOCUMENT_ROUTES: Partial<Record<AgreementKey, string>> = {
   terms: ROUTES.LEGAL_TERMS,
   privacy: ROUTES.LEGAL_PRIVACY,
   sensitive: ROUTES.LEGAL_SENSITIVE,
+  ai: ROUTES.LEGAL_TRANSFER,
   marketing: ROUTES.LEGAL_MARKETING,
 }
 
-const ALL_KEYS = [...BASIC, SENSITIVE, MARKETING].map((item) => item.key)
+const ALL_KEYS = [...BASIC, SENSITIVE, AI, MARKETING].map((item) => item.key)
 
 type ToastKind = 'offline' | 'failed'
 
@@ -71,6 +88,7 @@ function TermsAgreePage() {
   const navigate = useNavigate()
   const goBack = useGoBack(ROUTES.ONBOARDING)
   const saved = useOnboardingStore((state) => state.agreements)
+  const aiSaved = useOnboardingStore((state) => !!state.aiSaved)
   const setAnswers = useOnboardingStore((state) => state.setAnswers)
   const [agreed, setAgreed] = useState<AgreementKey[]>(saved)
   const [saving, setSaving] = useState(false)
@@ -86,7 +104,12 @@ function TermsAgreePage() {
     }
     setSaving(true)
     try {
-      await saveConsents(agreed)
+      // 서버에 AI 동의가 저장돼 있으면 뺐을 때 거부를 보냄(오프라인 · 실패 뒤 다시 눌러도)
+      await saveConsents(agreed, aiSaved ? ['ai'] : [])
+      // 고른 해외 전송 동의는 당당이 · 메모 정리가 바로 씀. 골랐다 뺐으면 끔
+      if (agreed.includes('ai')) markOverseasConsent(true)
+      else if (aiSaved) markOverseasConsent(false)
+      setAnswers({ aiSaved: agreed.includes('ai') })
       // 광고성 정보에 동의했으면 다음 화면에서 처리 결과를 알림(정보통신망법 제50조)
       navigate(ROUTES.ONBOARDING_TIMING, {
         state: agreed.includes('marketing') ? { toast: marketingResultText(true) } : null,
@@ -151,7 +174,7 @@ function TermsAgreePage() {
           <br />
           확인해 주세요
         </h1>
-        <p className="text-grey-500 text-sm leading-normal">건강 정보는 따로 한 번 더 여쭤봐요.</p>
+        <p className="text-grey-500 text-sm leading-normal">건강 정보는 꼭 필요한 만큼만 받아요.</p>
       </div>
 
       <button
@@ -168,8 +191,19 @@ function TermsAgreePage() {
       <div className="mt-0.5 flex flex-col px-3">{BASIC.map(renderRow)}</div>
       <div className="rounded-banner mt-1 border-2 border-yellow-300 px-3 pt-1.5 pb-3">
         {renderRow(SENSITIVE)}
+        <dl className="flex flex-col gap-2 pl-10.5 text-xs leading-normal">
+          {SENSITIVE_NOTICE.map((row) => (
+            <div key={row.label} className="flex gap-3">
+              <dt className="text-grey-500 shrink-0">{row.label}</dt>
+              <dd className="text-grey-700 whitespace-pre-line">{row.value}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
-      <div className="mt-1 px-3">{renderRow(MARKETING)}</div>
+      <div className="mt-1 flex flex-col px-3">
+        {renderRow(AI)}
+        {renderRow(MARKETING)}
+      </div>
 
       <p className="bg-grey-50 mt-3 flex items-start gap-2.5 rounded-2xl px-4 py-3.5">
         <img src={iconAgreeInfo} alt="" width={18} height={18} />

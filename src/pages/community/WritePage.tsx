@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router'
 import { getErrorCode } from '@/api/axios'
+import { hasCommunityAiCheck, saveCommunityAiCheck } from '@/api/consent'
 import { createPost, getPostDraft, precheckPost, updatePost } from '@/api/posts'
 import iconCaret from '@/assets/icons/community/caret.svg'
 import iconCheckCircle from '@/assets/icons/community/check-circle.svg'
@@ -11,6 +12,7 @@ import BottomSheet from '@/components/common/BottomSheet'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import Toast from '@/components/common/Toast'
 import AppealSheet from '@/components/community/AppealSheet'
+import CommunityAiCheckSheet from '@/components/community/CommunityAiCheckSheet'
 import PollEditor from '@/components/community/PollEditor'
 import PostWarningSheet from '@/components/community/PostWarningSheet'
 import RestrictedSheet from '@/components/community/RestrictedSheet'
@@ -58,6 +60,11 @@ function WritePage() {
   const restriction = useCommunityStore((state) => state.restriction)
   const cachePosts = useCommunityStore((state) => state.cachePosts)
   const clearDraft = useCommunityStore((state) => state.clearDraft)
+  const nickname = useCommunityStore((state) => state.nickname)
+  const aiCheckAsked = useCommunityStore((state) => state.aiCheckAsked)
+  const [aiCheckOpen, setAiCheckOpen] = useState(false)
+  const [aiCheckSaving, setAiCheckSaving] = useState(false)
+  const [aiCheckError, setAiCheckError] = useState<string | null>(null)
 
   // 고치기 > 임시 저장 > 게시판 쿼리 순으로 처음 값
   const [draft, setDraft] = useState<PostDraft>(() => {
@@ -102,6 +109,38 @@ function WritePage() {
     setAppealOpen(false)
     setRestrictedOpen(true)
   }, [])
+
+  // 프로필은 있는데 커뮤니티 AI 확인을 안 했으면 이번 글쓰기 때 한 번만 물음
+  useEffect(() => {
+    if (!nickname || aiCheckAsked) return
+    let stale = false
+    hasCommunityAiCheck()
+      .then((checked) => {
+        if (stale) return
+        // 이미 확인했으면 다시 안 물음. 아니면 시트가 실제로 보일 때 물어본 걸로
+        if (checked) useCommunityStore.getState().markAiCheckAsked()
+        else setAiCheckOpen(true)
+      })
+      .catch(() => {})
+    return () => {
+      stale = true
+    }
+  }, [nickname, aiCheckAsked])
+
+  // 이용 제한 · 이의 신청 시트가 닫혀 확인 시트가 보일 때만 물어본 걸로 남김
+  const aiCheckVisible = aiCheckOpen && !restrictedOpen && !appealOpen
+  useEffect(() => {
+    if (aiCheckVisible) useCommunityStore.getState().markAiCheckAsked()
+  }, [aiCheckVisible])
+
+  const confirmAiCheck = () => {
+    setAiCheckSaving(true)
+    setAiCheckError(null)
+    saveCommunityAiCheck()
+      .then(() => setAiCheckOpen(false))
+      .catch(() => setAiCheckError('확인을 저장하지 못했어요. 닫아도 글은 그대로 쓸 수 있어요'))
+      .finally(() => setAiCheckSaving(false))
+  }
 
   // 들어올 때 서버 이용 제한을 다시 확인. 제한 중이면 시트
   useEffect(() => {
@@ -396,6 +435,15 @@ function WritePage() {
             setToast(message)
           }}
           onClose={closeAppeal}
+        />
+      )}
+      {/* 이용 제한 · 이의 신청 시트가 떠 있으면 닫힌 뒤에 */}
+      {aiCheckVisible && (
+        <CommunityAiCheckSheet
+          saving={aiCheckSaving}
+          error={aiCheckError}
+          onConfirm={confirmAiCheck}
+          onClose={() => setAiCheckOpen(false)}
         />
       )}
       {warning && (
