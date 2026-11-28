@@ -2,6 +2,7 @@ import iconNavNext from '@/assets/icons/nav-next.svg'
 import iconNavPrev from '@/assets/icons/nav-prev.svg'
 import dotGrey from '@/assets/icons/dot-grey.svg'
 import dotPrimary from '@/assets/icons/dot-primary.svg'
+import CalendarToggle from '@/components/records/CalendarToggle'
 import { addDays, formatWeekLabel, isSameDay, startOfWeek } from '@/utils/date'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
@@ -12,10 +13,12 @@ type WeekPickerProps = {
   // 기록이 있는 날 점 표시
   hasRecord: (date: Date) => boolean
   onSelect: (date: Date) => void
+  // 있으면 아래에 「달력 펼쳐보기」
+  onExpand?: () => void
 }
 
 // Figma D-01 주간 날짜 선택. 오늘 이후는 고를 수 없음
-function WeekPicker({ selected, today, hasRecord, onSelect }: WeekPickerProps) {
+function WeekPicker({ selected, today, hasRecord, onSelect, onExpand }: WeekPickerProps) {
   const weekStart = startOfWeek(selected)
   const days = WEEKDAYS.map((_, index) => addDays(weekStart, index))
   const isCurrentWeek = isSameDay(weekStart, startOfWeek(today))
@@ -27,7 +30,9 @@ function WeekPicker({ selected, today, hasRecord, onSelect }: WeekPickerProps) {
   }
 
   return (
-    <div className="shadow-card flex flex-col gap-3 rounded-3xl bg-white p-3.5">
+    <div
+      className={`shadow-card flex flex-col gap-3 rounded-3xl bg-white p-3.5 ${onExpand ? 'pb-1' : ''}`}
+    >
       <div className="flex items-center justify-between">
         <button type="button" aria-label="지난주" onClick={() => moveWeek(-1)}>
           <img src={iconNavPrev} alt="" width={18} height={18} />
@@ -81,6 +86,7 @@ function WeekPicker({ selected, today, hasRecord, onSelect }: WeekPickerProps) {
           )
         })}
       </ul>
+      {onExpand && <CalendarToggle expanded={false} onClick={onExpand} />}
     </div>
   )
 }

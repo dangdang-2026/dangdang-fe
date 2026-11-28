@@ -462,7 +462,7 @@ function TodayPage() {
         title={hospitalized ? undefined : HEADER_TITLE[heroState.kind]}
         unread={hasUnread}
         onBell={() => navigate(ROUTES.INBOX)}
-        onCalendar={firstDay ? undefined : () => navigate(ROUTES.RECORDS_CALENDAR)}
+        onCalendar={firstDay ? undefined : () => navigate(ROUTES.RECORDS)}
       />
       {!online && (
         <div className="mt-6">

@@ -17,8 +17,6 @@ import TodayPage from '@/pages/today/TodayPage'
 import ShopPage from '@/pages/shop/ShopPage'
 import ProductDetailPage from '@/pages/shop/ProductDetailPage'
 import RecordsPage from '@/pages/records/RecordsPage'
-import RecordCalendarPage from '@/pages/records/RecordCalendarPage'
-import StatsPage from '@/pages/records/StatsPage'
 import FoodHistoryPage from '@/pages/records/FoodHistoryPage'
 import VisitPage from '@/pages/visit/VisitPage'
 import ReportPage from '@/pages/visit/ReportPage'
@@ -170,8 +168,15 @@ function App() {
           {/* 탭 바 없는 화면 */}
           <Route path={ROUTES.RECORDS} element={<RecordsPage />} />
           <Route path={ROUTES.SHOP_PRODUCT} element={<ProductDetailPage />} />
-          <Route path={ROUTES.RECORDS_CALENDAR} element={<RecordCalendarPage />} />
-          <Route path={ROUTES.RECORDS_STATS} element={<StatsPage />} />
+          {/* 예전 달력 · 통계 주소는 기록 화면 안으로 */}
+          <Route
+            path={ROUTES.RECORDS_CALENDAR}
+            element={<Navigate to={{ pathname: ROUTES.RECORDS, search: '?calendar=1' }} replace />}
+          />
+          <Route
+            path={ROUTES.RECORDS_STATS}
+            element={<Navigate to={{ pathname: ROUTES.RECORDS, search: '?tab=stats' }} replace />}
+          />
           <Route path={ROUTES.RECORDS_FOOD_HISTORY} element={<FoodHistoryPage />} />
           <Route path={ROUTES.VISIT_REPORT} element={<ReportPage />} />
           <Route path={ROUTES.VISIT_REPORTS} element={<ReportsPage />} />
