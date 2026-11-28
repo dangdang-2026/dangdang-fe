@@ -100,11 +100,16 @@ export function toChatMessage(item: ChatMessageResponse, question: string): Chat
   }
 }
 
+// 서버가 AI 답을 15초까지 기다려서 기본 10초보다 넉넉히 30초
+const ASK_TIMEOUT_MS = 30000
+
 // 당당이에게 물어보기(500자). 국외 이전 동의가 없으면 403 AI_40301, 하루 30번 넘으면 429 AI_42901
 export async function askChat(content: string) {
-  const { data } = await apiClient.post<BaseResponse<ChatAskResponse>>('/chat/messages', {
-    content,
-  })
+  const { data } = await apiClient.post<BaseResponse<ChatAskResponse>>(
+    '/chat/messages',
+    { content },
+    { timeout: ASK_TIMEOUT_MS },
+  )
   if (!data.data) throw new Error('챗봇 응답이 비어 있음')
   return {
     question: toChatMessage(data.data.question, content),

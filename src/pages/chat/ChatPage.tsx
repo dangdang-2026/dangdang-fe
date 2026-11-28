@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router'
 import { useNavigate } from 'react-router'
-import { getErrorCode } from '@/api/axios'
-import { askChat } from '@/api/chat'
+import { getErrorCode, isRetryableError } from '@/api/axios'
+import { askChat, getChatMessages } from '@/api/chat'
 import iconPhone from '@/assets/icons/chat/phone.svg'
 import iconRecords from '@/assets/icons/chat/records.svg'
 import iconRetry from '@/assets/icons/chat/retry.svg'
@@ -29,6 +29,10 @@ import {
   loadOlderChatMessages,
   rateChatAnswer,
   syncChatMessages,
+  startAsking,
+  finishAsking,
+  isAsking,
+  queueQuestion,
   useChatStore,
 } from '@/stores/useChatStore'
 import { saveContactMemo, useProfileStore } from '@/stores/useProfileStore'
@@ -37,6 +41,32 @@ import type { ChatMessage } from '@/types/chat'
 import { DRAFT_INTRO, summarizeServerCard } from '@/utils/chat'
 
 const newId = () => crypto.randomUUID()
+
+// 서버 대화 번호(숫자). 기기에만 있는 말풍선은 uuid라 0
+const serverNo = (id: string) => (/^\d+$/.test(id) ? Number(id) : 0)
+
+// 지금 화면의 마지막 서버 답 번호. 묻기 전에 적어 두고 복구 때 이보다 새 답인지 봄
+const lastServerBotNo = (messages: ChatMessage[]) =>
+  Math.max(0, ...messages.filter((message) => message.from === 'bot').map((m) => serverNo(m.id)))
+
+// 서버 대화를 먼저 보고, 묻기 전보다 새 답이 방금 질문 바로 뒤에 있을 때만 대화를 그걸로 맞춤
+// 없으면 화면을 건드리지 않음(임시 질문 말풍선이 사라지지 않게)
+async function recoverAnswer(question: string, botNoBefore: number) {
+  try {
+    const { messages } = await getChatMessages()
+    const last = messages.at(-1)
+    const prev = messages.at(-2)
+    const found =
+      last?.from === 'bot' &&
+      serverNo(last.id) > botNoBefore &&
+      prev?.from === 'user' &&
+      prev.text === question
+    if (found) await syncChatMessages()
+    return found
+  } catch {
+    return false
+  }
+}
 
 // Figma Q-01~Q-09 당당이에게 물어보기. 답의 종류 · 판단은 서버가 하고 화면은 그리기만
 function ChatPage() {
@@ -60,7 +90,7 @@ function ChatPage() {
     text: string
     reason: 'records' | 'overseas'
   } | null>(null)
-  const [thinking, setThinking] = useState<string | null>(null)
+  const thinking = useChatStore((state) => state.thinking)
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null)
   const [memoSheet, setMemoSheet] = useState(false)
   const [toast, setToast] = useState<{
@@ -99,8 +129,11 @@ function ChatPage() {
 
   // 서버에 묻고 답을 붙임. 서버에 안 남는 실패(403 · 429 · 연결)는 기기에만 안내
   // userId는 방금 보낸 말풍선. 없으면 이미 화면에 있는 질문을 다시 묻는 것
+  // 묻기 시작했으면 true. 이미 기다리는 중이면 false(요청이 겹치지 않게)
   const reply = (question: string, userId?: string) => {
-    setThinking('답을 찾고 있어요')
+    if (!startAsking('답을 찾고 있어요')) return false
+    // 같은 질문의 예전 답을 이번 답으로 착각하지 않게 묻기 전 마지막 서버 답 번호
+    const botNoBefore = lastServerBotNo(useChatStore.getState().messages)
     askChat(question)
       .then((result) => {
         // 새로 보낸 말풍선은 서버 번호로 바꿈. 다시 묻기 · 동의 뒤 묻기는 앞 말풍선이 이미 있어 답만
@@ -110,7 +143,12 @@ function ChatPage() {
         }
         addMessage(result.answer)
       })
-      .catch((error: unknown) => {
+      .catch(async (error: unknown) => {
+        // 끊김 · 시간 초과면 서버엔 답이 저장됐을 수 있어 대화를 다시 받아 보고, 있으면 실패 대신 그 답을
+        if (isRetryableError(error) && (await recoverAnswer(question, botNoBefore))) {
+          if (userId) removeMessage(userId)
+          return
+        }
         const code = getErrorCode(error)
         if (code === 'AI_40301') {
           // 다른 기기에서 껐을 수 있어 서버 동의(날짜 포함)로 다시 맞춤
@@ -128,10 +166,17 @@ function ChatPage() {
           addMessage({ id: newId(), from: 'bot', kind: 'fail', question })
         }
       })
-      .finally(() => setThinking(null))
+      .finally(() => {
+        // 기다리는 사이 동의하고 보낸 질문이 있으면 이어서
+        const queued = finishAsking()
+        if (queued) reply(queued)
+      })
+    return true
   }
 
   const ask = (text: string) => {
+    // 답을 기다리는 동안엔 새 질문을 받지 않음(요청이 겹치지 않게)
+    if (isAsking()) return
     const id = newId()
     addMessage({ id, from: 'user', text })
     reply(text, id)
@@ -142,14 +187,15 @@ function ChatPage() {
   const initialAsk = (location.state as { ask?: string } | null)?.ask
   const askedRef = useRef(false)
   useEffect(() => {
-    if (!initialAsk || askedRef.current) return
+    // 다른 답을 기다리는 중이면 끝날 때까지 들고 있다가 물음(버리지 않게)
+    if (!initialAsk || askedRef.current || thinking) return
     askedRef.current = true
     navigate(location.pathname, { replace: true, state: null })
     // 주소의 state를 비우면 effect가 다시 돌아도 askedRef로 한 번만 물어봄
     window.setTimeout(() => ask(initialAsk))
     // 들어올 때 한 번만
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialAsk])
+  }, [initialAsk, thinking])
 
   const addDraft = (id: string, text: string) => {
     // 서버 「물어볼 말 정리」 답이면 답 번호를 같이 보내 당당이 질문으로 남김
@@ -192,7 +238,9 @@ function ChatPage() {
     setPendingQuestion(null)
     saveChatConsents({ records, overseas: true })
       .then(() => {
-        if (pending && (records || pending.reason === 'overseas')) reply(pending.text)
+        if (!pending || (!records && pending.reason !== 'overseas')) return
+        // 다른 답을 기다리는 중이면 끝난 뒤 보냄(버리지 않게)
+        if (!reply(pending.text)) queueQuestion(pending.text)
       })
       .catch(() => setToast({ message: '동의를 저장하지 못했어요. 잠시 후 다시 시도해 주세요' }))
   }
@@ -209,6 +257,7 @@ function ChatPage() {
         return (
           <ChatActionButton
             primary
+            disabled={!!thinking}
             onClick={() => {
               setPendingQuestion({ text: message.question, reason: 'records' })
               setConsentSheet(true)
@@ -263,7 +312,11 @@ function ChatPage() {
                   이 기록이 괜찮은지는 제가 말씀드릴 수 없어요. 진료 때 물어볼 말로 정리해 드릴까요?
                 </BotBubble>
                 <div className="flex gap-2">
-                  <ChatActionButton primary onClick={() => ask('물어볼 말로 정리해 줘')}>
+                  <ChatActionButton
+                    primary
+                    disabled={!!thinking}
+                    onClick={() => ask('물어볼 말로 정리해 줘')}
+                  >
                     물어볼 말로 정리하기
                   </ChatActionButton>
                   <ChatActionButton onClick={() => navigate(ROUTES.RECORDS)}>
@@ -340,9 +393,10 @@ function ChatPage() {
               {message.question && (
                 <ChatActionButton
                   icon={iconRetry}
+                  disabled={!!thinking}
                   onClick={() => {
-                    removeMessage(message.id)
-                    reply(message.question)
+                    // 실제로 다시 묻기 시작했을 때만 실패 말풍선을 지움
+                    if (reply(message.question)) removeMessage(message.id)
                   }}
                 >
                   다시 물어보기
@@ -364,6 +418,7 @@ function ChatPage() {
             </BotBubble>
             <ChatActionButton
               primary
+              disabled={!!thinking}
               onClick={() => {
                 setPendingQuestion({ text: message.question, reason: message.reason })
                 setConsentSheet(true)
@@ -390,7 +445,13 @@ function ChatPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-107.5 flex-col bg-white break-keep">
-      <ChatHeader onBack={() => navigate(-1)} onHelp={() => setConsentSheet(true)} />
+      <ChatHeader
+        onBack={() => navigate(-1)}
+        // 기다리는 동안엔 동의 시트를 열지 않음(동의 뒤 질문이 겹치지 않게)
+        onHelp={() => {
+          if (!thinking) setConsentSheet(true)
+        }}
+      />
       <div className="flex flex-1 flex-col gap-4 p-5">
         {olderCursor !== null && (
           <button

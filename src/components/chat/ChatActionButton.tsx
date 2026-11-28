@@ -5,6 +5,8 @@ type ChatActionButtonProps = {
   primary?: boolean
   href?: string
   onClick?: () => void
+  // 당당이가 답을 찾는 동안 다른 질문 버튼을 막음
+  disabled?: boolean
   children: ReactNode
 }
 
@@ -14,6 +16,7 @@ function ChatActionButton({
   primary = false,
   href,
   onClick,
+  disabled = false,
   children,
 }: ChatActionButtonProps) {
   const className = `rounded-tag flex shrink-0 items-center gap-1.5 px-3.5 py-2.5 text-sm leading-snug font-bold ${
@@ -31,7 +34,12 @@ function ChatActionButton({
       {content}
     </a>
   ) : (
-    <button type="button" className={className} onClick={onClick}>
+    <button
+      type="button"
+      disabled={disabled}
+      className={`${className} disabled:opacity-40`}
+      onClick={onClick}
+    >
       {content}
     </button>
   )
