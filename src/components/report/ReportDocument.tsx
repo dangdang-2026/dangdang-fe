@@ -2,6 +2,7 @@ import { formatMonthDay, formatTime, toDateKey } from '@/utils/date'
 import { missedCellKey, REPORT_SLOT_KEYS, type Report } from '@/utils/report'
 import type { Question } from '@/types/visit'
 import { formatGlucose } from '@/utils/glucose'
+import { formatInsulinLabel } from '@/utils/insulin'
 
 type ReportDocumentProps = {
   report: Report
@@ -97,8 +98,11 @@ function ReportDocument({
                     <td key={slot.key} className="border-grey-400 border px-1 py-0.5">
                       {cell ? (
                         <>
-                          <span className={cell.isOutOfTarget ? 'font-bold underline' : ''}>
+                          {/* 흑백 인쇄에서도 보이게 목표 밖은 ▲ + 굵게, 나중 입력은 * (색만으로 구분 안 함) */}
+                          <span className={cell.isOutOfTarget ? 'font-bold' : ''}>
+                            {cell.isOutOfTarget && '▲'}
                             {formatGlucose(cell.record)}
+                            {cell.lateEntry && '*'}
                           </span>
                           {cell.marks.length > 0 && (
                             <span className="text-grey-600 text-caption block font-medium">
@@ -120,10 +124,25 @@ function ReportDocument({
           </tbody>
         </table>
         <p className="text-grey-600 mt-1">
-          밑줄 굵은 글씨: 적어 둔 목표 밖 · – = 빈칸 · 늦게 잼: 예정보다 늦게 측정 · 나중 입력: 측정
-          뒤 30분 넘어 적은 값 · 수정됨: 입력 뒤 고친 값
+          ▲ 굵은 숫자 = 목표 밖 · – = 빈칸
+          <br />* 나중 입력 = 측정 뒤 30분 넘어 적은 값 · 늦게 잼 = 재야 할 시각보다 늦게 측정 ·
+          수정됨 = 입력 뒤 고친 값
         </p>
       </section>
+
+      {report.insulins.length > 0 && (
+        <section>
+          <h2 className="mb-1 font-bold">인슐린</h2>
+          <p>
+            {report.insulins
+              .map((insulin) => {
+                const at = new Date(insulin.takenAt)
+                return `${formatMonthDay(at)} ${formatTime(at)} ${formatInsulinLabel(insulin).replace('인슐린 · ', '')}${insulin.editedAt ? ' (수정됨)' : ''}`
+              })
+              .join(' · ')}
+          </p>
+        </section>
+      )}
 
       {report.lows.length > 0 && (
         <section>

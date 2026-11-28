@@ -14,17 +14,15 @@ import { useNow } from '@/hooks/useNow'
 import { useRangeSync } from '@/hooks/useRangeSync'
 import { useReportContent } from '@/hooks/useReportContent'
 import { getErrorCode } from '@/api/axios'
-import {
-  getSavedReportMissed,
-  getVisitReportPeriod,
-  type VisitReportSave,
-} from '@/api/visitReports'
+import { getVisitQuestions } from '@/api/visits'
+import type { Question } from '@/types/visit'
+import { getSavedReport, getVisitReportPeriod, type VisitReportSave } from '@/api/visitReports'
 import { useHospitalStore } from '@/stores/useHospitalStore'
 import { keepVisitReport } from '@/stores/useReportStore'
 import { useVisitSaveStore, useVisitStore } from '@/stores/useVisitStore'
 import { useProfileStore } from '@/stores/useProfileStore'
 import { addDays, parseDateKey, startOfDay, toDateKey } from '@/utils/date'
-import { formatReportText, type ReportMissed } from '@/utils/report'
+import { formatReportText, type ReportMissed, type ServerReport } from '@/utils/report'
 import {
   createReportImage,
   getReportFileName,
@@ -38,7 +36,7 @@ const PHOTO_DELAY_MS = 500
 // Figma C-06 진료 리포트. 최근 2주 기록을 A4 1쪽으로
 function ReportPage() {
   const goBack = useGoBack(ROUTES.VISIT)
-  const questions = useVisitStore((state) => state.questions)
+  const currentQuestions = useVisitStore((state) => state.questions)
   const [shareOpen, setShareOpen] = useState(false)
   // 병원 밖으로 보낼 때 이름 빼기
   const [hideName, setHideName] = useState(false)
@@ -84,6 +82,7 @@ function ReportPage() {
         careSiteName: string | null
         careSiteId: string | null
         missed: ReportMissed | null
+        server: ServerReport | null
       }
     | { key: string; undecided: true }
     | { key: string; failedTry: number }
@@ -129,32 +128,68 @@ function ReportPage() {
         ? (hospitals[0]?.id ?? null)
         : (hospitals.find((item) => item.name === hospitalParam)?.id ?? null)))
   const profileName = useProfileStore((state) => state.name)
-  // 다시 연 저장 리포트의 빈칸(놓친 측정 알림). 진료용은 위 기간 응답에 같이 옴
+  // 다시 연 저장 리포트의 빈칸 · 원값(서버가 지금 기록으로 다시 계산). 진료용은 위 기간 응답에 같이 옴
   const reportId = searchParams.get('reportId')
-  const [savedMissed, setSavedMissed] = useState<{
+  const [savedReport, setSavedReport] = useState<{
     id: string
     missed: ReportMissed | null
+    server: ServerReport | null
   } | null>(null)
   useEffect(() => {
     if (!reportId || reportVisitId) return
     let canceled = false
-    getSavedReportMissed(reportId)
-      .then((missed) => {
-        if (!canceled) setSavedMissed({ id: reportId, missed })
+    getSavedReport(reportId)
+      .then((saved) => {
+        if (!canceled) setSavedReport({ id: reportId, ...saved })
       })
-      // 못 받으면 기기 기록으로 빈칸을 셈
+      // 못 받으면 기기 기록으로 그림
       .catch(() => {})
     return () => {
       canceled = true
     }
   }, [reportId, reportVisitId])
-  const missed = servedPeriod?.missed ?? (savedMissed?.id === reportId ? savedMissed.missed : null)
+  const saved = savedReport?.id === reportId ? savedReport : null
+  const missed = servedPeriod?.missed ?? saved?.missed ?? null
+  // 물어볼 것: 지난 진료 리포트는 그 진료 때 질문, 다시 연 기간 직접 리포트는 없음, 나머진 지금 질문
+  const pastVisitId = reportVisitId && reportVisitId !== currentVisitId ? reportVisitId : null
+  const [pastQuestions, setPastQuestions] = useState<{ id: string; items: Question[] } | null>(null)
+  useEffect(() => {
+    if (!pastVisitId) return
+    let canceled = false
+    getVisitQuestions(pastVisitId)
+      .then((items) => {
+        if (canceled) return
+        setPastQuestions({
+          id: pastVisitId,
+          items: items.map((item) => ({
+            id: String(item.questionId),
+            text: item.content,
+            createdAt: item.createdAt,
+          })),
+        })
+      })
+      // 못 받으면 비워 둠(지금 질문을 예전 리포트에 섞지 않게)
+      .catch(() => {})
+    return () => {
+      canceled = true
+    }
+  }, [pastVisitId])
+  const questions = pastVisitId
+    ? pastQuestions?.id === pastVisitId
+      ? pastQuestions.items
+      : []
+    : reopened && !reportVisitId
+      ? []
+      : currentQuestions
+  // 리포트 내용: 진료용 · 저장한 리포트는 서버가 계산한 원값 · 판정, 기간을 고른 새 리포트만 기기 기록
+  const server = servedPeriod?.server ?? saved?.server ?? null
   // 리포트 기간 기록을 서버와 맞춤. 앱 켤 때 받지 않는 31일보다 오래된 기록도 반영
   useRangeSync(from, to)
   const { report, title, periodLabel, criteriaLines } = useReportContent({
     from,
     to,
     missed,
+    server,
     hideName,
     hospitalId,
     // 진료용은 그 진료 일정의 병원으로(병원이 없으면 대표 병원)
@@ -171,7 +206,7 @@ function ReportPage() {
     return () => window.removeEventListener('afterprint', handleAfterPrint)
   }, [])
 
-  // 서버 없이 브라우저 인쇄로 A4 리포트를 만듦(인쇄 창에서 PDF로 저장 선택)
+  // 브라우저 인쇄로 A4 리포트를 만듦(인쇄 창에서 PDF로 저장 선택)
   // 리포트를 전하면 지난 리포트에 남김
   const keepReport = () => {
     if (reopened) return

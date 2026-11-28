@@ -1,21 +1,79 @@
 import { apiClient, type BaseResponse } from '@/api/axios'
+import { fromServerInsulin, type ServerInsulinType } from '@/api/insulin'
+import type { ServerMealSlot } from '@/api/meals'
+import { fromServerReading, type ReadingType, type ServerSlot } from '@/api/readings'
 import type { MeasureSlotKey } from '@/types/criteria'
 import { parseDateKey } from '@/utils/date'
-import type { ReportMissed } from '@/utils/report'
+import type { ReportMissed, ServerReport } from '@/utils/report'
 
 // 리포트 종류. 진료용은 진료 일정 기준, 기간 직접은 고른 기간
 type ReportKind = 'VISIT' | 'CUSTOM'
 
-// 백엔드 VisitReportResponse 중 기간 · 병원 · 빈칸. 내용은 기기 기록으로 그리고 빈칸(놓친 알림)만 서버 값
+// 백엔드 VisitReportResponse. 볼 때마다 서버가 다시 계산(횟수 · 원값만)
 type VisitReportPeriodResponse = {
   // yyyy-MM-dd, 둘 다 포함
   from: string
   to: string
   // 그 진료 일정의 병원. 없거나 지웠으면 null
   careSite: { careSiteId: number; name: string } | null
-  summary?: { missed: number }
-  slots?: { slot: string | null; missed: number }[]
+  summary?: {
+    measured: number
+    missed: number
+    enteredLate: number
+    below70: number
+    above200: number
+  }
+  slots?: { slot: string | null; measured?: number; outOfTarget?: number; missed: number }[]
   missedCells?: { date: string; slot: string }[]
+  // 원값 표. 잰 시각 오래된 순
+  readings?: {
+    readingId: number
+    measuredAt: string
+    readingType: ReadingType
+    slot: ServerSlot | null
+    value: number
+    meterLimit: 'HI' | 'LO' | null
+    aboveTarget: boolean | null
+    // 잰 뒤 30분 넘어 적음(나중 입력)
+    enteredLate: boolean
+    expectedAt: string | null
+    timing: 'EARLY' | 'ON_TIME' | 'LATE' | null
+  }[]
+  // 원값 표 · 인슐린. 맞은 시각 오래된 순
+  insulinLogs?: {
+    insulinLogId: number
+    takenAt: string
+    insulinType: ServerInsulinType
+    mealSlot: ServerMealSlot | null
+    units: number
+    edited: boolean
+  }[]
+}
+
+// 서버 리포트 본문 → 화면 리포트 재료. 원값 표 칸이 없는 예전 응답이면 null(기기 기록으로 그림)
+function toServerReport(report: VisitReportPeriodResponse): ServerReport | null {
+  if (!report.readings || !report.summary) return null
+  return {
+    records: report.readings.map((row) =>
+      fromServerReading({ ...row, mealId: null, targetValue: null }),
+    ),
+    lateEntryIds: new Set(
+      report.readings.filter((row) => row.enteredLate).map((row) => String(row.readingId)),
+    ),
+    measured: report.summary.measured,
+    lateEntries: report.summary.enteredLate,
+    slotCounts: Object.fromEntries(
+      (report.slots ?? []).flatMap((item) => {
+        const key = item.slot ? SLOT_KEY[item.slot] : undefined
+        return key
+          ? [[key, { measured: item.measured ?? 0, outOfTarget: item.outOfTarget ?? 0 }]]
+          : []
+      }),
+    ),
+    insulins: (report.insulinLogs ?? []).map((log) =>
+      fromServerInsulin({ ...log, editedAt: log.edited ? log.takenAt : null }),
+    ),
+  }
 }
 
 // 백엔드 MeasureSlot → 리포트 잴 때
@@ -63,15 +121,19 @@ export async function getVisitReportPeriod(visitId: string) {
     careSiteName: careSite?.name ?? null,
     careSiteId: careSite ? String(careSite.careSiteId) : null,
     missed: data.data ? toReportMissed(data.data) : null,
+    server: data.data ? toServerReport(data.data) : null,
   }
 }
 
-// 저장한 리포트 한 장의 빈칸. 다시 열 때 서버가 지금 기록으로 다시 계산한 값
-export async function getSavedReportMissed(reportId: string) {
+// 저장한 리포트 한 장. 다시 열 때 서버가 지금 기록으로 다시 계산한 빈칸 · 원값
+export async function getSavedReport(reportId: string) {
   const { data } = await apiClient.get<BaseResponse<VisitReportPeriodResponse>>(
     `/visit-reports/${reportId}`,
   )
-  return data.data ? toReportMissed(data.data) : null
+  return {
+    missed: data.data ? toReportMissed(data.data) : null,
+    server: data.data ? toServerReport(data.data) : null,
+  }
 }
 
 // 리포트 저장. 같은 리포트가 이미 있으면 서버가 새로 만들지 않고 그 id를 줌
