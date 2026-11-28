@@ -45,6 +45,8 @@ export const missedCellKey = (date: Date, key: SlotKey) => `${toDateKey(date)}|$
 export type ServerReport = {
   records: GlucoseRecord[]
   lateEntryIds: Set<string>
+  // 서버 잴 때가 없는 기록(끼니와 안 이어진 식후 등). 시점별 숫자에 없어 표에서도 뺌
+  unslottedIds: Set<string>
   measured: number
   lateEntries: number
   // 잴 때별 측정 · 목표 밖(그때 기준으로 서버가 셈)
@@ -142,7 +144,14 @@ export function buildReport({
   const { targets, postMealHours } = getCriteriaAt(versions, startOfDay(to))
   const start = startOfDay(from)
   const end = addDays(startOfDay(to), 1)
-  const inRange = (server?.records ?? records)
+  // 서버 원값엔 고쳤는지가 없어 기기에 있는 같은 기록의 고친 시각을 붙임
+  const localById = new Map(records.map((record) => [record.id, record]))
+  const source = server
+    ? server.records
+        .filter((record) => !server.unslottedIds.has(record.id))
+        .map((record) => ({ ...record, editedAt: localById.get(record.id)?.editedAt }))
+    : records
+  const inRange = source
     .filter((record) => {
       const at = new Date(record.measuredAt)
       return at >= start && at < end
@@ -195,12 +204,13 @@ export function buildReport({
   const slots = SLOT_KEYS.map((key) => {
     const cells = days.flatMap((day) => (day.cells[key] ? [day.cells[key]] : []))
     const { slot, mealType } = toMeasureSlot(key)
+    const counted = server?.slotCounts[key]
     // 서버 리포트는 그때 기준으로 판정한 기록이 있으면 비교한 것(기기에 기준을 아직 못 받아도)
     const hasTarget = server
-      ? cells.some((cell) => cell.record.aboveTarget != null)
+      ? !!counted &&
+        (counted.outOfTarget > 0 || cells.some((cell) => cell.record.aboveTarget != null))
       : getTarget(slot, targets, postMealHours) !== null
     const out = cells.filter((cell) => cell.isOutOfTarget)
-    const counted = server?.slotCounts[key]
     return {
       key,
       label: getSlotLabel(slot, mealType, postMealHours),

@@ -168,12 +168,15 @@ function ReportPage() {
           })),
         })
       })
-      // 못 받으면 비워 둠(지금 질문을 예전 리포트에 섞지 않게)
-      .catch(() => {})
+      // 못 받으면 비워 둠(지금 질문을 예전 리포트에 섞지 않게). 전하기는 막지 않음
+      .catch(() => {
+        if (!canceled) setPastQuestions({ id: pastVisitId, items: [] })
+      })
     return () => {
       canceled = true
     }
   }, [pastVisitId])
+  const questionsPending = !!pastVisitId && pastQuestions?.id !== pastVisitId
   const questions = pastVisitId
     ? pastQuestions?.id === pastVisitId
       ? pastQuestions.items
@@ -230,6 +233,11 @@ function ReportPage() {
     if (periodFailed) {
       setPeriodTry((count) => count + 1)
       setToast('진료 기간을 불러오지 못했어요. 다시 불러올게요')
+      return true
+    }
+    // 지난 진료 질문을 받기 전엔 질문 없이 전하지 않게
+    if (questionsPending) {
+      setToast('그때 물어볼 것을 불러오는 중이에요. 잠시 후 다시 해 주세요')
       return true
     }
     if (periodPending) setToast('진료 기간을 불러오는 중이에요. 잠시 후 다시 해 주세요')

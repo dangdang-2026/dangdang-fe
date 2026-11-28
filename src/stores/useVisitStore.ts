@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { isAxiosError } from 'axios'
+import { getErrorCode } from '@/api/axios'
 import {
   createVisit,
   createVisitNote,
@@ -113,6 +113,12 @@ function getPrimaryCareSiteId() {
   return Number.isFinite(id) ? id : null
 }
 
+// 지금 일정의 병원 번호(숫자). 없으면 null
+function visitCareSiteNo() {
+  const id = Number(useVisitStore.getState().visitCareSiteId)
+  return useVisitStore.getState().visitCareSiteId && Number.isFinite(id) ? id : null
+}
+
 // 다음 진료일 정하기 · 바꾸기 · 모름. 화면엔 바로 바꾸고 서버에 못 남기면 되돌림
 // visited: 진료 후 메모에서 정한 날이라 지금 진료는 다녀온 것. 시각이 안 지났어도 새 진료로
 export async function saveNextVisit(at: string | null, { visited = false } = {}) {
@@ -129,7 +135,8 @@ export async function saveNextVisit(at: string | null, { visited = false } = {})
       const saved =
         visitId && !moving
           ? await updateVisitAt(visitId, at)
-          : await createVisit(getPrimaryCareSiteId(), at)
+          : // 다녀온 일정을 옮기면 그 일정의 병원으로, 처음이면 대표 병원
+            await createVisit(visitCareSiteNo() ?? getPrimaryCareSiteId(), at)
       useVisitStore.setState({
         visitId: String(saved.visitId),
         visitCareSiteId: saved.careSiteId === null ? null : String(saved.careSiteId),
@@ -139,7 +146,7 @@ export async function saveNextVisit(at: string | null, { visited = false } = {})
       useVisitStore.setState({ note: '', noteVisitId: null, noteId: null, noteDirty: false })
       // 남은 질문은 새 진료로 옮김. 실패해도 일정은 저장된 것
       // 같은 차례 안에서 옮겨야 그사이 적은 질문이 두 번 옮겨지지 않음
-      await moveQuestions(visitId, String(saved.visitId)).catch(() => {})
+      await moveQuestions(String(saved.visitId)).catch(() => {})
     })
   } catch (error) {
     useVisitStore.setState({
@@ -189,6 +196,8 @@ async function loadVisits(keepLocal: boolean) {
       visits = await getAllVisits()
     }
   }
+  // 진료일을 저장하는 중이면 고른 날짜를 옛 서버 값으로 덮지 않음(저장이 끝나면 그 값으로 맞춰짐)
+  if (useVisitSaveStore.getState().saving > 0) return
   const current = pickCurrent(visits)
   useVisitStore.setState((state) => ({
     visitId: current ? String(current.visitId) : null,
@@ -232,9 +241,16 @@ async function ensureVisitId() {
 }
 
 // 기기 질문을 서버 질문으로 바꿔 끼움
-function replaceQuestion(localId: string, saved: VisitQuestionResponse) {
+// 출처 질문을 다시 못 남긴 출처 카드 질문은 내려간 표시를 기기에 남김
+const SOURCE_ERRORS = ['VISIT_40405', 'VISIT_40406']
+
+function replaceQuestion(localId: string, saved: VisitQuestionResponse, withdrawn = false) {
   useVisitStore.setState((state) => ({
-    questions: state.questions.map((item) => (item.id === localId ? toQuestion(saved) : item)),
+    questions: state.questions.map((item) =>
+      item.id === localId
+        ? { ...toQuestion(saved), ...(withdrawn && { cardWithdrawn: true }) }
+        : item,
+    ),
   }))
 }
 
@@ -244,14 +260,14 @@ async function postQuestion(localId: string, sortOrder?: number, source: Questio
   // 등록 전에 지운 질문
   if (!question) return
   const visitId = await ensureVisitId()
-  const hasSource = !!source.chatMessageId || !!source.cardId
   const saved = await createVisitQuestion(visitId, question.text, sortOrder, source).catch(
     (error: unknown) => {
-      if (!hasSource || !isAxiosError(error) || error.response?.status !== 404) throw error
+      // 당당이 답(VISIT_40405) · 출처 카드(VISIT_40406)를 못 알아볼 때만 출처 없이 다시
+      if (!SOURCE_ERRORS.includes(getErrorCode(error) ?? '')) throw error
       return createVisitQuestion(visitId, question.text, sortOrder)
     },
   )
-  replaceQuestion(localId, saved)
+  replaceQuestion(localId, saved, question.cardWithdrawn)
 }
 
 // 물어볼 것 추가. 화면엔 바로 넣고 서버에 못 남기면 뺌. 당당이 답에서 왔으면 답 번호도 함께
@@ -284,8 +300,14 @@ export async function restoreDeletedQuestion(question: Question, index: number) 
   const localId = crypto.randomUUID()
   useVisitStore.getState().restoreQuestion({ ...question, id: localId }, index)
   try {
-    // 카드뉴스에서 담은 질문이면 출처 카드도 그대로
-    await enqueue(() => postQuestion(localId, question.sortOrder, { cardId: question.cardId }))
+    // 카드뉴스에서 담은 질문이면 출처 카드도 그대로(이미 내려간 카드면 출처 없이)
+    await enqueue(() =>
+      postQuestion(
+        localId,
+        question.sortOrder,
+        question.cardWithdrawn ? {} : { cardId: question.cardId },
+      ),
+    )
   } catch (error) {
     useVisitStore.getState().removeQuestion(localId)
     throw error
@@ -293,13 +315,19 @@ export async function restoreDeletedQuestion(question: Question, index: number) 
 }
 
 // 다녀온 일정의 질문을 새 일정으로 다시 등록하고 지난 일정에서 지움
-async function moveQuestions(fromVisitId: string, toVisitId: string) {
+async function moveQuestions(toVisitId: string) {
   for (const question of useVisitStore.getState().questions) {
-    const saved = await createVisitQuestion(toVisitId, question.text, question.sortOrder, {
-      cardId: question.cardId,
+    const source = question.cardWithdrawn ? {} : { cardId: question.cardId }
+    const saved = await createVisitQuestion(
+      toVisitId,
+      question.text,
+      question.sortOrder,
+      source,
+    ).catch((error: unknown) => {
+      if (!SOURCE_ERRORS.includes(getErrorCode(error) ?? '')) throw error
+      return createVisitQuestion(toVisitId, question.text, question.sortOrder)
     })
-    if (isServerId(question.id)) await deleteVisitQuestion(fromVisitId, question.id)
-    replaceQuestion(question.id, saved)
+    replaceQuestion(question.id, saved, question.cardWithdrawn)
   }
 }
 

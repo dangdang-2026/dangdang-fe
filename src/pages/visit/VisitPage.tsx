@@ -22,6 +22,7 @@ import {
   saveNextVisit,
   saveQuestion,
   syncQuestions,
+  syncVisitNote,
   syncVisits,
   useVisitSaveStore,
   useVisitStore,
@@ -51,10 +52,10 @@ function VisitPage() {
   const status = getVisitStatus(nextVisitAt, now)
   const visitedDay = getVisitedDay(nextVisitAt, now)
 
-  // 진료 탭에 들어올 때 다른 기기에서 바꾼 일정 · 질문을 다시 받음. 못 받으면 기기 값 그대로
+  // 진료 탭에 들어올 때 다른 기기에서 바꾼 일정 · 질문 · 메모를 다시 받음. 못 받으면 기기 값 그대로
   useEffect(() => {
     syncVisits()
-      .then(() => syncQuestions())
+      .then(() => Promise.all([syncQuestions(), syncVisitNote()]))
       .catch(() => {})
   }, [])
 

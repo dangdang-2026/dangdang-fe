@@ -81,7 +81,8 @@ function ReportsPage() {
         ? { text: '기록 없음', tone: 'none' as const }
         : saved.inTargetRate === null
           ? { text: '기준 받기 전', tone: 'none' as const }
-          : { text: `목표 밖 ${saved.outOfTarget}번`, tone: 'rate' as const }
+          : // 예전 앱이 기기에 남긴 목록엔 이 칸이 없음
+            { text: `목표 밖 ${saved.outOfTarget ?? 0}번`, tone: 'rate' as const }
     const visitDate = parseDateKey(saved.visitDate)
     const detail = [
       saved.hospital,

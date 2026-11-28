@@ -60,6 +60,9 @@ function toServerReport(report: VisitReportPeriodResponse): ServerReport | null 
     lateEntryIds: new Set(
       report.readings.filter((row) => row.enteredLate).map((row) => String(row.readingId)),
     ),
+    unslottedIds: new Set(
+      report.readings.filter((row) => !row.slot).map((row) => String(row.readingId)),
+    ),
     measured: report.summary.measured,
     lateEntries: report.summary.enteredLate,
     slotCounts: Object.fromEntries(
