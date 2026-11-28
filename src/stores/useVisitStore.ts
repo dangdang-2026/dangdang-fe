@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { getErrorCode } from '@/api/axios'
+import { isAxiosError } from 'axios'
 import {
   createVisit,
   createVisitNote,
@@ -11,6 +11,7 @@ import {
   getVisitQuestions,
   updateVisitAt,
   updateVisitNote,
+  type QuestionSource,
   type VisitQuestionResponse,
   type VisitResponse,
 } from '@/api/visits'
@@ -210,6 +211,8 @@ const toQuestion = (item: VisitQuestionResponse): Question => ({
   text: item.content,
   createdAt: item.createdAt,
   sortOrder: item.sortOrder,
+  ...(item.sourceCardId != null && { cardId: String(item.sourceCardId) }),
+  ...(item.sourceCardWithdrawn && { cardWithdrawn: true }),
 })
 
 // 질문을 붙일 진료 일정. 없으면 날짜 미정 일정을 만듦
@@ -228,15 +231,16 @@ function replaceQuestion(localId: string, saved: VisitQuestionResponse) {
   }))
 }
 
-// 기기 질문 하나를 서버에 등록. 당당이 답 번호를 서버가 못 알아보면 번호 없이 다시 등록
-async function postQuestion(localId: string, sortOrder?: number, chatMessageId?: string) {
+// 기기 질문 하나를 서버에 등록. 당당이 답 · 출처 카드를 서버가 못 알아보면(404) 출처 없이 다시 등록
+async function postQuestion(localId: string, sortOrder?: number, source: QuestionSource = {}) {
   const question = useVisitStore.getState().questions.find((item) => item.id === localId)
   // 등록 전에 지운 질문
   if (!question) return
   const visitId = await ensureVisitId()
-  const saved = await createVisitQuestion(visitId, question.text, sortOrder, chatMessageId).catch(
+  const hasSource = !!source.chatMessageId || !!source.cardId
+  const saved = await createVisitQuestion(visitId, question.text, sortOrder, source).catch(
     (error: unknown) => {
-      if (!chatMessageId || getErrorCode(error) !== 'VISIT_40405') throw error
+      if (!hasSource || !isAxiosError(error) || error.response?.status !== 404) throw error
       return createVisitQuestion(visitId, question.text, sortOrder)
     },
   )
@@ -244,13 +248,10 @@ async function postQuestion(localId: string, sortOrder?: number, chatMessageId?:
 }
 
 // 물어볼 것 추가. 화면엔 바로 넣고 서버에 못 남기면 뺌. 당당이 답에서 왔으면 답 번호도 함께
-export async function saveQuestion(
-  text: string,
-  { chatMessageId }: { chatMessageId?: string } = {},
-) {
+export async function saveQuestion(text: string, source: QuestionSource = {}) {
   const localId = useVisitStore.getState().addQuestion(text)
   try {
-    await enqueue(() => postQuestion(localId, undefined, chatMessageId))
+    await enqueue(() => postQuestion(localId, undefined, source))
   } catch (error) {
     useVisitStore.getState().removeQuestion(localId)
     throw error
@@ -276,7 +277,8 @@ export async function restoreDeletedQuestion(question: Question, index: number) 
   const localId = crypto.randomUUID()
   useVisitStore.getState().restoreQuestion({ ...question, id: localId }, index)
   try {
-    await enqueue(() => postQuestion(localId, question.sortOrder))
+    // 카드뉴스에서 담은 질문이면 출처 카드도 그대로
+    await enqueue(() => postQuestion(localId, question.sortOrder, { cardId: question.cardId }))
   } catch (error) {
     useVisitStore.getState().removeQuestion(localId)
     throw error
@@ -286,7 +288,9 @@ export async function restoreDeletedQuestion(question: Question, index: number) 
 // 다녀온 일정의 질문을 새 일정으로 다시 등록하고 지난 일정에서 지움
 async function moveQuestions(fromVisitId: string, toVisitId: string) {
   for (const question of useVisitStore.getState().questions) {
-    const saved = await createVisitQuestion(toVisitId, question.text, question.sortOrder)
+    const saved = await createVisitQuestion(toVisitId, question.text, question.sortOrder, {
+      cardId: question.cardId,
+    })
     if (isServerId(question.id)) await deleteVisitQuestion(fromVisitId, question.id)
     replaceQuestion(question.id, saved)
   }
