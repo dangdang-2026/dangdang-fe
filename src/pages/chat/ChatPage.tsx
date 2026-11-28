@@ -61,6 +61,8 @@ function ChatPage() {
     reason: 'records' | 'overseas'
   } | null>(null)
   const [thinking, setThinking] = useState<string | null>(null)
+  // 답을 기다리는 중. 같은 순간 두 번 눌러도 한 번만 묻게 바로 바뀌는 값으로
+  const askingRef = useRef(false)
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null)
   const [memoSheet, setMemoSheet] = useState(false)
   const [toast, setToast] = useState<{
@@ -100,6 +102,8 @@ function ChatPage() {
   // 서버에 묻고 답을 붙임. 서버에 안 남는 실패(403 · 429 · 연결)는 기기에만 안내
   // userId는 방금 보낸 말풍선. 없으면 이미 화면에 있는 질문을 다시 묻는 것
   const reply = (question: string, userId?: string) => {
+    if (askingRef.current) return
+    askingRef.current = true
     setThinking('답을 찾고 있어요')
     askChat(question)
       .then((result) => {
@@ -128,10 +132,15 @@ function ChatPage() {
           addMessage({ id: newId(), from: 'bot', kind: 'fail', question })
         }
       })
-      .finally(() => setThinking(null))
+      .finally(() => {
+        askingRef.current = false
+        setThinking(null)
+      })
   }
 
   const ask = (text: string) => {
+    // 답을 기다리는 동안엔 새 질문을 받지 않음(요청이 겹치지 않게)
+    if (askingRef.current) return
     const id = newId()
     addMessage({ id, from: 'user', text })
     reply(text, id)
@@ -263,7 +272,11 @@ function ChatPage() {
                   이 기록이 괜찮은지는 제가 말씀드릴 수 없어요. 진료 때 물어볼 말로 정리해 드릴까요?
                 </BotBubble>
                 <div className="flex gap-2">
-                  <ChatActionButton primary onClick={() => ask('물어볼 말로 정리해 줘')}>
+                  <ChatActionButton
+                    primary
+                    disabled={!!thinking}
+                    onClick={() => ask('물어볼 말로 정리해 줘')}
+                  >
                     물어볼 말로 정리하기
                   </ChatActionButton>
                   <ChatActionButton onClick={() => navigate(ROUTES.RECORDS)}>
@@ -340,6 +353,7 @@ function ChatPage() {
               {message.question && (
                 <ChatActionButton
                   icon={iconRetry}
+                  disabled={!!thinking}
                   onClick={() => {
                     removeMessage(message.id)
                     reply(message.question)

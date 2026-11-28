@@ -18,9 +18,12 @@ function ContactCard({ memo, onWriteMemo }: ContactCardProps) {
         {memo ? `“${memo}”` : '아직 적어 둔 연락 기준이 없어요.'}
       </p>
       <div className="flex flex-wrap gap-2">
-        <ChatActionButton icon={iconPhone} href={`tel:${hospital.phone}`}>
-          {hospital.name} 외래에 전화
-        </ChatActionButton>
+        {/* 병원 번호가 없으면 빈 전화 링크 대신 숨김 */}
+        {hospital.phone && (
+          <ChatActionButton icon={iconPhone} href={`tel:${hospital.phone}`}>
+            {hospital.name} 외래에 전화
+          </ChatActionButton>
+        )}
         {!memo && (
           <ChatActionButton icon={iconEdit} onClick={onWriteMemo}>
             연락 기준 적기
