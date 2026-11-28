@@ -1,5 +1,5 @@
 import iconArrowRightWhite from '@/assets/icons/arrow-right-white.svg'
-import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
+import { useVisitHospital } from '@/hooks/useVisitHospital'
 import { formatMeridiemTime } from '@/utils/date'
 import type { HomeVisitCard } from '@/utils/visit'
 
@@ -37,7 +37,8 @@ function getCardText({ kind, at }: HomeVisitCard, questionCount: number) {
 
 // Figma H-08·H-09·H-10 진료 전날·당일·다음 날 카드
 function VisitCard({ card, questionCount, onOpen }: VisitCardProps) {
-  const hospital = usePrimaryHospital()
+  // 그 일정의 병원(없으면 대표 병원)
+  const hospital = useVisitHospital()
   const { when, title, footer } = getCardText(card, questionCount)
 
   return (

@@ -23,6 +23,8 @@ type VisitState = {
   visitId: string | null
   // 다음 진료 일시. 모르면 null
   nextVisitAt: string | null
+  // 다음 진료 일정의 병원 번호. 없으면 대표 병원으로 보여 줌
+  visitCareSiteId: string | null
   // 지나간 진료일. 달력에 진료 태그로(D-13)
   pastVisits: string[]
   // 진료 탭 첫 진입에 다음 진료일을 물어봤는지
@@ -51,6 +53,7 @@ export const useVisitStore = create<VisitState>()(
     (set) => ({
       visitId: null,
       nextVisitAt: null,
+      visitCareSiteId: null,
       pastVisits: [],
       asked: false,
       questions: [],
@@ -127,7 +130,10 @@ export async function saveNextVisit(at: string | null, { visited = false } = {})
         visitId && !moving
           ? await updateVisitAt(visitId, at)
           : await createVisit(getPrimaryCareSiteId(), at)
-      useVisitStore.setState({ visitId: String(saved.visitId) })
+      useVisitStore.setState({
+        visitId: String(saved.visitId),
+        visitCareSiteId: saved.careSiteId === null ? null : String(saved.careSiteId),
+      })
       if (!moving || !visitId) return
       // 메모는 다녀온 진료 것이라 새 진료에선 빈 메모로
       useVisitStore.setState({ note: '', noteVisitId: null, noteId: null, noteDirty: false })
@@ -187,6 +193,7 @@ async function loadVisits(keepLocal: boolean) {
   useVisitStore.setState((state) => ({
     visitId: current ? String(current.visitId) : null,
     nextVisitAt: current?.visitAt ?? null,
+    visitCareSiteId: current?.careSiteId != null ? String(current.careSiteId) : null,
     pastVisits: visits
       .filter((visit) => visit !== current && visit.visitAt)
       .map((visit) => visit.visitAt as string),

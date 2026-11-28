@@ -21,6 +21,8 @@ import {
   restoreDeletedQuestion,
   saveNextVisit,
   saveQuestion,
+  syncQuestions,
+  syncVisits,
   useVisitSaveStore,
   useVisitStore,
 } from '@/stores/useVisitStore'
@@ -48,6 +50,13 @@ function VisitPage() {
   const now = useNow()
   const status = getVisitStatus(nextVisitAt, now)
   const visitedDay = getVisitedDay(nextVisitAt, now)
+
+  // 진료 탭에 들어올 때 다른 기기에서 바꾼 일정 · 질문을 다시 받음. 못 받으면 기기 값 그대로
+  useEffect(() => {
+    syncVisits()
+      .then(() => syncQuestions())
+      .catch(() => {})
+  }, [])
 
   // 리포트 화면과 같은 조건: 진료 일정이 오늘 이후면 서버 진료 기간, 아니면 최근 2주
   const visitId = useVisitStore((state) => state.visitId)

@@ -1,4 +1,4 @@
-import { usePrimaryHospital } from '@/hooks/usePrimaryHospital'
+import { useVisitHospital } from '@/hooks/useVisitHospital'
 import { formatMeridiemTime, formatMonthDayWeekday } from '@/utils/date'
 import type { VisitStatus } from '@/utils/visit'
 
@@ -19,7 +19,8 @@ function getCardText(status: VisitStatus) {
 
 // Figma C-02·C-03·C-04 다음 진료 카드. 누르면 진료일 고치기
 function NextVisitCard({ status, onEdit }: NextVisitCardProps) {
-  const hospital = usePrimaryHospital()
+  // 늘 대표 병원이 아니라 그 일정의 병원
+  const hospital = useVisitHospital()
   const { chip, title } = getCardText(status)
 
   return (
