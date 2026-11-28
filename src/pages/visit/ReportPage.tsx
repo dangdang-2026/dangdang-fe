@@ -130,11 +130,13 @@ function ReportPage() {
   const profileName = useProfileStore((state) => state.name)
   // 다시 연 저장 리포트의 빈칸 · 원값(서버가 지금 기록으로 다시 계산). 진료용은 위 기간 응답에 같이 옴
   const reportId = searchParams.get('reportId')
-  const [savedReport, setSavedReport] = useState<{
-    id: string
-    missed: ReportMissed | null
-    server: ServerReport | null
-  } | null>(null)
+  // 본문을 못 받으면 몇 번째 시도에서 실패했는지 남겨 다시 받을 때 구분
+  const [savedTry, setSavedTry] = useState(0)
+  const [savedReport, setSavedReport] = useState<
+    | { id: string; missed: ReportMissed | null; server: ServerReport | null }
+    | { id: string; failedTry: number }
+    | null
+  >(null)
   useEffect(() => {
     if (!reportId || reportVisitId) return
     let canceled = false
@@ -142,17 +144,26 @@ function ReportPage() {
       .then((saved) => {
         if (!canceled) setSavedReport({ id: reportId, ...saved })
       })
-      // 못 받으면 기기 기록으로 그림
-      .catch(() => {})
+      // 못 받으면 기기 기록으로 그리고 전하기는 막음
+      .catch(() => {
+        if (!canceled) setSavedReport({ id: reportId, failedTry: savedTry })
+      })
     return () => {
       canceled = true
     }
-  }, [reportId, reportVisitId])
-  const saved = savedReport?.id === reportId ? savedReport : null
+  }, [reportId, reportVisitId, savedTry])
+  const savedForId = reportId && !reportVisitId && savedReport?.id === reportId ? savedReport : null
+  const saved = savedForId && 'server' in savedForId ? savedForId : null
+  const savedFailed = !!savedForId && 'failedTry' in savedForId && savedForId.failedTry === savedTry
+  // 다시 연 리포트는 서버 본문을 받기 전엔 기기 기록과 다를 수 있어 전하기를 막음
+  const savedPending = !!reportId && !reportVisitId && !saved && !savedFailed
   const missed = servedPeriod?.missed ?? saved?.missed ?? null
   // 물어볼 것: 지난 진료 리포트는 그 진료 때 질문, 다시 연 기간 직접 리포트는 없음, 나머진 지금 질문
   const pastVisitId = reportVisitId && reportVisitId !== currentVisitId ? reportVisitId : null
-  const [pastQuestions, setPastQuestions] = useState<{ id: string; items: Question[] } | null>(null)
+  const [questionsTry, setQuestionsTry] = useState(0)
+  const [pastQuestions, setPastQuestions] = useState<
+    { id: string; items: Question[] } | { id: string; failedTry: number } | null
+  >(null)
   useEffect(() => {
     if (!pastVisitId) return
     let canceled = false
@@ -168,19 +179,22 @@ function ReportPage() {
           })),
         })
       })
-      // 못 받으면 비워 둠(지금 질문을 예전 리포트에 섞지 않게). 전하기는 막지 않음
+      // 못 받으면 빈 목록과 구분해 남김. 지금 질문을 섞지 않고 전하기 전에 다시 받음
       .catch(() => {
-        if (!canceled) setPastQuestions({ id: pastVisitId, items: [] })
+        if (!canceled) setPastQuestions({ id: pastVisitId, failedTry: questionsTry })
       })
     return () => {
       canceled = true
     }
-  }, [pastVisitId])
-  const questionsPending = !!pastVisitId && pastQuestions?.id !== pastVisitId
+  }, [pastVisitId, questionsTry])
+  const pastForVisit = pastVisitId && pastQuestions?.id === pastVisitId ? pastQuestions : null
+  const pastItems = pastForVisit && 'items' in pastForVisit ? pastForVisit.items : null
+  const questionsFailed =
+    !!pastForVisit && 'failedTry' in pastForVisit && pastForVisit.failedTry === questionsTry
+  // 그때 질문을 받기 전 · 못 받았을 땐 전하기를 막음
+  const questionsPending = !!pastVisitId && !pastItems
   const questions = pastVisitId
-    ? pastQuestions?.id === pastVisitId
-      ? pastQuestions.items
-      : []
+    ? (pastItems ?? [])
     : reopened && !reportVisitId
       ? []
       : currentQuestions
@@ -235,7 +249,22 @@ function ReportPage() {
       setToast('진료 기간을 불러오지 못했어요. 다시 불러올게요')
       return true
     }
-    // 지난 진료 질문을 받기 전엔 질문 없이 전하지 않게
+    // 다시 연 리포트 본문을 못 받았으면 다시 받음
+    if (savedFailed) {
+      setSavedTry((count) => count + 1)
+      setToast('리포트를 불러오지 못했어요. 다시 불러올게요')
+      return true
+    }
+    if (savedPending) {
+      setToast('리포트를 불러오는 중이에요. 잠시 후 다시 해 주세요')
+      return true
+    }
+    // 지난 진료 질문을 받기 전 · 못 받았으면 질문 없이 전하지 않게
+    if (questionsFailed) {
+      setQuestionsTry((count) => count + 1)
+      setToast('그때 물어볼 것을 불러오지 못했어요. 다시 불러올게요')
+      return true
+    }
     if (questionsPending) {
       setToast('그때 물어볼 것을 불러오는 중이에요. 잠시 후 다시 해 주세요')
       return true

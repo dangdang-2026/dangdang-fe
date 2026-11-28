@@ -192,8 +192,8 @@ export type SavedReport = {
   measured: number
   // 목표 안 비율 0~1. 목표와 비교한 기록이 없으면 null(기준 받기 전)
   inTargetRate: number | null
-  // 목표 밖 횟수(그때 기준으로 서버가 셈)
-  outOfTarget: number
+  // 목표 밖 횟수(그때 기준으로 서버가 셈). 서버가 안 주면 null(미확인)
+  outOfTarget: number | null
   createdAt: string
 }
 
@@ -231,7 +231,7 @@ export async function getVisitReports() {
             id: String(item.id),
             from: item.from,
             to: item.to,
-            outOfTarget: item.summary?.outOfTarget ?? 0,
+            outOfTarget: item.summary?.outOfTarget ?? null,
             hospital: item.careSiteName ?? '',
             careSiteId: item.careSiteId === null ? null : String(item.careSiteId),
             visitId: item.visitId === null ? null : String(item.visitId),
@@ -255,7 +255,7 @@ export async function getVisitReports() {
               custom: false,
               measured: 0,
               inTargetRate: null,
-              outOfTarget: 0,
+              outOfTarget: null,
               createdAt: item.createdAt,
             },
           ]

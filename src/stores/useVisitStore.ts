@@ -196,9 +196,17 @@ async function loadVisits(keepLocal: boolean) {
       visits = await getAllVisits()
     }
   }
-  // 진료일을 저장하는 중이면 고른 날짜를 옛 서버 값으로 덮지 않음(저장이 끝나면 그 값으로 맞춰짐)
-  if (useVisitSaveStore.getState().saving > 0) return
   const current = pickCurrent(visits)
+  // 진료일을 저장하는 중이면 고른 날짜는 옛 서버 값으로 덮지 않고 일정 · 병원만 이음(일정을 두 번 만들지 않게)
+  if (useVisitSaveStore.getState().saving > 0) {
+    if (current && !useVisitStore.getState().visitId) {
+      useVisitStore.setState({
+        visitId: String(current.visitId),
+        visitCareSiteId: current.careSiteId != null ? String(current.careSiteId) : null,
+      })
+    }
+    return
+  }
   useVisitStore.setState((state) => ({
     visitId: current ? String(current.visitId) : null,
     nextVisitAt: current?.visitAt ?? null,
@@ -288,6 +296,8 @@ export async function deleteQuestion(question: Question, index: number) {
     await enqueue(async () => {
       const { visitId } = useVisitStore.getState()
       if (visitId && isServerId(question.id)) await deleteVisitQuestion(visitId, question.id)
+      // 앞선 동기화가 서버 목록으로 다시 넣었을 수 있어 한 번 더 뺌
+      useVisitStore.getState().removeQuestion(question.id)
     })
   } catch (error) {
     useVisitStore.getState().restoreQuestion(question, index)
@@ -335,7 +345,8 @@ async function moveQuestions(toVisitId: string) {
 // 새로 로그인하면 기기에 남은 질문은 다른 계정 것일 수 있어 버림
 export function syncQuestions(keepLocal = true) {
   return enqueue(async () => {
-    const local = keepLocal ? useVisitStore.getState().questions : []
+    const before = useVisitStore.getState().questions
+    const local = keepLocal ? before : []
     const { visitId } = useVisitStore.getState()
     let server = visitId ? await getVisitQuestions(visitId) : []
     const unsent = local.filter((item) => !isServerId(item.id))
@@ -344,7 +355,15 @@ export function syncQuestions(keepLocal = true) {
       for (const item of unsent) await createVisitQuestion(target, item.text)
       server = await getVisitQuestions(target)
     }
-    useVisitStore.setState({ questions: server.map(toQuestion) })
+    // 받는 사이 새로 적어 아직 등록 차례를 기다리는 질문은 남김
+    useVisitStore.setState((state) => ({
+      questions: [
+        ...server.map(toQuestion),
+        ...state.questions.filter(
+          (item) => !isServerId(item.id) && !before.some((seen) => seen.id === item.id),
+        ),
+      ],
+    }))
   })
 }
 
@@ -393,9 +412,13 @@ export async function syncVisitNote(keepLocal = true) {
   // 연동 전에 적은 메모도 안 남긴 글로 봄
   const dirty = local.noteDirty || (!!local.note.trim() && !local.noteId)
   if (dirty) {
+    // 다른 진료에 쓰던 메모면 그 진료 · 메모 번호를 그대로 둠(지금 진료 메모를 덮지 않게)
+    const sameVisit = !local.noteVisitId || local.noteVisitId === visitId
     useVisitStore.setState({
       noteDirty: true,
-      ...(last && visitId ? { noteVisitId: visitId, noteId: String(last.noteId) } : {}),
+      ...(last && visitId && sameVisit
+        ? { noteVisitId: visitId, noteId: String(last.noteId) }
+        : {}),
     })
     await saveVisitNote()
     return
