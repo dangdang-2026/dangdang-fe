@@ -51,12 +51,14 @@ export function startOfWeek(date: Date) {
   return addDays(startOfDay(date), -date.getDay())
 }
 
-const WEEK_ORDINALS = ['첫째', '둘째', '셋째', '넷째', '다섯째']
-
-// 주의 일요일이 속한 달 기준. 예: 10월 둘째 주
+// 주간 띠 머리. 예: 10월 11일 – 17일 · 10월 25일 – 11월 1일
 export function formatWeekLabel(weekStart: Date) {
-  const ordinal = WEEK_ORDINALS[Math.ceil(weekStart.getDate() / 7) - 1]
-  return `${weekStart.getMonth() + 1}월 ${ordinal} 주`
+  const end = addDays(weekStart, 6)
+  const endLabel =
+    end.getMonth() === weekStart.getMonth()
+      ? `${end.getDate()}일`
+      : `${end.getMonth() + 1}월 ${end.getDate()}일`
+  return `${weekStart.getMonth() + 1}월 ${weekStart.getDate()}일 – ${endLabel}`
 }
 
 // URL 쿼리용 날짜 키. 예: 2026-10-14

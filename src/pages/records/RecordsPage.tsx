@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router'
-import iconCalendar from '@/assets/icons/calendar.svg'
-import iconChart from '@/assets/icons/stats/chart.svg'
+import { useSearchParams } from 'react-router'
+import SubPageHeader from '@/components/common/SubPageHeader'
 import Toast from '@/components/common/Toast'
 import WarmBackground from '@/components/common/WarmBackground'
 import EmptyRecordCard from '@/components/glucose/EmptyRecordCard'
@@ -9,11 +8,14 @@ import GlucoseInputSheet from '@/components/glucose/GlucoseInputSheet'
 import InsulinSheet from '@/components/insulin/InsulinSheet'
 import MealContentSheet from '@/components/meal/MealContentSheet'
 import RecordDeleteSheet from '@/components/records/RecordDeleteSheet'
+import RecordCalendar from '@/components/records/RecordCalendar'
 import RecordEditSheet from '@/components/records/RecordEditSheet'
 import RecordTimeline from '@/components/records/RecordTimeline'
 import WeekPicker from '@/components/records/WeekPicker'
+import StatsPanel from '@/components/stats/StatsPanel'
 import { MEAL_LABEL } from '@/constants/glucose'
 import { ROUTES } from '@/constants/routes'
+import { useGoBack } from '@/hooks/useGoBack'
 import { useNow } from '@/hooks/useNow'
 import { useCriteria } from '@/hooks/useCriteria'
 import { useWeekRecordsSync } from '@/hooks/useWeekRecordsSync'
@@ -76,7 +78,8 @@ function RecordsPage() {
     duration?: number
   } | null>(null)
   const criteria = useCriteria()
-  const navigate = useNavigate()
+  // 「‹ 기록」은 오늘로
+  const goBack = useGoBack(ROUTES.TODAY)
 
   const now = useNow()
   const today = startOfDay(now)
@@ -84,6 +87,9 @@ function RecordsPage() {
   const parsed = parseDateKey(searchParams.get('date'))
   const selected = parsed && parsed <= today ? parsed : today
   const isToday = isSameDay(selected, today)
+  // ?tab=stats 통계, ?calendar=1 하루 탭에서 달력 펼침
+  const statsTab = searchParams.get('tab') === 'stats'
+  const calendarOpen = !statsTab && searchParams.get('calendar') === '1'
   useWeekRecordsSync(selected, today)
 
   const dayMeals = meals.filter((meal) => isSameDay(new Date(meal.startedAt), selected))
@@ -96,8 +102,19 @@ function RecordsPage() {
     meals.some((meal) => isSameDay(new Date(meal.startedAt), date)) ||
     insulins.some((insulin) => isSameDay(new Date(insulin.takenAt), date))
 
+  // 날짜를 고르면 달력은 접고 그날 기록으로
   const selectDate = (date: Date) => {
     setSearchParams(isSameDay(date, today) ? {} : { date: toDateKey(date) }, { replace: true })
+  }
+
+  // 하루 · 통계 · 달력 전환. 고른 날짜는 그대로 둠
+  const changeView = (view: { tab?: 'stats'; calendar?: boolean }) => {
+    const next = new URLSearchParams()
+    const date = searchParams.get('date')
+    if (date) next.set('date', date)
+    if (view.tab) next.set('tab', view.tab)
+    if (view.calendar) next.set('calendar', '1')
+    setSearchParams(next, { replace: true })
   }
 
   const openInputSheet = () => {
@@ -258,60 +275,92 @@ function RecordsPage() {
   }
 
   return (
-    // 머리는 탭일 때 그대로, 탭 바만 빠짐
-    <main className="mx-auto min-h-dvh w-full max-w-107.5 px-5 pt-4.5 pb-10">
-      <WarmBackground />
-      <header className="flex items-center justify-between">
-        <h1 className="text-title-2 text-grey-900">기록</h1>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            aria-label="혈당 통계"
-            className="shadow-icon-button flex size-10.5 items-center justify-center rounded-full bg-white"
-            onClick={() => navigate(ROUTES.RECORDS_STATS)}
-          >
-            <img src={iconChart} alt="" width={20} height={20} />
-          </button>
-          <button
-            type="button"
-            aria-label="기록 달력"
-            className="shadow-icon-button flex size-10.5 items-center justify-center rounded-full bg-white"
-            onClick={() => navigate(ROUTES.RECORDS_CALENDAR)}
-          >
-            <img src={iconCalendar} alt="" width={20} height={20} />
-          </button>
-        </div>
-      </header>
+    // Figma D-01 · D-13 · D-17 기록 화면. 「‹ 기록」 + 하루 | 통계
+    <main
+      className={`relative mx-auto min-h-dvh w-full max-w-107.5 px-5 pt-2 pb-10 ${statsTab ? 'bg-white' : ''}`}
+    >
+      {!statsTab && <WarmBackground />}
+      <div className="relative">
+        <SubPageHeader title="기록" onBack={goBack} />
 
-      <div className="mt-4.5">
-        <WeekPicker selected={selected} today={today} hasRecord={hasRecord} onSelect={selectDate} />
+        <div role="tablist" className="bg-grey-900/6 mt-0.5 flex rounded-xl p-1">
+          {[
+            { key: 'day', label: '하루' },
+            { key: 'stats', label: '통계' },
+          ].map((item) => {
+            const active = (item.key === 'stats') === statsTab
+            return (
+              <button
+                key={item.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={`text-body-2 h-9 flex-1 rounded-lg ${
+                  active
+                    ? 'shadow-segment text-grey-900 bg-white font-semibold'
+                    : 'text-grey-600 font-medium'
+                }`}
+                onClick={() => changeView(item.key === 'stats' ? { tab: 'stats' } : {})}
+              >
+                {item.label}
+              </button>
+            )
+          })}
+        </div>
+
+        {statsTab ? (
+          <div className="mt-4">
+            <StatsPanel today={today} />
+          </div>
+        ) : calendarOpen ? (
+          <div className="mt-4.5">
+            <RecordCalendar
+              today={today}
+              initialMonth={selected}
+              onSelect={selectDate}
+              onCollapse={() => changeView({})}
+            />
+          </div>
+        ) : (
+          <>
+            <div className="mt-4.5">
+              <WeekPicker
+                selected={selected}
+                today={today}
+                hasRecord={hasRecord}
+                onSelect={selectDate}
+                onExpand={() => changeView({ calendar: true })}
+              />
+            </div>
+
+            <section className="mt-9">
+              <div className="flex items-center justify-between">
+                <h2 className="text-subtitle-1 text-grey-900">{formatMonthDayWeekday(selected)}</h2>
+                <span className="text-body-3 text-grey-500">기록 {count}개</span>
+              </div>
+              <div className="mt-3">
+                {count > 0 ? (
+                  <RecordTimeline
+                    meals={dayMeals}
+                    records={dayRecords}
+                    insulins={dayInsulins}
+                    allMeals={meals}
+                    onSelectRecord={setEditing}
+                    onSelectMeal={setEditingMeal}
+                    onSelectInsulin={selectInsulin}
+                  />
+                ) : (
+                  <EmptyRecordCard
+                    title="이 날은 기록이 없어요"
+                    description="나중에 채워도 괜찮아요"
+                    onInputGlucose={openInputSheet}
+                  />
+                )}
+              </div>
+            </section>
+          </>
+        )}
       </div>
-
-      <section className="mt-9">
-        <div className="flex items-center justify-between">
-          <h2 className="text-subtitle-1 text-grey-900">{formatMonthDayWeekday(selected)}</h2>
-          <span className="text-body-3 text-grey-500">기록 {count}개</span>
-        </div>
-        <div className="mt-3">
-          {count > 0 ? (
-            <RecordTimeline
-              meals={dayMeals}
-              records={dayRecords}
-              insulins={dayInsulins}
-              allMeals={meals}
-              onSelectRecord={setEditing}
-              onSelectMeal={setEditingMeal}
-              onSelectInsulin={selectInsulin}
-            />
-          ) : (
-            <EmptyRecordCard
-              title="이 날은 기록이 없어요"
-              description="나중에 채워도 괜찮아요"
-              onInputGlucose={openInputSheet}
-            />
-          )}
-        </div>
-      </section>
 
       {inputSheet && (
         <GlucoseInputSheet

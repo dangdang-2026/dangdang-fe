@@ -30,9 +30,9 @@ export const PERIOD_NAMES: Record<StatsPeriod, { current: string; previous: stri
 
 export type DateRange = { from: Date; to: Date }
 
-// 예: 9/29–10/28
+// 예: 8/16~9/14
 export const formatShortRange = ({ from, to }: DateRange) =>
-  `${from.getMonth() + 1}/${from.getDate()}–${to.getMonth() + 1}/${to.getDate()}`
+  `${from.getMonth() + 1}/${from.getDate()}~${to.getMonth() + 1}/${to.getDate()}`
 
 // 예: 10월 1일 – 14일 / 10월 28일 – 11월 3일
 export function formatRangeLabel({ from, to }: DateRange) {
@@ -72,8 +72,42 @@ export type PeriodStats = {
   byMeal: Record<MealType, number | null>
 }
 
-// 예: ▼ 6 · ▲ 8%p. 같으면 null
-export function formatDelta(current: number | null, previous: number | null, unit = '') {
-  if (current === null || previous === null || current === previous) return null
-  return `${current < previous ? '▼' : '▲'} ${Math.abs(current - previous)}${unit}`
+// 끝 글자에 받침이 있는지. 숫자는 읽는 소리로(0 영 · 1 일 · 3 삼 · 6 육 · 7 칠 · 8 팔)
+function hasBatchim(word: string) {
+  const last = word.at(-1) ?? ''
+  if (/d/.test(last)) return '013678'.includes(last)
+  const code = last.charCodeAt(0) - 0xac00
+  return code >= 0 && code <= 11171 && code % 28 !== 0
+}
+
+// 예: 지난달과 · 9/14와 · 10/7과
+export const withAnd = (word: string) => `${word}${hasBatchim(word) ? '과' : '와'}`
+
+// 비교 문구 종류: 횟수 · 날 수(많아요/적어요), 혈당(높아요/낮아요), 비율(%포인트 늘었어요/줄었어요)
+export type CompareKind = 'count' | 'day' | 'glucose' | 'rate'
+
+const COMPARE_WORDS: Record<CompareKind, [string, string]> = {
+  count: ['많아요', '적어요'],
+  day: ['많아요', '적어요'],
+  glucose: ['높아요', '낮아요'],
+  rate: ['늘었어요', '줄었어요'],
+}
+
+// 예: 지난달보다 7번 많아요 · 지난주엔 없었어요 · 지난달과 같아요. 비교할 값이 없으면 null
+export function formatCompare(
+  current: number | null,
+  before: number | null,
+  previousName: string,
+  kind: CompareKind,
+  unit = '',
+) {
+  if (current === null || before === null) return null
+  if (current === before) return `${withAnd(previousName)} 같아요`
+  if (before === 0 && (kind === 'count' || kind === 'day')) return `${previousName}엔 없었어요`
+  const [up, down] = COMPARE_WORDS[kind]
+  const amount =
+    kind === 'rate'
+      ? `${Math.abs(current - before)}%포인트`
+      : `${Math.abs(current - before)}${unit}`
+  return `${previousName}보다 ${amount} ${current > before ? up : down}`
 }

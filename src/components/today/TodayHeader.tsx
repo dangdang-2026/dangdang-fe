@@ -50,7 +50,7 @@ function TodayHeader({
         {onCalendar && (
           <button
             type="button"
-            aria-label="기록 달력"
+            aria-label="기록 보기"
             className="shadow-icon-button flex size-10.5 items-center justify-center rounded-full bg-white"
             onClick={onCalendar}
           >
