@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router'
 import { useNavigate } from 'react-router'
-import { getErrorCode } from '@/api/axios'
+import { getErrorCode, isRetryableError } from '@/api/axios'
 import { askChat } from '@/api/chat'
 import iconPhone from '@/assets/icons/chat/phone.svg'
 import iconRecords from '@/assets/icons/chat/records.svg'
@@ -29,6 +29,10 @@ import {
   loadOlderChatMessages,
   rateChatAnswer,
   syncChatMessages,
+  startAsking,
+  finishAsking,
+  isAsking,
+  queueQuestion,
   useChatStore,
 } from '@/stores/useChatStore'
 import { saveContactMemo, useProfileStore } from '@/stores/useProfileStore'
@@ -37,6 +41,18 @@ import type { ChatMessage } from '@/types/chat'
 import { DRAFT_INTRO, summarizeServerCard } from '@/utils/chat'
 
 const newId = () => crypto.randomUUID()
+
+// 서버 대화를 다시 받아 방금 질문의 답이 저장됐는지 봄. 있으면 대화가 그걸로 맞춰짐
+async function recoverAnswer(question: string) {
+  try {
+    const { messages } = await syncChatMessages()
+    const last = messages.at(-1)
+    const prev = messages.at(-2)
+    return last?.from === 'bot' && prev?.from === 'user' && prev.text === question
+  } catch {
+    return false
+  }
+}
 
 // Figma Q-01~Q-09 당당이에게 물어보기. 답의 종류 · 판단은 서버가 하고 화면은 그리기만
 function ChatPage() {
@@ -60,9 +76,7 @@ function ChatPage() {
     text: string
     reason: 'records' | 'overseas'
   } | null>(null)
-  const [thinking, setThinking] = useState<string | null>(null)
-  // 답을 기다리는 중. 같은 순간 두 번 눌러도 한 번만 묻게 바로 바뀌는 값으로
-  const askingRef = useRef(false)
+  const thinking = useChatStore((state) => state.thinking)
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null)
   const [memoSheet, setMemoSheet] = useState(false)
   const [toast, setToast] = useState<{
@@ -101,10 +115,9 @@ function ChatPage() {
 
   // 서버에 묻고 답을 붙임. 서버에 안 남는 실패(403 · 429 · 연결)는 기기에만 안내
   // userId는 방금 보낸 말풍선. 없으면 이미 화면에 있는 질문을 다시 묻는 것
+  // 묻기 시작했으면 true. 이미 기다리는 중이면 false(요청이 겹치지 않게)
   const reply = (question: string, userId?: string) => {
-    if (askingRef.current) return
-    askingRef.current = true
-    setThinking('답을 찾고 있어요')
+    if (!startAsking('답을 찾고 있어요')) return false
     askChat(question)
       .then((result) => {
         // 새로 보낸 말풍선은 서버 번호로 바꿈. 다시 묻기 · 동의 뒤 묻기는 앞 말풍선이 이미 있어 답만
@@ -114,7 +127,12 @@ function ChatPage() {
         }
         addMessage(result.answer)
       })
-      .catch((error: unknown) => {
+      .catch(async (error: unknown) => {
+        // 끊김 · 시간 초과면 서버엔 답이 저장됐을 수 있어 대화를 다시 받아 보고, 있으면 실패 대신 그 답을
+        if (isRetryableError(error) && (await recoverAnswer(question))) {
+          if (userId) removeMessage(userId)
+          return
+        }
         const code = getErrorCode(error)
         if (code === 'AI_40301') {
           // 다른 기기에서 껐을 수 있어 서버 동의(날짜 포함)로 다시 맞춤
@@ -133,14 +151,16 @@ function ChatPage() {
         }
       })
       .finally(() => {
-        askingRef.current = false
-        setThinking(null)
+        // 기다리는 사이 동의하고 보낸 질문이 있으면 이어서
+        const queued = finishAsking()
+        if (queued) reply(queued)
       })
+    return true
   }
 
   const ask = (text: string) => {
     // 답을 기다리는 동안엔 새 질문을 받지 않음(요청이 겹치지 않게)
-    if (askingRef.current) return
+    if (isAsking()) return
     const id = newId()
     addMessage({ id, from: 'user', text })
     reply(text, id)
@@ -201,7 +221,9 @@ function ChatPage() {
     setPendingQuestion(null)
     saveChatConsents({ records, overseas: true })
       .then(() => {
-        if (pending && (records || pending.reason === 'overseas')) reply(pending.text)
+        if (!pending || (!records && pending.reason !== 'overseas')) return
+        // 다른 답을 기다리는 중이면 끝난 뒤 보냄(버리지 않게)
+        if (!reply(pending.text)) queueQuestion(pending.text)
       })
       .catch(() => setToast({ message: '동의를 저장하지 못했어요. 잠시 후 다시 시도해 주세요' }))
   }
@@ -218,6 +240,7 @@ function ChatPage() {
         return (
           <ChatActionButton
             primary
+            disabled={!!thinking}
             onClick={() => {
               setPendingQuestion({ text: message.question, reason: 'records' })
               setConsentSheet(true)
@@ -355,8 +378,8 @@ function ChatPage() {
                   icon={iconRetry}
                   disabled={!!thinking}
                   onClick={() => {
-                    removeMessage(message.id)
-                    reply(message.question)
+                    // 실제로 다시 묻기 시작했을 때만 실패 말풍선을 지움
+                    if (reply(message.question)) removeMessage(message.id)
                   }}
                 >
                   다시 물어보기
@@ -378,6 +401,7 @@ function ChatPage() {
             </BotBubble>
             <ChatActionButton
               primary
+              disabled={!!thinking}
               onClick={() => {
                 setPendingQuestion({ text: message.question, reason: message.reason })
                 setConsentSheet(true)

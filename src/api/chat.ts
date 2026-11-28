@@ -100,7 +100,7 @@ export function toChatMessage(item: ChatMessageResponse, question: string): Chat
   }
 }
 
-// 질문 기다리는 시간. 서버가 AI 답을 15초까지 기다려서 앱 기본 10초보다 넉넉히(끊기면 서버엔 답이 남는데 화면은 실패)
+// 서버가 AI 답을 15초까지 기다려서 기본 10초보다 넉넉히 30초
 const ASK_TIMEOUT_MS = 30000
 
 // 당당이에게 물어보기(500자). 국외 이전 동의가 없으면 403 AI_40301, 하루 30번 넘으면 429 AI_42901

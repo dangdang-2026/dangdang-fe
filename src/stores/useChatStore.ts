@@ -8,6 +8,8 @@ type ChatState = {
   addMessage: (message: ChatMessage) => void
   updateMessage: (id: string, changes: Partial<BotMessage>) => void
   removeMessage: (id: string) => void
+  // 답을 기다리는 중이면 안내 문구. 화면을 나갔다 와도 이어져 질문이 겹치지 않게
+  thinking: string | null
 }
 
 // 기록 보기 동의는 useAiStore에 저장
@@ -22,7 +24,36 @@ export const useChatStore = create<ChatState>()((set) => ({
     })),
   removeMessage: (id) =>
     set((state) => ({ messages: state.messages.filter((message) => message.id !== id) })),
+  thinking: null,
 }))
+
+// 답을 기다리는 중. 화면을 나갔다 와도 이어지게 모듈에(같은 순간 두 번 눌러도 한 번만)
+let asking = false
+// 기다리는 사이 동의하고 보낸 질문. 지금 답이 끝나면 이어서 물음
+let queuedQuestion: string | null = null
+
+// 묻기 시작. 이미 기다리는 중이면 false
+export function startAsking(label: string) {
+  if (asking) return false
+  asking = true
+  useChatStore.setState({ thinking: label })
+  return true
+}
+
+export const isAsking = () => asking
+
+// 답을 받았거나 실패. 기다리던 질문이 있으면 돌려줌
+export function finishAsking() {
+  asking = false
+  useChatStore.setState({ thinking: null })
+  const queued = queuedQuestion
+  queuedQuestion = null
+  return queued
+}
+
+export function queueQuestion(question: string) {
+  queuedQuestion = question
+}
 
 // 서버에 없는 기기 값(진료 탭에 추가함 · 도움 됐나요)은 같은 대화면 유지
 function keepLocal(server: ChatMessage, local?: ChatMessage): ChatMessage {
